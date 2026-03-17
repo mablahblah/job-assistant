@@ -12,10 +12,12 @@ export type Job = {
   companyId: string
   title: string
   url: string
+  location: string
+  workMode: string // in-person, hybrid, remote
   postedAt: string // ISO date string
   salaryRange: string // e.g. "$120k–$150k"
   benefits: number // 1–5
-  applied: boolean
+  status: string // new, applied, screened, interviewed, tested, offer, rejected
 }
 
 export type JobWithCompany = Job & {

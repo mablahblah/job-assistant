@@ -17,8 +17,8 @@ export const SCORE_WEIGHTS = {
  * Posting age modifier: full score if ≤3 days old, then decays.
  * Floor at 0.5 (posts never lose more than half their score from age).
  */
-function ageModifier(postedAt: string, now: Date): number {
-  const posted = new Date(postedAt)
+function ageModifier(postedAt: string | Date, now: Date): number {
+  const posted = typeof postedAt === 'string' ? new Date(postedAt) : postedAt
   const daysOld = (now.getTime() - posted.getTime()) / (1000 * 60 * 60 * 24)
 
   if (daysOld <= 3) return 1
