@@ -1,21 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { MOCK_COMPANIES, MOCK_JOBS } from "@/lib/mock-data";
-import { calculateScore } from "@/lib/scoring";
+import { useTransition } from "react";
+import { toggleJobStatus } from "@/app/actions";
 import { JobWithCompany } from "@/lib/types";
-
-function buildJobsWithScores(): JobWithCompany[] {
-  const companyMap = new Map(MOCK_COMPANIES.map((c) => [c.id, c]));
-  return MOCK_JOBS.map((job) => {
-    const company = companyMap.get(job.companyId)!;
-    return {
-      ...job,
-      company,
-      score: calculateScore(job, company),
-    };
-  }).sort((a, b) => b.score - a.score);
-}
 
 function ScoreCell({ score }: { score: number }) {
   const color =
@@ -45,56 +32,33 @@ function RatingCell({ value }: { value: number }) {
   return <span className={`${color} text-sm`}>{value}</span>;
 }
 
-export default function JobsTable() {
-  const initialJobs = useMemo(() => buildJobsWithScores(), []);
-  const [jobs, setJobs] = useState<JobWithCompany[]>(initialJobs);
-  const savedState = useRef<Map<string, boolean>>(
-    new Map(initialJobs.map((j) => [j.id, j.applied])),
+function WorkModeBadge({ mode }: { mode: string }) {
+  const styles: Record<string, string> = {
+    remote: "bg-green-100 text-green-700",
+    hybrid: "bg-yellow-100 text-yellow-700",
+    "in-person": "bg-gray-100 text-gray-700",
+  };
+  return (
+    <span className={`text-xs px-1.5 py-0.5 rounded ${styles[mode] ?? "bg-gray-100 text-gray-700"}`}>
+      {mode}
+    </span>
   );
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+}
 
-  const hasChanges = useMemo(
-    () => jobs.some((j) => j.applied !== savedState.current.get(j.id)),
-    [jobs],
-  );
+export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
+  const [isPending, startTransition] = useTransition();
 
-  function toggleApplied(id: string) {
-    setJobs((prev) =>
-      prev.map((j) => (j.id === id ? { ...j, applied: !j.applied } : j)),
-    );
-  }
-
-  function handleSave() {
-    const updated = new Map(jobs.map((j) => [j.id, j.applied]));
-    savedState.current = updated;
-    // Force re-render so hasChanges recomputes
-    setJobs([...jobs]);
-    setSaveMessage("Saved!");
-    console.log(
-      "[Save] Applied states:",
-      Object.fromEntries(updated.entries()),
-    );
-    setTimeout(() => setSaveMessage(null), 2000);
+  function handleToggle(id: string) {
+    startTransition(() => toggleJobStatus(id));
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Job Assistant</h1>
-        <div className="flex items-center gap-3">
-          {saveMessage && (
-            <span className="text-green-600 text-sm font-medium">
-              {saveMessage}
-            </span>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges}
-            className="px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Save
-          </button>
-        </div>
+        {isPending && (
+          <span className="text-sm text-gray-400">Saving...</span>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -112,6 +76,9 @@ export default function JobsTable() {
               </th>
               <th className="px-3 py-3 text-left font-medium text-gray-600">
                 Role
+              </th>
+              <th className="px-3 py-3 text-left font-medium text-gray-600">
+                Location
               </th>
               <th className="px-3 py-3 text-left font-medium text-gray-600">
                 Age
@@ -150,8 +117,9 @@ export default function JobsTable() {
                 <td className="px-3 py-3 text-center">
                   <input
                     type="checkbox"
-                    checked={job.applied}
-                    onChange={() => toggleApplied(job.id)}
+                    checked={job.status === "applied"}
+                    onChange={() => handleToggle(job.id)}
+                    disabled={isPending}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </td>
@@ -165,6 +133,12 @@ export default function JobsTable() {
                   >
                     {job.title}
                   </a>
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-gray-700 text-sm">{job.location}</span>
+                    <WorkModeBadge mode={job.workMode} />
+                  </div>
                 </td>
                 <td className="px-3 py-3">
                   <RelativeDate date={job.postedAt} />
