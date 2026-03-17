@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "dotenv": "^17.3.1",
     "next": "14.2.35",
