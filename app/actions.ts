@@ -20,6 +20,22 @@ export async function runScrape(): Promise<OrchestratorResult> {
   return result;
 }
 
+export async function addSearchTerm(query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  await prisma.searchTerm.upsert({
+    where: { query: trimmed },
+    update: {},
+    create: { query: trimmed },
+  });
+  revalidatePath("/");
+}
+
+export async function removeSearchTerm(id: string) {
+  await prisma.searchTerm.delete({ where: { id } });
+  revalidatePath("/");
+}
+
 export async function deleteAllJobs() {
   await prisma.job.deleteMany();
   await prisma.company.deleteMany();

@@ -20,6 +20,11 @@ export type Job = {
   status: string // new, applied, screened, interviewed, tested, offer, rejected
 }
 
+export type SearchTerm = {
+  id: string
+  query: string
+}
+
 export type JobWithCompany = Job & {
   company: Company
   score: number // 0–100, computed
