@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { calculateScore } from "@/lib/scoring";
-import { JobWithCompany } from "@/lib/types";
+import { JobWithCompany, SearchTerm } from "@/lib/types";
 import JobsTable from "@/components/JobsTable";
 
 export default async function Home() {
-  const dbJobs = await prisma.job.findMany({
-    include: { company: true },
-  });
+  const [dbJobs, dbSearchTerms] = await Promise.all([
+    prisma.job.findMany({ include: { company: true } }),
+    prisma.searchTerm.findMany({ orderBy: { createdAt: "asc" } }),
+  ]);
+
+  const searchTerms: SearchTerm[] = dbSearchTerms.map((t) => ({ id: t.id, query: t.query }));
 
   const jobs: JobWithCompany[] = dbJobs
     .map((job) => ({
@@ -35,5 +38,5 @@ export default async function Home() {
     }))
     .sort((a, b) => b.score - a.score);
 
-  return <JobsTable jobs={jobs} />;
+  return <JobsTable jobs={jobs} searchTerms={searchTerms} />;
 }

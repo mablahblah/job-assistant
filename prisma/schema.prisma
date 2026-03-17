@@ -38,6 +38,12 @@ model Job {
   @@index([status])
 }
 
+model SearchTerm {
+  id        String   @id @default(cuid())
+  query     String   @unique
+  createdAt DateTime @default(now())
+}
+
 model ScrapingRun {
   id          String    @id @default(cuid())
   source      String    // e.g. "adzuna", "greenhouse", "linkedin"

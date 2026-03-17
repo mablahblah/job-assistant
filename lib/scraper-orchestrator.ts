@@ -24,7 +24,17 @@ export async function runScraping(): Promise<OrchestratorResult> {
   });
 
   try {
-    const scraped = await scrapeAdzuna("Product Designer");
+    const searchTerms = await prisma.searchTerm.findMany();
+    const queries = searchTerms.length > 0 ? searchTerms.map((t) => t.query) : ["Product Designer"];
+
+    // Scrape each query and deduplicate by URL before processing
+    const allScraped = (await Promise.all(queries.map((q) => scrapeAdzuna(q)))).flat();
+    const seen = new Set<string>();
+    const scraped = allScraped.filter((job) => {
+      if (seen.has(job.url)) return false;
+      seen.add(job.url);
+      return true;
+    });
 
     let jobsNew = 0;
 
