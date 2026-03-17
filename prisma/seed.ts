@@ -33,6 +33,14 @@ async function main() {
   await prisma.job.deleteMany();
   await prisma.company.deleteMany();
 
+  // Seed default search term
+  await prisma.searchTerm.upsert({
+    where: { query: "Product Designer" },
+    update: {},
+    create: { query: "Product Designer" },
+  });
+  console.log("Seeded default search term");
+
   // Seed companies
   for (const company of companies) {
     await prisma.company.create({ data: company });

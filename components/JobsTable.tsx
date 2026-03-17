@@ -1,8 +1,14 @@
 "use client";
 
 import { useTransition, useState } from "react";
-import { toggleJobStatus, runScrape, deleteAllJobs } from "@/app/actions";
-import { JobWithCompany } from "@/lib/types";
+import {
+  toggleJobStatus,
+  runScrape,
+  deleteAllJobs,
+  addSearchTerm,
+  removeSearchTerm,
+} from "@/app/actions";
+import { JobWithCompany, SearchTerm } from "@/lib/types";
 
 function ScoreCell({ score }: { score: number }) {
   const color =
@@ -39,15 +45,24 @@ function WorkModeBadge({ mode }: { mode: string }) {
     "in-person": "bg-gray-100 text-gray-700",
   };
   return (
-    <span className={`text-xs px-1.5 py-0.5 rounded ${styles[mode] ?? "bg-gray-100 text-gray-700"}`}>
+    <span
+      className={`text-xs px-1.5 py-0.5 rounded ${styles[mode] ?? "bg-gray-100 text-gray-700"}`}
+    >
       {mode}
     </span>
   );
 }
 
-export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
+export default function JobsTable({
+  jobs,
+  searchTerms,
+}: {
+  jobs: JobWithCompany[];
+  searchTerms: SearchTerm[];
+}) {
   const [isPending, startTransition] = useTransition();
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
+  const [newTerm, setNewTerm] = useState("");
 
   function handleToggle(id: string) {
     startTransition(() => toggleJobStatus(id));
@@ -58,9 +73,13 @@ export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
     startTransition(async () => {
       try {
         const result = await runScrape();
-        setScrapeStatus(`Done — ${result.jobsNew} new of ${result.jobsFound} found`);
+        setScrapeStatus(
+          `Done — ${result.jobsNew} new of ${result.jobsFound} found`,
+        );
       } catch (err) {
-        setScrapeStatus(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+        setScrapeStatus(
+          `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
       }
     });
   }
@@ -71,9 +90,19 @@ export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
     startTransition(() => deleteAllJobs());
   }
 
+  function handleAddTerm() {
+    if (!newTerm.trim()) return;
+    startTransition(() => addSearchTerm(newTerm.trim()));
+    setNewTerm("");
+  }
+
+  function handleRemoveTerm(id: string) {
+    startTransition(() => removeSearchTerm(id));
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Job Assistant</h1>
         <div className="flex items-center gap-3">
           {scrapeStatus && (
@@ -87,7 +116,9 @@ export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
             disabled={isPending}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            {isPending && scrapeStatus === "Scraping..." ? "Scraping..." : "Scrape Now"}
+            {isPending && scrapeStatus === "Scraping..."
+              ? "Scraping..."
+              : "Scrape Now"}
           </button>
           <button
             onClick={handleDeleteAll}
@@ -97,6 +128,42 @@ export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
             Delete All
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            value={newTerm}
+            onChange={(e) => setNewTerm(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddTerm()}
+            placeholder="Add search term…"
+            className="text-sm border border-gray-300 rounded px-2 py-1 w-44 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleAddTerm}
+            disabled={isPending || !newTerm.trim()}
+            className="px-2.5 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+          >
+            +
+          </button>
+        </div>
+        {searchTerms.map((term) => (
+          <span
+            key={term.id}
+            className="flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+          >
+            {term.query}
+            <button
+              onClick={() => handleRemoveTerm(term.id)}
+              disabled={isPending}
+              className="ml-0.5 text-blue-500 hover:text-blue-800 disabled:opacity-50 leading-none"
+              aria-label={`Remove ${term.query}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -174,7 +241,9 @@ export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
                 </td>
                 <td className="px-3 py-3">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-gray-700 text-sm">{job.location}</span>
+                    <span className="text-gray-700 text-sm">
+                      {job.location}
+                    </span>
                     <WorkModeBadge mode={job.workMode} />
                   </div>
                 </td>

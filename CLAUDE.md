@@ -27,13 +27,12 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - [x] **Jobs table UI** — scored jobs table with weighted formula (employee/customer satisfaction, work-life balance, political alignment, benefits + posting age decay), applied checkbox with in-memory save, mock data for 6 companies and 12 jobs
 - [x] **Database schema** — Company, Job, ScrapingRun models with Prisma + SQLite (libsql adapter); location + workMode fields; status pipeline (new → applied → screened → interviewed → tested → offer → rejected); server action for toggling applied status; seed script with 6 companies and 12 jobs
 - [x] **First scraper** — Adzuna API (US, "Product Designer"), orchestrator with ScrapingRun tracking, deduplication by URL, placeholder company/job ratings; "Scrape Now" + "Delete All" UI buttons
+- [x] **Role/title search config** — `SearchTerm` DB model; UI with input + "+" button and removable badge pills below page title; `addSearchTerm`/`removeSearchTerm` server actions; orchestrator scrapes all active terms in parallel and deduplicates by URL
 
 ### Up Next
 
-- [ ] **Role/title search config** — UI to manage job titles to search for (e.g. "Product Designer", "UX Designer"); scrapers use these as search queries
-
-### Soon
-
+- [ ] **Scrape-only data** — remove seeded mock companies/jobs; seed script only creates default search terms; app relies entirely on scraper for job data
+- [ ] **Search term → job tracking** — `JobSource` join table links jobs to the search term(s) that found them; removing a search term auto-deletes jobs that have no other source term; protects jobs with no source (manually added)
 - [ ] **Claude enrichment** — Claude API scores companies (employee/customer satisfaction, work-life balance, political alignment) and jobs (benefits) from descriptions; local prompt config for criteria definitions
 - [ ] **Job detail view** — description, scoring breakdown, location/workMode display, notes, status management
 - [ ] **Cron scheduler** — node-cron inside Next.js, auto-scrape every 6h, mark stale jobs
