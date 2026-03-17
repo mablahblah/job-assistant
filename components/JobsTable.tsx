@@ -69,7 +69,7 @@ export default function JobsTable({
   }
 
   function handleScrape() {
-    setScrapeStatus("Scraping...");
+    setScrapeStatus("Searching...");
     startTransition(async () => {
       try {
         const result = await runScrape();
@@ -100,50 +100,54 @@ export default function JobsTable({
     startTransition(() => removeSearchTerm(id));
   }
 
+  const hasTerms = searchTerms.length > 0;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Job Assistant</h1>
-        <div className="flex items-center gap-3">
-          {scrapeStatus && (
-            <span className="text-sm text-gray-500">{scrapeStatus}</span>
-          )}
-          {isPending && !scrapeStatus && (
-            <span className="text-sm text-gray-400">Saving...</span>
-          )}
-          <button
-            onClick={handleScrape}
-            disabled={isPending}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isPending && scrapeStatus === "Scraping..."
-              ? "Scraping..."
-              : "Scrape Now"}
-          </button>
-          <button
-            onClick={handleDeleteAll}
-            disabled={isPending}
-            className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
-          >
-            Delete All
-          </button>
-        </div>
+        {(scrapeStatus || (isPending && !scrapeStatus)) && (
+          <span className="text-sm text-gray-500">
+            {scrapeStatus ?? "Saving..."}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-6">
-        <div className="flex items-center gap-1">
+        {hasTerms ? (
+          <button
+            onClick={handleScrape}
+            disabled={isPending}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 shrink-0"
+          >
+            {isPending && scrapeStatus === "Searching..."
+              ? "Searching..."
+              : "Search Jobs"}
+          </button>
+        ) : (
+          <button
+            onClick={handleDeleteAll}
+            disabled={isPending}
+            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 shrink-0"
+          >
+            Delete All
+          </button>
+        )}
+        <div className="w-px h-6 bg-gray-300 shrink-0" />
+        <div className="relative flex items-center">
           <input
             type="text"
             value={newTerm}
             onChange={(e) => setNewTerm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddTerm()}
-            placeholder="Add search term…"
-            className="text-sm border border-gray-300 rounded px-2 py-1 w-44 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Add job title..."
+            className="text-sm border border-gray-300 rounded pl-3 pr-8 py-1.5 w-44 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button
             onClick={handleAddTerm}
             disabled={isPending || !newTerm.trim()}
-            className="px-2.5 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+            className="absolute right-[3px] w-6 h-6 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-30 leading-none flex items-center justify-center"
+            aria-label="Add job title"
           >
             +
           </button>
