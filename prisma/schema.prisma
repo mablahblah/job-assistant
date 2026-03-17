@@ -20,28 +20,43 @@ model Company {
 }
 
 model Job {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   companyId   String
-  company     Company  @relation(fields: [companyId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id])
   title       String
   url         String
-  location    String   @default("")
-  workMode    String   @default("remote") // in-person, hybrid, remote
+  location    String      @default("")
+  workMode    String      @default("remote") // in-person, hybrid, remote
   postedAt    DateTime
   salaryRange String
-  benefits    Int      // 1–5
-  status      String   @default("new") // new, applied, screened, interviewed, tested, offer, rejected
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  benefits    Int         // 1–5
+  status      String      @default("new") // new, applied, screened, interviewed, tested, offer, rejected
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  sources     JobSource[]
 
   @@index([companyId])
   @@index([status])
 }
 
 model SearchTerm {
-  id        String   @id @default(cuid())
-  query     String   @unique
-  createdAt DateTime @default(now())
+  id        String      @id @default(cuid())
+  query     String      @unique
+  createdAt DateTime    @default(now())
+  sources   JobSource[]
+}
+
+model JobSource {
+  id           String     @id @default(cuid())
+  jobId        String
+  job          Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  searchTermId String
+  searchTerm   SearchTerm @relation(fields: [searchTermId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([jobId, searchTermId])
+  @@index([jobId])
+  @@index([searchTermId])
 }
 
 model ScrapingRun {

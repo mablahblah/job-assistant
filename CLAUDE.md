@@ -29,10 +29,9 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - [x] **First scraper** — Adzuna API (US, "Product Designer"), orchestrator with ScrapingRun tracking, deduplication by URL, placeholder company/job ratings; "Scrape Now" + "Delete All" UI buttons
 - [x] **Role/title search config** — `SearchTerm` DB model; UI with input + "+" button and removable badge pills below page title; `addSearchTerm`/`removeSearchTerm` server actions; orchestrator scrapes all active terms in parallel and deduplicates by URL
 - [x] **Scrape-only data** — removed mock companies/jobs and seed data entirely; app starts empty and relies on scraper for all data; scrape no-ops gracefully when no search terms are configured
+- [x] **Search term → job tracking** — `JobSource` join table links jobs to the search term(s) that found them; orphaned jobs (all source terms removed) are cleaned up on next scrape; multi-term overlap protected; search bar UI redesigned with inline + button, "Search Jobs" / red "Delete All" toggle, divider layout
 
 ### Up Next
-
-- [ ] **Search term → job tracking** — `JobSource` join table links jobs to the search term(s) that found them; removing a search term auto-deletes jobs that have no other source term; protects jobs with no source (manually added)
 - [ ] **Claude enrichment** — Claude API scores companies (employee/customer satisfaction, work-life balance, political alignment) and jobs (benefits) from descriptions; local prompt config for criteria definitions
 - [ ] **Job detail view** — description, scoring breakdown, location/workMode display, notes, status management
 
