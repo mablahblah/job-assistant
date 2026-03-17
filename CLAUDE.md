@@ -24,15 +24,14 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 
 - [x] **Project scaffold** — `create-next-app` with TypeScript + Tailwind, Prisma + SQLite, `.env.local` template, basic folder structure, Dockerfile for UNRAID deployment
 - [x] **Connect to GIT** — `git init`, remote connected, `/start-feature` creates feature branches, `/commit` stages + commits + pushes, `/ship-feature` opens and merges PRs via `gh`
+- [x] **Jobs table UI** — scored jobs table with weighted formula (employee/customer satisfaction, work-life balance, political alignment, benefits + posting age decay), applied checkbox with in-memory save, mock data for 6 companies and 12 jobs
 
 ### Up Next
 
-- [ ] **Jobs table UI** — sortable/filterable table, status badges, score column, "Scrape Now" button
+- [ ] **Database schema** — Job, Company, ScrapingRun models; migrations; seed data
 
 ### Soon
 
-- [ ] **Database schema** — Job, Company, ScrapingRun models; migrations; seed data
-- [ ] **Database schema** — Job, Company, ScrapingRun models; migrations; seed data
 - [ ] **First scraper** — Adzuna API (free, no browser needed); orchestrator skeleton; scoring engine
 
 ### Later
