@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { toggleJobStatus } from "@/app/actions";
+import { useTransition, useState } from "react";
+import { toggleJobStatus, runScrape, deleteAllJobs } from "@/app/actions";
 import { JobWithCompany } from "@/lib/types";
 
 function ScoreCell({ score }: { score: number }) {
@@ -47,18 +47,56 @@ function WorkModeBadge({ mode }: { mode: string }) {
 
 export default function JobsTable({ jobs }: { jobs: JobWithCompany[] }) {
   const [isPending, startTransition] = useTransition();
+  const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
 
   function handleToggle(id: string) {
     startTransition(() => toggleJobStatus(id));
+  }
+
+  function handleScrape() {
+    setScrapeStatus("Scraping...");
+    startTransition(async () => {
+      try {
+        const result = await runScrape();
+        setScrapeStatus(`Done — ${result.jobsNew} new of ${result.jobsFound} found`);
+      } catch (err) {
+        setScrapeStatus(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
+    });
+  }
+
+  function handleDeleteAll() {
+    if (!confirm("Delete all jobs, companies, and scraping history?")) return;
+    setScrapeStatus(null);
+    startTransition(() => deleteAllJobs());
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Job Assistant</h1>
-        {isPending && (
-          <span className="text-sm text-gray-400">Saving...</span>
-        )}
+        <div className="flex items-center gap-3">
+          {scrapeStatus && (
+            <span className="text-sm text-gray-500">{scrapeStatus}</span>
+          )}
+          {isPending && !scrapeStatus && (
+            <span className="text-sm text-gray-400">Saving...</span>
+          )}
+          <button
+            onClick={handleScrape}
+            disabled={isPending}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isPending && scrapeStatus === "Scraping..." ? "Scraping..." : "Scrape Now"}
+          </button>
+          <button
+            onClick={handleDeleteAll}
+            disabled={isPending}
+            className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+          >
+            Delete All
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200">
