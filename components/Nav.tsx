@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Buildings } from "@phosphor-icons/react";
+import { BriefcaseIcon, BuildingsIcon } from "@phosphor-icons/react";
 
 const links = [
-  { href: "/", label: "Jobs", icon: Briefcase },
-  { href: "/companies", label: "Companies", icon: Buildings },
+  { href: "/", label: "Jobs", icon: BriefcaseIcon },
+  { href: "/companies", label: "Companies", icon: BuildingsIcon },
 ];
 
 export default function Nav() {
