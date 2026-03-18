@@ -2,30 +2,28 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Briefcase, Buildings } from "@phosphor-icons/react";
 
 const links = [
-  { href: "/", label: "Jobs" },
-  { href: "/companies", label: "Companies" },
+  { href: "/", label: "Jobs", icon: Briefcase },
+  { href: "/companies", label: "Companies", icon: Buildings },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
 
   return (
-    <nav className="border-b border-gray-200 bg-white">
+    <nav className="nav">
       <div className="max-w-7xl mx-auto px-4 flex gap-6">
-        {links.map(({ href, label }) => {
+        {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`py-3 text-sm font-medium border-b-2 ${
-                active
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              className={`nav-link flex items-center gap-1.5 ${active ? "nav-link-active" : ""}`}
             >
+              <Icon size={16} weight={active ? "fill" : "regular"} />
               {label}
             </Link>
           );
