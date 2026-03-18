@@ -9,15 +9,12 @@ import {
   removeSearchTerm,
 } from "@/app/actions";
 import { JobWithCompany, SearchTerm } from "@/lib/types";
+import { MagnifyingGlassIcon, PlusIcon, XIcon, TrashIcon } from "@phosphor-icons/react";
 
 function ScoreCell({ score }: { score: number }) {
-  const color =
-    score >= 70
-      ? "text-green-600 font-semibold"
-      : score >= 40
-        ? "text-yellow-600 font-semibold"
-        : "text-red-600 font-semibold";
-  return <span className={color}>{score}</span>;
+  const cls =
+    score >= 70 ? "score-good" : score >= 40 ? "score-ok" : "score-bad";
+  return <span className={cls}>{score}</span>;
 }
 
 function RelativeDate({ date }: { date: string }) {
@@ -25,33 +22,18 @@ function RelativeDate({ date }: { date: string }) {
     (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24),
   );
   const label = days === 0 ? "Today" : days === 1 ? "1d ago" : `${days}d ago`;
-  return <span className="text-gray-500 text-sm">{label}</span>;
+  return <span className="text-faint">{label}</span>;
 }
 
 function RatingCell({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-gray-300 text-sm">?</span>;
-  const color =
-    value >= 4
-      ? "text-green-600"
-      : value >= 3
-        ? "text-yellow-600"
-        : "text-red-600";
-  return <span className={`${color} text-sm`}>{value}</span>;
+  if (value === null) return <span className="score-none">?</span>;
+  const cls =
+    value >= 4 ? "score-good" : value >= 3 ? "score-ok" : "score-bad";
+  return <span className={cls}>{value}</span>;
 }
 
 function WorkModeBadge({ mode }: { mode: string }) {
-  const styles: Record<string, string> = {
-    remote: "bg-green-100 text-green-700",
-    hybrid: "bg-yellow-100 text-yellow-700",
-    "in-person": "bg-gray-100 text-gray-700",
-  };
-  return (
-    <span
-      className={`text-xs px-1.5 py-0.5 rounded ${styles[mode] ?? "bg-gray-100 text-gray-700"}`}
-    >
-      {mode}
-    </span>
-  );
+  return <span className="work-mode-badge">{mode}</span>;
 }
 
 export default function JobsTable({
@@ -106,9 +88,9 @@ export default function JobsTable({
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Job Assistant</h1>
+        <h1 className="page-title">Job Assistant</h1>
         {(scrapeStatus || (isPending && !scrapeStatus)) && (
-          <span className="text-sm text-gray-500">
+          <span className="status-text">
             {scrapeStatus ?? "Saving..."}
           </span>
         )}
@@ -119,8 +101,9 @@ export default function JobsTable({
           <button
             onClick={handleScrape}
             disabled={isPending}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 shrink-0"
+            className="btn btn-primary"
           >
+            <MagnifyingGlassIcon size={14} weight="bold" />
             {isPending && scrapeStatus === "Searching..."
               ? "Searching..."
               : "Search Jobs"}
@@ -129,12 +112,13 @@ export default function JobsTable({
           <button
             onClick={handleDeleteAll}
             disabled={isPending}
-            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 shrink-0"
+            className="btn btn-danger"
           >
+            <TrashIcon size={14} weight="bold" />
             Delete All
           </button>
         )}
-        <div className="w-px h-6 bg-gray-300 shrink-0" />
+        <div className="divider-v" />
         <div className="relative flex items-center">
           <input
             type="text"
@@ -142,133 +126,99 @@ export default function JobsTable({
             onChange={(e) => setNewTerm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddTerm()}
             placeholder="Add job title..."
-            className="text-sm border border-gray-300 rounded pl-3 pr-8 py-1.5 w-44 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="input pr-8 w-44"
           />
           <button
             onClick={handleAddTerm}
             disabled={isPending || !newTerm.trim()}
-            className="absolute right-[3px] w-6 h-6 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-30 leading-none flex items-center justify-center"
+            className="btn-icon btn-icon-primary absolute right-[3px]"
             aria-label="Add job title"
           >
-            +
+            <PlusIcon size={14} weight="bold" />
           </button>
         </div>
         {searchTerms.map((term) => (
-          <span
-            key={term.id}
-            className="flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
-          >
+          <span key={term.id} className="badge">
             {term.query}
             <button
               onClick={() => handleRemoveTerm(term.id)}
               disabled={isPending}
-              className="ml-0.5 text-blue-500 hover:text-blue-800 disabled:opacity-50 leading-none"
+              className="badge-remove"
               aria-label={`Remove ${term.query}`}
             >
-              ×
+              <XIcon size={12} weight="bold" />
             </button>
           </span>
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full text-sm">
+      <div className="table-container">
+        <table className="table">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-3 py-3 text-left font-medium text-gray-600">
-                Score
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600">
-                Applied
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">
-                Company
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">
-                Role
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">
-                Location
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">
-                Age
-              </th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">
-                Salary
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600">
-                ES
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600">
-                CS
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600">
-                W/L
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600">
-                PA
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600">
-                Ben
-              </th>
+            <tr>
+              <th className="text-left">Score</th>
+              <th className="text-center">Applied</th>
+              <th className="text-left">Company</th>
+              <th className="text-left">Role</th>
+              <th className="text-left">Location</th>
+              <th className="text-left">Age</th>
+              <th className="text-left">Salary</th>
+              <th className="text-center">ES</th>
+              <th className="text-center">CS</th>
+              <th className="text-center">W/L</th>
+              <th className="text-center">PA</th>
+              <th className="text-center">Ben</th>
             </tr>
           </thead>
           <tbody>
-            {jobs.map((job, i) => (
-              <tr
-                key={job.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 ${
-                  i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                }`}
-              >
-                <td className="px-3 py-3">
+            {jobs.map((job) => (
+              <tr key={job.id}>
+                <td>
                   <ScoreCell score={job.score} />
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="text-center">
                   <input
                     type="checkbox"
                     checked={job.status === "applied"}
                     onChange={() => handleToggle(job.id)}
                     disabled={isPending}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="checkbox"
                   />
                 </td>
-                <td className="px-3 py-3 font-medium">{job.company.name}</td>
-                <td className="px-3 py-3">
+                <td className="font-medium">{job.company.name}</td>
+                <td>
                   <a
                     href={job.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="link"
                   >
                     {job.title}
                   </a>
                 </td>
-                <td className="px-3 py-3">
+                <td>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-gray-700 text-sm">
-                      {job.location}
-                    </span>
+                    <span className="text-muted">{job.location}</span>
                     <WorkModeBadge mode={job.workMode} />
                   </div>
                 </td>
-                <td className="px-3 py-3">
+                <td>
                   <RelativeDate date={job.postedAt} />
                 </td>
-                <td className="px-3 py-3 text-gray-700">{job.salaryRange}</td>
-                <td className="px-3 py-3 text-center">
+                <td className="text-muted">{job.salaryRange}</td>
+                <td className="text-center">
                   <RatingCell value={job.company.employeeSatisfaction} />
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="text-center">
                   <RatingCell value={job.company.customerSatisfaction} />
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="text-center">
                   <RatingCell value={job.company.workLifeBalance} />
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="text-center">
                   <RatingCell value={job.company.politicalAlignment} />
                 </td>
-                <td className="px-3 py-3 text-center">
+                <td className="text-center">
                   <RatingCell value={job.company.benefits} />
                 </td>
               </tr>
@@ -277,7 +227,7 @@ export default function JobsTable({
         </table>
       </div>
 
-      <p className="mt-3 text-sm text-gray-500">{jobs.length} jobs</p>
+      <p className="count-text">{jobs.length} jobs</p>
     </div>
   );
 }

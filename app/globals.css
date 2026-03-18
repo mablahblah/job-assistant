@@ -2,26 +2,370 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────
+   Design Tokens
+   ────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Palette */
+  --color-bg-primary: #f5f5f5;
+  --color-bg-secondary: #f7f6e5;
+  --color-accent: #76d2db;
+  --color-accent-hover: #5ec3cd;
+  --color-danger: #da4848;
+  --color-danger-hover: #c53a3a;
+  --color-foreground: #36064d;
+  --color-foreground-muted: #6b5277;
+  --color-foreground-faint: #9a8ba3;
+  --color-border: #d9d1de;
+  --color-border-light: #e8e3eb;
+  --color-white: #ffffff;
+
+  /* Semantic score colors */
+  --color-score-good: #2e8b57;
+  --color-score-ok: #c09020;
+  --color-score-bad: #da4848;
+
+  /* Shared */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ──────────────────────────────────────
+   Base
+   ────────────────────────────────────── */
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--color-foreground);
+  background: var(--color-bg-primary);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* ──────────────────────────────────────
+   Navigation
+   ────────────────────────────────────── */
+
+.nav {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-white);
+}
+
+.nav-link {
+  padding: 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  color: var(--color-foreground-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.nav-link:hover {
+  color: var(--color-foreground);
+}
+
+.nav-link-active {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ──────────────────────────────────────
+   Buttons
+   ────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  line-height: 1.4;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: var(--color-white);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+}
+
+.btn-ghost {
+  background: none;
+  padding: 0.25rem;
+  color: var(--color-foreground-muted);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-danger);
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-icon:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-icon-primary {
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+.btn-icon-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+/* ──────────────────────────────────────
+   Inputs
+   ────────────────────────────────────── */
+
+.input {
+  font-size: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.375rem 0.75rem;
+  color: var(--color-foreground);
+  background: var(--color-white);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(118, 210, 219, 0.25);
+}
+
+.select {
+  font-size: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.25rem 0.25rem;
+  color: var(--color-foreground);
+  background: var(--color-white);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.select:focus {
+  border-color: var(--color-accent);
+}
+
+.select:disabled {
+  opacity: 0.5;
+}
+
+.checkbox {
+  height: 1rem;
+  width: 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  accent-color: var(--color-accent);
+}
+
+/* ──────────────────────────────────────
+   Badges
+   ────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.875rem;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  color: var(--color-foreground);
+}
+
+.badge-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.125rem;
+  color: var(--color-foreground-muted);
+  cursor: pointer;
+  display: inline-flex;
+  line-height: 1;
+}
+
+.badge-remove:hover {
+  color: var(--color-danger);
+}
+
+.badge-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ──────────────────────────────────────
+   Tables
+   ────────────────────────────────────── */
+
+.table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.table {
+  width: 100%;
+  font-size: 0.875rem;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 0.75rem;
+  font-weight: 500;
+  color: var(--color-foreground-muted);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: 0.75rem;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background 0.1s;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg-secondary);
+}
+
+.table tbody tr:nth-child(even) {
+  background: rgba(247, 246, 229, 0.3);
+}
+
+.table tbody tr:nth-child(even):hover {
+  background: var(--color-bg-secondary);
+}
+
+/* ──────────────────────────────────────
+   Scores
+   ────────────────────────────────────── */
+
+.score-good {
+  color: var(--color-score-good);
+  font-weight: 600;
+}
+
+.score-ok {
+  color: var(--color-score-ok);
+  font-weight: 600;
+}
+
+.score-bad {
+  color: var(--color-score-bad);
+  font-weight: 600;
+}
+
+.score-none {
+  color: var(--color-foreground-faint);
+}
+
+/* ──────────────────────────────────────
+   Links
+   ────────────────────────────────────── */
+
+.link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* ──────────────────────────────────────
+   Typography
+   ────────────────────────────────────── */
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+
+.text-muted {
+  color: var(--color-foreground-muted);
+  font-size: 0.875rem;
+}
+
+.text-faint {
+  color: var(--color-foreground-faint);
+  font-size: 0.875rem;
+}
+
+/* ──────────────────────────────────────
+   Divider
+   ────────────────────────────────────── */
+
+.divider-v {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ──────────────────────────────────────
+   Status indicator
+   ────────────────────────────────────── */
+
+.status-text {
+  font-size: 0.875rem;
+  color: var(--color-foreground-muted);
+}
+
+.count-text {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-foreground-muted);
+}
+
+/* ──────────────────────────────────────
+   Work mode badge (compact)
+   ────────────────────────────────────── */
+
+.work-mode-badge {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-foreground-muted);
 }

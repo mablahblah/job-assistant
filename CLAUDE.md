@@ -17,6 +17,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - Use `/start-feature` to kick off each feature, `/ship-feature` to wrap up
 - `/ship-feature` should update CLAUDE.md with any decisions made, patterns established, or architectural changes during the feature
 - Roadmap lives in [ROADMAP.md](ROADMAP.md) (read during `/start-feature` and `/ship-feature`). Completed items in [ROADMAP-DONE.md](ROADMAP-DONE.md).
+- Check skills, remember to use them.
 
 ## Key Decisions & Patterns
 
@@ -25,10 +26,11 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Benefits on Company** — benefits is a company-level score, not per-job. Moved from Job → Company model.
 - **Company persistence** — company entries persist in DB even when no jobs reference them. Manual delete available on companies page.
 - **Scoring scale** — all scores 1–5, weighted formula totals 0–100 with posting age decay.
+- **Styling approach** — semantic CSS classes in `globals.css` with CSS custom properties. Tailwind is layout-only (grid/flex/padding/margins), never for colors or component styling.
 
 ## Tech Stack
 
-- Next.js 14 + TypeScript + Tailwind
+- Next.js 14 + TypeScript + Tailwind (layout-only)
 - Prisma + SQLite (libsql adapter)
 - Server actions for mutations (no API routes)
 - Docker for UNRAID deployment
