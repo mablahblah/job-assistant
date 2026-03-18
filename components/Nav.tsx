@@ -23,7 +23,7 @@ export default function Nav() {
               href={href}
               className={`nav-link flex items-center gap-1.5 ${active ? "nav-link-active" : ""}`}
             >
-              <Icon size={16} weight={active ? "fill" : "regular"} />
+              <Icon size={16} weight={active ? "duotone" : "bold"} />
               {label}
             </Link>
           );
