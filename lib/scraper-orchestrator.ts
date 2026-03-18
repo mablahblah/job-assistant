@@ -1,16 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { scrapeAdzuna } from "@/lib/scrapers/adzuna";
 
-// Placeholder ratings applied to all new companies until Claude enrichment is added
-const PLACEHOLDER_RATINGS = {
-  employeeSatisfaction: 3,
-  customerSatisfaction: 3,
-  workLifeBalance: 3,
-  politicalAlignment: 3,
-};
-
-// Placeholder benefits rating applied to all new jobs until Claude enrichment is added
-const PLACEHOLDER_BENEFITS = 3;
 
 export interface OrchestratorResult {
   runId: string;
@@ -66,7 +56,7 @@ export async function runScraping(): Promise<OrchestratorResult> {
       // Upsert company
       const company = await prisma.company.upsert({
         where: { name: jobData.companyName },
-        create: { name: jobData.companyName, ...PLACEHOLDER_RATINGS },
+        create: { name: jobData.companyName },
         update: {},
       });
 
@@ -82,7 +72,6 @@ export async function runScraping(): Promise<OrchestratorResult> {
             workMode: jobData.workMode,
             postedAt: jobData.postedAt,
             salaryRange: jobData.salaryRange,
-            benefits: PLACEHOLDER_BENEFITS,
             status: "new",
           },
         });

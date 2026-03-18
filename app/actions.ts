@@ -36,6 +36,31 @@ export async function removeSearchTerm(id: string) {
   revalidatePath("/");
 }
 
+export async function updateCompanyScores(
+  companyId: string,
+  scores: {
+    employeeSatisfaction: number | null;
+    customerSatisfaction: number | null;
+    workLifeBalance: number | null;
+    politicalAlignment: number | null;
+    benefits: number | null;
+  }
+) {
+  await prisma.company.update({
+    where: { id: companyId },
+    data: scores,
+  });
+  revalidatePath("/companies");
+  revalidatePath("/");
+}
+
+export async function deleteCompany(companyId: string) {
+  await prisma.job.deleteMany({ where: { companyId } });
+  await prisma.company.delete({ where: { id: companyId } });
+  revalidatePath("/companies");
+  revalidatePath("/");
+}
+
 export async function deleteAllJobs() {
   await prisma.job.deleteMany();
   await prisma.company.deleteMany();

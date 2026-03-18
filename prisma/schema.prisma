@@ -10,10 +10,11 @@ datasource db {
 model Company {
   id                   String   @id @default(cuid())
   name                 String   @unique
-  employeeSatisfaction Int      // 1–5
-  customerSatisfaction Int      // 1–5
-  workLifeBalance      Int      // 1–5
-  politicalAlignment   Int      // 1–5
+  employeeSatisfaction Int?     // 1–5
+  customerSatisfaction Int?     // 1–5
+  workLifeBalance      Int?     // 1–5
+  politicalAlignment   Int?     // 1–5
+  benefits             Int?     // 1–5
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   jobs                 Job[]
@@ -29,7 +30,6 @@ model Job {
   workMode    String      @default("remote") // in-person, hybrid, remote
   postedAt    DateTime
   salaryRange String
-  benefits    Int         // 1–5
   status      String      @default("new") // new, applied, screened, interviewed, tested, offer, rejected
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
