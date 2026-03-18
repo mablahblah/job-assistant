@@ -1,10 +1,11 @@
 export type Company = {
   id: string
   name: string
-  employeeSatisfaction: number // 1–5
-  customerSatisfaction: number // 1–5
-  workLifeBalance: number // 1–5
-  politicalAlignment: number // 1–5
+  employeeSatisfaction: number | null // 1–5
+  customerSatisfaction: number | null // 1–5
+  workLifeBalance: number | null // 1–5
+  politicalAlignment: number | null // 1–5
+  benefits: number | null // 1–5
 }
 
 export type Job = {
@@ -16,7 +17,6 @@ export type Job = {
   workMode: string // in-person, hybrid, remote
   postedAt: string // ISO date string
   salaryRange: string // e.g. "$120k–$150k"
-  benefits: number // 1–5
   status: string // new, applied, screened, interviewed, tested, offer, rejected
 }
 

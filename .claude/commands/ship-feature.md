@@ -1,11 +1,11 @@
 The current feature is complete. Do the following:
 
 1. Remind the user to do a quick manual smoke test if they haven't already. Ask for confirmation before continuing.
-2. Read CLAUDE.md
-3. Move the completed feature from its current section to the "Done" section
-4. Update roadmap: Based on recent changes, are there new items that should be added? removed? re-ordered? Ask for confirmation on changes.
+2. Read CLAUDE.md and ROADMAP.md
+3. Move the completed feature from ROADMAP.md to ROADMAP-DONE.md (append at bottom, chronological order)
+4. Update ROADMAP.md: Based on recent changes, are there new items that should be added? removed? re-ordered? Ask for confirmation on changes.
 5. Promote the next logical item into "Up Next" if the queue is empty
-6. Write the updated CLAUDE.md
+6. Update CLAUDE.md with any decisions made, patterns established, or architectural changes during the feature
 7. Stage all changes, commit with a summary message, and push:
    - `git add -A`
    - Commit message: "Ship: <feature name>" with Co-Authored-By trailer

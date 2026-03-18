@@ -30,6 +30,7 @@ function ageModifier(postedAt: string | Date, now: Date): number {
  *
  * Each 1–5 category score is normalized to 0–1, multiplied by its weight,
  * then the total is adjusted by the posting age modifier.
+ * Null scores are treated as 0 (unscored companies sink to the bottom).
  */
 export function calculateScore(
   job: Job,
@@ -37,11 +38,11 @@ export function calculateScore(
   now: Date = new Date()
 ): number {
   const categoryScore =
-    (company.employeeSatisfaction / 5) * SCORE_WEIGHTS.employeeSatisfaction +
-    (company.customerSatisfaction / 5) * SCORE_WEIGHTS.customerSatisfaction +
-    (company.workLifeBalance / 5) * SCORE_WEIGHTS.workLifeBalance +
-    (company.politicalAlignment / 5) * SCORE_WEIGHTS.politicalAlignment +
-    (job.benefits / 5) * SCORE_WEIGHTS.benefits
+    ((company.employeeSatisfaction ?? 0) / 5) * SCORE_WEIGHTS.employeeSatisfaction +
+    ((company.customerSatisfaction ?? 0) / 5) * SCORE_WEIGHTS.customerSatisfaction +
+    ((company.workLifeBalance ?? 0) / 5) * SCORE_WEIGHTS.workLifeBalance +
+    ((company.politicalAlignment ?? 0) / 5) * SCORE_WEIGHTS.politicalAlignment +
+    ((company.benefits ?? 0) / 5) * SCORE_WEIGHTS.benefits
 
   const adjusted = categoryScore * ageModifier(job.postedAt, now)
   return Math.round(Math.min(100, Math.max(0, adjusted)))
