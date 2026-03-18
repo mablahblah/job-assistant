@@ -4,10 +4,19 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## Up Next
 
-- [ ] **Job detail view** — description, scoring breakdown, location/workMode display, notes, status management
+- [ ] **Jobs table UI overhaul**
+  - [ ] Full labels for table headings, tighten column widths (e.g. narrower score columns)
+  - [ ] Status column → pencil icon that opens a dropdown with available statuses
+  - [ ] Work mode as icon to the left of location (no color coding, no label)
+  - [ ] Salary format: `$135-156k`
+- [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
+- [ ] **Scraping improvements**
+  - [ ] Auto-delete job postings older than 1 week (manual "clean" function or part of scrape flow)
+  - [ ] Scrape results summary — show what was pulled after a scrape runs
 
 ## Sooner
 
+- [ ] **Job detail view** — description, scoring breakdown, location/workMode display, notes, status management
 - [ ] **Exportable Company Prompt** — download a prompt, pre-filled, to drop into Claude; it will return scores for companies with missing values across the 5 categories
 - [ ] **Application tracking UI** — full status pipeline dropdown, applied date, interview notes (schema already supports this)
 - [ ] **More scrapers** — Greenhouse/Lever (per-company API), LinkedIn (RapidAPI), Playwright scrapers for Dribbble / Lensa / weloveproduct.co
