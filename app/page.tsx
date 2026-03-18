@@ -12,30 +12,33 @@ export default async function Home() {
   const searchTerms: SearchTerm[] = dbSearchTerms.map((t) => ({ id: t.id, query: t.query }));
 
   const jobs: JobWithCompany[] = dbJobs
-    .map((job) => ({
-      id: job.id,
-      companyId: job.companyId,
-      title: job.title,
-      url: job.url,
-      location: job.location,
-      workMode: job.workMode,
-      postedAt: job.postedAt.toISOString(),
-      salaryRange: job.salaryRange,
-      benefits: job.benefits,
-      status: job.status,
-      company: {
+    .map((job) => {
+      const company: JobWithCompany["company"] = {
         id: job.company.id,
         name: job.company.name,
         employeeSatisfaction: job.company.employeeSatisfaction,
         customerSatisfaction: job.company.customerSatisfaction,
         workLifeBalance: job.company.workLifeBalance,
         politicalAlignment: job.company.politicalAlignment,
-      },
-      score: calculateScore(
-        { ...job, postedAt: job.postedAt.toISOString() },
-        job.company
-      ),
-    }))
+        benefits: job.company.benefits,
+      };
+      return {
+        id: job.id,
+        companyId: job.companyId,
+        title: job.title,
+        url: job.url,
+        location: job.location,
+        workMode: job.workMode,
+        postedAt: job.postedAt.toISOString(),
+        salaryRange: job.salaryRange,
+        status: job.status,
+        company,
+        score: calculateScore(
+          { ...job, postedAt: job.postedAt.toISOString() },
+          company
+        ),
+      };
+    })
     .sort((a, b) => b.score - a.score);
 
   return <JobsTable jobs={jobs} searchTerms={searchTerms} />;

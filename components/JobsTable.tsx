@@ -28,7 +28,8 @@ function RelativeDate({ date }: { date: string }) {
   return <span className="text-gray-500 text-sm">{label}</span>;
 }
 
-function RatingCell({ value }: { value: number }) {
+function RatingCell({ value }: { value: number | null }) {
+  if (value === null) return <span className="text-gray-300 text-sm">?</span>;
   const color =
     value >= 4
       ? "text-green-600"
@@ -268,7 +269,7 @@ export default function JobsTable({
                   <RatingCell value={job.company.politicalAlignment} />
                 </td>
                 <td className="px-3 py-3 text-center">
-                  <RatingCell value={job.benefits} />
+                  <RatingCell value={job.company.benefits} />
                 </td>
               </tr>
             ))}

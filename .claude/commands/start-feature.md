@@ -1,4 +1,4 @@
-Read CLAUDE.md to understand the current project state and roadmap.
+Read CLAUDE.md and ROADMAP.md to understand the current project state and roadmap.
 
 Then ask the user which feature they want to work on (suggest the top item from "Up Next" if they don't specify).
 
