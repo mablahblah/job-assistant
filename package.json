@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "dotenv": "^17.3.1",
