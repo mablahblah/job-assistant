@@ -4,6 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { runScraping, OrchestratorResult } from "@/lib/scraper-orchestrator";
 
+export async function setJobStatus(jobId: string, status: string) {
+  await prisma.job.update({
+    where: { id: jobId },
+    data: { status },
+  });
+  revalidatePath("/");
+}
+
 export async function toggleJobStatus(jobId: string) {
   const job = await prisma.job.findUniqueOrThrow({ where: { id: jobId } });
   const newStatus = job.status === "new" ? "applied" : "new";

@@ -2,14 +2,20 @@
 
 import { useTransition, useState } from "react";
 import {
-  toggleJobStatus,
+  setJobStatus,
   runScrape,
   deleteAllJobs,
   addSearchTerm,
   removeSearchTerm,
 } from "@/app/actions";
 import { JobWithCompany, SearchTerm } from "@/lib/types";
-import { MagnifyingGlassIcon, PlusIcon, XIcon, TrashIcon } from "@phosphor-icons/react";
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  XIcon,
+  TrashIcon,
+  PencilSimpleIcon,
+} from "@phosphor-icons/react";
 
 function ScoreCell({ score }: { score: number }) {
   const cls =
@@ -27,9 +33,65 @@ function RelativeDate({ date }: { date: string }) {
 
 function RatingCell({ value }: { value: number | null }) {
   if (value === null) return <span className="score-none">?</span>;
-  const cls =
-    value >= 4 ? "score-good" : value >= 3 ? "score-ok" : "score-bad";
+  const cls = value >= 4 ? "score-good" : value >= 3 ? "score-ok" : "score-bad";
   return <span className={cls}>{value}</span>;
+}
+
+const STATUS_OPTIONS = [
+  "new",
+  "applied",
+  "screened",
+  "interviewed",
+  "tested",
+  "offer",
+  "rejected",
+];
+
+function StatusCell({
+  jobId,
+  status,
+  isPending,
+  onSetStatus,
+}: {
+  jobId: string;
+  status: string;
+  isPending: boolean;
+  onSetStatus: (id: string, status: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (open) {
+    return (
+      <select
+        className="select status-select"
+        defaultValue={status}
+        disabled={isPending}
+        autoFocus
+        onChange={(e) => {
+          onSetStatus(jobId, e.target.value);
+          setOpen(false);
+        }}
+        onBlur={() => setOpen(false)}
+      >
+        {STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <button
+      className="status-trigger"
+      onClick={() => setOpen(true)}
+      disabled={isPending}
+      aria-label={status}
+    >
+      <PencilSimpleIcon size={24} weight="regular" />
+    </button>
+  );
 }
 
 function WorkModeBadge({ mode }: { mode: string }) {
@@ -47,8 +109,8 @@ export default function JobsTable({
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
 
-  function handleToggle(id: string) {
-    startTransition(() => toggleJobStatus(id));
+  function handleSetStatus(id: string, status: string) {
+    startTransition(() => setJobStatus(id, status));
   }
 
   function handleScrape() {
@@ -90,9 +152,7 @@ export default function JobsTable({
       <div className="flex items-center justify-between mb-4">
         <h1 className="page-title">Job Assistant</h1>
         {(scrapeStatus || (isPending && !scrapeStatus)) && (
-          <span className="status-text">
-            {scrapeStatus ?? "Saving..."}
-          </span>
+          <span className="status-text">{scrapeStatus ?? "Saving..."}</span>
         )}
       </div>
 
@@ -163,10 +223,26 @@ export default function JobsTable({
               <th className="text-left">Location</th>
               <th className="text-left">Posted</th>
               <th className="text-left">Salary</th>
-              <th className="col-rating text-center">Employee<br />Satisfaction</th>
-              <th className="col-rating text-center">Customer<br />Satisfaction</th>
-              <th className="col-rating text-center">Work / Life<br />Balance</th>
-              <th className="col-rating text-center">Political<br />Alignment</th>
+              <th className="col-rating text-center">
+                Employee
+                <br />
+                Satisfaction
+              </th>
+              <th className="col-rating text-center">
+                Customer
+                <br />
+                Satisfaction
+              </th>
+              <th className="col-rating text-center">
+                Work / Life
+                <br />
+                Balance
+              </th>
+              <th className="col-rating text-center">
+                Political
+                <br />
+                Alignment
+              </th>
               <th className="col-rating text-center">Benefits</th>
             </tr>
           </thead>
@@ -177,12 +253,11 @@ export default function JobsTable({
                   <ScoreCell score={job.score} />
                 </td>
                 <td className="text-center">
-                  <input
-                    type="checkbox"
-                    checked={job.status === "applied"}
-                    onChange={() => handleToggle(job.id)}
-                    disabled={isPending}
-                    className="checkbox"
+                  <StatusCell
+                    jobId={job.id}
+                    status={job.status}
+                    isPending={isPending}
+                    onSetStatus={handleSetStatus}
                   />
                 </td>
                 <td className="font-medium">{job.company.name}</td>
