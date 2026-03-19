@@ -50,7 +50,7 @@ export async function scrapeGreenhouseCompany(slug: string, queries: string[]): 
     location: job.location?.name || "",
     workMode: detectWorkMode((job.content || "") + " " + (job.location?.name || "")),
     postedAt: new Date(job.updated_at),
-    salaryRange: "",
+    salaryRange: "?",
     description: job.content || "",
   }));
 }

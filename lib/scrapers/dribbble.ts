@@ -1,6 +1,14 @@
 import { chromium } from "playwright";
 import { type ScrapedJob } from "./types";
 
+// Dribbble uses a separate label div for remote/hybrid — check that text first, then fall back to location
+function detectWorkMode(workModeText: string): string {
+  const lower = workModeText.toLowerCase();
+  if (lower.includes("hybrid")) return "hybrid";
+  if (lower.includes("remote")) return "remote";
+  return "in-person";
+}
+
 export async function scrapeDribbble(query = "Product Designer"): Promise<ScrapedJob[]> {
   let browser;
   try {
@@ -30,6 +38,7 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
         company: string;
         url: string;
         location: string;
+        workModeText: string;
         id: string;
       }> = [];
 
@@ -44,9 +53,12 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
         const card = link.closest("li") || link.closest("div");
         if (!card) return;
 
-        const titleEl = card.querySelector("h3, h4, [class*='title']");
-        const companyEl = card.querySelector("[class*='company'], [class*='employer']");
-        const locationEl = card.querySelector("[class*='location']");
+        // Use specific Dribbble class names to avoid grabbing tooltip/parent text
+        const titleEl = card.querySelector(".job-board-job-title");
+        const companyEl = card.querySelector(".job-board-job-company");
+        const locationEl = card.querySelector(".location-container");
+        // Dribbble shows remote label in a sibling div outside .location-container
+        const jobDetailsEl = card.querySelector(".job-details");
 
         const idMatch = href.match(/\/jobs\/(\d+)/);
         results.push({
@@ -54,6 +66,7 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
           company: companyEl?.textContent?.trim() || "",
           url: href,
           location: locationEl?.textContent?.trim() || "",
+          workModeText: jobDetailsEl?.textContent?.trim() || "",
           id: idMatch?.[1] || href,
         });
       });
@@ -64,12 +77,12 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
     return jobs.map((job) => ({
       externalId: job.id,
       title: job.title,
-      companyName: job.company || "Unknown",
+      companyName: job.company || "",
       url: job.url,
       location: job.location,
-      workMode: job.location.toLowerCase().includes("remote") ? "remote" : "",
+      workMode: detectWorkMode(job.workModeText),
       postedAt: new Date(),
-      salaryRange: "",
+      salaryRange: "?",
       description: "",
     }));
   } finally {

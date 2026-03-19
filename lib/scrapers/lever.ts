@@ -57,7 +57,7 @@ export async function scrapeLeverCompany(slug: string, queries: string[]): Promi
     location: posting.categories?.location || "",
     workMode: mapWorkplaceType(posting.workplaceType, posting.descriptionPlain || posting.description || ""),
     postedAt: new Date(posting.createdAt),
-    salaryRange: "",
+    salaryRange: "?",
     description: posting.descriptionPlain || posting.description || "",
   }));
 }
