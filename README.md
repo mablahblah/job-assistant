@@ -34,3 +34,10 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## User Flow
+
+1. Open app → view scored jobs table (auto-scraped on schedule, or manually triggered)
+2. Click into top opportunities → run Figma generation (new resume + cover letter frames)
+3. Finalize edits in Figma, apply externally
+4. Mark job as "applied" and track status through the pipeline
