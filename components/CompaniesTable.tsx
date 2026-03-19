@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { updateCompanyScores, deleteCompany } from "@/app/actions";
-import { TrashIcon, ExportIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
+import {
+  TrashIcon,
+  ExportIcon,
+  DownloadSimpleIcon,
+} from "@phosphor-icons/react";
 import { generateCompanyPrompt } from "@/lib/exportPrompt";
 import ImportScoresModal from "./ImportScoresModal";
 
@@ -19,10 +23,22 @@ type CompanyRow = {
 };
 
 const SCORE_FIELDS = [
-  { key: "employeeSatisfaction" as const, label: "ES", title: "Employee Satisfaction" },
-  { key: "customerSatisfaction" as const, label: "CS", title: "Customer Satisfaction" },
+  {
+    key: "employeeSatisfaction" as const,
+    label: "ES",
+    title: "Employee Satisfaction",
+  },
+  {
+    key: "customerSatisfaction" as const,
+    label: "CS",
+    title: "Customer Satisfaction",
+  },
   { key: "workLifeBalance" as const, label: "W/L", title: "Work/Life Balance" },
-  { key: "politicalAlignment" as const, label: "PA", title: "Political Alignment" },
+  {
+    key: "politicalAlignment" as const,
+    label: "PA",
+    title: "Political Alignment",
+  },
   { key: "benefits" as const, label: "Ben", title: "Benefits" },
 ];
 
@@ -40,7 +56,9 @@ function ScoreDropdown({
   return (
     <select
       value={value ?? ""}
-      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+      onChange={(e) =>
+        onChange(e.target.value === "" ? null : Number(e.target.value))
+      }
       disabled={disabled}
       className="select w-14"
     >
@@ -54,14 +72,18 @@ function ScoreDropdown({
   );
 }
 
-export default function CompaniesTable({ companies }: { companies: CompanyRow[] }) {
+export default function CompaniesTable({
+  companies,
+}: {
+  companies: CompanyRow[];
+}) {
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
   // Are there any companies with missing scores?
   const hasExportable = companies.some((c) =>
-    SCORE_FIELDS.some((f) => c[f.key] === null)
+    SCORE_FIELDS.some((f) => c[f.key] === null),
   );
 
   function handleExport() {
@@ -77,12 +99,14 @@ export default function CompaniesTable({ companies }: { companies: CompanyRow[] 
   }
 
   const displayed = filter
-    ? companies.filter((c) =>
-        SCORE_FIELDS.some((f) => c[f.key] === null)
-      )
+    ? companies.filter((c) => SCORE_FIELDS.some((f) => c[f.key] === null))
     : companies;
 
-  function handleScoreChange(company: CompanyRow, key: ScoreKey, val: number | null) {
+  function handleScoreChange(
+    company: CompanyRow,
+    key: ScoreKey,
+    val: number | null,
+  ) {
     const scores = {
       employeeSatisfaction: company.employeeSatisfaction,
       customerSatisfaction: company.customerSatisfaction,
@@ -104,9 +128,7 @@ export default function CompaniesTable({ companies }: { companies: CompanyRow[] 
       <div className="flex items-center justify-between mb-4">
         <h1 className="page-title">Companies</h1>
         <div className="flex items-center gap-3">
-          {isPending && (
-            <span className="status-text">Saving...</span>
-          )}
+          {isPending && <span className="status-text">Saving...</span>}
           <label className="flex items-center gap-2 text-muted">
             <input
               type="checkbox"
@@ -179,8 +201,14 @@ export default function CompaniesTable({ companies }: { companies: CompanyRow[] 
             ))}
             {displayed.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center text-faint" style={{ padding: "2rem 0.75rem" }}>
-                  {filter ? "All companies have scores" : "No companies yet — scrape some jobs first"}
+                <td
+                  colSpan={8}
+                  className="text-center text-faint"
+                  style={{ padding: "2rem 0.75rem" }}
+                >
+                  {filter
+                    ? "All companies have scores"
+                    : "No companies yet — scrape some jobs first"}
                 </td>
               </tr>
             )}
