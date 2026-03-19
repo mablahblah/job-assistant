@@ -35,6 +35,7 @@ model Job {
   updatedAt   DateTime    @updatedAt
   sources     JobSource[]
 
+  @@unique([url])
   @@index([companyId])
   @@index([status])
 }

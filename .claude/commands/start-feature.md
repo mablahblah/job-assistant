@@ -6,18 +6,24 @@ Then ask the user which feature they want to work on (suggest the top item from 
 
 Once confirmed:
 
-- Star planning mode...
-  - Agree on initial scope of feature
-  - Discuss and align on UX flow, walk through the experience step by step to ensure alignment
-    - Ask user first to describe what they invision, poke holes in it if possible
-    - At each decision point, present the options with a plain-language explanation of the tradeoff, then ask which direction they want to go
-  - If a decision has downstream consequences (e.g. affects another screen or state), flag it before moving on. If it alters roadmap, suggest edits to roadmap now.
-  - Summarize work succinctly and ask user to confirm before continuiing
-- Ensure we're on a clean main before branching:
-  - `git checkout main && git pull`
-- Create a new git branch named `feature/<slugified-feature-name>`, switch to it, set it up on remote:
-  - `git checkout -b feature/<name>`
-  - `git push -u origin feature/<name>`
-- Start building it
+1. Plan together with the user — do NOT enter plan mode or write a plan document:
+
+- Ask the user what they envision — let them lead
+- Ask one focused question at a time; don't front-load all decisions
+- Only raise tradeoffs or alternatives when the user's answer creates a genuine fork in the road
+- If a decision has downstream consequences (e.g. affects another screen or state), flag it briefly before moving on
+- Keep the conversation tight — stop planning as soon as you have enough to start building
+
+2. Ensure we're on a clean main before branching:
+
+- `git checkout main && git pull`
+
+3. Create a new git branch named `feature/<slugified-feature-name>`, switch to it, set it up on remote:
+
+- `git checkout -b feature/<name>`
+- `git push -u origin feature/<name>`
+
+4. **Stop and explicitly tell the user:** "Please switch to Opus before we start building — use the model switcher in the top right." Do not proceed until they confirm.
+5. Start building it
 
 After the feature is working and tested, remind the user to run `/ship-feature`.

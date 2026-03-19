@@ -1,3 +1,7 @@
+import { type ScrapedJob } from "./types";
+import { fetchWithTimeout, safeJson, httpError } from "./fetch-utils";
+export type { ScrapedJob } from "./types";
+
 const ADZUNA_BASE_URL = "https://api.adzuna.com/v1/api/jobs/us/search";
 
 interface AdzunaJob {
@@ -15,18 +19,6 @@ interface AdzunaJob {
 interface AdzunaResponse {
   results: AdzunaJob[];
   count: number;
-}
-
-export interface ScrapedJob {
-  externalId: string;
-  title: string;
-  companyName: string;
-  url: string;
-  location: string;
-  workMode: string;
-  postedAt: Date;
-  salaryRange: string;
-  description: string;
 }
 
 function detectWorkMode(text: string): string {
@@ -53,7 +45,7 @@ export async function scrapeAdzuna(query = "Product Designer", resultsPerPage = 
   const apiKey = process.env.ADZUNA_API_KEY;
 
   if (!appId || !apiKey) {
-    throw new Error("ADZUNA_APP_ID and ADZUNA_API_KEY must be set in environment variables");
+    throw new Error("Missing API key: ADZUNA_APP_ID / ADZUNA_API_KEY");
   }
 
   const params = new URLSearchParams({
@@ -64,12 +56,11 @@ export async function scrapeAdzuna(query = "Product Designer", resultsPerPage = 
     "content-type": "application/json",
   });
 
-  const res = await fetch(`${ADZUNA_BASE_URL}/1?${params}`);
-  if (!res.ok) {
-    throw new Error(`Adzuna API error: ${res.status} ${res.statusText}`);
-  }
+  const res = await fetchWithTimeout(`${ADZUNA_BASE_URL}/1?${params}`);
+  if (!res.ok) throw httpError("Adzuna", res.status);
 
-  const data: AdzunaResponse = await res.json();
+  const data = await safeJson<AdzunaResponse>(res, "Adzuna");
+  if (!data.results) return [];
 
   return data.results.map((job) => ({
     externalId: job.id,

@@ -9,7 +9,9 @@ export default async function Home() {
     prisma.searchTerm.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
 
-  const searchTerms: SearchTerm[] = dbSearchTerms.map((t) => ({ id: t.id, query: t.query }));
+  const searchTerms: SearchTerm[] = dbSearchTerms
+    .filter((t) => !t.query.startsWith("__"))
+    .map((t) => ({ id: t.id, query: t.query }));
 
   const jobs: JobWithCompany[] = dbJobs
     .map((job) => {
