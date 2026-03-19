@@ -26,6 +26,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Company persistence** — company entries persist in DB even when no jobs reference them. Manual delete available on companies page.
 - **Scoring scale** — all scores 1–5, weighted formula totals 0–100 with posting age decay.
 - **Styling approach** — semantic CSS classes in `globals.css` with CSS custom properties. Tailwind is layout-only (grid/flex/padding/margins), never for colors or component styling.
+- **Icon defaults** — Phosphor Icons: `size={24} weight="regular"`. Use `weight="duotone"` for active/toggled states only.
 
 ## Tech Stack
 
