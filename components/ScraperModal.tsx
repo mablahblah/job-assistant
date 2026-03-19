@@ -16,7 +16,7 @@ import {
   runGreenhouseCompanyScrape,
   runLeverCompanyScrape,
 } from "@/app/scraper-actions";
-import { GREENHOUSE_SLUGS, LEVER_SLUGS } from "@/lib/scrapers/company-slugs";
+import { SCRAPER_CONFIG } from "@/lib/scrapers/scraper-config";
 
 type ScraperStatus = "idle" | "searching" | "success" | "warning" | "error";
 
@@ -35,36 +35,31 @@ interface ScraperRowState {
   companyErrors?: string[];
 }
 
+// Only include enabled scrapers — disabled ones are silently skipped
 const INITIAL_SCRAPERS: ScraperRowState[] = [
-  { id: "adzuna", name: "Adzuna", status: "idle", jobsFound: 0, jobsNew: 0 },
-  { id: "jsearch", name: "JSearch", status: "idle", jobsFound: 0, jobsNew: 0 },
-  {
+  SCRAPER_CONFIG.adzuna.enabled && { id: "adzuna", name: "Adzuna", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
+  SCRAPER_CONFIG.jsearch.enabled && { id: "jsearch", name: "JSearch", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
+  SCRAPER_CONFIG.greenhouse.enabled && {
     id: "greenhouse",
     name: "Greenhouse",
-    status: "idle",
+    status: "idle" as const,
     jobsFound: 0,
     jobsNew: 0,
     companyIndex: 0,
-    companyTotal: GREENHOUSE_SLUGS.length,
+    companyTotal: SCRAPER_CONFIG.greenhouse.slugs.length,
   },
-  {
+  SCRAPER_CONFIG.lever.enabled && {
     id: "lever",
     name: "Lever",
-    status: "idle",
+    status: "idle" as const,
     jobsFound: 0,
     jobsNew: 0,
     companyIndex: 0,
-    companyTotal: LEVER_SLUGS.length,
+    companyTotal: SCRAPER_CONFIG.lever.slugs.length,
   },
-  { id: "dribbble", name: "Dribbble", status: "idle", jobsFound: 0, jobsNew: 0 },
-  {
-    id: "weloveproduct",
-    name: "We Love Product",
-    status: "idle",
-    jobsFound: 0,
-    jobsNew: 0,
-  },
-];
+  SCRAPER_CONFIG.dribbble.enabled && { id: "dribbble", name: "Dribbble", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
+  SCRAPER_CONFIG.weloveproduct.enabled && { id: "weloveproduct", name: "We Love Product", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
+].filter(Boolean) as ScraperRowState[];
 
 export default function ScraperModal({ onClose }: { onClose: () => void }) {
   const [scrapers, setScrapers] = useState<ScraperRowState[]>(INITIAL_SCRAPERS);
@@ -154,12 +149,12 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
       });
     }
 
-    runSimpleScraper("adzuna", runAdzunaScrape);
-    runSimpleScraper("jsearch", runJSearchScrape);
-    runSimpleScraper("dribbble", runDribbbleScrape);
-    runSimpleScraper("weloveproduct", runWeLoveProductScrape);
-    runCompanyScraper("greenhouse", GREENHOUSE_SLUGS, runGreenhouseCompanyScrape);
-    runCompanyScraper("lever", LEVER_SLUGS, runLeverCompanyScrape);
+    if (SCRAPER_CONFIG.adzuna.enabled) runSimpleScraper("adzuna", runAdzunaScrape);
+    if (SCRAPER_CONFIG.jsearch.enabled) runSimpleScraper("jsearch", runJSearchScrape);
+    if (SCRAPER_CONFIG.dribbble.enabled) runSimpleScraper("dribbble", runDribbbleScrape);
+    if (SCRAPER_CONFIG.weloveproduct.enabled) runSimpleScraper("weloveproduct", runWeLoveProductScrape);
+    if (SCRAPER_CONFIG.greenhouse.enabled) runCompanyScraper("greenhouse", [...SCRAPER_CONFIG.greenhouse.slugs], runGreenhouseCompanyScrape);
+    if (SCRAPER_CONFIG.lever.enabled) runCompanyScraper("lever", [...SCRAPER_CONFIG.lever.slugs], runLeverCompanyScrape);
   }, []);
 
   const allDone = scrapers.every(
