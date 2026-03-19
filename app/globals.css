@@ -407,14 +407,3 @@ body {
   width: 6rem;
 }
 
-/* ──────────────────────────────────────
-   Work mode badge (compact)
-   ────────────────────────────────────── */
-
-.work-mode-badge {
-  font-size: 0.75rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-secondary);
-  color: var(--color-foreground-muted);
-}

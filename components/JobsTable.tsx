@@ -15,6 +15,9 @@ import {
   XIcon,
   TrashIcon,
   PencilSimpleIcon,
+  WifiHighIcon,
+  BicycleIcon,
+  BuildingOfficeIcon,
 } from "@phosphor-icons/react";
 
 function ScoreCell({ score }: { score: number }) {
@@ -94,8 +97,10 @@ function StatusCell({
   );
 }
 
-function WorkModeBadge({ mode }: { mode: string }) {
-  return <span className="work-mode-badge">{mode}</span>;
+function WorkModeIcon({ mode }: { mode: string }) {
+  if (mode === "remote") return <WifiHighIcon size={24} weight="regular" />;
+  if (mode === "hybrid") return <BicycleIcon size={24} weight="regular" />;
+  return <BuildingOfficeIcon size={24} weight="regular" />;
 }
 
 export default function JobsTable({
@@ -163,7 +168,7 @@ export default function JobsTable({
             disabled={isPending}
             className="btn btn-primary"
           >
-            <MagnifyingGlassIcon size={14} weight="bold" />
+            <MagnifyingGlassIcon size={14} weight="regular" />
             {isPending && scrapeStatus === "Searching..."
               ? "Searching..."
               : "Search Jobs"}
@@ -174,7 +179,7 @@ export default function JobsTable({
             disabled={isPending}
             className="btn btn-danger"
           >
-            <TrashIcon size={14} weight="bold" />
+            <TrashIcon size={14} weight="regular" />
             Delete All
           </button>
         )}
@@ -194,7 +199,7 @@ export default function JobsTable({
             className="btn-icon btn-icon-primary absolute right-[3px]"
             aria-label="Add job title"
           >
-            <PlusIcon size={14} weight="bold" />
+            <PlusIcon size={14} weight="regular" />
           </button>
         </div>
         {searchTerms.map((term) => (
@@ -206,7 +211,7 @@ export default function JobsTable({
               className="badge-remove"
               aria-label={`Remove ${term.query}`}
             >
-              <XIcon size={12} weight="bold" />
+              <XIcon size={12} weight="regular" />
             </button>
           </span>
         ))}
@@ -272,9 +277,9 @@ export default function JobsTable({
                   </a>
                 </td>
                 <td>
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <WorkModeIcon mode={job.workMode} />
                     <span className="text-muted">{job.location}</span>
-                    <WorkModeBadge mode={job.workMode} />
                   </div>
                 </td>
                 <td>
