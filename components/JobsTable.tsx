@@ -2,14 +2,23 @@
 
 import { useTransition, useState } from "react";
 import {
-  toggleJobStatus,
+  setJobStatus,
   runScrape,
   deleteAllJobs,
   addSearchTerm,
   removeSearchTerm,
 } from "@/app/actions";
 import { JobWithCompany, SearchTerm } from "@/lib/types";
-import { MagnifyingGlassIcon, PlusIcon, XIcon, TrashIcon } from "@phosphor-icons/react";
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  XIcon,
+  TrashIcon,
+  PencilSimpleIcon,
+  WifiHighIcon,
+  BicycleIcon,
+  BuildingOfficeIcon,
+} from "@phosphor-icons/react";
 
 function ScoreCell({ score }: { score: number }) {
   const cls =
@@ -27,13 +36,71 @@ function RelativeDate({ date }: { date: string }) {
 
 function RatingCell({ value }: { value: number | null }) {
   if (value === null) return <span className="score-none">?</span>;
-  const cls =
-    value >= 4 ? "score-good" : value >= 3 ? "score-ok" : "score-bad";
+  const cls = value >= 4 ? "score-good" : value >= 3 ? "score-ok" : "score-bad";
   return <span className={cls}>{value}</span>;
 }
 
-function WorkModeBadge({ mode }: { mode: string }) {
-  return <span className="work-mode-badge">{mode}</span>;
+const STATUS_OPTIONS = [
+  "new",
+  "applied",
+  "screened",
+  "interviewed",
+  "tested",
+  "offer",
+  "rejected",
+];
+
+function StatusCell({
+  jobId,
+  status,
+  isPending,
+  onSetStatus,
+}: {
+  jobId: string;
+  status: string;
+  isPending: boolean;
+  onSetStatus: (id: string, status: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (open) {
+    return (
+      <select
+        className="select status-select"
+        defaultValue={status}
+        disabled={isPending}
+        autoFocus
+        onChange={(e) => {
+          onSetStatus(jobId, e.target.value);
+          setOpen(false);
+        }}
+        onBlur={() => setOpen(false)}
+      >
+        {STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <button
+      className="status-trigger"
+      onClick={() => setOpen(true)}
+      disabled={isPending}
+      aria-label={status}
+    >
+      <PencilSimpleIcon size={24} weight="regular" />
+    </button>
+  );
+}
+
+function WorkModeIcon({ mode }: { mode: string }) {
+  if (mode === "remote") return <WifiHighIcon size={24} weight="regular" />;
+  if (mode === "hybrid") return <BicycleIcon size={24} weight="regular" />;
+  return <BuildingOfficeIcon size={24} weight="regular" />;
 }
 
 export default function JobsTable({
@@ -47,8 +114,8 @@ export default function JobsTable({
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
 
-  function handleToggle(id: string) {
-    startTransition(() => toggleJobStatus(id));
+  function handleSetStatus(id: string, status: string) {
+    startTransition(() => setJobStatus(id, status));
   }
 
   function handleScrape() {
@@ -90,9 +157,7 @@ export default function JobsTable({
       <div className="flex items-center justify-between mb-4">
         <h1 className="page-title">Job Assistant</h1>
         {(scrapeStatus || (isPending && !scrapeStatus)) && (
-          <span className="status-text">
-            {scrapeStatus ?? "Saving..."}
-          </span>
+          <span className="status-text">{scrapeStatus ?? "Saving..."}</span>
         )}
       </div>
 
@@ -103,7 +168,7 @@ export default function JobsTable({
             disabled={isPending}
             className="btn btn-primary"
           >
-            <MagnifyingGlassIcon size={14} weight="bold" />
+            <MagnifyingGlassIcon size={14} weight="regular" />
             {isPending && scrapeStatus === "Searching..."
               ? "Searching..."
               : "Search Jobs"}
@@ -114,7 +179,7 @@ export default function JobsTable({
             disabled={isPending}
             className="btn btn-danger"
           >
-            <TrashIcon size={14} weight="bold" />
+            <TrashIcon size={14} weight="regular" />
             Delete All
           </button>
         )}
@@ -134,7 +199,7 @@ export default function JobsTable({
             className="btn-icon btn-icon-primary absolute right-[3px]"
             aria-label="Add job title"
           >
-            <PlusIcon size={14} weight="bold" />
+            <PlusIcon size={14} weight="regular" />
           </button>
         </div>
         {searchTerms.map((term) => (
@@ -146,7 +211,7 @@ export default function JobsTable({
               className="badge-remove"
               aria-label={`Remove ${term.query}`}
             >
-              <XIcon size={12} weight="bold" />
+              <XIcon size={12} weight="regular" />
             </button>
           </span>
         ))}
@@ -156,18 +221,34 @@ export default function JobsTable({
         <table className="table">
           <thead>
             <tr>
-              <th className="text-left">Score</th>
-              <th className="text-center">Applied</th>
+              <th className="col-score text-left">Score</th>
+              <th className="col-status text-center">Status</th>
               <th className="text-left">Company</th>
               <th className="text-left">Role</th>
               <th className="text-left">Location</th>
-              <th className="text-left">Age</th>
+              <th className="text-left">Posted</th>
               <th className="text-left">Salary</th>
-              <th className="text-center">ES</th>
-              <th className="text-center">CS</th>
-              <th className="text-center">W/L</th>
-              <th className="text-center">PA</th>
-              <th className="text-center">Ben</th>
+              <th className="col-rating text-center">
+                Employee
+                <br />
+                Satisfaction
+              </th>
+              <th className="col-rating text-center">
+                Customer
+                <br />
+                Satisfaction
+              </th>
+              <th className="col-rating text-center">
+                Work / Life
+                <br />
+                Balance
+              </th>
+              <th className="col-rating text-center">
+                Political
+                <br />
+                Alignment
+              </th>
+              <th className="col-rating text-center">Benefits</th>
             </tr>
           </thead>
           <tbody>
@@ -177,12 +258,11 @@ export default function JobsTable({
                   <ScoreCell score={job.score} />
                 </td>
                 <td className="text-center">
-                  <input
-                    type="checkbox"
-                    checked={job.status === "applied"}
-                    onChange={() => handleToggle(job.id)}
-                    disabled={isPending}
-                    className="checkbox"
+                  <StatusCell
+                    jobId={job.id}
+                    status={job.status}
+                    isPending={isPending}
+                    onSetStatus={handleSetStatus}
                   />
                 </td>
                 <td className="font-medium">{job.company.name}</td>
@@ -197,9 +277,9 @@ export default function JobsTable({
                   </a>
                 </td>
                 <td>
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <WorkModeIcon mode={job.workMode} />
                     <span className="text-muted">{job.location}</span>
-                    <WorkModeBadge mode={job.workMode} />
                   </div>
                 </td>
                 <td>
