@@ -69,6 +69,65 @@ export async function deleteCompany(companyId: string) {
   revalidatePath("/");
 }
 
+// Accepts a JSON array of company scores from Claude and overwrites scores for each matched company.
+// Returns a summary of what was updated and any companies that couldn't be matched.
+export async function importCompanyScores(jsonString: string): Promise<{
+  success: boolean
+  updated: string[]
+  notFound: string[]
+  error?: string
+}> {
+  let parsed: unknown
+  try {
+    // Strip markdown code fences if present
+    const cleaned = jsonString.replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "")
+    parsed = JSON.parse(cleaned)
+  } catch {
+    return { success: false, updated: [], notFound: [], error: "Invalid JSON" }
+  }
+
+  if (!Array.isArray(parsed)) {
+    return { success: false, updated: [], notFound: [], error: "Expected a JSON array" }
+  }
+
+  const scoreKeys = [
+    "employeeSatisfaction",
+    "customerSatisfaction",
+    "workLifeBalance",
+    "politicalAlignment",
+    "benefits",
+  ] as const
+
+  const updated: string[] = []
+  const notFound: string[] = []
+
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object" || !("company" in entry)) continue
+    const name = String(entry.company)
+
+    const company = await prisma.company.findUnique({ where: { name } })
+    if (!company) {
+      notFound.push(name)
+      continue
+    }
+
+    const scores: Record<string, number | null> = {}
+    for (const key of scoreKeys) {
+      if (key in entry) {
+        const val = (entry as Record<string, unknown>)[key]
+        scores[key] = typeof val === "number" && val >= 1 && val <= 5 ? val : null
+      }
+    }
+
+    await prisma.company.update({ where: { id: company.id }, data: scores })
+    updated.push(name)
+  }
+
+  revalidatePath("/companies")
+  revalidatePath("/")
+  return { success: true, updated, notFound }
+}
+
 export async function deleteAllJobs() {
   await prisma.job.deleteMany();
   await prisma.company.deleteMany();

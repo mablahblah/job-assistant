@@ -27,6 +27,8 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Scoring scale** — all scores 1–5, weighted formula totals 0–100 with posting age decay.
 - **Styling approach** — semantic CSS classes in `globals.css` with CSS custom properties. Tailwind is layout-only (grid/flex/padding/margins), never for colors or component styling.
 - **Icon defaults** — Phosphor Icons: `size={24} weight="regular"`. Use `weight="duotone"` for active/toggled states only.
+- **Company score import format** — Claude returns a JSON array keyed by `company` (matches the unique `name` field in DB). All 5 score fields included per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
+- **Icon Tooltios** - If there is an icon button, it should have a tooltip for better ux.
 
 ## Tech Stack
 

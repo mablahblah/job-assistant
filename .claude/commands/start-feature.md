@@ -6,9 +6,13 @@ Then ask the user which feature they want to work on (suggest the top item from 
 
 Once confirmed:
 
-- Then start a planning session with user to define exactly the scope of this feature
-- Ask clarifying questions, but make no changes
-- Outline what you're going to build (a few bullets, no essay)
+- Star planning mode...
+  - Agree on initial scope of feature
+  - Discuss and align on UX flow, walk through the experience step by step to ensure alignment
+    - Ask user first to describe what they invision, poke holes in it if possible
+    - At each decision point, present the options with a plain-language explanation of the tradeoff, then ask which direction they want to go
+  - If a decision has downstream consequences (e.g. affects another screen or state), flag it before moving on. If it alters roadmap, suggest edits to roadmap now.
+  - Summarize work succinctly and ask user to confirm before continuiing
 - Ensure we're on a clean main before branching:
   - `git checkout main && git pull`
 - Create a new git branch named `feature/<slugified-feature-name>`, switch to it, set it up on remote:
