@@ -2,12 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { updateCompanyScores, deleteCompany } from "@/app/actions";
-import { TrashIcon } from "@phosphor-icons/react";
+import { TrashIcon, ExportIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
+import { generateCompanyPrompt } from "@/lib/exportPrompt";
+import ImportScoresModal from "./ImportScoresModal";
 
 type CompanyRow = {
   id: string;
   name: string;
   jobCount: number;
+  jobUrl: string | null;
   employeeSatisfaction: number | null;
   customerSatisfaction: number | null;
   workLifeBalance: number | null;
@@ -54,6 +57,24 @@ function ScoreDropdown({
 export default function CompaniesTable({ companies }: { companies: CompanyRow[] }) {
   const [isPending, startTransition] = useTransition();
   const [filter, setFilter] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+
+  // Are there any companies with missing scores?
+  const hasExportable = companies.some((c) =>
+    SCORE_FIELDS.some((f) => c[f.key] === null)
+  );
+
+  function handleExport() {
+    const prompt = generateCompanyPrompt(companies);
+    if (!prompt) return;
+    const blob = new Blob([prompt], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "company-scores-prompt.md";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const displayed = filter
     ? companies.filter((c) =>
@@ -95,6 +116,23 @@ export default function CompaniesTable({ companies }: { companies: CompanyRow[] 
             />
             Missing scores only
           </label>
+          <div className="divider-v" />
+          <button
+            onClick={handleExport}
+            disabled={!hasExportable}
+            className="btn btn-ghost"
+            title="Export scoring prompt"
+          >
+            <ExportIcon size={20} weight="bold" />
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            disabled={!hasExportable}
+            className="btn btn-ghost"
+            title="Import scores from Claude"
+          >
+            <DownloadSimpleIcon size={20} weight="bold" />
+          </button>
         </div>
       </div>
 
@@ -154,6 +192,8 @@ export default function CompaniesTable({ companies }: { companies: CompanyRow[] 
         {displayed.length} {displayed.length === 1 ? "company" : "companies"}
         {filter && ` (${companies.length} total)`}
       </p>
+
+      {showImport && <ImportScoresModal onClose={() => setShowImport(false)} />}
     </div>
   );
 }
