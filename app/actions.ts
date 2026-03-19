@@ -129,8 +129,8 @@ export async function importCompanyScores(jsonString: string): Promise<{
 }
 
 export async function deleteAllJobs() {
+  // Companies persist so manual scores are preserved — delete them individually from /companies
   await prisma.job.deleteMany();
-  await prisma.company.deleteMany();
   await prisma.scrapingRun.deleteMany();
   revalidatePath("/");
 }
