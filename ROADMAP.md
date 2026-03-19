@@ -4,11 +4,6 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## Up Next
 
-- [ ] **Jobs table UI overhaul**
-  - [ ] Full labels for table headings, tighten column widths (e.g. narrower score columns)
-  - [ ] Status column → pencil icon that opens a dropdown with available statuses
-  - [ ] Work mode as icon to the left of location (no color coding, no label)
-  - [ ] Salary format: `$135-156k`
 - [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
 - [ ] **Scraping improvements**
   - [ ] Auto-delete job postings older than 1 week (manual "clean" function or part of scrape flow)
@@ -25,6 +20,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 - [ ] **Company list manager** — UI to manage Greenhouse/Lever company slugs, pre-seeded list
 - [ ] **Deployment** — Docker on UNRAID or Vercel subdomain (TBD); migrations on start, persistent DB, CI/CD auto-deploy
+- [ ] **Color Accessibility Audit**
 
 ## Fuzzy
 

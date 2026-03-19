@@ -41,10 +41,10 @@ function detectWorkMode(text: string): string {
 }
 
 function formatSalary(min?: number, max?: number): string {
-  const fmt = (n: number) => `$${Math.round(n / 1000)}k`;
-  if (min && max) return `${fmt(min)}–${fmt(max)}`;
-  if (min) return `${fmt(min)}+`;
-  if (max) return `up to ${fmt(max)}`;
+  const k = (n: number) => Math.round(n / 1000);
+  if (min && max) return `$${k(min)}-${k(max)}k`;
+  if (min) return `$${k(min)}k+`;
+  if (max) return `up to $${k(max)}k`;
   return "";
 }
 
