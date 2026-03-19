@@ -17,7 +17,6 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - Use `/start-feature` to kick off each feature, `/ship-feature` to wrap up
 - `/ship-feature` should update CLAUDE.md with any decisions made, patterns established, or architectural changes during the feature
 - Roadmap lives in [ROADMAP.md](ROADMAP.md) (read during `/start-feature` and `/ship-feature`). Completed items in [ROADMAP-DONE.md](ROADMAP-DONE.md).
-- Check skills, remember to use them.
 
 ## Key Decisions & Patterns
 

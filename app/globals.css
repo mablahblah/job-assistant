@@ -253,7 +253,12 @@ body {
   color: var(--color-foreground-muted);
   background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
 }
+
+.col-score { width: 3.5rem; }
+.col-status { width: 4rem; }
+.col-rating { width: 5.5rem; }
 
 .table td {
   padding: 0.75rem;

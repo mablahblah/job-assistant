@@ -25,6 +25,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 - [ ] **Company list manager** — UI to manage Greenhouse/Lever company slugs, pre-seeded list
 - [ ] **Deployment** — Docker on UNRAID or Vercel subdomain (TBD); migrations on start, persistent DB, CI/CD auto-deploy
+- [ ] **Color Accessibility Audit**
 
 ## Fuzzy
 

@@ -156,18 +156,18 @@ export default function JobsTable({
         <table className="table">
           <thead>
             <tr>
-              <th className="text-left">Score</th>
-              <th className="text-center">Applied</th>
+              <th className="col-score text-left">Score</th>
+              <th className="col-status text-center">Status</th>
               <th className="text-left">Company</th>
               <th className="text-left">Role</th>
               <th className="text-left">Location</th>
-              <th className="text-left">Age</th>
+              <th className="text-left">Posted</th>
               <th className="text-left">Salary</th>
-              <th className="text-center">ES</th>
-              <th className="text-center">CS</th>
-              <th className="text-center">W/L</th>
-              <th className="text-center">PA</th>
-              <th className="text-center">Ben</th>
+              <th className="col-rating text-center">Employee<br />Satisfaction</th>
+              <th className="col-rating text-center">Customer<br />Satisfaction</th>
+              <th className="col-rating text-center">Work / Life<br />Balance</th>
+              <th className="col-rating text-center">Political<br />Alignment</th>
+              <th className="col-rating text-center">Benefits</th>
             </tr>
           </thead>
           <tbody>

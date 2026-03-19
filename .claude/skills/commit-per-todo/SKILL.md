@@ -9,6 +9,6 @@ When executing a list of todos:
 1. Complete one todo item
 2. Mark it as done in the todo list
 3. Immediately run `/commit` before moving to the next item
-4. Only proceed to the next todo after the commit is confirmed
+4. Only proceed to the next todo after the user agrees
 
 This keeps the git history granular and makes it easy to identify exactly what change introduced a problem.
