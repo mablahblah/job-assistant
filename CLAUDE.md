@@ -18,17 +18,16 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - `/ship-feature` should update CLAUDE.md with any decisions made, patterns established, or architectural changes during the feature
 - Roadmap lives in [ROADMAP.md](ROADMAP.md) (read during `/start-feature` and `/ship-feature`). Completed items in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
+> Domain-specific rules live in CLAUDE.md files closer to the code (e.g. `components/CLAUDE.md`, `lib/scrapers/CLAUDE.md`). Only record decisions here that are non-obvious and affect consistency across the whole project.
+
 ## Key Decisions & Patterns
 
 - **Auto-save UX** — no Save buttons; dropdowns and checkboxes fire server actions immediately via `useTransition`. Show "Saving..." in header while pending.
 - **Null scores** — all 5 company scores (ES, CS, W/L, PA, Benefits) are nullable. Null displays as "?" in UI, treated as 0 in scoring formula (unscored companies sink to bottom).
-- **Benefits on Company** — benefits is a company-level score, not per-job. Moved from Job → Company model.
+- **Benefits on Company** — benefits is a company-level score, not per-job.
 - **Company persistence** — company entries persist in DB even when no jobs reference them. Manual delete available on companies page.
 - **Scoring scale** — all scores 1–5, weighted formula totals 0–100 with posting age decay.
-- **Styling approach** — semantic CSS classes in `globals.css` with CSS custom properties. Tailwind is layout-only (grid/flex/padding/margins), never for colors or component styling.
-- **Icon defaults** — Phosphor Icons: `size={24} weight="regular"`. Use `weight="duotone"` for active/toggled states only.
-- **Company score import format** — Claude returns a JSON array keyed by `company` (matches the unique `name` field in DB). All 5 score fields included per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
-- **Icon Tooltios** - If there is an icon button, it should have a tooltip for better ux.
+- **Company score import format** — Claude returns a JSON array keyed by `company` (matches DB unique name). All 5 score fields per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
 
 ## Tech Stack
 

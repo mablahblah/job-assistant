@@ -3,7 +3,6 @@
 import { useTransition, useState } from "react";
 import {
   setJobStatus,
-  runScrape,
   deleteAllJobs,
   addSearchTerm,
   removeSearchTerm,
@@ -19,6 +18,7 @@ import {
   BicycleIcon,
   BuildingOfficeIcon,
 } from "@phosphor-icons/react";
+import ScraperModal from "@/components/ScraperModal";
 
 function ScoreCell({ score }: { score: number }) {
   const cls =
@@ -113,25 +113,14 @@ export default function JobsTable({
   const [isPending, startTransition] = useTransition();
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
+  const [showScraperModal, setShowScraperModal] = useState(false);
 
   function handleSetStatus(id: string, status: string) {
     startTransition(() => setJobStatus(id, status));
   }
 
   function handleScrape() {
-    setScrapeStatus("Searching...");
-    startTransition(async () => {
-      try {
-        const result = await runScrape();
-        setScrapeStatus(
-          `Done — ${result.jobsNew} new of ${result.jobsFound} found`,
-        );
-      } catch (err) {
-        setScrapeStatus(
-          `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
-        );
-      }
-    });
+    setShowScraperModal(true);
   }
 
   function handleDeleteAll() {
@@ -169,9 +158,7 @@ export default function JobsTable({
             className="btn btn-primary"
           >
             <MagnifyingGlassIcon size={14} weight="regular" />
-            {isPending && scrapeStatus === "Searching..."
-              ? "Searching..."
-              : "Search Jobs"}
+            Search Jobs
           </button>
         ) : (
           <button
@@ -308,6 +295,10 @@ export default function JobsTable({
       </div>
 
       <p className="count-text">{jobs.length} jobs</p>
+
+      {showScraperModal && (
+        <ScraperModal onClose={() => setShowScraperModal(false)} />
+      )}
     </div>
   );
 }

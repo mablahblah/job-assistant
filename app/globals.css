@@ -497,3 +497,117 @@ body {
   color: var(--color-foreground-muted);
 }
 
+/* ──────────────────────────────────────
+   Scraper Modal
+   ────────────────────────────────────── */
+
+.scraper-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.scraper-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.5rem;
+  border-radius: var(--radius-md);
+}
+
+.scraper-row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.scraper-row-right {
+  flex-shrink: 0;
+}
+
+.scraper-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.scraper-name-idle {
+  color: var(--color-foreground-faint);
+}
+
+.scraper-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.scraper-icon-idle {
+  display: inline-block;
+  border-radius: var(--radius-full);
+  background: var(--color-border-light);
+}
+
+.scraper-icon-success {
+  color: var(--color-score-good);
+}
+
+.scraper-icon-error {
+  color: var(--color-danger);
+}
+
+.scraper-icon-warning {
+  color: var(--color-score-ok);
+}
+
+.scraper-spinner {
+  animation: spin 0.8s linear infinite;
+  color: var(--color-accent);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.scraper-status-text {
+  font-size: 0.8125rem;
+  color: var(--color-foreground-muted);
+}
+
+.scraper-success-text {
+  color: var(--color-score-good);
+}
+
+.scraper-error-text {
+  color: var(--color-danger);
+}
+
+.scraper-warning-text {
+  color: var(--color-score-ok);
+}
+
+.scraper-status-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.scraper-status-btn:hover {
+  text-decoration-style: solid;
+}
+
+.scraper-details {
+  padding: 0.25rem 0.5rem 0.5rem 2.25rem;
+}
+
+.scraper-detail-line {
+  font-size: 0.75rem;
+  color: var(--color-foreground-muted);
+  padding: 0.125rem 0;
+}
+
