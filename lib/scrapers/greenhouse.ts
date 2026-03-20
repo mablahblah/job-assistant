@@ -14,17 +14,29 @@ interface GreenhouseResponse {
   jobs: GreenhouseJob[];
 }
 
+// Decode HTML entities (handles double-encoded content like &amp;mdash; → &mdash; → —)
+function decodeHtmlEntities(html: string): string {
+  let text = html;
+  // Loop to handle double-encoding (e.g. &amp;mdash; → &mdash; → —)
+  for (let i = 0; i < 3; i++) {
+    const prev = text;
+    text = text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&mdash;/g, "—")
+      .replace(/&ndash;/g, "–");
+    if (text === prev) break;
+  }
+  return text;
+}
+
 // Extract salary range from free-form HTML content (e.g. "$73,000 - $150,000")
 function parseSalary(html: string): string {
-  // Strip HTML tags and decode common entities so structured markup doesn't break matching
-  const text = html
+  // Decode entities first (handles double-encoding), then strip tags
+  const text = decodeHtmlEntities(html)
     .replace(/<[^>]+>/g, " ")
-    .replace(/&mdash;/g, "—")
-    .replace(/&ndash;/g, "–")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ");
   const pattern = /\$[\d,]+(?:\.\d+)?\s*[-–—to]+\s*\$?[\d,]+(?:\.\d+)?/i;
   const match = text.match(pattern);
