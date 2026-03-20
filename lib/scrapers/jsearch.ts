@@ -22,12 +22,19 @@ interface JSearchResponse {
   data: JSearchJob[];
 }
 
+export interface JSearchOptions {
+  query: string;
+  location?: string;       // e.g. "Austin, United States"
+  workFromHome?: boolean;   // true = remote jobs only
+}
+
 function formatLocation(job: JSearchJob): string {
   const parts = [job.job_city, job.job_state, job.job_country].filter(Boolean);
   return parts.join(", ");
 }
 
-export async function scrapeJSearch(query = "Product Designer", numPages = 1): Promise<ScrapedJob[]> {
+// Fetch one page of JSearch results sorted by date
+export async function scrapeJSearch({ query, location, workFromHome }: JSearchOptions): Promise<ScrapedJob[]> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) {
     throw new Error("Missing API key: RAPIDAPI_KEY");
@@ -35,9 +42,13 @@ export async function scrapeJSearch(query = "Product Designer", numPages = 1): P
 
   const params = new URLSearchParams({
     query,
-    num_pages: String(numPages),
+    num_pages: "1",
     date_posted: "week",
+    sort_by: "date_posted",
   });
+
+  if (location) params.set("location", location);
+  if (workFromHome) params.set("work_from_home", "true");
 
   const res = await fetchWithTimeout(`https://jsearch.p.rapidapi.com/search?${params}`, {
     headers: {

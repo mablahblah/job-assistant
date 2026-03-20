@@ -61,9 +61,49 @@ export async function runAdzunaScrape(): Promise<ScraperSaveResult> {
 }
 
 export async function runJSearchScrape(): Promise<ScraperSaveResult> {
-  const result = await runSearchTermScraper(scrapeJSearch);
+  const queries = (await getUserSearchTerms()).map((t) => t.query);
+  if (queries.length === 0) {
+    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+  }
+
+  const systemTermId = await getOrCreateSystemTerm("jsearch");
+
+  // Combine all search terms into one OR query (e.g. "Product Designer OR UX Designer")
+  const combined = queries.join(" OR ");
+
+  // Run two searches: remote + Austin, merge results
+  const [remoteJobs, austinJobs] = await Promise.allSettled([
+    scrapeJSearch({
+      query: `remote ${combined} jobs`,
+      workFromHome: true,
+    }),
+    scrapeJSearch({
+      query: `${combined} jobs in Austin`,
+      location: "Austin, United States",
+    }),
+  ]);
+
+  const allJobs = [
+    ...(remoteJobs.status === "fulfilled" ? remoteJobs.value : []),
+    ...(austinJobs.status === "fulfilled" ? austinJobs.value : []),
+  ];
+
+  // Collect warnings for any failed searches
+  const warnings: string[] = [];
+  if (remoteJobs.status === "rejected") warnings.push(`Remote search failed: ${remoteJobs.reason}`);
+  if (austinJobs.status === "rejected") warnings.push(`Austin search failed: ${austinJobs.reason}`);
+
+  // If both failed, report as error
+  if (allJobs.length === 0 && warnings.length === 2) {
+    return { jobsFound: 0, jobsNew: 0, error: warnings.join("; ") };
+  }
+
+  const result = await saveScrapedJobs(allJobs, systemTermId);
   revalidatePath("/");
-  return result;
+  return {
+    ...result,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }
 
 export async function runDribbbleScrape(): Promise<ScraperSaveResult> {
