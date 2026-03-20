@@ -1,5 +1,5 @@
 import { type ScrapedJob } from "./types";
-import { fetchWithTimeout, safeJson, httpError } from "./fetch-utils";
+import { fetchWithTimeout, safeJson, httpError, formatSalary, detectWorkModeFromText } from "./fetch-utils";
 export type { ScrapedJob } from "./types";
 
 const ADZUNA_BASE_URL = "https://api.adzuna.com/v1/api/jobs/us/search";
@@ -19,25 +19,6 @@ interface AdzunaJob {
 interface AdzunaResponse {
   results: AdzunaJob[];
   count: number;
-}
-
-function detectWorkMode(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes("in-person") || lower.includes("on-site") || lower.includes("onsite") || lower.includes("in office")) {
-    return "in-person";
-  }
-  if (lower.includes("hybrid")) {
-    return "hybrid";
-  }
-  return "remote";
-}
-
-function formatSalary(min?: number, max?: number): string {
-  const k = (n: number) => Math.round(n / 1000);
-  if (min && max) return `$${k(min)}-${k(max)}k`;
-  if (min) return `$${k(min)}k+`;
-  if (max) return `up to $${k(max)}k`;
-  return "";
 }
 
 export async function scrapeAdzuna(query = "Product Designer", resultsPerPage = 50): Promise<ScrapedJob[]> {
@@ -68,7 +49,7 @@ export async function scrapeAdzuna(query = "Product Designer", resultsPerPage = 
     companyName: job.company.display_name,
     url: job.redirect_url,
     location: job.location.display_name,
-    workMode: detectWorkMode(job.description + " " + job.title),
+    workMode: detectWorkModeFromText(job.description + " " + job.title),
     postedAt: new Date(job.created),
     salaryRange: formatSalary(job.salary_min, job.salary_max),
     description: job.description,
