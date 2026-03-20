@@ -4,7 +4,6 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## 🔥🔥🔥 High Priority
 
-- [ ] **Salary scoring** — incorporate salary range into the weighted scoring formula
 - [ ] **Location/job type filtering** — reject jobs that can't be applied for (remote-only, wrong location, etc.)
 - [ ] **Status UX improvement** — improve the job status pipeline experience
 - [ ] **Company list manager** — UI to manage Greenhouse/Lever company slugs (currently in `scraper-config.ts`), pre-seeded list
@@ -17,12 +16,10 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - [ ] **Scraper modal progress** — better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
   - [ ] Auto-delete job postings older than 1 week (manual "clean" function or part of scrape flow)
   - [ ] Scrape results summary — show what was pulled after a scrape runs
-  - [ ] Extrapolate hourly rates to yearly salary
 - [ ] **Job detail view** — description, scoring breakdown, location/workMode display, notes, status management
 - [ ] **Application tracking UI** — full status pipeline dropdown, applied date, interview notes (schema already supports this)
 - [ ] **Deployment** — Docker on UNRAID or Vercel subdomain (TBD); migrations on start, persistent DB, CI/CD auto-deploy
 - [ ] **Notifications / digest** — daily summary of new high-score jobs (email or local notification)
-- [ ]
 
 ## 🔥 Lower Priority
 
