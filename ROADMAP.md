@@ -4,27 +4,32 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## 🔥🔥 Medium Priority
 
-- [ ] **Status Sorting** - The status of the application will affect it's sorting in the tablet
-- [ ] **Scraping improvements**
-  - [ ] **Scraper performance** — parallelize Greenhouse (9 slugs) and Lever (10 slugs) API calls with `Promise.allSettled`; refactor Dribbble to accept all queries in a single browser session like WeLoveProduct
-  - [ ] **Scraper modal progress** — better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
-  - [ ] Scrape results summary — show what was pulled after a scrape runs
-- [ ] **Deployment** — Docker on UNRAID or Vercel subdomain (TBD); migrations on start, persistent DB, CI/CD auto-deploy
-- [ ] **Full titles in company page** - Scoring titles should be updated to be full titles, like jobs page
-- [ ] **Misc. UI/UX Improvements**
-  - Update font to Nunito Sans
-  - Make table fully responsive
-  - Job metadata saved (src job board, yearly salary, anything else?)
-  - Number of jobs next to filter instead of next to title
-  - Update color palette
-  - Layout cleanup
-- [ ] **More Job APIs**
+- **UX/UI Improvement Pass 1**
+  - Fully Responsive Table - Full width table that responds gracefully to smaller screens (with breakpoints).
+  - Update to Nunito Sans & Pass at Font Styling
+  - Color Palette Update
+    - Button, Link colors (link should be underlined)
+  - Header Layout cleanup
+- **Manual Deleting** - Bulk delete remains, but each individual job can be deleted. A delete removes a job from the view, but it should also auto-reject those jobs from future scrapes.
+- **Too Far Filter** - A new status will be created called "Too Far", these will be automatically attached to in-person and hybrid jobs outside of Austin. This will be an option in the dropdown, so they can be undone manually.
+- **Old Post Age Status** - Posts older than 7 days still get rejected on scrape, but posts that become too old after they have been scraped are automatically set to a NEW state called "expired."
+- **Modified Date Saved in db** - If a status is changed, there will be a modified date set in db (not exposed to user)
+- [ ] **Status Sorting** - The status of the application will affect it's sorting in the table. 4 Unique collapsible sections (In Progress (sorted by modified date), Backlog (sorted by score), Rejected (sorted by modified date), Too Far (sorted by score)).
+- **Initial Figma MCP Connection** - User can trigger a job that duplicates the generic resume and cover letters and properly renames them in Figma
 
 ## 🔥 Lower Priority
 
 - [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
 - [ ] **Color Accessibility Audit**
 - [ ] **UI Improvements** - Improve layout, styling, colors, make sure all icons are regular and not bold, update import/export icons, improve styles of import modal (monospace font, make it feel more like a terminal)
+- [ ] **Scraping improvements**
+  - [ ] **Scraper performance** — parallelize Greenhouse (9 slugs) and Lever (10 slugs) API calls with `Promise.allSettled`; refactor Dribbble to accept all queries in a single browser session like WeLoveProduct
+  - [ ] **Scraper modal progress** — better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
+  - [ ] Scrape results summary — show what was pulled after a scrape runs
+- [ ] **Deployment** — Docker on UNRAID or Vercel subdomain (TBD); migrations on start, persistent DB, CI/CD auto-deploy
+- [ ] **Full titles in company page** - Scoring titles should be updated to be full titles, like jobs page
+
+- [ ] **More Job APIs**
 
 ## Ideas / Unsure
 

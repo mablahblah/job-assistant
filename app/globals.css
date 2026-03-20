@@ -14,6 +14,8 @@
   --black-90: #3c525f;
   --black-80: #7d99aa;
   --blue-100: #028ee6;
+  --blue-110: #037fcd;
+  --blue-120: #02568a;
   --red-100: #ff6767;
   --green-100: #2de38e;
   --white-100: #ffffff;
@@ -47,6 +49,9 @@
   --color-positive-text: var(--green-100);
 
   /* Controls */
+  --color-control-primary-default: var(--blue-100);
+  --color-control-primary-hover: var(--blue-110);
+  --color-control-primary-active: var(--blue-120);
   --color-control-pill-default: var(--white-90);
   --color-control-pill-hover: var(--white-85);
   --color-control-pill-active: var(--white-75);
@@ -336,6 +341,29 @@ body {
   transition: background 0.1s;
 }
 
+/* Stacked company + role cell */
+.company-role-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.company-role-cell .company-name {
+  color: var(--color-tertiary-text);
+  font-family: "Nunito Sans", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: normal;
+}
+
+.company-role-cell .link {
+  font-family: "Nunito Sans", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: normal;
+}
+
 /* ──────────────────────────────────────
    Scores
    ────────────────────────────────────── */
@@ -364,12 +392,16 @@ body {
    ────────────────────────────────────── */
 
 .link {
-  color: var(--color-accent);
-  text-decoration: none;
+  color: var(--color-control-primary-default);
+  text-decoration: underline;
 }
 
 .link:hover {
-  text-decoration: underline;
+  color: var(--color-control-primary-hover);
+}
+
+.link:active {
+  color: var(--color-control-primary-active);
 }
 
 /* ──────────────────────────────────────
@@ -718,4 +750,49 @@ body {
   font-size: 0.75rem;
   color: var(--color-foreground-muted);
   padding: 0.125rem 0;
+}
+
+/* ──────────────────────────────────────
+   Responsive Breakpoints
+   phone: <768px, tablet: 768–1024px, desktop: 1024–1440px, xl: 1440px+
+   ────────────────────────────────────── */
+
+/* Avg score column hidden by default (visible on phone/tablet only) */
+.col-avg-rating {
+  display: none;
+}
+
+/* Hide status label text below xl — icon-only pill */
+@media (max-width: 1439px) {
+  .status-pill .status-label > span:last-child {
+    display: none;
+  }
+
+  .status-pill {
+    gap: 0;
+    padding: 6px;
+  }
+
+  /* Hide location city text — icon-only with tooltip */
+  .location-text {
+    display: none;
+  }
+}
+
+/* Phone & tablet: merge 5 score columns into 1 avg */
+@media (max-width: 1024px) {
+  .col-rating-individual {
+    display: none;
+  }
+
+  .col-avg-rating {
+    display: table-cell;
+  }
+}
+
+/* Phone: hide posted and salary columns */
+@media (max-width: 767px) {
+  .col-hide-phone {
+    display: none;
+  }
 }
