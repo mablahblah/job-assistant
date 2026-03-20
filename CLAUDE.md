@@ -26,10 +26,10 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Null scores** — all 5 company scores (ES, CS, W/L, PA, Benefits) are nullable. Null displays as "?" in UI, treated as 0 in scoring formula (unscored companies sink to bottom).
 - **Benefits on Company** — benefits is a company-level score, not per-job.
 - **Company persistence** — company entries persist in DB even when no jobs reference them. Manual delete available on companies page.
-- **Scoring scale** — all scores 1–5, weighted formula totals 0–100 with posting age decay.
-  - Weights: ES 25 + CS 15 + W/L 30 + PA 10 + Benefits 20 = 100
-  - Formula: `sum((score ?? 0) / 5 * weight) * ageModifier`, rounded to nearest int
+- **Scoring scale** — all scores 1–5, weighted formula capped at 0–100 with two multipliers (age + salary). Weights are relative — they don't need to sum to 100.
+  - Formula: `sum((score ?? 0) / 5 * weight) * ageModifier * salaryModifier`, rounded to nearest int, capped 0–100
   - Age modifier: 1.0 if ≤3 days old, then decays by 0.05/day, floor 0.5 (posts never lose more than half their score from age)
+  - Salary modifier: ±0.1× per $25k gap from `TARGET_SALARY` (set in `lib/scoring.ts`); neutral 1.0× when salary unknown; hourly annualized ×2080, monthly ×12; no floor/ceiling
 - **Company score import format** — Claude returns a JSON array keyed by `company` (matches DB unique name). All 5 score fields per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
 - **Scraper config** — `lib/scrapers/scraper-config.ts` is the single source of truth for which scrapers run and which Greenhouse/Lever slugs are used. Set `enabled: false` to silently skip a scraper. No UI — edit the file directly.
 - **Shared scraper utilities** — `lib/scrapers/fetch-utils.ts` is the single shared utility layer for all scrapers. New scrapers should import from here rather than rolling their own salary parsing, work mode detection, etc. Domain-specific scraper rules live in `lib/scrapers/CLAUDE.md`.
