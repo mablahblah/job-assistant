@@ -41,6 +41,18 @@ function RatingCell({ value }: { value: number | null }) {
   return <span className={cls}>{value}</span>;
 }
 
+// Averages up to 5 company scores, shows tooltip with individual breakdown
+function AvgRatingCell({ company }: { company: { employeeSatisfaction: number | null; customerSatisfaction: number | null; workLifeBalance: number | null; politicalAlignment: number | null; benefits: number | null } }) {
+  const scores = [company.employeeSatisfaction, company.customerSatisfaction, company.workLifeBalance, company.politicalAlignment, company.benefits];
+  const valid = scores.filter((s): s is number => s !== null);
+  const avg = valid.length > 0 ? Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 10) / 10 : null;
+  const tooltip = `ES: ${company.employeeSatisfaction ?? "?"} · CS: ${company.customerSatisfaction ?? "?"} · W/L: ${company.workLifeBalance ?? "?"} · PA: ${company.politicalAlignment ?? "?"} · Ben: ${company.benefits ?? "?"}`;
+
+  if (avg === null) return <span className="score-none" title={tooltip}>?</span>;
+  const cls = avg >= 4 ? "score-good" : avg >= 3 ? "score-ok" : "score-bad";
+  return <span className={cls} title={tooltip}>{avg}</span>;
+}
+
 
 function WorkModeIcon({ mode }: { mode: string }) {
   if (mode === "remote") return <WifiHighIcon size={24} weight="regular" />;
@@ -107,7 +119,7 @@ export default function JobsTable({
   const hasTerms = searchTerms.length > 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="px-4 py-8">
       <div className="flex items-baseline gap-3 mb-4">
         <h1 className="page-title">Job Assistant</h1>
         <span className="count-text">
@@ -188,32 +200,32 @@ export default function JobsTable({
             <tr>
               <th className="col-score text-left">Score</th>
               <th className="col-status text-center">Status</th>
-              <th className="text-left">Company</th>
               <th className="text-left">Role</th>
               <th className="text-left">Location</th>
-              <th className="text-left">Posted</th>
-              <th className="text-left">Salary</th>
-              <th className="col-rating text-center">
+              <th className="text-left col-hide-phone">Posted</th>
+              <th className="text-left col-hide-phone">Salary</th>
+              <th className="col-rating col-rating-individual text-center">
                 Employee
                 <br />
                 Satisfaction
               </th>
-              <th className="col-rating text-center">
+              <th className="col-rating col-rating-individual text-center">
                 Customer
                 <br />
                 Satisfaction
               </th>
-              <th className="col-rating text-center">
+              <th className="col-rating col-rating-individual text-center">
                 Work / Life
                 <br />
                 Balance
               </th>
-              <th className="col-rating text-center">
+              <th className="col-rating col-rating-individual text-center">
                 Political
                 <br />
                 Alignment
               </th>
-              <th className="col-rating text-center">Benefits</th>
+              <th className="col-rating col-rating-individual text-center">Benefits</th>
+              <th className="col-rating col-avg-rating text-center">Avg.<br />Score</th>
             </tr>
           </thead>
           <tbody>
@@ -229,41 +241,46 @@ export default function JobsTable({
                     onSelect={(s) => handleSetStatus(job.id, s)}
                   />
                 </td>
-                <td className="font-medium">{job.company.name}</td>
                 <td>
-                  <a
-                    href={job.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="link"
-                  >
-                    {job.title}
-                  </a>
-                </td>
-                <td>
-                  <div className="flex items-center gap-1.5">
-                    <WorkModeIcon mode={job.workMode} />
-                    <span className="text-muted">{job.location}</span>
+                  <div className="company-role-cell">
+                    <span className="company-name">{job.company.name}</span>
+                    <a
+                      href={job.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link"
+                    >
+                      {job.title}
+                    </a>
                   </div>
                 </td>
                 <td>
+                  <div className="flex items-center gap-1.5" title={job.location ?? ""}>
+                    <WorkModeIcon mode={job.workMode} />
+                    <span className="text-muted location-text">{job.location}</span>
+                  </div>
+                </td>
+                <td className="col-hide-phone">
                   <RelativeDate date={job.postedAt} />
                 </td>
-                <td className="text-muted">{job.salaryRange}</td>
-                <td className="text-center">
+                <td className="text-muted col-hide-phone">{job.salaryRange}</td>
+                <td className="col-rating-individual text-center">
                   <RatingCell value={job.company.employeeSatisfaction} />
                 </td>
-                <td className="text-center">
+                <td className="col-rating-individual text-center">
                   <RatingCell value={job.company.customerSatisfaction} />
                 </td>
-                <td className="text-center">
+                <td className="col-rating-individual text-center">
                   <RatingCell value={job.company.workLifeBalance} />
                 </td>
-                <td className="text-center">
+                <td className="col-rating-individual text-center">
                   <RatingCell value={job.company.politicalAlignment} />
                 </td>
-                <td className="text-center">
+                <td className="col-rating-individual text-center">
                   <RatingCell value={job.company.benefits} />
+                </td>
+                <td className="col-avg-rating text-center">
+                  <AvgRatingCell company={job.company} />
                 </td>
               </tr>
             ))}
