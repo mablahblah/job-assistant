@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,8 +9,20 @@
    ────────────────────────────────────── */
 
 :root {
+  /* Theme colors */
+  --black-100: #070c0e;
+  --black-90: #3c525f;
+  --black-80: #7d99aa;
+  --blue-100: #028ee6;
+  --red-100: #ff6767;
+  --green-100: #2de38e;
+  --white-100: #ffffff;
+  --white-90: #f0f5f9;
+  --white-85: #e8f2f8;
+  --white-75: #d7e8f4;
+
   /* Palette */
-  --color-bg-primary: #f5f5f5;
+
   --color-bg-secondary: #f7f6e5;
   --color-accent: #c12680;
   --color-accent-hover: #8c0a56;
@@ -21,6 +35,25 @@
   --color-border-light: #e8e3eb;
   --color-white: #ffffff;
 
+  /* Semantic Colors */
+  /* BGs */
+  --color-bg-primary: var(--white-100);
+  /* Text */
+  --color-text: var(--black-100);
+  --color-secondary-text: var(--black-90);
+  --color-tertiary-text: var(--black-80);
+  --color-highlight-text: var(--blue-100);
+  --color-negative-text: var(--red-100);
+  --color-positive-text: var(--green-100);
+
+  /* Controls */
+  --color-control-pill-default: var(--white-90);
+  --color-control-pill-hover: var(--white-85);
+  --color-control-pill-active: var(--white-75);
+  --shadow-control-pill-selected: inset 0 0 0 2px
+    var(--color-control-pill-active);
+  --shadow-dropdown-menu: 0 0.5rem 1rem -0.5rem rgba(0, 0, 0, 0.45);
+
   /* Semantic score colors */
   --color-score-good: #2e8b57;
   --color-score-ok: #c09020;
@@ -30,6 +63,7 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-btn: 8px;
   --radius-full: 9999px;
 }
 
@@ -265,7 +299,7 @@ body {
 .table-container {
   overflow-x: auto;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
+  /* border: 1px solid var(--color-border); */
 }
 
 .table {
@@ -276,9 +310,9 @@ body {
 
 .table th {
   padding: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--color-foreground-muted);
-  background: var(--color-bg-secondary);
+  /* background: var(--color-bg-secondary); */
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
@@ -300,18 +334,6 @@ body {
 .table tbody tr {
   border-bottom: 1px solid var(--color-border-light);
   transition: background 0.1s;
-}
-
-.table tbody tr:hover {
-  background: var(--color-bg-secondary);
-}
-
-.table tbody tr:nth-child(even) {
-  background: rgba(247, 246, 229, 0.3);
-}
-
-.table tbody tr:nth-child(even):hover {
-  background: var(--color-bg-secondary);
 }
 
 /* ──────────────────────────────────────
@@ -397,35 +419,97 @@ body {
 }
 
 /* ──────────────────────────────────────
-   Status cell
+   Status dropdown
    ────────────────────────────────────── */
 
-.status-trigger {
+.status-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.status-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  background: none;
+  gap: 0.5rem;
+  font-family: "Nunito Sans", sans-serif;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 6px 8px;
   border: none;
-  padding: 0;
+  border-radius: var(--radius-btn);
+  background: var(--color-control-pill-default);
+  box-shadow: var(--shadow-control-pill-selected);
   cursor: pointer;
-  color: var(--color-foreground-muted);
-  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
-.status-trigger:hover:not(:disabled) {
-  color: var(--color-foreground);
+.status-pill:hover:not(:disabled) {
+  background: var(--color-control-pill-hover);
 }
 
-.status-trigger:disabled {
+.status-pill:active:not(:disabled) {
+  background: var(--color-control-pill-active);
+}
+
+.status-pill:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+.status-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 1rem 0.25rem 0.25rem 0.25rem;
+  border: none;
+  border-radius: var(--radius-btn);
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-dropdown-menu);
+  list-style: none;
+  margin: 0;
+  min-width: 175px;
+}
 
-.status-select {
+.status-menu-title {
+  font-family: "Nunito Sans", sans-serif;
   font-size: 0.75rem;
-  padding: 0.125rem 0.25rem;
-  width: 6rem;
+  font-weight: 800;
+  line-height: normal;
+  color: var(--color-tertiary-text);
+  padding: 0 0.5rem;
+  text-align: left;
+}
+
+.status-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-btn);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.status-menu-item:hover {
+  background: var(--color-control-pill-hover);
+}
+
+.status-menu-item:active {
+  background: var(--color-control-pill-active);
 }
 
 /* ──────────────────────────────────────
@@ -586,8 +670,12 @@ body {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .scraper-status-text {
@@ -631,4 +719,3 @@ body {
   color: var(--color-foreground-muted);
   padding: 0.125rem 0;
 }
-

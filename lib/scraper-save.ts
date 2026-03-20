@@ -45,7 +45,7 @@ export async function saveScrapedJobs(
             workMode: jobData.workMode,
             postedAt: jobData.postedAt,
             salaryRange: jobData.salaryRange,
-            status: "new",
+            status: "backlog",
           },
         });
         jobsNew++;

@@ -72,7 +72,7 @@ export async function runScraping(): Promise<OrchestratorResult> {
             workMode: jobData.workMode,
             postedAt: jobData.postedAt,
             salaryRange: jobData.salaryRange,
-            status: "new",
+            status: "backlog",
           },
         });
         jobsNew++;

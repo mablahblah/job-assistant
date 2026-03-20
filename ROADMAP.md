@@ -2,13 +2,9 @@
 
 Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
-## 🔥🔥🔥 High Priority
-
-- [ ] **Status UX improvement** — improve the job status pipeline experience
-- [ ] **Ensure Post Age is Relative** - Ensure post age is relative, so a post that was added today would show 1d ago when i look tomorrow (and score )
-
 ## 🔥🔥 Medium Priority
 
+- [ ] **Status Sorting** - The status of the application will affect it's sorting in the tablet
 - [ ] **Scraping improvements**
   - [ ] **Scraper performance** — parallelize Greenhouse (9 slugs) and Lever (10 slugs) API calls with `Promise.allSettled`; refactor Dribbble to accept all queries in a single browser session like WeLoveProduct
   - [ ] **Scraper modal progress** — better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
@@ -19,7 +15,9 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Update font to Nunito Sans
   - Make table fully responsive
   - Job metadata saved (src job board, yearly salary, anything else?)
-- [ ] **Fully Responsive Tables**
+  - Number of jobs next to filter instead of next to title
+  - Update color palette
+  - Layout cleanup
 - [ ] **More Job APIs**
 
 ## 🔥 Lower Priority
