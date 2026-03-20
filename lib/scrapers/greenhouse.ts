@@ -14,6 +14,13 @@ interface GreenhouseResponse {
   jobs: GreenhouseJob[];
 }
 
+// Extract salary range from free-form HTML content (e.g. "$73,000 - $150,000")
+function parseSalary(html: string): string {
+  const pattern = /\$[\d,]+(?:\.\d+)?\s*[-–—to]+\s*\$?[\d,]+(?:\.\d+)?/i;
+  const match = html.match(pattern);
+  return match ? match[0] : "?";
+}
+
 function detectWorkMode(text: string): string {
   const lower = text.toLowerCase();
   if (lower.includes("in-person") || lower.includes("on-site") || lower.includes("onsite") || lower.includes("in office")) {
@@ -50,7 +57,7 @@ export async function scrapeGreenhouseCompany(slug: string, queries: string[]): 
     location: job.location?.name || "",
     workMode: detectWorkMode((job.content || "") + " " + (job.location?.name || "")),
     postedAt: new Date(job.updated_at),
-    salaryRange: "?",
+    salaryRange: parseSalary(job.content || ""),
     description: job.content || "",
   }));
 }

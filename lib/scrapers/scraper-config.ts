@@ -4,9 +4,9 @@ export const SCRAPER_CONFIG = {
   adzuna: { enabled: false },
   jsearch: { enabled: false },
   dribbble: { enabled: false },
-  weloveproduct: { enabled: true },
+  weloveproduct: { enabled: false },
   greenhouse: {
-    enabled: false,
+    enabled: true,
     slugs: [
       "gitlab",
       "hubspot",
@@ -16,7 +16,6 @@ export const SCRAPER_CONFIG = {
       "lyft",
       "dropbox",
       "squarespace",
-      "snap",
       "hellofresh",
     ],
   },
