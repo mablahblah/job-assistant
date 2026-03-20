@@ -16,8 +16,18 @@ interface GreenhouseResponse {
 
 // Extract salary range from free-form HTML content (e.g. "$73,000 - $150,000")
 function parseSalary(html: string): string {
+  // Strip HTML tags and decode common entities so structured markup doesn't break matching
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ");
   const pattern = /\$[\d,]+(?:\.\d+)?\s*[-–—to]+\s*\$?[\d,]+(?:\.\d+)?/i;
-  const match = html.match(pattern);
+  const match = text.match(pattern);
   return match ? match[0] : "?";
 }
 
