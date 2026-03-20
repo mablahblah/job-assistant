@@ -1,5 +1,5 @@
 import { type ScrapedJob } from "./types";
-import { fetchWithTimeout, safeJson, httpError } from "./fetch-utils";
+import { fetchWithTimeout, safeJson, httpError, detectWorkModeFromText, matchesQuery, parseSalaryFromText } from "./fetch-utils";
 
 interface GreenhouseJob {
   id: number;
@@ -14,46 +14,6 @@ interface GreenhouseResponse {
   jobs: GreenhouseJob[];
 }
 
-// Decode HTML entities (handles double-encoded content like &amp;mdash; → &mdash; → —)
-function decodeHtmlEntities(html: string): string {
-  let text = html;
-  // Loop to handle double-encoding (e.g. &amp;mdash; → &mdash; → —)
-  for (let i = 0; i < 3; i++) {
-    const prev = text;
-    text = text
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&mdash;/g, "—")
-      .replace(/&ndash;/g, "–");
-    if (text === prev) break;
-  }
-  return text;
-}
-
-// Extract salary range from free-form HTML content, output as "$XXXk-$XXXk" to match other scrapers
-function parseSalary(html: string): string {
-  // Decode entities first (handles double-encoding), then strip tags
-  const text = decodeHtmlEntities(html)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ");
-  const pattern = /\$([\d,]+)(?:\.\d+)?\s*[-–—to]+\s*\$?([\d,]+)(?:\.\d+)?/i;
-  const match = text.match(pattern);
-  if (!match) return "?";
-  const toK = (s: string) => Math.round(Number(s.replace(/,/g, "")) / 1000);
-  return `$${toK(match[1])}-${toK(match[2])}k`;
-}
-
-function detectWorkMode(text: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes("in-person") || lower.includes("on-site") || lower.includes("onsite") || lower.includes("in office")) {
-    return "in-person";
-  }
-  if (lower.includes("hybrid")) return "hybrid";
-  if (lower.includes("remote")) return "remote";
-  return "";
-}
 
 export async function scrapeGreenhouseCompany(slug: string, queries: string[]): Promise<ScrapedJob[]> {
   const url = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`;
@@ -67,11 +27,7 @@ export async function scrapeGreenhouseCompany(slug: string, queries: string[]): 
   const data = await safeJson<GreenhouseResponse>(res, `Greenhouse/${slug}`);
   if (!data.jobs) return [];
 
-  const lowerQueries = queries.map((q) => q.toLowerCase());
-  const matchingJobs = data.jobs.filter((job) => {
-    const title = job.title.toLowerCase();
-    return lowerQueries.some((q) => title.includes(q));
-  });
+  const matchingJobs = data.jobs.filter((job) => matchesQuery(job.title, queries));
 
   return matchingJobs.map((job) => ({
     externalId: String(job.id),
@@ -79,9 +35,9 @@ export async function scrapeGreenhouseCompany(slug: string, queries: string[]): 
     companyName: slug.charAt(0).toUpperCase() + slug.slice(1),
     url: job.absolute_url,
     location: job.location?.name || "",
-    workMode: detectWorkMode((job.content || "") + " " + (job.location?.name || "")),
+    workMode: detectWorkModeFromText((job.content || "") + " " + (job.location?.name || "")),
     postedAt: new Date(job.updated_at),
-    salaryRange: parseSalary(job.content || ""),
+    salaryRange: parseSalaryFromText(job.content || ""),
     description: job.content || "",
   }));
 }

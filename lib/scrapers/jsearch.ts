@@ -1,5 +1,5 @@
 import { type ScrapedJob } from "./types";
-import { fetchWithTimeout, safeJson, httpError } from "./fetch-utils";
+import { fetchWithTimeout, safeJson, httpError, formatSalary, detectWorkModeFromData } from "./fetch-utils";
 
 interface JSearchJob {
   job_id: string;
@@ -25,18 +25,6 @@ interface JSearchResponse {
 function formatLocation(job: JSearchJob): string {
   const parts = [job.job_city, job.job_state, job.job_country].filter(Boolean);
   return parts.join(", ");
-}
-
-function formatSalary(min?: number, max?: number, period?: string): string {
-  if (!min && !max) return "";
-  const k = (n: number) => Math.round(n / 1000);
-  const isAnnual = !period || period === "YEAR";
-  const fmt = (n: number) => (isAnnual ? `$${k(n)}k` : `$${n}/${period?.toLowerCase()}`);
-
-  if (min && max) return isAnnual ? `$${k(min)}-${k(max)}k` : `${fmt(min)}-${fmt(max)}`;
-  if (min) return `${fmt(min)}+`;
-  if (max) return `up to ${fmt(max)}`;
-  return "";
 }
 
 export async function scrapeJSearch(query = "Product Designer", numPages = 1): Promise<ScrapedJob[]> {
@@ -69,9 +57,9 @@ export async function scrapeJSearch(query = "Product Designer", numPages = 1): P
     companyName: job.employer_name,
     url: job.job_apply_link,
     location: formatLocation(job),
-    workMode: job.job_is_remote ? "remote" : "",
+    workMode: detectWorkModeFromData({ isRemote: job.job_is_remote }),
     postedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : new Date(),
-    salaryRange: formatSalary(job.job_min_salary, job.job_max_salary, job.job_salary_period),
+    salaryRange: formatSalary(job.job_min_salary, job.job_max_salary, job.job_salary_period ?? undefined),
     description: job.job_description || "",
   }));
 }

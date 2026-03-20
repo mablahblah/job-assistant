@@ -1,24 +1,15 @@
-import { chromium } from "playwright";
 import { type ScrapedJob } from "./types";
-
-// Dribbble uses a separate label div for remote/hybrid — check that text first, then fall back to location
-function detectWorkMode(workModeText: string): string {
-  const lower = workModeText.toLowerCase();
-  if (lower.includes("hybrid")) return "hybrid";
-  if (lower.includes("remote")) return "remote";
-  return "in-person";
-}
+import {
+  detectWorkModeFromText,
+  detectWorkModeFromData,
+  formatSalary,
+  parseSalaryFromText,
+  parseJobPostingLD,
+  withBrowser,
+} from "./fetch-utils";
 
 export async function scrapeDribbble(query = "Product Designer"): Promise<ScrapedJob[]> {
-  let browser;
-  try {
-    browser = await chromium.launch({ headless: true });
-  } catch {
-    throw new Error("Browser failed to launch — is Playwright installed? (npx playwright install chromium)");
-  }
-
-  try {
-    const page = await browser.newPage();
+  return withBrowser(async (page) => {
     const url = `https://dribbble.com/jobs?search=${encodeURIComponent(query)}`;
 
     try {
@@ -32,7 +23,8 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
       timeout: 10000,
     }).catch(() => null); // page might have no results
 
-    const jobs = await page.evaluate(() => {
+    // Step 1: collect job stubs from listing page
+    const stubs = await page.evaluate(() => {
       const results: Array<{
         title: string;
         company: string;
@@ -74,18 +66,58 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
       return results;
     });
 
-    return jobs.map((job) => ({
-      externalId: job.id,
-      title: job.title,
-      companyName: job.company || "",
-      url: job.url,
-      location: job.location,
-      workMode: detectWorkMode(job.workModeText),
-      postedAt: new Date(),
-      salaryRange: "?",
-      description: "",
-    }));
-  } finally {
-    await browser.close();
-  }
+    // Step 2: visit each detail page for salary, date, and work mode via JSON-LD
+    const allJobs: ScrapedJob[] = [];
+
+    for (const stub of stubs) {
+      const jobUrl = stub.url.startsWith("http") ? stub.url : `https://dribbble.com${stub.url}`;
+
+      let salary = "?";
+      let postedAt = new Date();
+      // Prefer structured data for work mode, fall back to listing card text, default to in-person
+      let workMode = detectWorkModeFromText(stub.workModeText, "in-person");
+
+      try {
+        await page.goto(jobUrl, { waitUntil: "networkidle", timeout: 15000 });
+
+        // Parse JSON-LD for date and work mode
+        const posting = await parseJobPostingLD(page);
+
+        if (posting.datePosted) postedAt = new Date(posting.datePosted);
+
+        // Structured work mode from JSON-LD overrides listing card text
+        const ldWorkMode = detectWorkModeFromData({
+          jobLocationType: posting.jobLocationType,
+          jobBenefits: posting.jobBenefits,
+        });
+        if (ldWorkMode) workMode = ldWorkMode;
+
+        // Salary from JSON-LD baseSalary (structured) or page text (regex)
+        const baseSalary = posting.baseSalary?.value;
+        if (baseSalary?.minValue || baseSalary?.maxValue) {
+          salary = formatSalary(baseSalary.minValue, baseSalary.maxValue);
+        } else {
+          // Fall back to scraping salary from page text
+          const pageText = await page.evaluate(() => document.body.innerText);
+          salary = parseSalaryFromText(pageText);
+        }
+      } catch {
+        // Detail page failed — still save the job with what we have from the listing
+      }
+
+      allJobs.push({
+        externalId: stub.id,
+        title: stub.title,
+        companyName: stub.company || "",
+        url: jobUrl,
+        location: stub.location,
+        workMode,
+        postedAt,
+        salaryRange: salary,
+        description: "",
+      });
+    }
+
+    return allJobs;
+  });
 }

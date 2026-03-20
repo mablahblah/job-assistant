@@ -1,5 +1,5 @@
 import { type ScrapedJob } from "./types";
-import { fetchWithTimeout, safeJson, httpError } from "./fetch-utils";
+import { fetchWithTimeout, safeJson, httpError, detectWorkModeFromData, detectWorkModeFromText, matchesQuery } from "./fetch-utils";
 
 interface LeverPosting {
   id: string;
@@ -17,19 +17,6 @@ interface LeverPosting {
   workplaceType?: string;
 }
 
-function mapWorkplaceType(type?: string, text?: string): string {
-  if (type === "remote") return "remote";
-  if (type === "hybrid") return "hybrid";
-  if (type === "on-site") return "in-person";
-  if (text) {
-    const lower = text.toLowerCase();
-    if (lower.includes("remote")) return "remote";
-    if (lower.includes("hybrid")) return "hybrid";
-    if (lower.includes("on-site") || lower.includes("onsite") || lower.includes("in-person")) return "in-person";
-  }
-  return "";
-}
-
 export async function scrapeLeverCompany(slug: string, queries: string[]): Promise<ScrapedJob[]> {
   const url = `https://api.lever.co/v0/postings/${slug}?mode=json`;
 
@@ -42,12 +29,9 @@ export async function scrapeLeverCompany(slug: string, queries: string[]): Promi
   const postings = await safeJson<LeverPosting[]>(res, `Lever/${slug}`);
   if (!Array.isArray(postings)) return [];
 
-  const lowerQueries = queries.map((q) => q.toLowerCase());
-  const matchingPostings = postings.filter((posting) => {
-    const title = posting.text.toLowerCase();
-    const team = (posting.categories?.team || "").toLowerCase();
-    return lowerQueries.some((q) => title.includes(q) || team.includes(q));
-  });
+  const matchingPostings = postings.filter((posting) =>
+    matchesQuery(posting.text, queries) || matchesQuery(posting.categories?.team || "", queries)
+  );
 
   return matchingPostings.map((posting) => ({
     externalId: posting.id,
@@ -55,7 +39,8 @@ export async function scrapeLeverCompany(slug: string, queries: string[]): Promi
     companyName: slug.charAt(0).toUpperCase() + slug.slice(1),
     url: posting.hostedUrl,
     location: posting.categories?.location || "",
-    workMode: mapWorkplaceType(posting.workplaceType, posting.descriptionPlain || posting.description || ""),
+    // try structured enum first, fall back to text detection on description
+    workMode: detectWorkModeFromData({ workplaceType: posting.workplaceType }) || detectWorkModeFromText(posting.descriptionPlain || posting.description || ""),
     postedAt: new Date(posting.createdAt),
     salaryRange: "?",
     description: posting.descriptionPlain || posting.description || "",
