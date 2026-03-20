@@ -32,15 +32,17 @@ function decodeHtmlEntities(html: string): string {
   return text;
 }
 
-// Extract salary range from free-form HTML content (e.g. "$73,000 - $150,000")
+// Extract salary range from free-form HTML content, output as "$XXXk-$XXXk" to match other scrapers
 function parseSalary(html: string): string {
   // Decode entities first (handles double-encoding), then strip tags
   const text = decodeHtmlEntities(html)
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ");
-  const pattern = /\$[\d,]+(?:\.\d+)?\s*[-–—to]+\s*\$?[\d,]+(?:\.\d+)?/i;
+  const pattern = /\$([\d,]+)(?:\.\d+)?\s*[-–—to]+\s*\$?([\d,]+)(?:\.\d+)?/i;
   const match = text.match(pattern);
-  return match ? match[0] : "?";
+  if (!match) return "?";
+  const toK = (s: string) => Math.round(Number(s.replace(/,/g, "")) / 1000);
+  return `$${toK(match[1])}-${toK(match[2])}k`;
 }
 
 function detectWorkMode(text: string): string {

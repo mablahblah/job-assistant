@@ -11,7 +11,7 @@ terms.filter(t => !t.query.startsWith("__"))
 
 ## Conventions
 
-- **`salaryRange`** — always use `"?"` when salary is unknown (never empty string). Matches how the UI displays unscored fields.
+- **`salaryRange`** — use `"?"` when salary is unknown (never empty string). When known, format as abbreviated `$XXX-$XXXk` (e.g. `$178-$241k`). See `formatSalary()` helpers in other scrapers.
 - **`workMode`** values — `"remote"`, `"hybrid"`, `"in-person"`, or `""` (unknown). Do not use `"onsite"`.
 
 ## Playwright scrapers: two-pass pattern
