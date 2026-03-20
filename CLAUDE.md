@@ -33,6 +33,9 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Company score import format** — Claude returns a JSON array keyed by `company` (matches DB unique name). All 5 score fields per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
 - **Scraper config** — `lib/scrapers/scraper-config.ts` is the single source of truth for which scrapers run and which Greenhouse/Lever slugs are used. Set `enabled: false` to silently skip a scraper. No UI — edit the file directly.
 - **Shared scraper utilities** — `lib/scrapers/fetch-utils.ts` is the single shared utility layer for all scrapers. New scrapers should import from here rather than rolling their own salary parsing, work mode detection, etc. Domain-specific scraper rules live in `lib/scrapers/CLAUDE.md`.
+- **Two scraper patterns** — scrapers are wired up in one of two ways in `scraper-actions.ts`:
+  - *Per-search-term* (Adzuna, Dribbble): uses `runSearchTermScraper`, called once per user search term, saves under that term's ID.
+  - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs its own fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. Use this pattern when the scraper needs to combine or transform terms (e.g. OR queries, location variants) rather than run them independently.
 - **Testing** — vitest for unit and integration tests. Run `npx vitest` to execute. Scraper integration tests mock `fetchWithTimeout` via `vi.mock`.
 
 ## Tech Stack

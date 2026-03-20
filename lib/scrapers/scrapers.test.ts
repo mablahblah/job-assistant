@@ -127,7 +127,7 @@ describe("scrapeJSearch", () => {
       }],
     }));
 
-    const jobs = await scrapeJSearch();
+    const jobs = await scrapeJSearch({ query: "Product Designer jobs in Austin", location: "Austin, United States" });
     expect(jobs).toHaveLength(1);
     expect(jobs[0]).toEqual({
       externalId: "j-001",
@@ -158,7 +158,7 @@ describe("scrapeJSearch", () => {
       }],
     }));
 
-    const jobs = await scrapeJSearch();
+    const jobs = await scrapeJSearch({ query: "remote Contract Designer jobs", workFromHome: true });
     expect(jobs[0].salaryRange).toBe("$50/hour-$75/hour");
     expect(jobs[0].workMode).toBe("");
   });
@@ -175,7 +175,7 @@ describe("scrapeJSearch", () => {
       }],
     }));
 
-    const jobs = await scrapeJSearch();
+    const jobs = await scrapeJSearch({ query: "Designer jobs in Austin", location: "Austin, United States" });
     expect(jobs[0].salaryRange).toBe("?");
   });
 });
