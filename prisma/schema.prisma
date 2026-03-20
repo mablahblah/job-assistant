@@ -30,7 +30,7 @@ model Job {
   workMode    String      @default("remote") // in-person, hybrid, remote
   postedAt    DateTime
   salaryRange String
-  status      String      @default("new") // new, applied, screened, interviewed, tested, offer, rejected
+  status      String      @default("backlog") // backlog, won't apply, app. sent, rejected, screening, interview, test, offer
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   sources     JobSource[]

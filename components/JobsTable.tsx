@@ -13,13 +13,13 @@ import {
   PlusIcon,
   XIcon,
   TrashIcon,
-  PencilSimpleIcon,
   WifiHighIcon,
   BicycleIcon,
   BuildingOfficeIcon,
   FunnelIcon,
 } from "@phosphor-icons/react";
 import ScraperModal from "@/components/ScraperModal";
+import StatusDropdown from "@/components/StatusDropdown";
 
 function ScoreCell({ score }: { score: number }) {
   const cls =
@@ -41,62 +41,6 @@ function RatingCell({ value }: { value: number | null }) {
   return <span className={cls}>{value}</span>;
 }
 
-const STATUS_OPTIONS = [
-  "new",
-  "applied",
-  "screened",
-  "interviewed",
-  "tested",
-  "offer",
-  "rejected",
-];
-
-function StatusCell({
-  jobId,
-  status,
-  isPending,
-  onSetStatus,
-}: {
-  jobId: string;
-  status: string;
-  isPending: boolean;
-  onSetStatus: (id: string, status: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  if (open) {
-    return (
-      <select
-        className="select status-select"
-        defaultValue={status}
-        disabled={isPending}
-        autoFocus
-        onChange={(e) => {
-          onSetStatus(jobId, e.target.value);
-          setOpen(false);
-        }}
-        onBlur={() => setOpen(false)}
-      >
-        {STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  return (
-    <button
-      className="status-trigger"
-      onClick={() => setOpen(true)}
-      disabled={isPending}
-      aria-label={status}
-    >
-      <PencilSimpleIcon size={24} weight="regular" />
-    </button>
-  );
-}
 
 function WorkModeIcon({ mode }: { mode: string }) {
   if (mode === "remote") return <WifiHighIcon size={24} weight="regular" />;
@@ -279,11 +223,10 @@ export default function JobsTable({
                   <ScoreCell score={job.score} />
                 </td>
                 <td className="text-center">
-                  <StatusCell
-                    jobId={job.id}
+                  <StatusDropdown
                     status={job.status}
-                    isPending={isPending}
-                    onSetStatus={handleSetStatus}
+                    disabled={isPending}
+                    onSelect={(s) => handleSetStatus(job.id, s)}
                   />
                 </td>
                 <td className="font-medium">{job.company.name}</td>
