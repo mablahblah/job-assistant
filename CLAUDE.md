@@ -16,6 +16,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - Roadmap lives in [ROADMAP.md](ROADMAP.md) (read during `/start-feature` and `/ship-feature`). Completed items in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 - Commit work after every completed to-do.
 - Before starting any feature, work through the UX flow, edge cases, and UI decisions conversationally with me. Do not produce a plan or ask for confirmation to proceed — just talk it through until we've covered the problem space together.
+- CLAUDE.md updates should not contain app documentation, rather they should only include guidelines for future work
 
 > Domain-specific rules live in CLAUDE.md files closer to the code (e.g. `components/CLAUDE.md`, `lib/scrapers/CLAUDE.md`). Only record decisions here that are non-obvious and affect consistency across the whole project.
 

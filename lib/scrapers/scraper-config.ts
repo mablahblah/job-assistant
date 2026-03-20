@@ -3,8 +3,8 @@
 export const SCRAPER_CONFIG = {
   adzuna: { enabled: false },
   jsearch: { enabled: false },
-  dribbble: { enabled: true },
-  weloveproduct: { enabled: false },
+  dribbble: { enabled: false },
+  weloveproduct: { enabled: true },
   greenhouse: {
     enabled: false,
     slugs: [
