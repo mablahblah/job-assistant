@@ -125,37 +125,42 @@ export default function CompaniesTable({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-baseline gap-3 mb-4">
         <h1 className="page-title">Companies</h1>
-        <div className="flex items-center gap-3">
-          {isPending && <span className="status-text">Saving...</span>}
-          <label className="flex items-center gap-2 text-muted">
-            <input
-              type="checkbox"
-              checked={filter}
-              onChange={(e) => setFilter(e.target.checked)}
-              className="checkbox"
-            />
-            Missing scores only
-          </label>
-          <div className="divider-v" />
-          <button
-            onClick={handleExport}
-            disabled={!hasExportable}
-            className="btn btn-ghost"
-            title="Export scoring prompt"
-          >
-            <ExportIcon size={20} weight="bold" />
-          </button>
-          <button
-            onClick={() => setShowImport(true)}
-            disabled={!hasExportable}
-            className="btn btn-ghost"
-            title="Import scores from Claude"
-          >
-            <DownloadSimpleIcon size={20} weight="bold" />
-          </button>
-        </div>
+        <span className="count-text">
+          {displayed.length} {displayed.length === 1 ? "company" : "companies"}
+          {filter && ` (${companies.length} total)`}
+        </span>
+        {isPending && <span className="status-text">Saving...</span>}
+      </div>
+
+      <div className="flex items-center justify-end gap-3 mb-6">
+        <label className="flex items-center gap-2 text-muted">
+          <input
+            type="checkbox"
+            checked={filter}
+            onChange={(e) => setFilter(e.target.checked)}
+            className="checkbox"
+          />
+          Missing scores only
+        </label>
+        <div className="divider-v" />
+        <button
+          onClick={handleExport}
+          disabled={!hasExportable}
+          className="btn btn-ghost"
+          title="Export scoring prompt"
+        >
+          <ExportIcon size={20} weight="bold" />
+        </button>
+        <button
+          onClick={() => setShowImport(true)}
+          disabled={!hasExportable}
+          className="btn btn-ghost"
+          title="Import scores from Claude"
+        >
+          <DownloadSimpleIcon size={20} weight="bold" />
+        </button>
       </div>
 
       <div className="table-container">
@@ -215,11 +220,6 @@ export default function CompaniesTable({
           </tbody>
         </table>
       </div>
-
-      <p className="count-text">
-        {displayed.length} {displayed.length === 1 ? "company" : "companies"}
-        {filter && ` (${companies.length} total)`}
-      </p>
 
       {showImport && <ImportScoresModal onClose={() => setShowImport(false)} />}
     </div>
