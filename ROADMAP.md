@@ -4,7 +4,6 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## 🔥🔥🔥 High Priority
 
-- [ ] **Test & tune scrapers** — verify each scraper returns quality results, fix edge cases and failures
 - [ ] **Salary scoring** — incorporate salary range into the weighted scoring formula
 - [ ] **Location/job type filtering** — reject jobs that can't be applied for (remote-only, wrong location, etc.)
 - [ ] **Status UX improvement** — improve the job status pipeline experience
