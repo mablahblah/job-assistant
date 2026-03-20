@@ -79,6 +79,7 @@ export default function StatusDropdown({
         className="status-pill"
         onClick={() => setOpen(!open)}
         disabled={disabled}
+        title={status}
       >
         <StatusLabel icon={STATUS_CONFIG[status]?.icon} label={status} iconColor={STATUS_CONFIG[status]?.color} />
         <CaretDownIcon size={12} weight="bold" />

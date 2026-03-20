@@ -124,7 +124,7 @@ export default function CompaniesTable({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="px-4 py-8">
       <div className="flex items-baseline gap-3 mb-4">
         <h1 className="page-title">Companies</h1>
         <span className="count-text">

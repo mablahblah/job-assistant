@@ -38,6 +38,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
   - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs its own fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. Use this pattern when the scraper needs to combine or transform terms (e.g. OR queries, location variants) rather than run them independently.
 - **Testing** — vitest for unit and integration tests. Run `npx vitest` to execute. Scraper integration tests mock `fetchWithTimeout` via `vi.mock`.
 - **Two-tier CSS tokens** — `globals.css` uses theme colors (`--black-100`, `--white-90`, etc.) mapped to semantic tokens (`--color-text`, `--color-control-pill-default`, etc.). Always add new colors as a theme value first, then reference via a semantic variable. Never use raw hex in component styles.
+- **CSS breakpoints** — phone `<768px`, tablet `768–1024px`, desktop `1024–1440px`, xl `1440px+`. Root font-size: 14px/16px/18px at these breakpoints. All font-size declarations use `em` (not `rem`/`px`) so they scale proportionally.
 
 ## Tech Stack
 
