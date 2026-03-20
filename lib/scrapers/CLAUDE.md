@@ -9,6 +9,20 @@ Scrapers that aren't keyword-based (e.g. Greenhouse, Lever) must link their jobs
 terms.filter(t => !t.query.startsWith("__"))
 ```
 
+## Conventions
+
+- **`salaryRange`** — always use `"?"` when salary is unknown (never empty string). Matches how the UI displays unscored fields.
+- **`workMode`** values — `"remote"`, `"hybrid"`, `"in-person"`, or `""` (unknown). Do not use `"onsite"`.
+
+## Playwright scrapers: two-pass pattern
+
+When a listing page lacks structured data (dates, salary, work mode), use a two-pass approach:
+1. Collect job stubs (title, company, url) from the listing pages
+2. Filter by query first to avoid unnecessary page loads
+3. Visit each matched job's detail page and parse `<script type="application/ld+json">` for accurate `datePosted`, `baseSalary`, `jobBenefits`, `jobLocationType`
+
+WeLoveProduct uses this pattern — see `weloveproduct.ts` for reference.
+
 ## Adding a New Scraper
 
 1. Create `lib/scrapers/<name>.ts` — export a function returning `ScrapedJob[]` (see `types.ts`)
