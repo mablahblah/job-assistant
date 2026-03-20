@@ -14,6 +14,37 @@ interface GreenhouseResponse {
   jobs: GreenhouseJob[];
 }
 
+// Decode HTML entities (handles double-encoded content like &amp;mdash; → &mdash; → —)
+function decodeHtmlEntities(html: string): string {
+  let text = html;
+  // Loop to handle double-encoding (e.g. &amp;mdash; → &mdash; → —)
+  for (let i = 0; i < 3; i++) {
+    const prev = text;
+    text = text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&mdash;/g, "—")
+      .replace(/&ndash;/g, "–");
+    if (text === prev) break;
+  }
+  return text;
+}
+
+// Extract salary range from free-form HTML content, output as "$XXXk-$XXXk" to match other scrapers
+function parseSalary(html: string): string {
+  // Decode entities first (handles double-encoding), then strip tags
+  const text = decodeHtmlEntities(html)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
+  const pattern = /\$([\d,]+)(?:\.\d+)?\s*[-–—to]+\s*\$?([\d,]+)(?:\.\d+)?/i;
+  const match = text.match(pattern);
+  if (!match) return "?";
+  const toK = (s: string) => Math.round(Number(s.replace(/,/g, "")) / 1000);
+  return `$${toK(match[1])}-${toK(match[2])}k`;
+}
+
 function detectWorkMode(text: string): string {
   const lower = text.toLowerCase();
   if (lower.includes("in-person") || lower.includes("on-site") || lower.includes("onsite") || lower.includes("in office")) {
@@ -50,7 +81,7 @@ export async function scrapeGreenhouseCompany(slug: string, queries: string[]): 
     location: job.location?.name || "",
     workMode: detectWorkMode((job.content || "") + " " + (job.location?.name || "")),
     postedAt: new Date(job.updated_at),
-    salaryRange: "?",
+    salaryRange: parseSalary(job.content || ""),
     description: job.content || "",
   }));
 }
