@@ -5,11 +5,12 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 ## 🔥🔥 Medium Priority
 
 - **UX/UI Improvement Pass 1**
-  - Fully Responsive Table - Full width table that responds gracefully to smaller screens (with breakpoints).
-  - Update to Nunito Sans & Pass at Font Styling
+  - [x] Fully Responsive Table - Full width table that responds gracefully to smaller screens (with breakpoints).
+  - [x] Update to Nunito Sans & Pass at Font Styling
   - Color Palette Update
     - Button, Link colors (link should be underlined)
   - Header Layout cleanup
+  - Dialog UI Updates
 - **Manual Deleting** - Bulk delete remains, but each individual job can be deleted. A delete removes a job from the view, but it should also auto-reject those jobs from future scrapes.
 - **Too Far Filter** - A new status will be created called "Too Far", these will be automatically attached to in-person and hybrid jobs outside of Austin. This will be an option in the dropdown, so they can be undone manually.
 - **Old Post Age Status** - Posts older than 7 days still get rejected on scrape, but posts that become too old after they have been scraped are automatically set to a NEW state called "expired."
