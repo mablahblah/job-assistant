@@ -4,11 +4,8 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## 🔥🔥 Medium Priority
 
-- **UX/UI Improvement Pass 1**
-  - [x] Fully Responsive Table - Full width table that responds gracefully to smaller screens (with breakpoints).
-  - [x] Update to Nunito Sans & Pass at Font Styling
-  - Color Palette Update
-    - Button, Link colors (link should be underlined)
+- **UX/UI Improvement Pass 2**
+  - Color Palette Update — audit and reconcile old purple/pink palette to new blue/neutral theme tokens; button + link colors
   - Header Layout cleanup
   - Dialog UI Updates
 - **Manual Deleting** - Bulk delete remains, but each individual job can be deleted. A delete removes a job from the view, but it should also auto-reject those jobs from future scrapes.
