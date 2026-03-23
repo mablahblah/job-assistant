@@ -4,13 +4,12 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 # MVP
 
+- [ ] **Scraper modal cleanup**
+
 ## As a user I can scrape the ideal job boards so I don't have to manually seek out jobs on said boards
 
 - [ ] **Scraping improvements**
-  - [ ] **Scraper modal progress**
-    - Updated UI - More like a terminal. bg color, monospace font, typing animation
-    - More clear feedback, more verbose output
-      better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
+  - [ ] Better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
 
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
@@ -33,6 +32,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Color Palette Update — audit and reconcile old purple/pink palette to new blue/neutral theme tokens; button + link colors
   - Header Layout cleanup
   - Separate column for type... include label on xl desktops and tooltip on smaller screens
+  - Spacing tokens take a pass at spacing / layout for everything
 - **Expand List of Scrapers**
 - **Code redundancy cleanup** _(found in audit)_
   - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant

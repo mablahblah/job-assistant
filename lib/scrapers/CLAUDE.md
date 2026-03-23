@@ -1,3 +1,9 @@
+# OpenWolf
+
+@.wolf/OPENWOLF.md
+
+This project uses OpenWolf for context management. Read and follow .wolf/OPENWOLF.md every session. Check .wolf/cerebrum.md before generating code. Check .wolf/anatomy.md before reading files.
+
 # Scrapers — Rules & Conventions
 
 ## System SearchTerms
@@ -5,8 +11,9 @@
 Scrapers that aren't keyword-based (e.g. Greenhouse, Lever) must link their jobs to an auto-created system SearchTerm using `getOrCreateSystemTerm(name)` from `lib/scraper-save.ts`. These terms are prefixed with `__` (e.g. `__greenhouse__`) and are never shown in the UI.
 
 **Important:** Always filter system terms in JavaScript, not via Prisma query. The libsql adapter does not support Prisma's `startsWith` filter. Use:
+
 ```ts
-terms.filter(t => !t.query.startsWith("__"))
+terms.filter((t) => !t.query.startsWith("__"));
 ```
 
 ## Conventions
@@ -17,6 +24,7 @@ terms.filter(t => !t.query.startsWith("__"))
 ## Playwright scrapers: two-pass pattern
 
 When a listing page lacks structured data (dates, salary, work mode), use a two-pass approach:
+
 1. Collect job stubs (title, company, url) from the listing pages
 2. Filter by query first to avoid unnecessary page loads
 3. Visit each matched job's detail page and parse `<script type="application/ld+json">` for accurate `datePosted`, `baseSalary`, `jobBenefits`, `jobLocationType`
