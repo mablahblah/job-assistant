@@ -9,6 +9,7 @@ import { scrapeGreenhouseCompany } from "@/lib/scrapers/greenhouse";
 import { scrapeLeverCompany } from "@/lib/scrapers/lever";
 import { scrapeDribbble } from "@/lib/scrapers/dribbble";
 import { scrapeWeLoveProduct } from "@/lib/scrapers/weloveproduct";
+import { SCRAPER_CONFIG } from "@/lib/scrapers/scraper-config";
 
 // Get user search terms (excludes system terms starting with __)
 async function getUserSearchTerms() {
@@ -125,28 +126,92 @@ export async function runWeLoveProductScrape(): Promise<ScraperSaveResult> {
   return result;
 }
 
-export async function runGreenhouseCompanyScrape(slug: string): Promise<ScraperSaveResult> {
+// Scrape all Greenhouse companies in parallel using Promise.allSettled
+export async function runGreenhouseAllScrape(): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
     return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
   }
 
   const systemTermId = await getOrCreateSystemTerm("greenhouse");
-  const jobs = await scrapeGreenhouseCompany(slug, queries);
-  const result = await saveScrapedJobs(jobs, systemTermId);
+  const slugs = SCRAPER_CONFIG.greenhouse.slugs;
+
+  // Fetch all companies in parallel
+  const results = await Promise.allSettled(
+    slugs.map((slug) => scrapeGreenhouseCompany(slug, queries))
+  );
+
+  let totalFound = 0;
+  let totalNew = 0;
+  const warnings: string[] = [];
+
+  // Save results sequentially to avoid DB conflicts
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const slug = slugs[i];
+    if (result.status === "fulfilled") {
+      const saved = await saveScrapedJobs(result.value, systemTermId);
+      totalFound += saved.jobsFound;
+      totalNew += saved.jobsNew;
+    } else {
+      const msg = result.reason instanceof Error ? result.reason.message : "Unknown error";
+      warnings.push(`${slug}: ${msg}`);
+    }
+  }
+
   revalidatePath("/");
-  return result;
+
+  if (warnings.length === slugs.length) {
+    return { jobsFound: 0, jobsNew: 0, error: "All companies failed" };
+  }
+
+  return {
+    jobsFound: totalFound,
+    jobsNew: totalNew,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }
 
-export async function runLeverCompanyScrape(slug: string): Promise<ScraperSaveResult> {
+// Scrape all Lever companies in parallel using Promise.allSettled
+export async function runLeverAllScrape(): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
     return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
   }
 
   const systemTermId = await getOrCreateSystemTerm("lever");
-  const jobs = await scrapeLeverCompany(slug, queries);
-  const result = await saveScrapedJobs(jobs, systemTermId);
+  const slugs = SCRAPER_CONFIG.lever.slugs;
+
+  const results = await Promise.allSettled(
+    slugs.map((slug) => scrapeLeverCompany(slug, queries))
+  );
+
+  let totalFound = 0;
+  let totalNew = 0;
+  const warnings: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const slug = slugs[i];
+    if (result.status === "fulfilled") {
+      const saved = await saveScrapedJobs(result.value, systemTermId);
+      totalFound += saved.jobsFound;
+      totalNew += saved.jobsNew;
+    } else {
+      const msg = result.reason instanceof Error ? result.reason.message : "Unknown error";
+      warnings.push(`${slug}: ${msg}`);
+    }
+  }
+
   revalidatePath("/");
-  return result;
+
+  if (warnings.length === slugs.length) {
+    return { jobsFound: 0, jobsNew: 0, error: "All companies failed" };
+  }
+
+  return {
+    jobsFound: totalFound,
+    jobsNew: totalNew,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }
