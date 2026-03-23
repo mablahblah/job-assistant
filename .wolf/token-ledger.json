@@ -2,16 +2,656 @@
   "version": 1,
   "created_at": "2026-03-23T22:18:26.734Z",
   "lifetime": {
-    "total_tokens_estimated": 0,
-    "total_reads": 0,
-    "total_writes": 0,
-    "total_sessions": 0,
-    "anatomy_hits": 0,
-    "anatomy_misses": 0,
-    "repeated_reads_blocked": 0,
-    "estimated_savings_vs_bare_cli": 0
+    "total_tokens_estimated": 72033,
+    "total_reads": 44,
+    "total_writes": 39,
+    "total_sessions": 2,
+    "anatomy_hits": 33,
+    "anatomy_misses": 11,
+    "repeated_reads_blocked": 14,
+    "estimated_savings_vs_bare_cli": 53823
   },
-  "sessions": [],
+  "sessions": [
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:27:20.077Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1237,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:31:27.654Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 4923,
+        "output_tokens_estimated": 0,
+        "reads_count": 2,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 2
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:32:02.786Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 5181,
+        "output_tokens_estimated": 0,
+        "reads_count": 3,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:37:00.456Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 5181,
+        "output_tokens_estimated": 0,
+        "reads_count": 3,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:38:37.098Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 5181,
+        "output_tokens_estimated": 0,
+        "reads_count": 3,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:39:33.447Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 5181,
+        "output_tokens_estimated": 0,
+        "reads_count": 3,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:40:46.678Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 5181,
+        "output_tokens_estimated": 0,
+        "reads_count": 3,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:44:04.516Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 3686,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.d.ts",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/refresh.ts",
+          "tokens_estimated": 69,
+          "action": "create"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 5181,
+        "output_tokens_estimated": 69,
+        "reads_count": 5,
+        "writes_count": 1,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:50:20.131Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4293,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.d.ts",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 4404,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/refresh.ts",
+          "tokens_estimated": 69,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 236,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 72,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 113,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 23,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 5,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 281,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 427,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 12,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 29,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 11,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 10192,
+        "output_tokens_estimated": 1282,
+        "reads_count": 7,
+        "writes_count": 12,
+        "repeated_reads_blocked": 4,
+        "anatomy_lookups": 4
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:52:26.700Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4293,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.d.ts",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 4404,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/refresh.ts",
+          "tokens_estimated": 69,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 236,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 72,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 113,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 23,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 5,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 281,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 427,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 12,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 29,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 11,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 148,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 10192,
+        "output_tokens_estimated": 1430,
+        "reads_count": 7,
+        "writes_count": 13,
+        "repeated_reads_blocked": 5,
+        "anatomy_lookups": 4
+      }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:53:12.267Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4293,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.d.ts",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 4404,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/refresh.ts",
+          "tokens_estimated": 69,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 236,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 72,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 113,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 23,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 5,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 281,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 427,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 12,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 29,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 11,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 148,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 10192,
+        "output_tokens_estimated": 1430,
+        "reads_count": 7,
+        "writes_count": 13,
+        "repeated_reads_blocked": 5,
+        "anatomy_lookups": 4
+      }
+    }
+  ],
   "daemon_usage": [],
   "waste_flags": [],
   "optimization_report": {

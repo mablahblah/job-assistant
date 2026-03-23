@@ -4,19 +4,16 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 # MVP
 
-- [ ] **Scraper modal cleanup**
+-
 
 ## As a user I can scrape the ideal job boards so I don't have to manually seek out jobs on said boards
-
-- [ ] **Scraping improvements**
-  - [ ] Better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
 
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
 - [ ] - **Logfile** - Any change, scrape, user action, etc will be logged in a logfile (as well as trigger a console message).
 - [ ] - **Modified Date Saved in db** - If a status is changed, there will be a modified date set in db (not exposed to user).
 - [ ] **Status Sorting** - The status of the application will affect it's sorting in the table. 4 Unique collapsible sections (In Progress (sorted by modified date), Backlog (sorted by score), Rejected (sorted by modified date), Too Far (sorted by score)).
-- [ ] - **\*Too Far Filter** - A new status will be created called "Too Far", these will be automatically attached to in-person and hybrid jobs outside of Austin. This will be an option in the dropdown, so they can be undone manually.
+- [ ] - **Too Far Filter** - A new status will be created called "Too Far", these will be automatically attached to in-person and hybrid jobs outside of Austin. This will be an option in the dropdown, so they can be undone manually.
 - [ ] - **Manual Deleting** - Bulk delete remains, but each individual job can be deleted. A delete removes a job from the view, but it should also auto-reject those jobs from future scrapes.
 - [ ] - **Old Post Age Status** - Posts older than 7 days still get rejected on scrape, but posts that become too old after they have been scraped are automatically set to a NEW state called "expired."
 
@@ -33,6 +30,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Header Layout cleanup
   - Separate column for type... include label on xl desktops and tooltip on smaller screens
   - Spacing tokens take a pass at spacing / layout for everything
+  - tune terminal modal styling (icon sizes, spacing, colors, layout, etc...)
 - **Expand List of Scrapers**
 - **Code redundancy cleanup** _(found in audit)_
   - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant
