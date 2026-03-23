@@ -13,8 +13,8 @@ import {
   runJSearchScrape,
   runDribbbleScrape,
   runWeLoveProductScrape,
-  runGreenhouseCompanyScrape,
-  runLeverCompanyScrape,
+  runGreenhouseAllScrape,
+  runLeverAllScrape,
 } from "@/app/scraper-actions";
 import { SCRAPER_CONFIG } from "@/lib/scrapers/scraper-config";
 
@@ -28,11 +28,8 @@ interface ScraperRowState {
   jobsNew: number;
   error?: string;
   warnings?: string[];
-  // Company-based scrapers
-  currentCompany?: string;
-  companyIndex?: number;
+  // Company-based scrapers — total shown during "searching" state
   companyTotal?: number;
-  companyErrors?: string[];
 }
 
 // Only include enabled scrapers — disabled ones are silently skipped
@@ -45,7 +42,6 @@ const INITIAL_SCRAPERS: ScraperRowState[] = [
     status: "idle" as const,
     jobsFound: 0,
     jobsNew: 0,
-    companyIndex: 0,
     companyTotal: SCRAPER_CONFIG.greenhouse.slugs.length,
   },
   SCRAPER_CONFIG.lever.enabled && {
@@ -54,7 +50,6 @@ const INITIAL_SCRAPERS: ScraperRowState[] = [
     status: "idle" as const,
     jobsFound: 0,
     jobsNew: 0,
-    companyIndex: 0,
     companyTotal: SCRAPER_CONFIG.lever.slugs.length,
   },
   SCRAPER_CONFIG.dribbble.enabled && { id: "dribbble", name: "Dribbble", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
@@ -107,54 +102,13 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
       }
     }
 
-    // Company-based scrapers: cycle through slugs, track per-company failures
-    async function runCompanyScraper(
-      id: string,
-      slugs: string[],
-      action: (slug: string) => Promise<{ jobsFound: number; jobsNew: number; error?: string }>
-    ) {
-      updateScraper(id, { status: "searching", companyIndex: 0 });
-      let totalFound = 0;
-      let totalNew = 0;
-      const companyErrors: string[] = [];
-
-      for (let i = 0; i < slugs.length; i++) {
-        const slug = slugs[i];
-        const displayName = slug.charAt(0).toUpperCase() + slug.slice(1);
-        updateScraper(id, { currentCompany: displayName, companyIndex: i + 1 });
-
-        try {
-          const result = await action(slug);
-          if (result.error) {
-            // Server returned an error (e.g. no search terms) — applies to all companies
-            updateScraper(id, { status: "error", error: result.error, currentCompany: undefined });
-            return;
-          }
-          totalFound += result.jobsFound;
-          totalNew += result.jobsNew;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Unknown error";
-          companyErrors.push(`${displayName}: ${msg}`);
-        }
-      }
-
-      const hasErrors = companyErrors.length > 0;
-      updateScraper(id, {
-        status: hasErrors && totalFound === 0 ? "error" : hasErrors ? "warning" : "success",
-        jobsFound: totalFound,
-        jobsNew: totalNew,
-        currentCompany: undefined,
-        companyErrors: hasErrors ? companyErrors : undefined,
-        error: hasErrors && totalFound === 0 ? `All companies failed` : undefined,
-      });
-    }
-
     if (SCRAPER_CONFIG.adzuna.enabled) runSimpleScraper("adzuna", runAdzunaScrape);
     if (SCRAPER_CONFIG.jsearch.enabled) runSimpleScraper("jsearch", runJSearchScrape);
     if (SCRAPER_CONFIG.dribbble.enabled) runSimpleScraper("dribbble", runDribbbleScrape);
     if (SCRAPER_CONFIG.weloveproduct.enabled) runSimpleScraper("weloveproduct", runWeLoveProductScrape);
-    if (SCRAPER_CONFIG.greenhouse.enabled) runCompanyScraper("greenhouse", [...SCRAPER_CONFIG.greenhouse.slugs], runGreenhouseCompanyScrape);
-    if (SCRAPER_CONFIG.lever.enabled) runCompanyScraper("lever", [...SCRAPER_CONFIG.lever.slugs], runLeverCompanyScrape);
+    // Greenhouse + Lever now run all companies in parallel server-side
+    if (SCRAPER_CONFIG.greenhouse.enabled) runSimpleScraper("greenhouse", runGreenhouseAllScrape);
+    if (SCRAPER_CONFIG.lever.enabled) runSimpleScraper("lever", runLeverAllScrape);
   }, []);
 
   const allDone = scrapers.every(
@@ -195,9 +149,7 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
 
 function ScraperRow({ scraper }: { scraper: ScraperRowState }) {
   const [expanded, setExpanded] = useState(false);
-  const hasDetails =
-    (scraper.warnings && scraper.warnings.length > 0) ||
-    (scraper.companyErrors && scraper.companyErrors.length > 0);
+  const hasDetails = scraper.warnings && scraper.warnings.length > 0;
 
   return (
     <div>
@@ -216,9 +168,6 @@ function ScraperRow({ scraper }: { scraper: ScraperRowState }) {
         <div className="scraper-details">
           {scraper.warnings?.map((w, i) => (
             <div key={i} className="scraper-detail-line">{w}</div>
-          ))}
-          {scraper.companyErrors?.map((e, i) => (
-            <div key={i} className="scraper-detail-line">{e}</div>
           ))}
         </div>
       )}
@@ -247,10 +196,11 @@ function ScraperStatusText({
   if (scraper.status === "idle") return null;
 
   if (scraper.status === "searching") {
-    if (scraper.companyTotal && scraper.currentCompany) {
+    // Company-based scrapers show how many companies are being searched in parallel
+    if (scraper.companyTotal) {
       return (
         <span className="scraper-status-text">
-          ({scraper.companyIndex}/{scraper.companyTotal}) Searching {scraper.currentCompany}...
+          Searching {scraper.companyTotal} companies...
         </span>
       );
     }
