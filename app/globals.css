@@ -690,11 +690,9 @@ body {
   color: var(--color-warning-text);
 }
 
-/* Spinner icon in terminal rows */
-.terminal-spinner {
+/* Lottie animation wrapper in terminal rows */
+.terminal-row > div:first-child {
   flex-shrink: 0;
-  animation: spin 0.8s linear infinite;
-  color: var(--color-highlight-text);
 }
 
 /* Result icons */
@@ -711,15 +709,6 @@ body {
 .terminal-icon-warning {
   flex-shrink: 0;
   color: var(--color-warning-text);
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Blinking cursor after typed text */

@@ -3,11 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import {
   XIcon,
-  SpinnerIcon,
   CheckCircleIcon,
   WarningIcon,
-  WarningCircleIcon,
+  WarningOctagonIcon,
 } from "@phosphor-icons/react";
+import UseAnimations from "react-useanimations";
+import {
+  loading,
+  refresh,
+  maximizeMinimize,
+  filter,
+  edit,
+} from "@/lib/animations";
 import {
   runAdzunaScrape,
   runJSearchScrape,
@@ -156,7 +163,7 @@ const PROCESSING_STAGE_MS = 4000; // min 4s per processing sub-stage
 
 export default function ScraperModal({ onClose }: { onClose: () => void }) {
   const [rows, setRows] = useState<TerminalRow[]>([]);
-  const [loading, setLoading] = useState(true); // loading search terms
+  const [termsLoading, setTermsLoading] = useState(true); // loading search terms
   const started = useRef(false);
   // Store scraper results keyed by scraperId — rows check this to transition
   const scraperResults = useRef<Record<string, ScraperSaveResult>>({});
@@ -178,7 +185,7 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
     async function init() {
       const terms = await getSearchTermsAction();
       if (terms.length === 0) {
-        setLoading(false);
+        setTermsLoading(false);
         return;
       }
 
@@ -206,7 +213,7 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
       }
 
       setRows(terminalRows);
-      setLoading(false);
+      setTermsLoading(false);
 
       // Fire all scrapers immediately in the background
       for (const scraper of scrapers) {
@@ -360,17 +367,19 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="terminal-body" ref={terminalRef}>
-          {loading && (
+          {termsLoading && (
             <div className="terminal-row">
-              <SpinnerIcon
+              <UseAnimations
+                animation={loading}
                 size={14}
-                weight="bold"
-                className="terminal-spinner"
+                loop
+                autoplay
+                strokeColor="var(--color-highlight-text)"
               />
               <span className="terminal-row-text">Loading search terms...</span>
             </div>
           )}
-          {!loading && rows.length === 0 && (
+          {!termsLoading && rows.length === 0 && (
             <span className="terminal-row-text">
               No search terms configured.
             </span>
@@ -402,36 +411,63 @@ function TerminalRowLine({ row }: { row: TerminalRow }) {
   const isTyping = row.phase === "typing";
   const isDone = row.phase === "done";
 
-  // Pick the right icon
-  let icon = (
-    <SpinnerIcon size={14} weight="bold" className="terminal-spinner" />
-  );
+  // Pick the right icon — Lottie animations for in-progress, Phosphor fill icons for done
+  const ICON_SIZE = 14;
+  // Map processing stages to their corresponding Lottie animations
+  const processingAnimations = [refresh, maximizeMinimize, filter, edit];
+
+  let icon: React.ReactNode;
   if (isDone && row.result) {
     if (row.result.error) {
       icon = (
-        <WarningCircleIcon
-          size={14}
-          weight="bold"
+        <WarningOctagonIcon
+          size={ICON_SIZE}
+          weight="fill"
           className="terminal-icon-error"
         />
       );
     } else if (row.result.warnings && row.result.warnings.length > 0) {
       icon = (
         <WarningIcon
-          size={14}
-          weight="bold"
+          size={ICON_SIZE}
+          weight="fill"
           className="terminal-icon-warning"
         />
       );
     } else {
       icon = (
         <CheckCircleIcon
-          size={14}
-          weight="bold"
+          size={ICON_SIZE}
+          weight="fill"
           className="terminal-icon-success"
         />
       );
     }
+  } else if (row.phase === "processing") {
+    // Each processing stage gets its own animation
+    const anim = processingAnimations[row.processingStage] ?? refresh;
+    icon = (
+      <UseAnimations
+        key={`${row.id}-stage-${row.processingStage}`}
+        animation={anim}
+        size={ICON_SIZE}
+        loop
+        autoplay
+        strokeColor="var(--color-highlight-text)"
+      />
+    );
+  } else {
+    // typing / waiting — circular loading animation
+    icon = (
+      <UseAnimations
+        key={`${row.id}-searching`}
+        animation={loading}
+        size={ICON_SIZE}
+        loop
+        autoplay
+        strokeColor="var(--color-highlight-text)"
+      />
+    );
   }
 
   // Pick text color class
