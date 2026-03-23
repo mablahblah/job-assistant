@@ -1,4 +1,12 @@
-Perform a security audit of the codebase. Check for:
+Perform a full audit of the codebase covering security, code quality, and consistency.
+
+## 1. Lint (automated)
+
+Run `npx eslint . --max-warnings 0` and report the results. If ESLint is not configured, note that and skip to the next sections.
+
+## 2. Security
+
+Check for:
 
 1. **Environment/secrets** — hardcoded secrets, API keys, or credentials in source code; .env in .gitignore
 2. **SQL injection / Prisma safety** — raw SQL queries or unsafe Prisma usage
@@ -11,4 +19,16 @@ Perform a security audit of the codebase. Check for:
 9. **Headers/CORS** — custom headers, security headers middleware
 10. **Auth** — authentication/authorization mechanisms or lack thereof
 
-Present findings as a summary table (category, status, risk level) followed by prioritised action items.
+## 3. Code health (LLM review)
+
+Read through the codebase and flag:
+
+1. **Redundancy** — duplicate logic, copy-pasted code that should be a shared helper
+2. **Dead code** — unused functions, exports, imports, unreachable branches
+3. **Pattern drift** — violations of CLAUDE.md conventions (e.g. raw hex instead of CSS tokens, `rem`/`px` instead of `em`, Tailwind used for colors, missing eli5 comments)
+4. **Inconsistency** — naming, file structure, or architectural patterns that diverge from the rest of the codebase
+5. **Simplification opportunities** — overly complex code that could be cleaner
+
+## Output
+
+Present findings as a summary table (section, category, status, severity) followed by prioritised action items.

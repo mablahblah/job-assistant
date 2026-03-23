@@ -30,4 +30,7 @@ VOLUME ["/app/prisma"]
 EXPOSE 3000
 ENV PORT=3000
 
+# Run as non-root user for security (node user is built into the alpine image)
+USER node
+
 CMD ["node", "server.js"]

@@ -1,10 +1,10 @@
 // Central config for all scrapers — set enabled: false to skip during Scrape All
 
 export const SCRAPER_CONFIG = {
-  adzuna: { enabled: true },
-  jsearch: { enabled: true },
-  dribbble: { enabled: true },
-  weloveproduct: { enabled: true },
+  adzuna: { enabled: false },
+  jsearch: { enabled: false },
+  dribbble: { enabled: false },
+  weloveproduct: { enabled: false },
   greenhouse: {
     enabled: true,
     slugs: [
