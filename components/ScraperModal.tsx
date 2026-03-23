@@ -15,106 +15,339 @@ import {
   runWeLoveProductScrape,
   runGreenhouseAllScrape,
   runLeverAllScrape,
+  getSearchTermsAction,
 } from "@/app/scraper-actions";
 import { SCRAPER_CONFIG } from "@/lib/scrapers/scraper-config";
+import type { ScraperSaveResult } from "@/lib/scraper-save";
 
-type ScraperStatus = "idle" | "searching" | "success" | "warning" | "error";
+// --- Types ---
 
-interface ScraperRowState {
+// Each scraper that can run
+interface ScraperDef {
   id: string;
   name: string;
-  status: ScraperStatus;
-  jobsFound: number;
-  jobsNew: number;
-  error?: string;
-  warnings?: string[];
-  // Company-based scrapers — total shown during "searching" state
-  companyTotal?: number;
+  action: () => Promise<ScraperSaveResult>;
 }
 
-// Only include enabled scrapers — disabled ones are silently skipped
-const INITIAL_SCRAPERS: ScraperRowState[] = [
-  SCRAPER_CONFIG.adzuna.enabled && { id: "adzuna", name: "Adzuna", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
-  SCRAPER_CONFIG.jsearch.enabled && { id: "jsearch", name: "JSearch", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
-  SCRAPER_CONFIG.greenhouse.enabled && {
-    id: "greenhouse",
-    name: "Greenhouse",
-    status: "idle" as const,
-    jobsFound: 0,
-    jobsNew: 0,
-    companyTotal: SCRAPER_CONFIG.greenhouse.slugs.length,
-  },
-  SCRAPER_CONFIG.lever.enabled && {
-    id: "lever",
-    name: "Lever",
-    status: "idle" as const,
-    jobsFound: 0,
-    jobsNew: 0,
-    companyTotal: SCRAPER_CONFIG.lever.slugs.length,
-  },
-  SCRAPER_CONFIG.dribbble.enabled && { id: "dribbble", name: "Dribbble", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
-  SCRAPER_CONFIG.weloveproduct.enabled && { id: "weloveproduct", name: "We Love Product", status: "idle" as const, jobsFound: 0, jobsNew: 0 },
-].filter(Boolean) as ScraperRowState[];
+// Lifecycle phase for a single terminal row
+type RowPhase =
+  | "hidden" // not yet visible
+  | "typing" // typewriter animation for "Searching..." text
+  | "waiting" // fully typed, waiting for real scraper result
+  | "processing" // cycling through processing sub-stages (0-3)
+  | "done"; // final result displayed
 
-export default function ScraperModal({ onClose }: { onClose: () => void }) {
-  const [scrapers, setScrapers] = useState<ScraperRowState[]>(INITIAL_SCRAPERS);
-  const started = useRef(false);
+// A single line in the terminal
+interface TerminalRow {
+  id: string; // unique: `${scraperId}-${termIndex}`
+  scraperId: string;
+  scraperName: string;
+  termQuery: string; // the user's search term
+  phase: RowPhase;
+  typedChars: number; // how many chars of search text are visible
+  processingStage: number; // 0-3 during processing phase
+  result: ScraperSaveResult | null;
+  isLastForScraper: boolean; // only the last row per scraper shows job count
+  appearedAt: number; // timestamp when row first became visible (for min search duration)
+  stageEnteredAt: number; // timestamp when current processing stage started (for min stage duration)
+}
 
-  function updateScraper(id: string, update: Partial<ScraperRowState>) {
-    setScrapers((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...update } : s))
+// --- Constants ---
+
+// Build the list of enabled scrapers with their server actions
+function getEnabledScrapers(): ScraperDef[] {
+  return [
+    SCRAPER_CONFIG.adzuna.enabled && {
+      id: "adzuna",
+      name: "Adzuna",
+      action: runAdzunaScrape,
+    },
+    SCRAPER_CONFIG.jsearch.enabled && {
+      id: "jsearch",
+      name: "JSearch",
+      action: runJSearchScrape,
+    },
+    SCRAPER_CONFIG.greenhouse.enabled && {
+      id: "greenhouse",
+      name: "Greenhouse",
+      action: runGreenhouseAllScrape,
+    },
+    SCRAPER_CONFIG.lever.enabled && {
+      id: "lever",
+      name: "Lever",
+      action: runLeverAllScrape,
+    },
+    SCRAPER_CONFIG.dribbble.enabled && {
+      id: "dribbble",
+      name: "Dribbble",
+      action: runDribbbleScrape,
+    },
+    SCRAPER_CONFIG.weloveproduct.enabled && {
+      id: "weloveproduct",
+      name: "We Love Product",
+      action: runWeLoveProductScrape,
+    },
+  ].filter(Boolean) as ScraperDef[];
+}
+
+// Processing phase display text (stage 0-3)
+function getProcessingText(
+  scraperName: string,
+  termQuery: string,
+  stage: number,
+): string {
+  switch (stage) {
+    case 0:
+      return `Processing ${scraperName} results for ${termQuery}`;
+    case 1:
+      return `Deduplicating ${scraperName} results for ${termQuery}`;
+    case 2:
+      return `Filtering out non-remote jobs outside of Austin`;
+    case 3:
+      return `Scoring results`;
+    default:
+      return "";
+  }
+}
+
+// The search text that gets typewriter'd
+function getSearchText(scraperName: string, termQuery: string): string {
+  return `Searching ${scraperName} for ${termQuery}`;
+}
+
+// What text a row currently displays
+function getRowDisplayText(row: TerminalRow): string {
+  if (row.phase === "typing" || row.phase === "waiting") {
+    const full = getSearchText(row.scraperName, row.termQuery);
+    // During typing, show only typed chars; during waiting, show full text
+    return row.phase === "typing" ? full.slice(0, row.typedChars) : full;
+  }
+  if (row.phase === "processing") {
+    return getProcessingText(
+      row.scraperName,
+      row.termQuery,
+      row.processingStage,
     );
   }
+  if (row.phase === "done" && row.result) {
+    if (row.result.error) {
+      return `Search failed – ${row.result.error}`;
+    }
+    if (row.result.warnings && row.result.warnings.length > 0) {
+      // Partial success — show count + partial indicator
+      return row.isLastForScraper
+        ? `${row.result.jobsNew} new jobs added (partial – ${row.result.warnings.length} failed)`
+        : "Done (partial)";
+    }
+    // Full success
+    return row.isLastForScraper
+      ? `${row.result.jobsNew} new jobs added`
+      : "Done";
+  }
+  return "";
+}
 
+// --- Timing constants ---
+const TYPE_SPEED_MS = 30; // ms per character in typewriter
+const MIN_SEARCH_MS = 5000; // min 5s in searching phase before transitioning
+const PROCESSING_STAGE_MS = 4000; // min 4s per processing sub-stage
+
+// --- Component ---
+
+export default function ScraperModal({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<TerminalRow[]>([]);
+  const [loading, setLoading] = useState(true); // loading search terms
+  const started = useRef(false);
+  // Store scraper results keyed by scraperId — rows check this to transition
+  const scraperResults = useRef<Record<string, ScraperSaveResult>>({});
+  // Ref to the terminal body for auto-scrolling
+  const terminalRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll terminal to bottom when rows change
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [rows]);
+
+  // Initialize: fetch search terms, build rows, fire scrapers
   useEffect(() => {
     if (started.current) return;
     started.current = true;
 
-    // Search-term-based scrapers
-    async function runSimpleScraper(
-      id: string,
-      action: () => Promise<{ jobsFound: number; jobsNew: number; error?: string; warnings?: string[] }>
-    ) {
-      updateScraper(id, { status: "searching" });
-      try {
-        const result = await action();
-        if (result.error) {
-          updateScraper(id, { status: "error", error: result.error });
-        } else if (result.warnings && result.warnings.length > 0) {
-          updateScraper(id, {
-            status: "warning",
-            jobsFound: result.jobsFound,
-            jobsNew: result.jobsNew,
-            warnings: result.warnings,
+    async function init() {
+      const terms = await getSearchTermsAction();
+      if (terms.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const scrapers = getEnabledScrapers();
+
+      // Build terminal rows: 1 per (scraper × search term)
+      const terminalRows: TerminalRow[] = [];
+      for (const scraper of scrapers) {
+        terms.forEach((term, termIdx) => {
+          terminalRows.push({
+            id: `${scraper.id}-${termIdx}`,
+            scraperId: scraper.id,
+            scraperName: scraper.name,
+            termQuery: term.query,
+            phase: "hidden",
+            typedChars: 0,
+            processingStage: 0,
+            result: null,
+            // Last row for this scraper shows the job count
+            isLastForScraper: termIdx === terms.length - 1,
+            appearedAt: 0,
+            stageEnteredAt: 0,
           });
-        } else {
-          updateScraper(id, {
-            status: "success",
-            jobsFound: result.jobsFound,
-            jobsNew: result.jobsNew,
-          });
-        }
-      } catch (err) {
-        updateScraper(id, {
-          status: "error",
-          error: err instanceof Error ? err.message : "Unknown error",
         });
       }
+
+      setRows(terminalRows);
+      setLoading(false);
+
+      // Fire all scrapers immediately in the background
+      for (const scraper of scrapers) {
+        scraper
+          .action()
+          .then((result) => {
+            scraperResults.current[scraper.id] = result;
+          })
+          .catch((err) => {
+            scraperResults.current[scraper.id] = {
+              jobsFound: 0,
+              jobsNew: 0,
+              error: err instanceof Error ? err.message : "Unknown error",
+            };
+          });
+      }
+
+      // Reveal only the first row — subsequent rows are revealed when the previous finishes typing
+      setRows((prev) =>
+        prev.map((r, idx) =>
+          idx === 0 ? { ...r, phase: "typing", appearedAt: Date.now() } : r,
+        ),
+      );
     }
 
-    if (SCRAPER_CONFIG.adzuna.enabled) runSimpleScraper("adzuna", runAdzunaScrape);
-    if (SCRAPER_CONFIG.jsearch.enabled) runSimpleScraper("jsearch", runJSearchScrape);
-    if (SCRAPER_CONFIG.dribbble.enabled) runSimpleScraper("dribbble", runDribbbleScrape);
-    if (SCRAPER_CONFIG.weloveproduct.enabled) runSimpleScraper("weloveproduct", runWeLoveProductScrape);
-    // Greenhouse + Lever now run all companies in parallel server-side
-    if (SCRAPER_CONFIG.greenhouse.enabled) runSimpleScraper("greenhouse", runGreenhouseAllScrape);
-    if (SCRAPER_CONFIG.lever.enabled) runSimpleScraper("lever", runLeverAllScrape);
+    init();
   }, []);
 
-  const allDone = scrapers.every(
-    (s) => s.status === "success" || s.status === "error" || s.status === "warning"
-  );
-  const totalNew = scrapers.reduce((sum, s) => sum + s.jobsNew, 0);
+  // Typewriter ticker — advances typed chars for all "typing" rows
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRows((prev) => {
+        let changed = false;
+        let revealNext = false;
+        const next = prev.map((row) => {
+          if (row.phase !== "typing") return row;
+          const fullText = getSearchText(row.scraperName, row.termQuery);
+          if (row.typedChars >= fullText.length) {
+            // Done typing → move to waiting, and flag to reveal the next hidden row
+            changed = true;
+            revealNext = true;
+            return { ...row, phase: "waiting" as const };
+          }
+          changed = true;
+          return { ...row, typedChars: row.typedChars + 1 };
+        });
+        if (!changed) return prev;
+        // If a row just finished typing, reveal the next hidden row
+        if (revealNext) {
+          const firstHidden = next.findIndex((r) => r.phase === "hidden");
+          if (firstHidden !== -1) {
+            next[firstHidden] = {
+              ...next[firstHidden],
+              phase: "typing",
+              appearedAt: Date.now(),
+            };
+          }
+        }
+        return next;
+      });
+    }, TYPE_SPEED_MS);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Transition watcher — moves "waiting" rows to processing/done when results arrive
+  // Enforces minimum 5s in the searching phase before transitioning
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setRows((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (row.phase !== "waiting") return row;
+          const result = scraperResults.current[row.scraperId];
+          if (!result) return row; // real scraper hasn't finished yet
+          // Enforce minimum search duration (5s from when row first appeared)
+          if (now - row.appearedAt < MIN_SEARCH_MS) return row;
+          changed = true;
+          // Errors skip processing entirely
+          if (result.error) {
+            return { ...row, phase: "done" as const, result };
+          }
+          // Success/warning → start processing stages
+          return {
+            ...row,
+            phase: "processing" as const,
+            processingStage: 0,
+            result,
+            stageEnteredAt: now,
+          };
+        });
+        return changed ? next : prev;
+      });
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Processing stage ticker — advances each sub-stage after it's been visible for 2s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setRows((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (row.phase !== "processing") return row;
+          // Wait until this stage has been visible for the minimum duration
+          if (now - row.stageEnteredAt < PROCESSING_STAGE_MS) return row;
+          if (row.processingStage >= 3) {
+            // All 4 stages done → show result
+            changed = true;
+            return { ...row, phase: "done" as const };
+          }
+          changed = true;
+          return {
+            ...row,
+            processingStage: row.processingStage + 1,
+            stageEnteredAt: now,
+          };
+        });
+        return changed ? next : prev;
+      });
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Check if all visible rows are done
+  const visibleRows = rows.filter((r) => r.phase !== "hidden");
+  const allDone = rows.length > 0 && rows.every((r) => r.phase === "done");
+
+  // Total new jobs (deduplicated per scraper, not per row)
+  const seenScrapers = new Set<string>();
+  const totalNew = rows.reduce((sum, r) => {
+    if (r.result && !r.result.error && !seenScrapers.has(r.scraperId)) {
+      seenScrapers.add(r.scraperId);
+      return sum + r.result.jobsNew;
+    }
+    return sum;
+  }, 0);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -126,15 +359,30 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="scraper-list">
-          {scrapers.map((scraper) => (
-            <ScraperRow key={scraper.id} scraper={scraper} />
+        <div className="terminal-body" ref={terminalRef}>
+          {loading && (
+            <div className="terminal-row">
+              <SpinnerIcon
+                size={14}
+                weight="bold"
+                className="terminal-spinner"
+              />
+              <span className="terminal-row-text">Loading search terms...</span>
+            </div>
+          )}
+          {!loading && rows.length === 0 && (
+            <span className="terminal-row-text">
+              No search terms configured.
+            </span>
+          )}
+          {visibleRows.map((row) => (
+            <TerminalRowLine key={row.id} row={row} />
           ))}
         </div>
 
         {allDone && (
           <div className="modal-footer">
-            <span className="text-muted">
+            <span className="terminal-footer">
               {totalNew} new job{totalNew !== 1 ? "s" : ""} imported
             </span>
             <button onClick={onClose} className="btn btn-primary">
@@ -147,86 +395,62 @@ export default function ScraperModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ScraperRow({ scraper }: { scraper: ScraperRowState }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasDetails = scraper.warnings && scraper.warnings.length > 0;
+// --- Row rendering ---
 
-  return (
-    <div>
-      <div className="scraper-row">
-        <div className="scraper-row-left">
-          <StatusIcon status={scraper.status} />
-          <span className={`scraper-name ${scraper.status === "idle" ? "scraper-name-idle" : ""}`}>
-            {scraper.name}
-          </span>
-        </div>
-        <div className="scraper-row-right">
-          <ScraperStatusText scraper={scraper} onToggleDetails={hasDetails ? () => setExpanded(!expanded) : undefined} />
-        </div>
-      </div>
-      {expanded && hasDetails && (
-        <div className="scraper-details">
-          {scraper.warnings?.map((w, i) => (
-            <div key={i} className="scraper-detail-line">{w}</div>
-          ))}
-        </div>
-      )}
-    </div>
+function TerminalRowLine({ row }: { row: TerminalRow }) {
+  const text = getRowDisplayText(row);
+  const isTyping = row.phase === "typing";
+  const isDone = row.phase === "done";
+
+  // Pick the right icon
+  let icon = (
+    <SpinnerIcon size={14} weight="bold" className="terminal-spinner" />
   );
-}
-
-function StatusIcon({ status }: { status: ScraperStatus }) {
-  if (status === "idle") return <span className="scraper-icon scraper-icon-idle" />;
-  if (status === "searching")
-    return <SpinnerIcon size={18} weight="bold" className="scraper-icon scraper-spinner" />;
-  if (status === "success")
-    return <CheckCircleIcon size={18} weight="bold" className="scraper-icon scraper-icon-success" />;
-  if (status === "warning")
-    return <WarningIcon size={18} weight="bold" className="scraper-icon scraper-icon-warning" />;
-  return <WarningCircleIcon size={18} weight="bold" className="scraper-icon scraper-icon-error" />;
-}
-
-function ScraperStatusText({
-  scraper,
-  onToggleDetails,
-}: {
-  scraper: ScraperRowState;
-  onToggleDetails?: () => void;
-}) {
-  if (scraper.status === "idle") return null;
-
-  if (scraper.status === "searching") {
-    // Company-based scrapers show how many companies are being searched in parallel
-    if (scraper.companyTotal) {
-      return (
-        <span className="scraper-status-text">
-          Searching {scraper.companyTotal} companies...
-        </span>
+  if (isDone && row.result) {
+    if (row.result.error) {
+      icon = (
+        <WarningCircleIcon
+          size={14}
+          weight="bold"
+          className="terminal-icon-error"
+        />
+      );
+    } else if (row.result.warnings && row.result.warnings.length > 0) {
+      icon = (
+        <WarningIcon
+          size={14}
+          weight="bold"
+          className="terminal-icon-warning"
+        />
+      );
+    } else {
+      icon = (
+        <CheckCircleIcon
+          size={14}
+          weight="bold"
+          className="terminal-icon-success"
+        />
       );
     }
-    return <span className="scraper-status-text">Searching...</span>;
   }
 
-  if (scraper.status === "success") {
-    return (
-      <span className="scraper-status-text scraper-success-text">
-        {scraper.jobsNew} new of {scraper.jobsFound} found
-      </span>
-    );
+  // Pick text color class
+  let textClass = "terminal-row-text";
+  if (isDone && row.result) {
+    if (row.result.error)
+      textClass = "terminal-row-text terminal-row-text--error";
+    else if (row.result.warnings && row.result.warnings.length > 0)
+      textClass = "terminal-row-text terminal-row-text--warning";
+    else textClass = "terminal-row-text terminal-row-text--success";
   }
 
-  if (scraper.status === "warning") {
-    return (
-      <button onClick={onToggleDetails} className="scraper-status-btn scraper-warning-text">
-        {scraper.jobsNew} new of {scraper.jobsFound} found (partial)
-      </button>
-    );
-  }
-
-  // Error
   return (
-    <span className="scraper-status-text scraper-error-text">
-      {scraper.error || "Failed"}
-    </span>
+    <div className="terminal-row">
+      {icon}
+      <span className={textClass}>
+        {text}
+        {isTyping && <span className="terminal-cursor" />}
+      </span>
+    </div>
   );
 }

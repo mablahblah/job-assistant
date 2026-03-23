@@ -17,6 +17,12 @@ async function getUserSearchTerms() {
   return all.filter((t) => !t.query.startsWith("__"));
 }
 
+// Expose search terms to client components (e.g. scraper terminal UI)
+export async function getSearchTermsAction(): Promise<{ id: string; query: string }[]> {
+  const terms = await getUserSearchTerms();
+  return terms.map((t) => ({ id: t.id, query: t.query }));
+}
+
 // Run a keyword-based scraper across all user search terms, tolerating per-term failures
 async function runSearchTermScraper(
   scraperFn: (query: string) => Promise<import("@/lib/scrapers/types").ScrapedJob[]>
