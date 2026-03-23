@@ -33,6 +33,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Color Palette Update — audit and reconcile old purple/pink palette to new blue/neutral theme tokens; button + link colors
   - Header Layout cleanup
   - Separate column for type... include label on xl desktops and tooltip on smaller screens
+  - Spacing tokens take a pass at spacing / layout for everything
 - **Expand List of Scrapers**
 - **Code redundancy cleanup** _(found in audit)_
   - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant
