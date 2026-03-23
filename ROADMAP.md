@@ -7,10 +7,10 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 ## As a user I can scrape the ideal job boards so I don't have to manually seek out jobs on said boards
 
 - [ ] **Scraping improvements**
-  - [ ] **Scraper performance** — parallelize Greenhouse (9 slugs) and Lever (10 slugs) API calls with `Promise.allSettled`; refactor Dribbble to accept all queries in a single browser session like WeLoveProduct
-  - [ ] **Scraper modal progress** — better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
-  - [ ] Scrape results summary — show what was pulled after a scrape runs
-  - [ ] Scraper UI improvements (looks like a "terminal" application)
+  - [ ] **Scraper modal progress**
+    - Updated UI - More like a terminal. bg color, monospace font, typing animation
+    - More clear feedback, more verbose output
+      better feedback during long scrapes (e.g. elapsed time, per-detail-page progress for Playwright scrapers) so it doesn't look like it's hanging
 
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
@@ -34,9 +34,22 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Header Layout cleanup
   - Separate column for type... include label on xl desktops and tooltip on smaller screens
 - **Expand List of Scrapers**
+- **Code redundancy cleanup** _(found in audit)_
+  - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant
+  - Salary parsing duplicated in companies/page.tsx — reuse `parseSalaryRange()` from scoring.ts
+  - Company upsert logic duplicated in scraper-orchestrator.ts — delegate to scraper-save.ts
+  - Slug capitalization duplicated in greenhouse.ts and lever.ts — extract to fetch-utils
 
 ## 🔥 Lower Priority
 
+- [ ] **Audit cleanup — dead code & minor issues** _(found in audit)_
+  - Remove unused `toggleJobStatus` import in JobsTable.tsx
+  - Remove unused `geistMono` font definition in layout.tsx
+  - Update boilerplate metadata in layout.tsx ("Create Next App" → actual app name)
+  - Remove or document commented-out slugs in scraper-config.ts
+  - Decide: remove unused `description` field from ScrapedJob type, or add to DB schema
+  - Add missing eli5 comments in StatusDropdown, ScraperModal, scraper-orchestrator
+  - Standardize scraper error handling (some throw, some silently catch)
 - [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
 - [ ] **Color Accessibility Audit**
 - [ ] **UI Improvements** - Improve layout, styling, colors, make sure all icons are regular and not bold, update import/export icons, improve styles of import modal (monospace font, make it feel more like a terminal)
