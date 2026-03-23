@@ -659,8 +659,8 @@ body {
   border-radius: var(--radius-md);
   padding: 1rem 1.25rem;
   font-family: var(--font-geist-mono), monospace;
-  font-size: 0.8125em;
-  line-height: 1.75;
+  font-size: 0.875em;
+  line-height: 1.6em;
   min-height: 120px;
   max-height: 420px;
   overflow-y: auto;
