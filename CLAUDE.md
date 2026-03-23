@@ -47,6 +47,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Linting** — ESLint configured in `.eslintrc.json` with `@typescript-eslint`. Run `npm run lint` before shipping.
 - **Two-tier CSS tokens** — `globals.css` uses theme colors (`--black-100`, `--white-90`, etc.) mapped to semantic tokens (`--color-text`, `--color-control-pill-default`, etc.). Always add new colors as a theme value first, then reference via a semantic variable. Never use raw hex in component styles.
 - **CSS breakpoints** — phone `<768px`, tablet `768–1024px`, desktop `1024–1440px`, xl `1440px+`. Root font-size: 14px/16px/18px at these breakpoints. All font-size declarations use `em` (not `rem`/`px`) so they scale proportionally.
+- **Lottie animations** — `react-useanimations` + custom Lottie JSONs in `lib/animations/`. Exports from `lib/animations/index.ts` are cast to `Animation` type. Always pass a unique `key` prop to `<UseAnimations>` when the animation may change (e.g. per processing stage) — the component only loads Lottie on mount and won't update on prop change without a remount.
 
 ## Tech Stack
 
