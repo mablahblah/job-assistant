@@ -96,6 +96,38 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-03-23T23:54:26.083Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-03-24T00:01:58.716Z",
+      "error_message": "Incorrect value in code",
+      "file": "CLAUDE.md",
+      "root_cause": "Had 's ID.\n  - *System-term* (jSearch, WeLoveProduct, ",
+      "fix": "Changed to 's ID.\n  - *System-term* (jSearch, WeLoveProduct, ",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-24T00:01:58.716Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-03-24T14:32:44.848Z",
+      "error_message": "Null/undefined access in ",
+      "file": "app/actions.ts",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-24T14:32:44.848Z"
     }
   ]
 }

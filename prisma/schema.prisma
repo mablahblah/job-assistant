@@ -31,6 +31,7 @@ model Job {
   postedAt    DateTime
   salaryRange String
   status      String      @default("backlog") // backlog, won't apply, app. sent, rejected, screening, interview, test, offer
+  modifiedAt  DateTime?   // tracks when status was last changed (null = never changed)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   sources     JobSource[]

@@ -15,17 +15,13 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 
 ## Working Agreements
 
-- After each feature: test it manually, then update this roadmap.
-- Include eli5 comments when updating code explaing what code does in plan english and why. Keep to 1 line if possible.
-- When suggesting code changes, or making any changes in the app, explain to user what you're doing and why.
-- Use `/start-feature` to kick off each feature, `/ship-feature` to wrap up.
-- `/ship-feature` should update CLAUDE.md with any decisions made, patterns established, or architectural changes during the feature.
+- Include eli5 comments when updating code explaining what code does in plain english and why. Keep to 1 line if possible.
+- When suggesting or making code changes, explain what you're doing and why.
+- Use `/start-feature` to kick off each feature, `/ship-feature` to wrap up. `/ship-feature` updates CLAUDE.md with decisions, patterns, and architectural changes.
 - Roadmap lives in [ROADMAP.md](ROADMAP.md) (read during `/start-feature` and `/ship-feature`). Completed items in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 - Commit work after every completed to-do.
-- Before starting any feature, work through the UX flow, edge cases, and UI decisions conversationally with me. Do not produce a plan or ask for confirmation to proceed — just talk it through until we've covered the problem space together.
-- CLAUDE.md updates should not contain app documentation, rather they should only include guidelines for future work
-
-> Domain-specific rules live in CLAUDE.md files closer to the code (e.g. `components/CLAUDE.md`, `lib/scrapers/CLAUDE.md`). Only record decisions here that are non-obvious and affect consistency across the whole project.
+- Before starting any feature, work through the UX flow, edge cases, and UI decisions conversationally with me. Do not produce a plan or ask for confirmation — just talk it through.
+- CLAUDE.md updates should only include non-obvious guidelines for future work, not app documentation. Domain-specific rules go in CLAUDE.md files closer to the code (e.g. `components/CLAUDE.md`, `lib/scrapers/CLAUDE.md`).
 
 ## Key Decisions & Patterns
 
@@ -35,19 +31,19 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Company persistence** — company entries persist in DB even when no jobs reference them. Manual delete available on companies page.
 - **Scoring scale** — all scores 1–5, weighted formula capped at 0–100 with two multipliers (age + salary). Weights are relative — they don't need to sum to 100.
   - Formula: `sum((score ?? 0) / 5 * weight) * ageModifier * salaryModifier`, rounded to nearest int, capped 0–100
-  - Age modifier: 1.0 if ≤3 days old, then decays by 0.05/day, floor 0.5 (posts never lose more than half their score from age)
-  - Salary modifier: ±0.1× per $25k gap from `TARGET_SALARY` (set in `lib/scoring.ts`); neutral 1.0× when salary unknown; hourly annualized ×2080, monthly ×12; no floor/ceiling
+  - Age modifier: 1.0 if ≤3 days old, decays 0.05/day, floor 0.5
+  - Salary modifier: ±0.1×/$25k from `TARGET_SALARY` (`lib/scoring.ts`); 1.0× when unknown; hourly ×2080, monthly ×12; no floor/ceiling
 - **Company score import format** — Claude returns a JSON array keyed by `company` (matches DB unique name). All 5 score fields per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
-- **Scraper config** — `lib/scrapers/scraper-config.ts` is the single source of truth for which scrapers run and which Greenhouse/Lever slugs are used. Set `enabled: false` to silently skip a scraper. No UI — edit the file directly.
+- **Scraper config** — `lib/scrapers/scraper-config.ts` is the single source of truth for which scrapers run and which Greenhouse/Lever slugs are used. Set `enabled: false` to silently skip a scraper.
 - **Shared scraper utilities** — `lib/scrapers/fetch-utils.ts` is the single shared utility layer for all scrapers. New scrapers should import from here rather than rolling their own salary parsing, work mode detection, etc. Domain-specific scraper rules live in `lib/scrapers/CLAUDE.md`.
 - **Two scraper patterns** — scrapers are wired up in one of two ways in `scraper-actions.ts`:
   - *Per-search-term* (Adzuna, Dribbble): uses `runSearchTermScraper`, called once per user search term, saves under that term's ID.
-  - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs its own fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. Use this pattern when the scraper needs to combine or transform terms (e.g. OR queries, location variants) rather than run them independently.
+  - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. Use when the scraper needs to combine or transform terms.
 - **Testing** — vitest for unit and integration tests. Run `npx vitest` to execute. Scraper integration tests mock `fetchWithTimeout` via `vi.mock`.
 - **Linting** — ESLint configured in `.eslintrc.json` with `@typescript-eslint`. Run `npm run lint` before shipping.
 - **Two-tier CSS tokens** — `globals.css` uses theme colors (`--black-100`, `--white-90`, etc.) mapped to semantic tokens (`--color-text`, `--color-control-pill-default`, etc.). Always add new colors as a theme value first, then reference via a semantic variable. Never use raw hex in component styles.
 - **CSS breakpoints** — phone `<768px`, tablet `768–1024px`, desktop `1024–1440px`, xl `1440px+`. Root font-size: 14px/16px/18px at these breakpoints. All font-size declarations use `em` (not `rem`/`px`) so they scale proportionally.
-- **Lottie animations** — `react-useanimations` + custom Lottie JSONs in `lib/animations/`. Exports from `lib/animations/index.ts` are cast to `Animation` type. Always pass a unique `key` prop to `<UseAnimations>` when the animation may change (e.g. per processing stage) — the component only loads Lottie on mount and won't update on prop change without a remount.
+- **Lottie animations** — `react-useanimations` + custom Lottie JSONs in `lib/animations/`. Exports from `lib/animations/index.ts` are cast to `Animation` type. Always pass a unique `key` prop to `<UseAnimations>` when the animation may change (e.g. per processing stage) — it only loads on mount and won't update without a remount.
 
 ## Tech Stack
 
