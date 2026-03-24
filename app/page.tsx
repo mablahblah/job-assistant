@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { calculateScore } from "@/lib/scoring";
 import { JobWithCompany, SearchTerm } from "@/lib/types";
+import { expireOldBacklogJobs } from "@/app/actions";
 import JobsTable from "@/components/JobsTable";
 
 export default async function Home() {
+  // Auto-expire stale backlog jobs before fetching the list
+  await expireOldBacklogJobs();
+
   const [dbJobs, dbSearchTerms] = await Promise.all([
     prisma.job.findMany({ include: { company: true } }),
     prisma.searchTerm.findMany({ orderBy: { createdAt: "asc" } }),

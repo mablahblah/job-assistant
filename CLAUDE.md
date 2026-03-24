@@ -34,6 +34,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
   - Age modifier: 1.0 if ≤3 days old, decays 0.05/day, floor 0.5
   - Salary modifier: ±0.1×/$25k from `TARGET_SALARY` (`lib/scoring.ts`); 1.0× when unknown; hourly ×2080, monthly ×12; no floor/ceiling
 - **Company score import format** — Claude returns a JSON array keyed by `company` (matches DB unique name). All 5 score fields per entry; import fully overwrites existing scores. Strip markdown fences before parsing.
+- **Scrape status cascade** — on save in `scraper-save.ts`, new jobs are auto-classified in order: expired (≥8 days old) → too far (`classifyLocation`) → backlog. On page load, `expireOldBacklogJobs()` also expires any backlog jobs that aged out. In-progress statuses (anything beyond backlog) are never auto-expired.
 - **Scraper config** — `lib/scrapers/scraper-config.ts` is the single source of truth for which scrapers run and which Greenhouse/Lever slugs are used. Set `enabled: false` to silently skip a scraper.
 - **Shared scraper utilities** — `lib/scrapers/fetch-utils.ts` is the single shared utility layer for all scrapers. New scrapers should import from here rather than rolling their own salary parsing, work mode detection, etc. Domain-specific scraper rules live in `lib/scrapers/CLAUDE.md`.
 - **Two scraper patterns** — scrapers are wired up in one of two ways in `scraper-actions.ts`:

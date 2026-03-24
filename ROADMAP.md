@@ -9,7 +9,6 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
 - [ ] - **Status Sorting**
-  - New Status for Expired - When a job posting is older than 7d, it has it’s status automatically set to “Expired”. Jobs older than 7d on a scrape are automatically set to this. Otherwise, this is a check on refresh. It can also be manually set. Color: color-secondary-text, icon: CalendarX
   - Collapsible Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.
   - Deletable Jobs - Now I can manually delete jobs 1 by 1. Once a job is deleted it will be rejected from a scrape as well (perhaps this is actually a hidden state?). We’ll remove the bulk delete feature.
 

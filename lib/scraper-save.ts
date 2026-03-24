@@ -46,11 +46,14 @@ export async function saveScrapedJobs(
             workMode: jobData.workMode,
             postedAt: jobData.postedAt,
             salaryRange: jobData.salaryRange,
-            // Auto-classify location: eligible jobs start as "backlog", ineligible as "too far"
+            // Auto-classify on scrape: expired (8+ days) → too far → backlog
             ...(() => {
+              const ageMs = Date.now() - new Date(jobData.postedAt).getTime();
+              const ageDays = ageMs / (1000 * 60 * 60 * 24);
+              if (ageDays >= 8) return { status: "expired" };
               const result = classifyLocation(jobData.workMode, jobData.location);
-              if (!result.tooFar) return { status: "backlog" };
-              return { status: "too far", locationFlagged: result.flagged };
+              if (result.tooFar) return { status: "too far", locationFlagged: result.flagged };
+              return { status: "backlog" };
             })(),
           },
         });
