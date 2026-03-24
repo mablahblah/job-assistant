@@ -34,6 +34,7 @@ export default async function Home() {
         postedAt: job.postedAt.toISOString(),
         salaryRange: job.salaryRange,
         status: job.status,
+        locationFlagged: job.locationFlagged,
         company,
         score: calculateScore(
           { ...job, postedAt: job.postedAt.toISOString() },
