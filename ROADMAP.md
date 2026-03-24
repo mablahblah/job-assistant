@@ -9,7 +9,6 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
 - [ ] - **Status Sorting**
-  - New Status for “Too Far” - Remove the filter, and instead include a status in the dropdown list for “too far”, automatically setting it if a job is remote or hybrid and not in Austin, Round Rock, Pflugerville, or Cedar Park. This can also be manually set. Color: color-secondary-text, icon: Binoculars. Remove the filter and functionality
   - New Status for Expired - When a job posting is older than 7d, it has it’s status automatically set to “Expired”. Jobs older than 7d on a scrape are automatically set to this. Otherwise, this is a check on refresh. It can also be manually set. Color: color-secondary-text, icon: CalendarX
   - Collapsible Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.
   - Deletable Jobs - Now I can manually delete jobs 1 by 1. Once a job is deleted it will be rejected from a scrape as well (perhaps this is actually a hidden state?). We’ll remove the bulk delete feature.
@@ -28,6 +27,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Separate column for type... include label on xl desktops and tooltip on smaller screens
   - Spacing tokens take a pass at spacing / layout for everything
   - tune terminal modal styling (icon sizes, spacing, colors, layout, etc...)
+  - location icon in table should be it's own cell so the size doesn't shrink when location is long (and/or the location should be ellipsized with a tooltip)
 - **Expand List of Scrapers**
 - **Code redundancy cleanup** _(found in audit)_
   - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant

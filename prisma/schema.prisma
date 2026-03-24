@@ -30,8 +30,9 @@ model Job {
   workMode    String      @default("remote") // in-person, hybrid, remote
   postedAt    DateTime
   salaryRange String
-  status      String      @default("backlog") // backlog, won't apply, app. sent, rejected, screening, interview, test, offer
-  modifiedAt  DateTime?   // tracks when status was last changed (null = never changed)
+  status          String      @default("backlog") // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer
+  locationFlagged Boolean     @default(false) // true when auto-set to "too far" because remote location didn't match inclusion/exclusion lists
+  modifiedAt      DateTime?   // tracks when status was last changed (null = never changed)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   sources     JobSource[]

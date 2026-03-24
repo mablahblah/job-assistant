@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { type ScrapedJob } from "@/lib/scrapers/types";
+import { classifyLocation } from "@/lib/location";
 
 export interface ScraperSaveResult {
   jobsFound: number;
@@ -45,7 +46,12 @@ export async function saveScrapedJobs(
             workMode: jobData.workMode,
             postedAt: jobData.postedAt,
             salaryRange: jobData.salaryRange,
-            status: "backlog",
+            // Auto-classify location: eligible jobs start as "backlog", ineligible as "too far"
+            ...(() => {
+              const result = classifyLocation(jobData.workMode, jobData.location);
+              if (!result.tooFar) return { status: "backlog" };
+              return { status: "too far", locationFlagged: result.flagged };
+            })(),
           },
         });
         jobsNew++;

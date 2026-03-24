@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   QuestionIcon,
+  BinocularsIcon,
   ThumbsDownIcon,
   PaperPlaneTiltIcon,
   ProhibitIcon,
@@ -16,6 +17,7 @@ import {
 // Map each status to its icon and semantic color variable
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
   "backlog": { icon: <QuestionIcon size={24} weight="regular" />, color: "var(--color-tertiary-text)" },
+  "too far": { icon: <BinocularsIcon size={24} weight="regular" />, color: "var(--color-secondary-text)" },
   "won't apply": { icon: <ThumbsDownIcon size={24} weight="regular" />, color: "var(--color-tertiary-text)" },
   "app. sent": { icon: <PaperPlaneTiltIcon size={24} weight="regular" />, color: "var(--color-highlight-text)" },
   "rejected": { icon: <ProhibitIcon size={24} weight="regular" />, color: "var(--color-negative-text)" },
@@ -45,6 +47,7 @@ const STATUS_OPTIONS = [
   "interview",
   "test",
   "offer",
+  "too far",
 ];
 
 // Dropdown pill that shows current job status, opens a menu to change it
