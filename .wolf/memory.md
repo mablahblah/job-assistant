@@ -78,3 +78,41 @@
 | 09:44 | Session end: 2 writes across 2 files (schema.prisma, actions.ts) | 3 reads | ~3051 tok |
 | 09:46 | Edited ROADMAP-DONE.md | 2→3 lines | ~160 |
 | 09:46 | Edited ROADMAP.md | 6→5 lines | ~270 |
+| 09:49 | Session end: 4 writes across 4 files (schema.prisma, actions.ts, ROADMAP-DONE.md, ROADMAP.md) | 9 reads | ~6500 tok |
+
+## Session: 2026-03-24 09:49
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 10:10 | Edited prisma/schema.prisma | 2→3 lines | ~100 |
+| 10:12 | Created lib/location.ts | — | ~735 |
+| 10:12 | Edited lib/scraper-save.ts | added 1 import(s) | ~46 |
+| 10:13 | Edited lib/scraper-save.ts | added 1 condition(s) | ~188 |
+| 10:13 | Edited app/actions.ts | 5→5 lines | ~66 |
+| 10:13 | Edited components/StatusDropdown.tsx | 11→12 lines | ~60 |
+| 10:14 | Edited components/StatusDropdown.tsx | 2→3 lines | ~93 |
+| 10:14 | Edited components/StatusDropdown.tsx | 10→11 lines | ~43 |
+| 10:15 | Edited lib/types.ts | 2→3 lines | ~54 |
+| 10:15 | Edited app/page.tsx | CSS: locationFlagged | ~26 |
+| 10:15 | Edited components/JobsTable.tsx | 9→9 lines | ~46 |
+| 10:16 | Edited components/JobsTable.tsx | removed 21 lines | ~19 |
+| 10:16 | Edited components/JobsTable.tsx | 4→3 lines | ~24 |
+| 10:17 | Edited components/JobsTable.tsx | removed 9 lines | ~8 |
+| 10:17 | Edited components/JobsTable.tsx | inline fix | ~10 |
+| 10:17 | Edited components/JobsTable.tsx | CSS: color, flexShrink | ~247 |
+| 10:18 | Edited components/JobsTable.tsx | CSS: display | ~130 |
+| 10:19 | Created lib/location.test.ts | — | ~1062 |
+| 10:20 | Session end: 18 writes across 9 files (schema.prisma, location.ts, scraper-save.ts, actions.ts, StatusDropdown.tsx) | 9 reads | ~12921 tok |
+
+## Session: 2026-03-24 10:23
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 13:36 | Edited lib/location.ts | reduced (-36 lines) | ~82 |
+| 13:36 | Edited lib/location.ts | reduced (-6 lines) | ~97 |
+| 13:36 | Edited lib/location.test.ts | expanded (+6 lines) | ~198 |
+| 13:36 | Session end: 3 writes across 2 files (location.ts, location.test.ts) | 2 reads | ~1751 tok |
+| 13:39 | Session end: 3 writes across 2 files (location.ts, location.test.ts) | 2 reads | ~1751 tok |
+| 13:39 | Session end: 3 writes across 2 files (location.ts, location.test.ts) | 4 reads | ~5059 tok |
+| 13:40 | Edited ROADMAP.md | 5→4 lines | ~178 |
+| 13:41 | Edited ROADMAP-DONE.md | 1→2 lines | ~183 |

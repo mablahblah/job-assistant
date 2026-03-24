@@ -16,7 +16,7 @@ import {
   WifiHighIcon,
   BicycleIcon,
   BuildingOfficeIcon,
-  FunnelIcon,
+  FlagPennantIcon,
 } from "@phosphor-icons/react";
 import ScraperModal from "@/components/ScraperModal";
 import StatusDropdown from "@/components/StatusDropdown";
@@ -71,26 +71,6 @@ export default function JobsTable({
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
   const [showScraperModal, setShowScraperModal] = useState(false);
-  // Filter is on by default — hides out-of-area and stale postings
-  const [filterEnabled, setFilterEnabled] = useState(true);
-
-  // Austin metro cities we're willing to commute to
-  const AUSTIN_AREA = ["austin", "round rock", "cedar park", "pflugerville"];
-
-  // Returns true if a job should be hidden when filtering is on
-  function isFilteredOut(job: JobWithCompany): boolean {
-    // Hide posts older than 10 days — they're probably filled or stale
-    const ageDays = (Date.now() - new Date(job.postedAt).getTime()) / (1000 * 60 * 60 * 24);
-    if (ageDays > 10) return true;
-    // Hide non-remote jobs outside the Austin metro area (unknown mode treated as in-person)
-    if (job.workMode !== "remote") {
-      const loc = (job.location ?? "").toLowerCase();
-      if (!AUSTIN_AREA.some((city) => loc.includes(city))) return true;
-    }
-    return false;
-  }
-
-  const displayedJobs = filterEnabled ? jobs.filter((job) => !isFilteredOut(job)) : jobs;
 
   function handleSetStatus(id: string, status: string) {
     startTransition(() => setJobStatus(id, status));
@@ -123,8 +103,7 @@ export default function JobsTable({
       <div className="flex items-baseline gap-3 mb-4">
         <h1 className="page-title">Job Assistant</h1>
         <span className="count-text">
-          {displayedJobs.length} jobs
-          {filterEnabled && displayedJobs.length !== jobs.length && ` (${jobs.length} total)`}
+          {jobs.length} jobs
         </span>
         {(scrapeStatus || (isPending && !scrapeStatus)) && (
           <span className="status-text">{scrapeStatus ?? "Saving..."}</span>
@@ -185,13 +164,6 @@ export default function JobsTable({
           </span>
         ))}
         </div>
-        <button
-          onClick={() => setFilterEnabled(!filterEnabled)}
-          className={`btn btn-ghost ${filterEnabled ? "btn-ghost-active" : ""}`}
-          title={filterEnabled ? "Smart filter on — click to show all" : "Smart filter off — click to filter"}
-        >
-          <FunnelIcon size={20} weight={filterEnabled ? "duotone" : "bold"} />
-        </button>
       </div>
 
       <div className="table-container">
@@ -229,17 +201,25 @@ export default function JobsTable({
             </tr>
           </thead>
           <tbody>
-            {displayedJobs.map((job) => (
+            {jobs.map((job) => (
               <tr key={job.id}>
                 <td>
                   <ScoreCell score={job.score} />
                 </td>
                 <td className="text-center">
-                  <StatusDropdown
-                    status={job.status}
-                    disabled={isPending}
-                    onSelect={(s) => handleSetStatus(job.id, s)}
-                  />
+                  <div className="flex items-center justify-center gap-1">
+                    <StatusDropdown
+                      status={job.status}
+                      disabled={isPending}
+                      onSelect={(s) => handleSetStatus(job.id, s)}
+                    />
+                    {/* Flag icon for jobs auto-set to "too far" with unrecognized remote location */}
+                    {job.locationFlagged && (
+                      <span title={`workMode = ${job.workMode}; location = ${job.location}`} style={{ display: "inline-flex", color: "var(--color-negative-text)", flexShrink: 0 }}>
+                        <FlagPennantIcon size={24} weight="duotone" />
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <div className="company-role-cell">

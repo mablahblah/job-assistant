@@ -17,7 +17,8 @@ export type Job = {
   workMode: string // in-person, hybrid, remote
   postedAt: string // ISO date string
   salaryRange: string // e.g. "$120k–$150k"
-  status: string // new, applied, screened, interviewed, tested, offer, rejected
+  status: string // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer
+  locationFlagged: boolean // true when remote location couldn't be classified
 }
 
 export type SearchTerm = {
