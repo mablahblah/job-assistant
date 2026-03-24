@@ -2,14 +2,14 @@
   "version": 1,
   "created_at": "2026-03-23T22:18:26.734Z",
   "lifetime": {
-    "total_tokens_estimated": 72033,
-    "total_reads": 44,
-    "total_writes": 39,
-    "total_sessions": 2,
-    "anatomy_hits": 33,
-    "anatomy_misses": 11,
-    "repeated_reads_blocked": 14,
-    "estimated_savings_vs_bare_cli": 53823
+    "total_tokens_estimated": 113239,
+    "total_reads": 80,
+    "total_writes": 70,
+    "total_sessions": 8,
+    "anatomy_hits": 65,
+    "anatomy_misses": 15,
+    "repeated_reads_blocked": 21,
+    "estimated_savings_vs_bare_cli": 79939
   },
   "sessions": [
     {
@@ -650,12 +650,640 @@
         "repeated_reads_blocked": 5,
         "anatomy_lookups": 4
       }
+    },
+    {
+      "id": "session-2026-03-23-1817",
+      "started": "2026-03-23T23:17:21.124Z",
+      "ended": "2026-03-23T23:57:53.956Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1237,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4293,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/package.json",
+          "tokens_estimated": 258,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/lib/edit/index.d.ts",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/node_modules/react-useanimations/index.js",
+          "tokens_estimated": 0,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 4404,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP-DONE.md",
+          "tokens_estimated": 1895,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 1307,
+          "was_repeated": true,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/.claude/commands/commit.md",
+          "tokens_estimated": 136,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/.claude/commands/ship-feature.md",
+          "tokens_estimated": 355,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/.claude/commands/start-feature.md",
+          "tokens_estimated": 331,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/.claude/commands/audit.md",
+          "tokens_estimated": 423,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/vaults/Brain-Dos/04 Reference/AI/Claude Commands.md",
+          "tokens_estimated": 0,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/refresh.ts",
+          "tokens_estimated": 69,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 236,
+          "action": "create"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 72,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 113,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 4,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 23,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 5,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/animations/index.ts",
+          "tokens_estimated": 281,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 427,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 12,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 29,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/globals.css",
+          "tokens_estimated": 11,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/ScraperModal.tsx",
+          "tokens_estimated": 148,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP-DONE.md",
+          "tokens_estimated": 233,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 44,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 172,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 14639,
+        "output_tokens_estimated": 1879,
+        "reads_count": 14,
+        "writes_count": 16,
+        "repeated_reads_blocked": 7,
+        "anatomy_lookups": 10
+      }
+    },
+    {
+      "id": "session-2026-03-23-1857",
+      "started": "2026-03-23T23:57:59.714Z",
+      "ended": "2026-03-24T00:00:09.318Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 1398,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1398,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-23-1857",
+      "started": "2026-03-23T23:57:59.714Z",
+      "ended": "2026-03-24T00:02:16.859Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 1398,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 282,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 137,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 58,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 135,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/CLAUDE.md",
+          "tokens_estimated": 95,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 1398,
+        "output_tokens_estimated": 707,
+        "reads_count": 1,
+        "writes_count": 5,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-24-0818",
+      "started": "2026-03-24T13:18:20.923Z",
+      "ended": "2026-03-24T13:47:43.685Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1186,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:29:59.461Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1186,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:30:17.337Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1186,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:30:38.982Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1186,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:31:48.499Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [],
+      "totals": {
+        "input_tokens_estimated": 1186,
+        "output_tokens_estimated": 0,
+        "reads_count": 1,
+        "writes_count": 0,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 1
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:33:21.457Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 572,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 1097,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 84,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 112,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 2855,
+        "output_tokens_estimated": 196,
+        "reads_count": 3,
+        "writes_count": 2,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:34:22.019Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 572,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 1097,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 84,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 112,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 2855,
+        "output_tokens_estimated": 196,
+        "reads_count": 3,
+        "writes_count": 2,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:36:18.861Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 572,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 1097,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 84,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 112,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 2855,
+        "output_tokens_estimated": 196,
+        "reads_count": 3,
+        "writes_count": 2,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:38:03.130Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 572,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 1097,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 84,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 112,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 2855,
+        "output_tokens_estimated": 196,
+        "reads_count": 3,
+        "writes_count": 2,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
+    },
+    {
+      "id": "session-2026-03-24-0929",
+      "started": "2026-03-24T14:29:41.890Z",
+      "ended": "2026-03-24T14:44:00.143Z",
+      "reads": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
+          "tokens_estimated": 1186,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 572,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 1097,
+          "was_repeated": false,
+          "anatomy_had_description": false
+        }
+      ],
+      "writes": [
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/prisma/schema.prisma",
+          "tokens_estimated": 84,
+          "action": "edit"
+        },
+        {
+          "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/app/actions.ts",
+          "tokens_estimated": 112,
+          "action": "edit"
+        }
+      ],
+      "totals": {
+        "input_tokens_estimated": 2855,
+        "output_tokens_estimated": 196,
+        "reads_count": 3,
+        "writes_count": 2,
+        "repeated_reads_blocked": 0,
+        "anatomy_lookups": 3
+      }
     }
   ],
   "daemon_usage": [],
-  "waste_flags": [],
+  "waste_flags": [
+    {
+      "pattern": "anatomy_miss_rate",
+      "description": "40% of file lookups missed anatomy in session session-2026-03-23-1817",
+      "tokens_wasted": 0,
+      "suggestion": "Run openwolf scan to refresh anatomy.md.",
+      "detected_at": "2026-03-24T00:02:23.930Z"
+    },
+    {
+      "pattern": "anatomy_miss_rate",
+      "description": "43% of file lookups missed anatomy in session session-2026-03-23-1817",
+      "tokens_wasted": 0,
+      "suggestion": "Run openwolf scan to refresh anatomy.md.",
+      "detected_at": "2026-03-24T00:02:23.930Z"
+    },
+    {
+      "pattern": "anatomy_miss_rate",
+      "description": "43% of file lookups missed anatomy in session session-2026-03-23-1817",
+      "tokens_wasted": 0,
+      "suggestion": "Run openwolf scan to refresh anatomy.md.",
+      "detected_at": "2026-03-24T00:02:23.930Z"
+    },
+    {
+      "pattern": "anatomy_miss_rate",
+      "description": "43% of file lookups missed anatomy in session session-2026-03-23-1817",
+      "tokens_wasted": 0,
+      "suggestion": "Run openwolf scan to refresh anatomy.md.",
+      "detected_at": "2026-03-24T00:02:23.930Z"
+    },
+    {
+      "pattern": "anatomy_miss_rate",
+      "description": "29% of file lookups missed anatomy in session session-2026-03-23-1817",
+      "tokens_wasted": 0,
+      "suggestion": "Run openwolf scan to refresh anatomy.md.",
+      "detected_at": "2026-03-24T00:02:23.930Z"
+    }
+  ],
   "optimization_report": {
-    "last_generated": null,
-    "patterns": []
+    "last_generated": "2026-03-24T00:02:23.931Z",
+    "patterns": [
+      "anatomy_miss_rate",
+      "anatomy_miss_rate",
+      "anatomy_miss_rate",
+      "anatomy_miss_rate",
+      "anatomy_miss_rate"
+    ]
   }
 }
