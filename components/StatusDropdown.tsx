@@ -11,25 +11,66 @@ import {
   UsersThreeIcon,
   PenNibIcon,
   CheersIcon,
+  CalendarXIcon,
   CaretDownIcon,
 } from "@phosphor-icons/react";
 
 // Map each status to its icon and semantic color variable
-const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
-  "backlog": { icon: <QuestionIcon size={24} weight="regular" />, color: "var(--color-tertiary-text)" },
-  "too far": { icon: <BinocularsIcon size={24} weight="regular" />, color: "var(--color-secondary-text)" },
-  "won't apply": { icon: <ThumbsDownIcon size={24} weight="regular" />, color: "var(--color-tertiary-text)" },
-  "app. sent": { icon: <PaperPlaneTiltIcon size={24} weight="regular" />, color: "var(--color-highlight-text)" },
-  "rejected": { icon: <ProhibitIcon size={24} weight="regular" />, color: "var(--color-negative-text)" },
-  "screening": { icon: <PhoneCallIcon size={24} weight="regular" />, color: "var(--color-highlight-text)" },
-  "interview": { icon: <UsersThreeIcon size={24} weight="regular" />, color: "var(--color-highlight-text)" },
-  "test": { icon: <PenNibIcon size={24} weight="regular" />, color: "var(--color-highlight-text)" },
-  "offer": { icon: <CheersIcon size={24} weight="regular" />, color: "var(--color-positive-text)" },
-};
+const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string }> =
+  {
+    backlog: {
+      icon: <QuestionIcon size={24} weight="regular" />,
+      color: "var(--color-tertiary-text)",
+    },
+    "too far": {
+      icon: <BinocularsIcon size={24} weight="regular" />,
+      color: "var(--color-tertiary-text)",
+    },
+    "won't apply": {
+      icon: <ThumbsDownIcon size={24} weight="regular" />,
+      color: "var(--color-tertiary-text)",
+    },
+    "app. sent": {
+      icon: <PaperPlaneTiltIcon size={24} weight="regular" />,
+      color: "var(--color-highlight-text)",
+    },
+    rejected: {
+      icon: <ProhibitIcon size={24} weight="regular" />,
+      color: "var(--color-negative-text)",
+    },
+    screening: {
+      icon: <PhoneCallIcon size={24} weight="regular" />,
+      color: "var(--color-highlight-text)",
+    },
+    interview: {
+      icon: <UsersThreeIcon size={24} weight="regular" />,
+      color: "var(--color-highlight-text)",
+    },
+    test: {
+      icon: <PenNibIcon size={24} weight="regular" />,
+      color: "var(--color-highlight-text)",
+    },
+    offer: {
+      icon: <CheersIcon size={24} weight="regular" />,
+      color: "var(--color-positive-text)",
+    },
+    expired: {
+      icon: <CalendarXIcon size={24} weight="regular" />,
+      color: "var(--color-tertiary-text)",
+    },
+  };
 
 // Reusable icon + label pair for status pill and menu items
 // Reusable icon + label pair; icon color is per-status, text stays default
-function StatusLabel({ icon, label, iconColor }: { icon: React.ReactNode; label: string; iconColor?: string }) {
+function StatusLabel({
+  icon,
+  label,
+  iconColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  iconColor?: string;
+}) {
   return (
     <span className="status-label">
       <span style={{ color: iconColor, display: "inline-flex" }}>{icon}</span>
@@ -48,6 +89,7 @@ const STATUS_OPTIONS = [
   "test",
   "offer",
   "too far",
+  "expired",
 ];
 
 // Dropdown pill that shows current job status, opens a menu to change it
@@ -67,7 +109,10 @@ export default function StatusDropdown({
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -84,7 +129,11 @@ export default function StatusDropdown({
         disabled={disabled}
         title={status}
       >
-        <StatusLabel icon={STATUS_CONFIG[status]?.icon} label={status} iconColor={STATUS_CONFIG[status]?.color} />
+        <StatusLabel
+          icon={STATUS_CONFIG[status]?.icon}
+          label={status}
+          iconColor={STATUS_CONFIG[status]?.color}
+        />
         <CaretDownIcon size={12} weight="bold" />
       </button>
 
@@ -101,7 +150,11 @@ export default function StatusDropdown({
                   setOpen(false);
                 }}
               >
-                <StatusLabel icon={STATUS_CONFIG[s]?.icon} label={s} iconColor={STATUS_CONFIG[s]?.color} />
+                <StatusLabel
+                  icon={STATUS_CONFIG[s]?.icon}
+                  label={s}
+                  iconColor={STATUS_CONFIG[s]?.color}
+                />
               </button>
             </li>
           ))}

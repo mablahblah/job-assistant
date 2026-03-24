@@ -130,6 +130,15 @@ export async function importCompanyScores(jsonString: string): Promise<{
   return { success: true, updated, notFound }
 }
 
+// Auto-expire backlog jobs that are 8+ days old (runs on page load)
+export async function expireOldBacklogJobs() {
+  const cutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  await prisma.job.updateMany({
+    where: { status: "backlog", postedAt: { lt: cutoff } },
+    data: { status: "expired", modifiedAt: new Date() },
+  });
+}
+
 export async function deleteAllJobs() {
   // Companies persist so manual scores are preserved — delete them individually from /companies
   await prisma.job.deleteMany();

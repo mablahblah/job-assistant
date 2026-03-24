@@ -116,3 +116,25 @@
 | 13:39 | Session end: 3 writes across 2 files (location.ts, location.test.ts) | 4 reads | ~5059 tok |
 | 13:40 | Edited ROADMAP.md | 5→4 lines | ~178 |
 | 13:41 | Edited ROADMAP-DONE.md | 1→2 lines | ~183 |
+| 13:42 | Session end: 5 writes across 4 files (location.ts, location.test.ts, ROADMAP.md, ROADMAP-DONE.md) | 9 reads | ~6691 tok |
+
+## Session: 2026-03-24 13:42
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-03-24 16:36
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 17:06 | Edited components/StatusDropdown.tsx | 3→4 lines | ~23 |
+| 17:06 | Edited components/StatusDropdown.tsx | 2→3 lines | ~60 |
+| 17:06 | Edited components/StatusDropdown.tsx | 2→3 lines | ~8 |
+| 17:07 | Edited lib/scraper-save.ts | added 1 condition(s) | ~156 |
+| 17:08 | Edited app/actions.ts | modified expireOldBacklogJobs() | ~108 |
+| 17:09 | Edited app/page.tsx | modified Home() | ~124 |
+| 17:10 | Session end: 6 writes across 4 files (StatusDropdown.tsx, scraper-save.ts, actions.ts, page.tsx) | 6 reads | ~5407 tok |
+| 17:12 | Session end: 6 writes across 4 files (StatusDropdown.tsx, scraper-save.ts, actions.ts, page.tsx) | 6 reads | ~5407 tok |
+| 17:12 | Edited ROADMAP-DONE.md | 1→2 lines | ~205 |
+| 17:12 | Edited ROADMAP.md | 4→3 lines | ~100 |
+| 17:13 | Edited CLAUDE.md | 1→2 lines | ~139 |
