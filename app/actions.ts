@@ -5,10 +5,12 @@ import { revalidatePath } from "next/cache";
 import { runScraping, OrchestratorResult } from "@/lib/scraper-orchestrator";
 
 export async function setJobStatus(jobId: string, status: string) {
-  await prisma.job.update({
+  // update status and record when it changed (modifiedAt) for sorting
+  const job = await prisma.job.update({
     where: { id: jobId },
-    data: { status },
+    data: { status, modifiedAt: new Date() },
   });
+  console.log(`[status-change] job=${job.id} status=${status} modifiedAt=${job.modifiedAt?.toISOString()}`);
   revalidatePath("/");
 }
 

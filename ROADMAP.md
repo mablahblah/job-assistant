@@ -4,18 +4,15 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 # MVP
 
--
-
-## As a user I can scrape the ideal job boards so I don't have to manually seek out jobs on said boards
+## ~~As a user I can scrape the ideal job boards so I don't have to manually seek out jobs on said boards~~
 
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
-- [ ] - **Logfile** - Any change, scrape, user action, etc will be logged in a logfile (as well as trigger a console message).
-- [ ] - **Modified Date Saved in db** - If a status is changed, there will be a modified date set in db (not exposed to user).
-- [ ] **Status Sorting** - The status of the application will affect it's sorting in the table. 4 Unique collapsible sections (In Progress (sorted by modified date), Backlog (sorted by score), Rejected (sorted by modified date), Too Far (sorted by score)).
-- [ ] - **Too Far Filter** - A new status will be created called "Too Far", these will be automatically attached to in-person and hybrid jobs outside of Austin. This will be an option in the dropdown, so they can be undone manually.
-- [ ] - **Manual Deleting** - Bulk delete remains, but each individual job can be deleted. A delete removes a job from the view, but it should also auto-reject those jobs from future scrapes.
-- [ ] - **Old Post Age Status** - Posts older than 7 days still get rejected on scrape, but posts that become too old after they have been scraped are automatically set to a NEW state called "expired."
+- [ ] - **Status Sorting**
+  - New Status for “Too Far” - Remove the filter, and instead include a status in the dropdown list for “too far”, automatically setting it if a job is remote or hybrid and not in Austin, Round Rock, Pflugerville, or Cedar Park. This can also be manually set. Color: color-secondary-text, icon: Binoculars. Remove the filter and functionality
+  - New Status for Expired - When a job posting is older than 7d, it has it’s status automatically set to “Expired”. Jobs older than 7d on a scrape are automatically set to this. Otherwise, this is a check on refresh. It can also be manually set. Color: color-secondary-text, icon: CalendarX
+  - Collapsible Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.
+  - Deletable Jobs - Now I can manually delete jobs 1 by 1. Once a job is deleted it will be rejected from a scrape as well (perhaps this is actually a hidden state?). We’ll remove the bulk delete feature.
 
 ## As a user I can click an action to auto-generate a resume and cover letter in Figma so I can speed up the application process
 
