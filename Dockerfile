@@ -9,6 +9,8 @@ RUN npm ci
 # Build the app
 FROM base AS builder
 WORKDIR /app
+# Prisma needs DATABASE_URL set at generate/build time even though no real DB is used
+ENV DATABASE_URL="file:./dummy.db"
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Generate Prisma client (baked into the build)
