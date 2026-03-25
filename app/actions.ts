@@ -139,9 +139,18 @@ export async function expireOldBacklogJobs() {
   });
 }
 
-export async function deleteAllJobs() {
-  // Companies persist so manual scores are preserved — delete them individually from /companies
-  await prisma.job.deleteMany();
-  await prisma.scrapingRun.deleteMany();
+// Hard-delete a single job and block its URL so it won't reappear in future scrapes
+export async function deleteJob(jobId: string) {
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  if (!job) return;
+
+  // Block the URL before deleting so the scraper skips it next time
+  await prisma.blockedJob.upsert({
+    where: { url: job.url },
+    create: { url: job.url },
+    update: {},
+  });
+
+  await prisma.job.delete({ where: { id: jobId } });
   revalidatePath("/");
 }

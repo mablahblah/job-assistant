@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-03-25T15:20:34.830Z
-> Files: 88 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-03-25T15:43:56.387Z
+> Files: 89 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ./
 
@@ -42,8 +42,8 @@
 
 ## app/
 
-- `actions.ts` — Exports setJobStatus, toggleJobStatus, runScrape, addSearchTerm + 6 more (~1267 tok)
-- `globals.css` — Styles: 66 rules, 48 vars (~4569 tok)
+- `actions.ts` — Exports setJobStatus, toggleJobStatus, runScrape, addSearchTerm + 6 more (~1339 tok)
+- `globals.css` — Styles: 67 rules, 50 vars (~5074 tok)
 - `layout.tsx` — geistSans (~227 tok)
 - `page.tsx` — Home (~560 tok)
 - `scraper-actions.ts` — Prisma data access layer (~2109 tok)
@@ -78,8 +78,9 @@
 
 - `CLAUDE.md` — OpenWolf (~208 tok)
 - `CompaniesTable.tsx` — SCORE_FIELDS — renders table — uses useState (~1913 tok)
+- `ConfirmDialog.tsx` — ConfirmDialog (~245 tok)
 - `ImportScoresModal.tsx` — ImportScoresModal — uses useState (~949 tok)
-- `JobsTable.tsx` — TAB_STATUSES — renders table (~3878 tok)
+- `JobsTable.tsx` — TAB_STATUSES — renders table (~4293 tok)
 - `Nav.tsx` — links (~266 tok)
 - `ScraperModal.tsx` — getEnabledScrapers — uses useState, useRef, useEffect (~4319 tok)
 - `StatusDropdown.tsx` — STATUS_CONFIG (~1109 tok)
@@ -93,7 +94,7 @@
 - `scoring.test.ts` — Declares company (~1356 tok)
 - `scoring.ts` — Exports SCORE_WEIGHTS, TARGET_SALARY, parseSalaryRange, salaryModifier, calculateScore (~1289 tok)
 - `scraper-orchestrator.ts` — Zustand store (~1225 tok)
-- `scraper-save.ts` — Exports ScraperSaveResult, getOrCreateSystemTerm, saveScrapedJobs (~642 tok)
+- `scraper-save.ts` — Exports ScraperSaveResult, getOrCreateSystemTerm, saveScrapedJobs (~719 tok)
 - `types.ts` — Exports Company, Job, SearchTerm, JobWithCompany (~258 tok)
 
 ## lib/animations/
@@ -122,7 +123,7 @@
 
 ## prisma/
 
-- `schema.prisma` (~639 tok)
+- `schema.prisma` (~692 tok)
 - `seed.ts` — No seed data — the app starts empty and relies on the scraper for all job/company data. (~46 tok)
 
 ## prisma/migrations/

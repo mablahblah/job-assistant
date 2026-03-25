@@ -27,7 +27,14 @@ export async function saveScrapedJobs(
 ): Promise<ScraperSaveResult> {
   let jobsNew = 0;
 
+  // Pre-fetch all blocked URLs so deleted jobs don't get re-imported
+  const blockedUrls = new Set(
+    (await prisma.blockedJob.findMany({ select: { url: true } })).map((b) => b.url)
+  );
+
   for (const jobData of jobs) {
+    if (blockedUrls.has(jobData.url)) continue; // skip previously deleted jobs
+
     const company = await prisma.company.upsert({
       where: { name: jobData.companyName },
       create: { name: jobData.companyName },

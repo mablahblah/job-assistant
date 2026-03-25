@@ -62,6 +62,13 @@ model JobSource {
   @@index([searchTermId])
 }
 
+// URLs of deleted jobs — scraper skips these so they don't reappear
+model BlockedJob {
+  id        String   @id @default(cuid())
+  url       String   @unique
+  createdAt DateTime @default(now())
+}
+
 model ScrapingRun {
   id          String    @id @default(cuid())
   source      String    // e.g. "adzuna", "greenhouse", "linkedin"
