@@ -18,6 +18,7 @@ export type Job = {
   postedAt: string // ISO date string
   salaryRange: string // e.g. "$120k–$150k"
   status: string // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer
+  modifiedAt: string | null // ISO date when status was last changed
   locationFlagged: boolean // true when remote location couldn't be classified
 }
 

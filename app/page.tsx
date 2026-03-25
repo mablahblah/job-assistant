@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { calculateScore } from "@/lib/scoring";
 import { JobWithCompany, SearchTerm } from "@/lib/types";
@@ -38,15 +39,20 @@ export default async function Home() {
         postedAt: job.postedAt.toISOString(),
         salaryRange: job.salaryRange,
         status: job.status,
+        modifiedAt: job.modifiedAt?.toISOString() ?? null,
         locationFlagged: job.locationFlagged,
         company,
         score: calculateScore(
-          { ...job, postedAt: job.postedAt.toISOString() },
+          { ...job, postedAt: job.postedAt.toISOString(), modifiedAt: job.modifiedAt?.toISOString() ?? null },
           company
         ),
       };
     })
     .sort((a, b) => b.score - a.score);
 
-  return <JobsTable jobs={jobs} searchTerms={searchTerms} />;
+  return (
+    <Suspense>
+      <JobsTable jobs={jobs} searchTerms={searchTerms} />
+    </Suspense>
+  );
 }
