@@ -5,6 +5,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  // DATABASE_URL is set via .env locally and via container env in production
+  url      = env("DATABASE_URL")
 }
 
 model Company {
