@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import CompaniesTable from "@/components/CompaniesTable";
 
+// Statuses that count as "active" — backlog + in-progress pipeline
+const ACTIVE_STATUSES = ["backlog", "app. sent", "screening", "interview", "test", "offer"];
+
 // Parse the upper bound from a salary string like "$120k–$150k" → 150000
 function parseSalaryMax(salary: string): number {
   const matches = salary.match(/\d+/g)
@@ -15,7 +18,7 @@ export default async function CompaniesPage() {
     orderBy: { name: "asc" },
     include: {
       _count: { select: { jobs: true } },
-      jobs: { select: { url: true, salaryRange: true }, orderBy: { postedAt: "desc" } },
+      jobs: { select: { url: true, salaryRange: true, status: true }, orderBy: { postedAt: "desc" } },
     },
   });
 
@@ -31,6 +34,7 @@ export default async function CompaniesPage() {
       id: c.id,
       name: c.name,
       jobCount: c._count.jobs,
+      activeJobCount: c.jobs.filter((j) => ACTIVE_STATUSES.includes(j.status)).length,
       jobUrl: topJob?.url ?? null,
       employeeSatisfaction: c.employeeSatisfaction,
       customerSatisfaction: c.customerSatisfaction,

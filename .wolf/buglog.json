@@ -560,6 +560,103 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-03-25T21:14:06.321Z"
+    },
+    {
+      "id": "bug-036",
+      "timestamp": "2026-03-25T21:20:34.584Z",
+      "error_message": "Missing guard clause",
+      "file": "components/CompaniesTable.tsx",
+      "root_cause": "No early return/throw for edge case: filter && !SCORE_FIELDS.some((f",
+      "fix": "Added guard clause: if (filter && !SCORE_FIELDS.some((f)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T21:20:34.584Z"
+    },
+    {
+      "id": "bug-037",
+      "timestamp": "2026-03-25T21:21:02.275Z",
+      "error_message": "Incorrect value in code",
+      "file": "components/CompaniesTable.tsx",
+      "root_cause": "Had \"All companies have scores\"",
+      "fix": "Changed to \"No companies match the current filters\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T21:21:02.275Z"
+    },
+    {
+      "id": "bug-038",
+      "timestamp": "2026-03-25T21:23:28.630Z",
+      "error_message": "Type error",
+      "file": "app/companies/page.tsx",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T21:23:28.630Z"
+    },
+    {
+      "id": "bug-039",
+      "timestamp": "2026-03-25T21:23:36.819Z",
+      "error_message": "CSS fix: jobs",
+      "file": "app/companies/page.tsx",
+      "root_cause": "jobs: { select: { url: true, salaryRange: true → { select: { url: true, salaryRange: true, status: true",
+      "fix": "Changed jobs: { select: { url: true, salaryRange: true → { select: { url: true, salaryRange: true, status: true",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T21:23:36.819Z"
+    },
+    {
+      "id": "bug-040",
+      "timestamp": "2026-03-25T00:00:00.000Z",
+      "error_message": "Export button does not respect filters",
+      "file": "components/CompaniesTable.tsx",
+      "root_cause": "handleExport passed the full `companies` array to generateCompanyPrompt instead of `displayed` (the filtered list)",
+      "fix": "Changed generateCompanyPrompt(companies) → generateCompanyPrompt(displayed)",
+      "tags": [
+        "filter",
+        "export",
+        "wrong-reference",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T00:00:00.000Z"
+    },
+    {
+      "id": "bug-041",
+      "timestamp": "2026-03-25T21:31:38.320Z",
+      "error_message": "Significant refactor of ",
+      "file": "ROADMAP.md",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→3 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "md"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T21:31:38.320Z"
     }
   ]
 }

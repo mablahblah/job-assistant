@@ -3,6 +3,8 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+| session | Fixed export button ignoring filters — passed `displayed` instead of `companies` to generateCompanyPrompt | components/CompaniesTable.tsx | fixed | ~50 |
+
 ## Session: 2026-03-23 18:17
 
 | Time | Action | File(s) | Outcome | ~Tokens |
@@ -211,3 +213,34 @@
 |------|--------|---------|---------|--------|
 | 16:15 | Edited ROADMAP-DONE.md | 1→2 lines | ~160 |
 | 16:15 | Edited ROADMAP.md | 2→1 lines | ~33 |
+| 16:17 | Session end: 2 writes across 2 files (ROADMAP-DONE.md, ROADMAP.md) | 6 reads | ~3894 tok |
+
+## Session: 2026-03-25 16:17
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 16:20 | Edited components/CompaniesTable.tsx | 3→4 lines | ~88 |
+| 16:20 | Edited components/CompaniesTable.tsx | added 2 condition(s) | ~81 |
+| 16:20 | Edited components/CompaniesTable.tsx | expanded (+9 lines) | ~165 |
+| 16:21 | Edited components/CompaniesTable.tsx | 3→3 lines | ~50 |
+| 16:21 | Session end: 4 writes across 1 files (CompaniesTable.tsx) | 3 reads | ~3755 tok |
+| 16:23 | Edited app/companies/page.tsx | 2→5 lines | ~74 |
+| 16:23 | Edited app/companies/page.tsx | inline fix | ~30 |
+| 16:23 | Edited app/companies/page.tsx | CSS: activeJobCount | ~58 |
+| 16:23 | Edited components/CompaniesTable.tsx | CSS: activeJobCount | ~47 |
+| 16:24 | Edited components/CompaniesTable.tsx | 2→3 lines | ~88 |
+| 16:24 | Edited components/CompaniesTable.tsx | added 1 condition(s) | ~39 |
+| 16:24 | Edited components/CompaniesTable.tsx | expanded (+9 lines) | ~248 |
+| 16:24 | Edited components/CompaniesTable.tsx | 2→2 lines | ~35 |
+| 16:24 | Edited components/CompaniesTable.tsx | inline fix | ~26 |
+| 16:24 | Session end: 13 writes across 2 files (CompaniesTable.tsx, page.tsx) | 3 reads | ~4738 tok |
+
+## Session: 2026-03-25 16:27
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 16:27 | Edited components/CompaniesTable.tsx | modified handleExport() | ~46 |
+| 16:29 | Session end: 1 writes across 1 files (CompaniesTable.tsx) | 2 reads | ~2711 tok |
+| 16:29 | Session end: 1 writes across 1 files (CompaniesTable.tsx) | 2 reads | ~2711 tok |
+| 16:31 | Edited ROADMAP.md | 6→3 lines | ~43 |
+| 16:34 | Edited ROADMAP-DONE.md | 1→2 lines | ~135 |
