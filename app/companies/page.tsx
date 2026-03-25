@@ -1,3 +1,6 @@
+// Never prerender — this page queries the live DB on every request
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import CompaniesTable from "@/components/CompaniesTable";
 

@@ -1,3 +1,6 @@
+// Never prerender — this page queries the live DB on every request
+export const dynamic = "force-dynamic";
+
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { calculateScore } from "@/lib/scoring";
