@@ -2,7 +2,23 @@
 .next
 node_modules
 npm-debug.log
+
+# Env files with secrets
 .env
 .env.local
+.env*.local
+
+# Database files
 prisma/*.db
 prisma/*.db-journal
+
+# Non-production files
+.claude/
+.wolf/
+.github/
+*.test.ts
+*.test.tsx
+vitest.config.ts
+ROADMAP.md
+ROADMAP-DONE.md
+README.md
