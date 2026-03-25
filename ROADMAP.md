@@ -8,10 +8,6 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
-- [ ] - **Status Sorting**
-  - ~~Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.~~
-  - Company List Filter Options: Missing scores AND Companies with jobs (so i can extract only companies with current jobs)
-
 ## As a user I can click an action to auto-generate a resume and cover letter in Figma so I can speed up the application process
 
 - [ ] - **Initial Figma MCP Connection** - User can trigger a job that duplicates the generic resume and cover letters and properly renames them in Figma
