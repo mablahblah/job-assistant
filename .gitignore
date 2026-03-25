@@ -41,3 +41,6 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+
+# OpenWolf runtime files
+.wolf/
