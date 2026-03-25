@@ -1,34 +1,56 @@
 {
-  "session_id": "session-2026-03-25-1614",
-  "started": "2026-03-25T21:14:55.822Z",
+  "session_id": "session-2026-03-25-1627",
+  "started": "2026-03-25T21:27:18.185Z",
   "files_read": {
-    "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP-DONE.md": {
+    "/Users/matthewmannello/Documents/projects/code/job-assistant/components/CompaniesTable.tsx": {
       "count": 1,
-      "tokens": 2441,
-      "first_read": "2026-03-25T21:15:10.919Z"
+      "tokens": 2261,
+      "first_read": "2026-03-25T21:27:38.362Z"
+    },
+    "/Users/matthewmannello/Documents/projects/code/job-assistant/lib/exportPrompt.ts": {
+      "count": 1,
+      "tokens": 404,
+      "first_read": "2026-03-25T21:27:38.587Z"
+    },
+    "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md": {
+      "count": 1,
+      "tokens": 1037,
+      "first_read": "2026-03-25T21:30:10.104Z"
+    },
+    "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP-DONE.md": {
+      "count": 2,
+      "tokens": 2496,
+      "first_read": "2026-03-25T21:30:10.287Z"
     }
   },
   "files_written": [
     {
-      "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP-DONE.md",
+      "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/components/CompaniesTable.tsx",
       "action": "edit",
-      "tokens": 172,
-      "at": "2026-03-25T21:15:32.288Z"
+      "tokens": 46,
+      "at": "2026-03-25T21:27:57.297Z"
     },
     {
       "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP.md",
       "action": "edit",
-      "tokens": 36,
-      "at": "2026-03-25T21:15:37.408Z"
+      "tokens": 46,
+      "at": "2026-03-25T21:31:38.318Z"
+    },
+    {
+      "file": "/Users/matthewmannello/Documents/projects/code/job-assistant/ROADMAP-DONE.md",
+      "action": "edit",
+      "tokens": 145,
+      "at": "2026-03-25T21:34:08.604Z"
     }
   ],
   "edit_counts": {
-    "ROADMAP-DONE.md": 1,
-    "ROADMAP.md": 1
+    "components/CompaniesTable.tsx": 1,
+    "ROADMAP.md": 1,
+    "ROADMAP-DONE.md": 1
   },
-  "anatomy_hits": 1,
+  "anatomy_hits": 4,
   "anatomy_misses": 0,
-  "repeated_reads_warned": 0,
+  "repeated_reads_warned": 1,
   "cerebrum_warnings": 0,
-  "stop_count": 1
+  "stop_count": 2
 }

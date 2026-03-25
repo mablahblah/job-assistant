@@ -14,6 +14,7 @@ type CompanyRow = {
   id: string;
   name: string;
   jobCount: number;
+  activeJobCount: number; // jobs in backlog or in-progress statuses
   jobUrl: string | null;
   employeeSatisfaction: number | null;
   customerSatisfaction: number | null;
@@ -78,7 +79,9 @@ export default function CompaniesTable({
   companies: CompanyRow[];
 }) {
   const [isPending, startTransition] = useTransition();
-  const [filter, setFilter] = useState(false);
+  const [filter, setFilter] = useState(false); // filter to companies with missing scores
+  const [filterWithJobs, setFilterWithJobs] = useState(false); // filter to companies with at least 1 job
+  const [filterActive, setFilterActive] = useState(false); // filter to companies with backlog/in-progress jobs
   const [showImport, setShowImport] = useState(false);
 
   // Are there any companies with missing scores?
@@ -87,7 +90,8 @@ export default function CompaniesTable({
   );
 
   function handleExport() {
-    const prompt = generateCompanyPrompt(companies);
+    // Use the filtered list so the export only includes what's currently shown
+    const prompt = generateCompanyPrompt(displayed);
     if (!prompt) return;
     const blob = new Blob([prompt], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
@@ -98,9 +102,13 @@ export default function CompaniesTable({
     URL.revokeObjectURL(url);
   }
 
-  const displayed = filter
-    ? companies.filter((c) => SCORE_FIELDS.some((f) => c[f.key] === null))
-    : companies;
+  // AND both filters together — each checkbox narrows the list independently
+  const displayed = companies.filter((c) => {
+    if (filter && !SCORE_FIELDS.some((f) => c[f.key] === null)) return false;
+    if (filterWithJobs && c.jobCount === 0) return false;
+    if (filterActive && c.activeJobCount === 0) return false;
+    return true;
+  });
 
   function handleScoreChange(
     company: CompanyRow,
@@ -129,7 +137,7 @@ export default function CompaniesTable({
         <h1 className="page-title">Companies</h1>
         <span className="count-text">
           {displayed.length} {displayed.length === 1 ? "company" : "companies"}
-          {filter && ` (${companies.length} total)`}
+          {(filter || filterWithJobs || filterActive) && ` (${companies.length} total)`}
         </span>
         {isPending && <span className="status-text">Saving...</span>}
       </div>
@@ -138,11 +146,29 @@ export default function CompaniesTable({
         <label className="flex items-center gap-2 text-muted">
           <input
             type="checkbox"
+            checked={filterWithJobs}
+            onChange={(e) => setFilterWithJobs(e.target.checked)}
+            className="checkbox"
+          />
+          Has jobs
+        </label>
+        <label className="flex items-center gap-2 text-muted">
+          <input
+            type="checkbox"
+            checked={filterActive}
+            onChange={(e) => setFilterActive(e.target.checked)}
+            className="checkbox"
+          />
+          Active jobs
+        </label>
+        <label className="flex items-center gap-2 text-muted">
+          <input
+            type="checkbox"
             checked={filter}
             onChange={(e) => setFilter(e.target.checked)}
             className="checkbox"
           />
-          Missing scores only
+          Missing scores
         </label>
         <div className="divider-v" />
         <button
@@ -211,8 +237,8 @@ export default function CompaniesTable({
                   className="text-center text-faint"
                   style={{ padding: "2rem 0.75rem" }}
                 >
-                  {filter
-                    ? "All companies have scores"
+                  {filter || filterWithJobs || filterActive
+                    ? "No companies match the current filters"
                     : "No companies yet — scrape some jobs first"}
                 </td>
               </tr>
