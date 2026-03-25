@@ -38,6 +38,8 @@ VOLUME ["/data"]
 
 EXPOSE 3000
 ENV PORT=3000
+# Next.js standalone defaults to localhost — must bind to 0.0.0.0 to be reachable from outside the container
+ENV HOSTNAME="0.0.0.0"
 
 # Run migrations (idempotent — skips already-applied ones) then start the server
 CMD sh -c "npx prisma migrate deploy && node server.js"
