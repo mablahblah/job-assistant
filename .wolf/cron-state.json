@@ -1,5 +1,5 @@
 {
-  "last_heartbeat": "2026-03-24T22:00:01.426Z",
+  "last_heartbeat": "2026-03-25T21:06:11.160Z",
   "engine_status": "running",
   "execution_log": [
     {
@@ -33,6 +33,12 @@
       "timestamp": "2026-03-24T17:53:06.980Z",
       "duration_ms": 2294,
       "error": "claude -p failed: Exit code null: Unknown error"
+    },
+    {
+      "task_id": "anatomy-rescan",
+      "status": "success",
+      "timestamp": "2026-03-25T17:00:00.772Z",
+      "duration_ms": 30
     }
   ],
   "dead_letter_queue": [],
