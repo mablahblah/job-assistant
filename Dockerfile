@@ -11,6 +11,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Generate Prisma client (baked into the build)
 RUN npx prisma generate
 RUN npm run build
 
@@ -19,18 +20,22 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install Prisma CLI so we can run migrations at container startup
+RUN npm install -g prisma
+
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Copy schema + migrations so prisma migrate deploy can run at startup
 COPY --from=builder /app/prisma ./prisma
 
-# Volume for persistent SQLite data
-VOLUME ["/app/prisma"]
+# DB lives in a mounted volume at /data — override this with your own path via -e DATABASE_URL
+ENV DATABASE_URL="file:/data/prod.db"
+# /data is the persistent volume — mount your UNRAID path here
+VOLUME ["/data"]
 
 EXPOSE 3000
 ENV PORT=3000
 
-# Run as non-root user for security (node user is built into the alpine image)
-USER node
-
-CMD ["node", "server.js"]
+# Run migrations (idempotent — skips already-applied ones) then start the server
+CMD sh -c "prisma migrate deploy && node server.js"
