@@ -448,6 +448,118 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-03-25T15:20:34.841Z"
+    },
+    {
+      "id": "bug-029",
+      "timestamp": "2026-03-25T15:39:23.192Z",
+      "error_message": "Missing guard clause",
+      "file": "app/actions.ts",
+      "root_cause": "No early return/throw for edge case: !job",
+      "fix": "Added guard clause: if (!job)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T15:39:23.192Z"
+    },
+    {
+      "id": "bug-030",
+      "timestamp": "2026-03-25T15:41:18.417Z",
+      "error_message": "CSS fix: max-width, display",
+      "file": "app/globals.css",
+      "root_cause": "max-width: 767px) { → 400px; display: none → flex",
+      "fix": "Changed max-width: 767px) { → 400px; display: none → flex",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "css"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T15:41:18.417Z"
+    },
+    {
+      "id": "bug-031",
+      "timestamp": "2026-03-25T15:42:33.791Z",
+      "error_message": "Type error",
+      "file": "components/JobsTable.tsx",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T15:42:33.791Z"
+    },
+    {
+      "id": "bug-032",
+      "timestamp": "2026-03-25T15:42:45.479Z",
+      "error_message": "Missing guard clause",
+      "file": "components/JobsTable.tsx",
+      "root_cause": "No early return/throw for edge case: !deleteTarget",
+      "fix": "Added guard clause: if (!deleteTarget)",
+      "tags": [
+        "auto-detected",
+        "guard-clause",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T15:42:45.479Z"
+    },
+    {
+      "id": "bug-033",
+      "timestamp": "2026-03-25T15:42:56.326Z",
+      "error_message": "Significant refactor of ",
+      "file": "components/JobsTable.tsx",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 19→10 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T15:42:56.326Z"
+    },
+    {
+      "id": "bug-034",
+      "timestamp": "2026-03-25T15:43:56.399Z",
+      "error_message": "Type error",
+      "file": "lib/scraper-save.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T15:43:56.399Z"
+    },
+    {
+      "id": "bug-035",
+      "timestamp": "2026-03-25T21:14:06.321Z",
+      "error_message": "Type error",
+      "file": "lib/scraper-save.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-03-25T21:14:06.321Z"
     }
   ]
 }

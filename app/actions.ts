@@ -152,5 +152,6 @@ export async function deleteJob(jobId: string) {
   });
 
   await prisma.job.delete({ where: { id: jobId } });
+  console.log(`[delete-job] Deleted job id=${jobId} title="${job.title}" url=${job.url} — URL blocked from future scrapes`);
   revalidatePath("/");
 }

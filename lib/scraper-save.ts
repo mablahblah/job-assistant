@@ -33,7 +33,10 @@ export async function saveScrapedJobs(
   );
 
   for (const jobData of jobs) {
-    if (blockedUrls.has(jobData.url)) continue; // skip previously deleted jobs
+    if (blockedUrls.has(jobData.url)) {
+      console.log(`[scraper-save] Skipped blocked URL: ${jobData.url} (previously deleted)`);
+      continue;
+    }
 
     const company = await prisma.company.upsert({
       where: { name: jobData.companyName },

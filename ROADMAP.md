@@ -10,7 +10,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 - [ ] - **Status Sorting**
   - ~~Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.~~
-  - Deletable Jobs - Now I can manually delete jobs 1 by 1. Once a job is deleted it will be rejected from a scrape as well (perhaps this is actually a hidden state?). We’ll remove the bulk delete feature.
+  - Company List Filter Options: Missing scores AND Companies with jobs (so i can extract only companies with current jobs)
 
 ## As a user I can click an action to auto-generate a resume and cover letter in Figma so I can speed up the application process
 
@@ -27,6 +27,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Spacing tokens take a pass at spacing / layout for everything
   - tune terminal modal styling (icon sizes, spacing, colors, layout, etc...)
   - location icon in table should be it's own cell so the size doesn't shrink when location is long (and/or the location should be ellipsized with a tooltip)
+  - Search Jobs button should become disabled, not hide when there are no roles being searched for
 - **Expand List of Scrapers**
 - **Code redundancy cleanup** _(found in audit)_
   - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant
