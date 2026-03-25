@@ -168,3 +168,46 @@
 | 10:19 | Edited ROADMAP-DONE.md | 1→2 lines | ~184 |
 | 10:20 | Edited CLAUDE.md | 1→2 lines | ~154 |
 | end  | Shipped Job Sections: tab nav, URL state, per-tab sorting, search controls above tabs | JobsTable.tsx, page.tsx, types.ts, globals.css, ROADMAP.md, ROADMAP-DONE.md, CLAUDE.md | complete | ~8000 |
+| 10:23 | Session end: 3 writes across 3 files (ROADMAP.md, ROADMAP-DONE.md, CLAUDE.md) | 4 reads | ~5180 tok |
+
+## Session: 2026-03-25 10:23
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 10:38 | Edited prisma/schema.prisma | expanded (+7 lines) | ~59 |
+| 10:39 | Edited app/actions.ts | added 1 condition(s) | ~140 |
+| 10:40 | Edited app/globals.css | CSS: --color-bg-negative | ~42 |
+| 10:40 | Edited app/globals.css | CSS: --color-button-label | ~30 |
+| 10:40 | Edited app/globals.css | modified not() | ~65 |
+| 10:41 | Edited app/globals.css | modified media() | ~454 |
+| 10:41 | Created components/ConfirmDialog.tsx | — | ~245 |
+| 10:42 | Edited components/JobsTable.tsx | 6→6 lines | ~28 |
+| 10:42 | Edited components/JobsTable.tsx | added 1 import(s) | ~48 |
+| 10:42 | Edited components/JobsTable.tsx | CSS: id, title | ~69 |
+| 10:42 | Edited components/JobsTable.tsx | modified handleScrape() | ~83 |
+| 10:42 | Edited components/JobsTable.tsx | reduced (-9 lines) | ~86 |
+| 10:43 | Edited components/JobsTable.tsx | 6→7 lines | ~56 |
+| 10:43 | Edited components/JobsTable.tsx | CSS: action, id, title | ~191 |
+| 10:43 | Edited components/JobsTable.tsx | expanded (+10 lines) | ~120 |
+| 10:43 | Edited lib/scraper-save.ts | added 1 condition(s) | ~101 |
+| 10:46 | Session end: 16 writes across 6 files (schema.prisma, actions.ts, globals.css, ConfirmDialog.tsx, JobsTable.tsx) | 6 reads | ~14005 tok |
+
+## Session: 2026-03-25 10:48
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 16:13 | Edited app/actions.ts | 3→4 lines | ~58 |
+| 16:14 | Edited lib/scraper-save.ts | 1→4 lines | ~45 |
+| 16:14 | Session end: 2 writes across 2 files (actions.ts, scraper-save.ts) | 1 reads | ~1442 tok |
+
+## Session: 2026-03-25 16:14
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-03-25 16:14
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 16:15 | Edited ROADMAP-DONE.md | 1→2 lines | ~160 |
+| 16:15 | Edited ROADMAP.md | 2→1 lines | ~33 |

@@ -4,7 +4,7 @@ import { useTransition, useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   setJobStatus,
-  deleteAllJobs,
+  deleteJob,
   addSearchTerm,
   removeSearchTerm,
 } from "@/app/actions";
@@ -24,6 +24,7 @@ import {
 } from "@phosphor-icons/react";
 import ScraperModal from "@/components/ScraperModal";
 import StatusDropdown from "@/components/StatusDropdown";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 // Which statuses belong to each tab
 const TAB_STATUSES = {
@@ -127,6 +128,7 @@ export default function JobsTable({
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
   const [showScraperModal, setShowScraperModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null); // job awaiting delete confirmation
   const searchParams = useSearchParams();
 
   // Track active tab in local state, seeded from URL on mount
@@ -190,10 +192,11 @@ export default function JobsTable({
     setShowScraperModal(true);
   }
 
-  function handleDeleteAll() {
-    if (!confirm("Delete all jobs, companies, and scraping history?")) return;
-    setScrapeStatus(null);
-    startTransition(() => deleteAllJobs());
+  // Confirm then hard-delete a job and block its URL from future scrapes
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    startTransition(() => deleteJob(deleteTarget.id));
+    setDeleteTarget(null);
   }
 
   function handleAddTerm() {
@@ -218,7 +221,7 @@ export default function JobsTable({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap items-center gap-2">
-          {hasTerms ? (
+          {hasTerms && (
             <button
               onClick={handleScrape}
               disabled={isPending}
@@ -226,15 +229,6 @@ export default function JobsTable({
             >
               <MagnifyingGlassIcon size={14} weight="regular" />
               Search Jobs
-            </button>
-          ) : (
-            <button
-              onClick={handleDeleteAll}
-              disabled={isPending}
-              className="btn btn-danger"
-            >
-              <TrashIcon size={14} weight="regular" />
-              Delete All
             </button>
           )}
           <div className="divider-v" />
@@ -327,6 +321,7 @@ export default function JobsTable({
                 <br />
                 Score
               </th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -403,6 +398,17 @@ export default function JobsTable({
                 <td className="col-avg-rating text-center">
                   <AvgRatingCell company={job.company} />
                 </td>
+                <td>
+                  {/* Delete action: icon + label on xl, icon-only with tooltip below */}
+                  <button
+                    className="delete-action"
+                    title="Delete"
+                    onClick={() => setDeleteTarget({ id: job.id, title: job.title })}
+                  >
+                    <TrashIcon size={18} weight="regular" />
+                    <span className="delete-action-label">Delete</span>
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -411,6 +417,16 @@ export default function JobsTable({
 
       {showScraperModal && (
         <ScraperModal onClose={() => setShowScraperModal(false)} />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Are you sure?"
+          body="This job won't appear again in future job searches."
+          confirmLabel="Yes, Delete Job"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDelete}
+        />
       )}
     </div>
   );
