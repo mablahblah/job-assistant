@@ -9,7 +9,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 ## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
 
 - [ ] - **Status Sorting**
-  - Collapsible Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.
+  - ~~Sections - Break out list by In Progress, Backlog, and Disqualified. Define the sort order for each and which statuses apply.~~
   - Deletable Jobs - Now I can manually delete jobs 1 by 1. Once a job is deleted it will be rejected from a scrape as well (perhaps this is actually a hidden state?). We’ll remove the bulk delete feature.
 
 ## As a user I can click an action to auto-generate a resume and cover letter in Figma so I can speed up the application process

@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   setJobStatus,
   deleteAllJobs,
@@ -17,9 +18,37 @@ import {
   BicycleIcon,
   BuildingOfficeIcon,
   FlagPennantIcon,
+  TreeViewIcon,
+  BatteryHighIcon,
+  ReceiptXIcon,
 } from "@phosphor-icons/react";
 import ScraperModal from "@/components/ScraperModal";
 import StatusDropdown from "@/components/StatusDropdown";
+
+// Which statuses belong to each tab
+const TAB_STATUSES = {
+  backlog: ["backlog"],
+  "in-progress": ["app. sent", "screening", "interview", "test", "offer"],
+  disqualified: ["expired", "too far", "rejected", "won't apply"],
+} as const;
+
+type TabKey = keyof typeof TAB_STATUSES;
+
+// Sort order for In Progress tab — later stages first
+const IN_PROGRESS_ORDER: Record<string, number> = {
+  offer: 0,
+  test: 1,
+  interview: 2,
+  screening: 3,
+  "app. sent": 4,
+};
+
+// Tab metadata: label, icon, sort function
+const TABS: { key: TabKey; label: string; icon: typeof TreeViewIcon }[] = [
+  { key: "backlog", label: "Backlog", icon: TreeViewIcon },
+  { key: "in-progress", label: "In Progress", icon: BatteryHighIcon },
+  { key: "disqualified", label: "Disqualified", icon: ReceiptXIcon },
+];
 
 function ScoreCell({ score }: { score: number }) {
   const cls =
@@ -42,17 +71,44 @@ function RatingCell({ value }: { value: number | null }) {
 }
 
 // Averages up to 5 company scores, shows tooltip with individual breakdown
-function AvgRatingCell({ company }: { company: { employeeSatisfaction: number | null; customerSatisfaction: number | null; workLifeBalance: number | null; politicalAlignment: number | null; benefits: number | null } }) {
-  const scores = [company.employeeSatisfaction, company.customerSatisfaction, company.workLifeBalance, company.politicalAlignment, company.benefits];
+function AvgRatingCell({
+  company,
+}: {
+  company: {
+    employeeSatisfaction: number | null;
+    customerSatisfaction: number | null;
+    workLifeBalance: number | null;
+    politicalAlignment: number | null;
+    benefits: number | null;
+  };
+}) {
+  const scores = [
+    company.employeeSatisfaction,
+    company.customerSatisfaction,
+    company.workLifeBalance,
+    company.politicalAlignment,
+    company.benefits,
+  ];
   const valid = scores.filter((s): s is number => s !== null);
-  const avg = valid.length > 0 ? Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 10) / 10 : null;
+  const avg =
+    valid.length > 0
+      ? Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 10) / 10
+      : null;
   const tooltip = `ES: ${company.employeeSatisfaction ?? "?"} · CS: ${company.customerSatisfaction ?? "?"} · W/L: ${company.workLifeBalance ?? "?"} · PA: ${company.politicalAlignment ?? "?"} · Ben: ${company.benefits ?? "?"}`;
 
-  if (avg === null) return <span className="score-none" title={tooltip}>?</span>;
+  if (avg === null)
+    return (
+      <span className="score-none" title={tooltip}>
+        ?
+      </span>
+    );
   const cls = avg >= 4 ? "score-good" : avg >= 3 ? "score-ok" : "score-bad";
-  return <span className={cls} title={tooltip}>{avg}</span>;
+  return (
+    <span className={cls} title={tooltip}>
+      {avg}
+    </span>
+  );
 }
-
 
 function WorkModeIcon({ mode }: { mode: string }) {
   if (mode === "remote") return <WifiHighIcon size={24} weight="regular" />;
@@ -71,6 +127,60 @@ export default function JobsTable({
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
   const [showScraperModal, setShowScraperModal] = useState(false);
+  const searchParams = useSearchParams();
+
+  // Track active tab in local state, seeded from URL on mount
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    () => (searchParams.get("tab") as TabKey) || "backlog",
+  );
+
+  // Switch tab: update state + sync URL without triggering server navigation
+  const switchTab = useCallback((tab: TabKey) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", tab);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }, []);
+
+  // Count jobs per tab (always uses full list, not filtered)
+  const tabCounts = useMemo(() => {
+    const counts: Record<TabKey, number> = {
+      backlog: 0,
+      "in-progress": 0,
+      disqualified: 0,
+    };
+    for (const job of jobs) {
+      for (const [tab, statuses] of Object.entries(TAB_STATUSES)) {
+        if ((statuses as readonly string[]).includes(job.status)) {
+          counts[tab as TabKey]++;
+        }
+      }
+    }
+    return counts;
+  }, [jobs]);
+
+  // Filter and sort jobs for the active tab
+  const filteredJobs = useMemo(() => {
+    const statuses = TAB_STATUSES[activeTab] as readonly string[];
+    const filtered = jobs.filter((j) => statuses.includes(j.status));
+
+    if (activeTab === "backlog") {
+      return filtered.sort((a, b) => b.score - a.score);
+    }
+    if (activeTab === "in-progress") {
+      return filtered.sort(
+        (a, b) =>
+          (IN_PROGRESS_ORDER[a.status] ?? 99) -
+          (IN_PROGRESS_ORDER[b.status] ?? 99),
+      );
+    }
+    // Disqualified: most recently modified first
+    return filtered.sort((a, b) => {
+      const aDate = a.modifiedAt ? new Date(a.modifiedAt).getTime() : 0;
+      const bDate = b.modifiedAt ? new Date(b.modifiedAt).getTime() : 0;
+      return bDate - aDate;
+    });
+  }, [jobs, activeTab]);
 
   function handleSetStatus(id: string, status: string) {
     startTransition(() => setJobStatus(id, status));
@@ -102,69 +212,82 @@ export default function JobsTable({
     <div className="px-4 py-8">
       <div className="flex items-baseline gap-3 mb-4">
         <h1 className="page-title">Job Assistant</h1>
-        <span className="count-text">
-          {jobs.length} jobs
-        </span>
         {(scrapeStatus || (isPending && !scrapeStatus)) && (
           <span className="status-text">{scrapeStatus ?? "Saving..."}</span>
         )}
       </div>
-
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <div className="flex flex-wrap items-center gap-2">
-        {hasTerms ? (
-          <button
-            onClick={handleScrape}
-            disabled={isPending}
-            className="btn btn-primary"
-          >
-            <MagnifyingGlassIcon size={14} weight="regular" />
-            Search Jobs
-          </button>
-        ) : (
-          <button
-            onClick={handleDeleteAll}
-            disabled={isPending}
-            className="btn btn-danger"
-          >
-            <TrashIcon size={14} weight="regular" />
-            Delete All
-          </button>
-        )}
-        <div className="divider-v" />
-        <div className="relative flex items-center">
-          <input
-            type="text"
-            value={newTerm}
-            onChange={(e) => setNewTerm(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddTerm()}
-            placeholder="Add job title..."
-            className="input pr-8 w-44"
-          />
-          <button
-            onClick={handleAddTerm}
-            disabled={isPending || !newTerm.trim()}
-            className="btn-icon btn-icon-primary absolute right-[3px]"
-            aria-label="Add job title"
-          >
-            <PlusIcon size={14} weight="regular" />
-          </button>
-        </div>
-        {searchTerms.map((term) => (
-          <span key={term.id} className="badge">
-            {term.query}
+          {hasTerms ? (
             <button
-              onClick={() => handleRemoveTerm(term.id)}
+              onClick={handleScrape}
               disabled={isPending}
-              className="badge-remove"
-              aria-label={`Remove ${term.query}`}
+              className="btn btn-primary"
             >
-              <XIcon size={12} weight="regular" />
+              <MagnifyingGlassIcon size={14} weight="regular" />
+              Search Jobs
             </button>
-          </span>
-        ))}
+          ) : (
+            <button
+              onClick={handleDeleteAll}
+              disabled={isPending}
+              className="btn btn-danger"
+            >
+              <TrashIcon size={14} weight="regular" />
+              Delete All
+            </button>
+          )}
+          <div className="divider-v" />
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={newTerm}
+              onChange={(e) => setNewTerm(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddTerm()}
+              placeholder="Add job title..."
+              className="input pr-8 w-44"
+            />
+            <button
+              onClick={handleAddTerm}
+              disabled={isPending || !newTerm.trim()}
+              className="btn-icon btn-icon-primary absolute right-[3px]"
+              aria-label="Add job title"
+            >
+              <PlusIcon size={14} weight="regular" />
+            </button>
+          </div>
+          {searchTerms.map((term) => (
+            <span key={term.id} className="badge">
+              {term.query}
+              <button
+                onClick={() => handleRemoveTerm(term.id)}
+                disabled={isPending}
+                className="badge-remove"
+                aria-label={`Remove ${term.query}`}
+              >
+                <XIcon size={12} weight="regular" />
+              </button>
+            </span>
+          ))}
         </div>
       </div>
+      {/* Tab sub-nav — Backlog | In Progress | Disqualified */}
+      <nav className="tab-nav mb-6">
+        {TABS.map(({ key, label, icon: Icon }) => {
+          const active = activeTab === key;
+          return (
+            <button
+              key={key}
+              className={`tab-nav-item ${active ? "tab-nav-item-active" : ""}`}
+              onClick={() => switchTab(key)}
+            >
+              <Icon size={16} weight={active ? "duotone" : "regular"} />
+              <span>{label}</span>
+              <span className="tab-nav-count">({tabCounts[key]})</span>
+            </button>
+          );
+        })}
+      </nav>
 
       <div className="table-container">
         <table className="table">
@@ -196,12 +319,18 @@ export default function JobsTable({
                 <br />
                 Alignment
               </th>
-              <th className="col-rating col-rating-individual text-center">Benefits</th>
-              <th className="col-rating col-avg-rating text-center">Avg.<br />Score</th>
+              <th className="col-rating col-rating-individual text-center">
+                Benefits
+              </th>
+              <th className="col-rating col-avg-rating text-center">
+                Avg.
+                <br />
+                Score
+              </th>
             </tr>
           </thead>
           <tbody>
-            {jobs.map((job) => (
+            {filteredJobs.map((job) => (
               <tr key={job.id}>
                 <td>
                   <ScoreCell score={job.score} />
@@ -215,7 +344,14 @@ export default function JobsTable({
                     />
                     {/* Flag icon for jobs auto-set to "too far" with unrecognized remote location */}
                     {job.locationFlagged && (
-                      <span title={`workMode = ${job.workMode}; location = ${job.location}`} style={{ display: "inline-flex", color: "var(--color-negative-text)", flexShrink: 0 }}>
+                      <span
+                        title={`workMode = ${job.workMode}; location = ${job.location}`}
+                        style={{
+                          display: "inline-flex",
+                          color: "var(--color-negative-text)",
+                          flexShrink: 0,
+                        }}
+                      >
                         <FlagPennantIcon size={24} weight="duotone" />
                       </span>
                     )}
@@ -235,9 +371,14 @@ export default function JobsTable({
                   </div>
                 </td>
                 <td>
-                  <div className="flex items-center gap-1.5" title={job.location ?? ""}>
+                  <div
+                    className="flex items-center gap-1.5"
+                    title={job.location ?? ""}
+                  >
                     <WorkModeIcon mode={job.workMode} />
-                    <span className="text-muted location-text">{job.location}</span>
+                    <span className="text-muted location-text">
+                      {job.location}
+                    </span>
                   </div>
                 </td>
                 <td className="col-hide-phone">

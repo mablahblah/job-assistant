@@ -138,3 +138,33 @@
 | 17:12 | Edited ROADMAP-DONE.md | 1→2 lines | ~205 |
 | 17:12 | Edited ROADMAP.md | 4→3 lines | ~100 |
 | 17:13 | Edited CLAUDE.md | 1→2 lines | ~139 |
+| 17:14 | Session end: 9 writes across 7 files (StatusDropdown.tsx, scraper-save.ts, actions.ts, page.tsx, ROADMAP-DONE.md) | 13 reads | ~10649 tok |
+
+## Session: 2026-03-24 17:14
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 09:41 | Edited lib/types.ts | 2→3 lines | ~73 |
+| 09:41 | Edited app/page.tsx | added optional chaining | ~49 |
+| 09:42 | Edited app/page.tsx | added optional chaining | ~49 |
+| 09:43 | Edited components/JobsTable.tsx | modified const() | ~406 |
+| 09:44 | Edited components/JobsTable.tsx | added nullish coalescing | ~609 |
+| 09:45 | Edited components/JobsTable.tsx | CSS: icon | ~260 |
+| 09:45 | Edited components/JobsTable.tsx | inline fix | ~12 |
+| 09:46 | Edited app/globals.css | expanded (+38 lines) | ~229 |
+| 09:47 | Edited app/page.tsx | added 1 import(s) | ~80 |
+| 09:47 | Edited app/page.tsx | 2→6 lines | ~31 |
+| 09:48 | Session end: 10 writes across 4 files (types.ts, page.tsx, JobsTable.tsx, globals.css) | 7 reads | ~12301 tok |
+| 09:49 | Edited components/JobsTable.tsx | 2→2 lines | ~35 |
+| 09:49 | Edited components/JobsTable.tsx | modified for() | ~506 |
+| 09:49 | Edited components/JobsTable.tsx | inline fix | ~3 |
+| 09:49 | Session end: 13 writes across 4 files (types.ts, page.tsx, JobsTable.tsx, globals.css) | 7 reads | ~13771 tok |
+
+## Session: 2026-03-25 09:52
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| 10:19 | Edited ROADMAP.md | 3→3 lines | ~98 |
+| 10:19 | Edited ROADMAP-DONE.md | 1→2 lines | ~184 |
+| 10:20 | Edited CLAUDE.md | 1→2 lines | ~154 |
+| end  | Shipped Job Sections: tab nav, URL state, per-tab sorting, search controls above tabs | JobsTable.tsx, page.tsx, types.ts, globals.css, ROADMAP.md, ROADMAP-DONE.md, CLAUDE.md | complete | ~8000 |
