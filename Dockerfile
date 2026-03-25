@@ -22,22 +22,22 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install Prisma CLI so we can run migrations at container startup
-RUN npm install -g prisma
-
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-# Copy schema + migrations so prisma migrate deploy can run at startup
+# Copy schema + migrations + config so prisma migrate deploy can run at startup
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
-# DB lives in a mounted volume at /data — override this with your own path via -e DATABASE_URL
+# Install Prisma CLI + dotenv (prisma.config.ts imports it) for running migrations
+RUN npm install prisma dotenv
+
+# DB lives in a mounted volume at /data
 ENV DATABASE_URL="file:/data/prod.db"
-# /data is the persistent volume — mount your UNRAID path here
 VOLUME ["/data"]
 
 EXPOSE 3000
 ENV PORT=3000
 
 # Run migrations (idempotent — skips already-applied ones) then start the server
-CMD sh -c "prisma migrate deploy && node server.js"
+CMD sh -c "npx prisma migrate deploy && node server.js"
