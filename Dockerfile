@@ -22,7 +22,6 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # Copy schema + migrations + config so prisma migrate deploy can run at startup
@@ -42,4 +41,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Run migrations (idempotent — skips already-applied ones) then start the server
-CMD sh -c "npx prisma migrate deploy && node server.js"
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
