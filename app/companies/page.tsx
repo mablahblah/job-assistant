@@ -44,6 +44,7 @@ export default async function CompaniesPage() {
       workLifeBalance: c.workLifeBalance,
       politicalAlignment: c.politicalAlignment,
       benefits: c.benefits,
+      note: c.note,
     }
   });
 

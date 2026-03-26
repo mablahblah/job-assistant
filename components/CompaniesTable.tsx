@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { updateCompanyScores, deleteCompany } from "@/app/actions";
 import {
   TrashIcon,
-  ExportIcon,
+  CopySimpleIcon,
   DownloadSimpleIcon,
+  CheckCircleIcon,
 } from "@phosphor-icons/react";
 import { generateCompanyPrompt } from "@/lib/exportPrompt";
 import ImportScoresModal from "./ImportScoresModal";
@@ -21,6 +22,7 @@ type CompanyRow = {
   workLifeBalance: number | null;
   politicalAlignment: number | null;
   benefits: number | null;
+  note: string | null; // scoring rationale from Claude
 };
 
 const SCORE_FIELDS = [
@@ -44,6 +46,21 @@ const SCORE_FIELDS = [
 ];
 
 type ScoreKey = (typeof SCORE_FIELDS)[number]["key"];
+
+// Auto-dismissing toast notification
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 2000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className="toast">
+      <CheckCircleIcon size={20} weight="duotone" />
+      <span>{message}</span>
+    </div>
+  );
+}
 
 function ScoreDropdown({
   value,
@@ -83,23 +100,19 @@ export default function CompaniesTable({
   const [filterWithJobs, setFilterWithJobs] = useState(false); // filter to companies with at least 1 job
   const [filterActive, setFilterActive] = useState(false); // filter to companies with backlog/in-progress jobs
   const [showImport, setShowImport] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const dismissToast = useCallback(() => setToastMsg(null), []);
 
   // Are there any companies with missing scores?
   const hasExportable = companies.some((c) =>
     SCORE_FIELDS.some((f) => c[f.key] === null),
   );
 
-  function handleExport() {
-    // Use the filtered list so the export only includes what's currently shown
+  function handleCopyPrompt() {
+    // Copy the scoring prompt to clipboard instead of downloading a file
     const prompt = generateCompanyPrompt(displayed);
     if (!prompt) return;
-    const blob = new Blob([prompt], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "company-scores-prompt.md";
-    a.click();
-    URL.revokeObjectURL(url);
+    navigator.clipboard.writeText(prompt).then(() => setToastMsg("Copied to clipboard"));
   }
 
   // AND both filters together — each checkbox narrows the list independently
@@ -172,12 +185,12 @@ export default function CompaniesTable({
         </label>
         <div className="divider-v" />
         <button
-          onClick={handleExport}
+          onClick={handleCopyPrompt}
           disabled={!hasExportable}
           className="btn btn-ghost"
-          title="Export scoring prompt"
+          title="Copy scoring prompt"
         >
-          <ExportIcon size={20} weight="bold" />
+          <CopySimpleIcon size={20} weight="bold" />
         </button>
         <button
           onClick={() => setShowImport(true)}
@@ -206,7 +219,7 @@ export default function CompaniesTable({
           <tbody>
             {displayed.map((company) => (
               <tr key={company.id}>
-                <td className="font-medium">{company.name}</td>
+                <td className="font-medium" title={company.note ?? undefined}>{company.name}</td>
                 <td className="text-center text-muted">{company.jobCount}</td>
                 {SCORE_FIELDS.map((f) => (
                   <td key={f.key} className="text-center">
@@ -248,6 +261,7 @@ export default function CompaniesTable({
       </div>
 
       {showImport && <ImportScoresModal onClose={() => setShowImport(false)} />}
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
 }
