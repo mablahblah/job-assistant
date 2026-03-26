@@ -112,7 +112,20 @@ export default function CompaniesTable({
     // Copy the scoring prompt to clipboard instead of downloading a file
     const prompt = generateCompanyPrompt(displayed);
     if (!prompt) return;
-    navigator.clipboard.writeText(prompt).then(() => setToastMsg("Copied to clipboard"));
+    // Fallback for non-HTTPS contexts (e.g. Docker over HTTP) where clipboard API is unavailable
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(prompt).then(() => setToastMsg("Copied to clipboard"));
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = prompt;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setToastMsg("Copied to clipboard");
+    }
   }
 
   // AND both filters together — each checkbox narrows the list independently
