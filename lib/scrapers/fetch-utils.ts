@@ -176,11 +176,17 @@ export async function parseJobPostingLD(page: Page): Promise<JobPostingLD> {
 
 // --- Playwright browser wrapper ---
 
-// Launches a headless browser, runs fn, and guarantees cleanup
+// Launches a headless browser, runs fn, and guarantees cleanup.
+// In Docker, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH points to the system Chromium binary (installed via apk).
+// Locally, Playwright uses its own downloaded Chromium.
 export async function withBrowser<T>(fn: (page: Page) => Promise<T>): Promise<T> {
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    browser = await chromium.launch({
+      headless: true,
+      ...(executablePath ? { executablePath } : {}),
+    });
   } catch {
     throw new Error("Browser failed to launch — is Playwright installed? (npx playwright install chromium)");
   }

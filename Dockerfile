@@ -22,6 +22,12 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install Chromium + required system libs for Playwright-based scrapers (Dribbble, WeLoveProduct)
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+# Tell Playwright to use the system Chromium instead of downloading its own binary
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # libsql uses native binaries that Next.js standalone bundler doesn't trace — copy them explicitly

@@ -17,7 +17,8 @@ export async function scrapeWeLoveProduct(queries: string[]): Promise<ScrapedJob
       const url = `https://weloveproduct.co/product-designer-jobs${pageNum > 0 ? `?page=${pageNum}` : ""}`;
 
       try {
-        await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+        // "load" fires after initial resources — avoids hanging on analytics/polling that never reach networkidle
+        await page.goto(url, { waitUntil: "load", timeout: 30000 });
       } catch {
         if (pageNum === 0) throw new Error("WeLoveProduct page load timeout");
         break;
@@ -74,7 +75,8 @@ export async function scrapeWeLoveProduct(queries: string[]): Promise<ScrapedJob
 
       let posting: JobPostingLD = {};
       try {
-        await page.goto(jobUrl, { waitUntil: "networkidle", timeout: 15000 });
+        // "load" fires after initial resources — avoids hanging on analytics/polling that never reach networkidle
+        await page.goto(jobUrl, { waitUntil: "load", timeout: 15000 });
         posting = await parseJobPostingLD(page);
       } catch {
         // Detail page failed — still save the job with what we have from the listing

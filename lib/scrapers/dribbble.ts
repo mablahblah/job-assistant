@@ -13,7 +13,8 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
     const url = `https://dribbble.com/jobs?search=${encodeURIComponent(query)}`;
 
     try {
-      await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+      // "load" fires after initial resources — avoids hanging on analytics/polling that never reach networkidle
+      await page.goto(url, { waitUntil: "load", timeout: 30000 });
     } catch {
       throw new Error("Dribbble page load timeout");
     }
@@ -78,7 +79,7 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
       let workMode = detectWorkModeFromText(stub.workModeText, "in-person");
 
       try {
-        await page.goto(jobUrl, { waitUntil: "networkidle", timeout: 15000 });
+        await page.goto(jobUrl, { waitUntil: "load", timeout: 15000 });
 
         // Parse JSON-LD for date and work mode
         const posting = await parseJobPostingLD(page);
