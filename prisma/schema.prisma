@@ -15,6 +15,7 @@ model Company {
   workLifeBalance      Int?     // 1–5
   politicalAlignment   Int?     // 1–5
   benefits             Int?     // 1–5
+  note                 String?  // brief scoring rationale from Claude
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   jobs                 Job[]

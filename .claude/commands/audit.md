@@ -28,6 +28,7 @@ Read through the codebase and flag:
 3. **Pattern drift** — violations of CLAUDE.md conventions (e.g. raw hex instead of CSS tokens, `rem`/`px` instead of `em`, Tailwind used for colors, missing eli5 comments)
 4. **Inconsistency** — naming, file structure, or architectural patterns that diverge from the rest of the codebase
 5. **Simplification opportunities** — overly complex code that could be cleaner
+6. **Docker vs. Local** - make sure the app is optimized for an UNRAID Docker installation, but is still set up to work locally.
 
 ## Output
 

@@ -701,6 +701,37 @@ body {
 }
 
 /* ──────────────────────────────────────
+   Toast Notification
+   ────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-dropdown-menu);
+  z-index: 100;
+  font-size: 0.875em;
+  color: var(--color-text);
+  animation: toast-in 0.15s ease-out;
+}
+
+.toast svg {
+  color: var(--color-positive-text);
+  flex-shrink: 0;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ──────────────────────────────────────
    Scraper Terminal
    ────────────────────────────────────── */
 

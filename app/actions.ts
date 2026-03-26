@@ -113,15 +113,20 @@ export async function importCompanyScores(jsonString: string): Promise<{
       continue
     }
 
-    const scores: Record<string, number | null> = {}
+    const data: Record<string, number | string | null> = {}
     for (const key of scoreKeys) {
       if (key in entry) {
         const val = (entry as Record<string, unknown>)[key]
-        scores[key] = typeof val === "number" && val >= 1 && val <= 5 ? val : null
+        data[key] = typeof val === "number" && val >= 1 && val <= 5 ? val : null
       }
     }
+    // Save the note if Claude included one
+    if ("note" in entry) {
+      const noteVal = (entry as Record<string, unknown>).note
+      data.note = typeof noteVal === "string" ? noteVal : null
+    }
 
-    await prisma.company.update({ where: { id: company.id }, data: scores })
+    await prisma.company.update({ where: { id: company.id }, data })
     updated.push(name)
   }
 

@@ -6,6 +6,7 @@ export type Company = {
   workLifeBalance: number | null // 1–5
   politicalAlignment: number | null // 1–5
   benefits: number | null // 1–5
+  note: string | null // brief scoring rationale from Claude
 }
 
 export type Job = {
