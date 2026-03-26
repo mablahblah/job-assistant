@@ -14,6 +14,11 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 # Improvements
 
+## 🔥🔥🔥 High Priority
+
+- [ ] **Rotate API keys & scrub git history** _(audit: critical)_ — Real Adzuna + RapidAPI keys in `.env`; rotate credentials, move to `.env.local`, scrub from git history
+- [ ] **Extract shared multi-source scraper** _(audit: high)_ — Greenhouse and Lever functions in `scraper-actions.ts` are ~88 lines of near-identical code; refactor into a single `runMultiSourceScraper()` helper
+
 ## 🔥🔥 Medium Priority
 
 - **UX/UI Improvement Pass 2**
@@ -30,6 +35,10 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Salary parsing duplicated in companies/page.tsx — reuse `parseSalaryRange()` from scoring.ts
   - Company upsert logic duplicated in scraper-orchestrator.ts — delegate to scraper-save.ts
   - Slug capitalization duplicated in greenhouse.ts and lever.ts — extract to fetch-utils
+- **Remove dead code** _(audit: medium)_ — Delete unused `runScrape()` action in `actions.ts` and `lib/scraper-orchestrator.ts` if confirmed unused
+- **Add input validation to server actions** _(audit: medium)_ — Max-length on search terms/notes, status enum allowlist in `setJobStatus()`
+- **Dockerfile: add explicit `USER node`** _(audit: medium)_ — Add non-root user directive before CMD
+- **Address npm audit vulnerabilities** _(audit: medium)_ — 11 vulnerabilities (lodash via chevrotain/prisma-ast); run `npm audit fix` or pin patched versions
 
 ## 🔥 Lower Priority
 
