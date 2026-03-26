@@ -31,6 +31,7 @@ export default async function Home() {
         workLifeBalance: job.company.workLifeBalance,
         politicalAlignment: job.company.politicalAlignment,
         benefits: job.company.benefits,
+        note: job.company.note,
       };
       return {
         id: job.id,

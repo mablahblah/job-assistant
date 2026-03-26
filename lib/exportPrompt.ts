@@ -1,5 +1,5 @@
-// Generates a markdown prompt listing companies that need scoring,
-// with a job posting link for each, and the expected JSON response format.
+// Generates a prompt with pre-filled JSON so Claude only fills in null scores
+// and adds a note — company names are seeded exactly from the DB to prevent mismatches.
 
 type ExportCompany = {
   name: string
@@ -27,36 +27,28 @@ export function generateCompanyPrompt(companies: ExportCompany[]): string | null
 
   if (needsScoring.length === 0) return null
 
-  const companyList = needsScoring
-    .map((c) => {
-      const link = c.jobUrl ? `: ${c.jobUrl}` : ""
-      return `- ${c.name}${link}`
-    })
-    .join("\n")
-
-  const jsonExample = JSON.stringify(
-    [
-      {
-        company: "Company Name",
-        employeeSatisfaction: 4,
-        customerSatisfaction: 3,
-        workLifeBalance: 5,
-        politicalAlignment: 2,
-        benefits: 4,
-      },
-    ],
+  // Pre-fill the JSON with exact DB names so Claude returns them unchanged
+  const prefilledJson = JSON.stringify(
+    needsScoring.map((c) => ({
+      company: c.name,
+      jobUrl: c.jobUrl,
+      employeeSatisfaction: c.employeeSatisfaction,
+      customerSatisfaction: c.customerSatisfaction,
+      workLifeBalance: c.workLifeBalance,
+      politicalAlignment: c.politicalAlignment,
+      benefits: c.benefits,
+      note: null,
+    })),
     null,
     2
   )
 
-  return `I need to gather scores for the following companies / roles:
+  return `Research and score the following companies for a Product Designer job search. Fill in any null score fields using a 1–5 scale, and write a brief "note" for each company explaining your assessment.
 
-${companyList}
-
-Return the results in the following JSON format:
+**Do not change the "company" or "jobUrl" values — return them exactly as provided.**
 
 \`\`\`json
-${jsonExample}
+${prefilledJson}
 \`\`\`
 `
 }

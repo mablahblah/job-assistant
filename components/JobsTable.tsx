@@ -354,7 +354,7 @@ export default function JobsTable({
                 </td>
                 <td>
                   <div className="company-role-cell">
-                    <span className="company-name">{job.company.name}</span>
+                    <span className="company-name" title={job.company.note ?? undefined}>{job.company.name}</span>
                     <a
                       href={job.url}
                       target="_blank"
