@@ -43,5 +43,4 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 - [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
 - [ ] **Color Accessibility Audit**
 - [ ] **UI Improvements** - Improve layout, styling, colors, make sure all icons are regular and not bold, update import/export icons, improve styles of import modal (monospace font, make it feel more like a terminal)
-- [ ] **Full titles in company page** - Scoring titles should be updated to be full titles, like jobs page
 - [ ] **More Job APIs**
