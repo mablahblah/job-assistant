@@ -1,11 +1,11 @@
 import { Company, Job } from "./types";
 
 export const SCORE_WEIGHTS = {
-  employeeSatisfaction: 20,
-  customerSatisfaction: 15,
-  workLifeBalance: 30,
-  politicalAlignment: 30,
-  benefits: 25,
+  employeeSatisfaction: 25,
+  customerSatisfaction: 10,
+  workLifeBalance: 25,
+  politicalAlignment: 25,
+  benefits: 13,
 } as const;
 
 // user's target annual salary — salary modifier centers on this value, needs to be in ##_### format.
@@ -109,7 +109,7 @@ function ageModifier(postedAt: string | Date, now: Date): number {
   const daysOld = (now.getTime() - posted.getTime()) / (1000 * 60 * 60 * 24);
 
   if (daysOld <= 3) return 1;
-  return Math.max(0.5, 1 - (daysOld - 3) * 0.05);
+  return Math.max(0.5, 1 - (daysOld - 1) * 0.05);
 }
 
 // score = category weights × age modifier × salary modifier, capped at 0–100

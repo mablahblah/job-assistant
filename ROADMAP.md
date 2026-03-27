@@ -2,16 +2,6 @@
 
 Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
-# MVP
-
-## ~~As a user I can scrape the ideal job boards so I don't have to manually seek out jobs on said boards~~
-
-## As a user I can track my application process using the job assistant to keep track of jobs I am applying for intuitively
-
-## As a user I can click an action to auto-generate a resume and cover letter in Figma so I can speed up the application process
-
-- [ ] - **Initial Figma MCP Connection** - User can trigger a job that duplicates the generic resume and cover letters and properly renames them in Figma
-
 # Improvements
 
 ## 🔥🔥🔥 High Priority
@@ -53,20 +43,4 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 - [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
 - [ ] **Color Accessibility Audit**
 - [ ] **UI Improvements** - Improve layout, styling, colors, make sure all icons are regular and not bold, update import/export icons, improve styles of import modal (monospace font, make it feel more like a terminal)
-- [ ] **Deployment** — Docker on UNRAID or Vercel subdomain (TBD); migrations on start, persistent DB, CI/CD auto-deploy
-- [ ] **Full titles in company page** - Scoring titles should be updated to be full titles, like jobs page
-
 - [ ] **More Job APIs**
-
-## Ideas / Unsure
-
-- [ ] **Job detail view** — description, scoring breakdown, location/workMode display, notes, status management
-- [ ] **Figma integration** — Claude API generates copy suggestions; Figma MCP creates/edits resume + cover letter frames per job
-- [ ] **AI enrichment** — LLM-powered scoring (Gemini free tier explored, deferred for now in favor of manual scoring + exportable prompt)
-- [ ] **Application tracking UI** — full status pipeline dropdown, applied date, interview notes (schema already supports this)
-- [ ] **Notifications / digest** — daily summary of new high-score jobs (email or local notification)
-- [ ] **Company list manager** — UI to manage Greenhouse/Lever company slugs (currently in `scraper-config.ts`), pre-seeded list
-
-## Cancelled
-
-- [ ] **Cron scheduler** — node-cron inside Next.js, auto-scrape every 6h, mark stale jobs

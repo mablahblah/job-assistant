@@ -223,7 +223,7 @@ export default function CompaniesTable({
               <th className="text-center">Jobs</th>
               {SCORE_FIELDS.map((f) => (
                 <th key={f.key} className="text-center" title={f.title}>
-                  {f.label}
+                  {f.title}
                 </th>
               ))}
               <th className="text-center w-12"></th>
