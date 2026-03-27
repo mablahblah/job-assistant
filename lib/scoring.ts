@@ -108,8 +108,8 @@ function ageModifier(postedAt: string | Date, now: Date): number {
   const posted = typeof postedAt === "string" ? new Date(postedAt) : postedAt;
   const daysOld = (now.getTime() - posted.getTime()) / (1000 * 60 * 60 * 24);
 
-  if (daysOld < 1) return 1.5; // fresh boost for jobs posted today
-  if (daysOld <= 3) return 1;  // neutral for 1–3 day old jobs
+  if (daysOld < 1) return 1.2; // fresh boost for jobs posted today
+  if (daysOld <= 3) return 1; // neutral for 1–3 day old jobs
   return Math.max(0.5, 1 - (daysOld - 3) * 0.05); // decay starts after day 3
 }
 
