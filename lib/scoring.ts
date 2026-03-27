@@ -131,5 +131,5 @@ export function calculateScore(
     categoryScore *
     ageModifier(job.postedAt, now) *
     salaryModifier(job.salaryRange);
-  return Math.round(Math.min(100, Math.max(0, adjusted)));
+  return Math.round(adjusted);
 }
