@@ -5,6 +5,7 @@ export const SCRAPER_CONFIG = {
   jsearch: { enabled: true },
   dribbble: { enabled: true },
   weloveproduct: { enabled: true },
+  remotive: { enabled: true },
   greenhouse: {
     enabled: true,
     slugs: [

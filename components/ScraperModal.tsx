@@ -22,6 +22,7 @@ import {
   runWeLoveProductScrape,
   runGreenhouseAllScrape,
   runLeverAllScrape,
+  runRemotiveScrape,
   getSearchTermsAction,
 } from "@/app/scraper-actions";
 import { SCRAPER_CONFIG } from "@/lib/scrapers/scraper-config";
@@ -93,6 +94,11 @@ function getEnabledScrapers(): ScraperDef[] {
       id: "weloveproduct",
       name: "We Love Product",
       action: runWeLoveProductScrape,
+    },
+    SCRAPER_CONFIG.remotive.enabled && {
+      id: "remotive",
+      name: "Remotive",
+      action: runRemotiveScrape,
     },
   ].filter(Boolean) as ScraperDef[];
 }

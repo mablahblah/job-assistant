@@ -9,6 +9,7 @@ import { scrapeGreenhouseCompany } from "@/lib/scrapers/greenhouse";
 import { scrapeLeverCompany } from "@/lib/scrapers/lever";
 import { scrapeDribbble } from "@/lib/scrapers/dribbble";
 import { scrapeWeLoveProduct } from "@/lib/scrapers/weloveproduct";
+import { scrapeRemotive } from "@/lib/scrapers/remotive";
 import { SCRAPER_CONFIG } from "@/lib/scrapers/scraper-config";
 
 // Get user search terms (excludes system terms starting with __)
@@ -220,4 +221,18 @@ export async function runLeverAllScrape(): Promise<ScraperSaveResult> {
     jobsNew: totalNew,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
+}
+
+// Scrape Remotive — joins all user search terms into one API call (rate limit: 4/day)
+export async function runRemotiveScrape(): Promise<ScraperSaveResult> {
+  const queries = (await getUserSearchTerms()).map((t) => t.query);
+  if (queries.length === 0) {
+    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+  }
+
+  const systemTermId = await getOrCreateSystemTerm("remotive");
+  const jobs = await scrapeRemotive(queries);
+  const result = await saveScrapedJobs(jobs, systemTermId);
+  revalidatePath("/");
+  return result;
 }
