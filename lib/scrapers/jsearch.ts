@@ -42,7 +42,7 @@ export async function scrapeJSearch({ query, location, workFromHome }: JSearchOp
 
   const params = new URLSearchParams({
     query,
-    num_pages: "1",
+    num_pages: "3", // 3 pages × 10 results = 30 per term; fits within 200 req/month free tier at 1 scrape/day
     date_posted: "week",
     sort_by: "date_posted",
   });
