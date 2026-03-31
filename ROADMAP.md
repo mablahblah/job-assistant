@@ -6,6 +6,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## 🔥🔥🔥 High Priority
 
+- [ ] **Push through job aggregator sites** _(for later — [investigation notes](docs/investigations/aggregator-sites.md))_ — Many job results are actually aggregator sites hosting a link to a posting. The company is coming through as the aggregator site instead of the actual company. Observe more real-world examples before implementing.
 - [ ] **Rotate API keys & scrub git history** _(audit: critical)_ — Real Adzuna + RapidAPI keys in `.env`; rotate credentials, move to `.env.local`, scrub from git history
 - [ ] **Extract shared multi-source scraper** _(audit: high)_ — Greenhouse and Lever functions in `scraper-actions.ts` are ~88 lines of near-identical code; refactor into a single `runMultiSourceScraper()` helper
 
