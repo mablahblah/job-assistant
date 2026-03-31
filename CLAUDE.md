@@ -41,6 +41,7 @@ A local Next.js app to automate the Product Designer job search: scrape jobs, sc
 - **Two scraper patterns** — scrapers are wired up in one of two ways in `scraper-actions.ts`:
   - *Per-search-term* (Adzuna, Dribbble): uses `runSearchTermScraper`, called once per user search term, saves under that term's ID.
   - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. Use when the scraper needs to combine or transform terms.
+- **Dedup replaceable statuses** — `REPLACEABLE_STATUSES` in `lib/scraper-save.ts` controls which job statuses can be overwritten when a duplicate posting is found (same company + title, different URL). Update this set whenever a new status is added — decide whether it's "safe to replace" or "sacred" (in-progress jobs that must never be clobbered).
 - **Testing** — vitest for unit and integration tests. Run `npx vitest` to execute. Scraper integration tests mock `fetchWithTimeout` via `vi.mock`.
 - **Linting** — ESLint configured in `.eslintrc.json` with `@typescript-eslint`. Run `npm run lint` before shipping.
 - **Two-tier CSS tokens** — `globals.css` uses theme colors (`--black-100`, `--white-90`, etc.) mapped to semantic tokens (`--color-text`, `--color-control-pill-default`, etc.). Always add new colors as a theme value first, then reference via a semantic variable. Never use raw hex in component styles.
