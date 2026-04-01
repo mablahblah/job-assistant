@@ -153,6 +153,7 @@ export interface JobPostingLD {
   jobLocation?: {
     address?: { addressLocality?: string; addressRegion?: string; addressCountry?: string };
   };
+  hiringOrganization?: { name?: string };
   description?: string;
 }
 

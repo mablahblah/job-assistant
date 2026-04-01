@@ -37,3 +37,17 @@ WeLoveProduct uses this pattern — see `weloveproduct.ts` for reference.
 2. Use `fetchWithTimeout` from `lib/scrapers/fetch-utils.ts` for all HTTP calls (15s default timeout, human-readable errors)
 3. Add a server action in `app/scraper-actions.ts`
 4. Register the scraper in `components/ScraperModal.tsx`
+
+## Playwright scrapers: verify output before shipping
+
+After implementing a Playwright scraper, run it against real data and manually verify every field in the returned jobs:
+
+- **title** — matches the actual job title on the site
+- **companyName** — the real hiring company (not the aggregator site name)
+- **url** — links directly to the job posting
+- **location** — city/region, not empty or garbled
+- **workMode** — `"remote"`, `"hybrid"`, `"in-person"`, or `""` (not wrong)
+- **postedAt** — a real date, not `new Date()` fallback for all jobs
+- **salaryRange** — `"?"` if unknown, formatted correctly if known
+
+Do not ship until all fields have been spot-checked on a real scrape run.
