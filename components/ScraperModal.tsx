@@ -22,6 +22,7 @@ import {
   runWeLoveProductScrape,
   runGreenhouseAllScrape,
   runLeverAllScrape,
+  runUiUxJobsBoardScrape,
   runRemotiveScrape,
   getSearchTermsAction,
 } from "@/app/scraper-actions";
@@ -94,6 +95,11 @@ function getEnabledScrapers(): ScraperDef[] {
       id: "weloveproduct",
       name: "We Love Product",
       action: runWeLoveProductScrape,
+    },
+    SCRAPER_CONFIG.uiuxjobsboard.enabled && {
+      id: "uiuxjobsboard",
+      name: "UIUX Jobs Board",
+      action: runUiUxJobsBoardScrape,
     },
     SCRAPER_CONFIG.remotive.enabled && {
       id: "remotive",
@@ -418,7 +424,7 @@ function TerminalRowLine({ row }: { row: TerminalRow }) {
   const isDone = row.phase === "done";
 
   // Pick the right icon — Lottie animations for in-progress, Phosphor fill icons for done
-  const ICON_SIZE = 14;
+  const ICON_SIZE = 20;
   // Map processing stages to their corresponding Lottie animations
   const processingAnimations = [refresh, maximizeMinimize, filter, edit];
 
