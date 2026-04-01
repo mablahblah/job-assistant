@@ -727,8 +727,14 @@ body {
 }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(0.5rem); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ──────────────────────────────────────
@@ -738,12 +744,11 @@ body {
 .terminal-body {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
-  padding: 1rem 1.25rem;
+  padding: 0.75rem;
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.875em;
   line-height: 1.6em;
-  min-height: 120px;
-  max-height: 420px;
+  min-height: 33vh;
   overflow-y: auto;
 }
 
@@ -752,7 +757,6 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  white-space: nowrap;
 }
 
 .terminal-row-text {

@@ -6,7 +6,15 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
 ## 🔥🔥🔥 High Priority
 
-- [ ] **Push through job aggregator sites** _(for later — [investigation notes](docs/investigations/aggregator-sites.md))_ — Many job results are actually aggregator sites hosting a link to a posting. The company is coming through as the aggregator site instead of the actual company. Observe more real-world examples before implementing.
+- [ ] **More Aggregators** - We'll research, add, and ship each of these as individual features.
+  - https://www.behance.net/joblist?category=ui-ux-design
+  - https://wellfound.com/
+  - https://builtin.com/jobs
+  - https://www.workatastartup.com/
+  - https://app.usebraintrust.com/jobs/?role=3
+  - https://authenticjobs.com/
+  - https://weworkremotely.com/categories/remote-design-jobs
+
 - [ ] **Rotate API keys & scrub git history** _(audit: critical)_ — Real Adzuna + RapidAPI keys in `.env`; rotate credentials, move to `.env.local`, scrub from git history
 - [ ] **Extract shared multi-source scraper** _(audit: high)_ — Greenhouse and Lever functions in `scraper-actions.ts` are ~88 lines of near-identical code; refactor into a single `runMultiSourceScraper()` helper
 
@@ -20,6 +28,7 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - tune terminal modal styling (icon sizes, spacing, colors, layout, etc...)
   - location icon in table should be it's own cell so the size doesn't shrink when location is long (and/or the location should be ellipsized with a tooltip)
   - Search Jobs button should become disabled, not hide when there are no roles being searched for
+  - Put "x hours since last job search" on jobs page
 - **Expand List of Scrapers**
 - **Code redundancy cleanup** _(found in audit)_
   - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant
@@ -43,5 +52,8 @@ Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
   - Standardize scraper error handling (some throw, some silently catch)
 - [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
 - [ ] **Color Accessibility Audit**
-- [ ] **UI Improvements** - Improve layout, styling, colors, make sure all icons are regular and not bold, update import/export icons, improve styles of import modal (monospace font, make it feel more like a terminal)
-- [ ] **More Job APIs**
+- [ ] **Remove Remotive**
+
+## Later
+
+- [ ] **Push through job aggregator sites** _(for later — [investigation notes](docs/investigations/aggregator-sites.md))_ — Many job results are actually aggregator sites hosting a link to a posting. The company is coming through as the aggregator site instead of the actual company. Observe more real-world examples before implementing.
