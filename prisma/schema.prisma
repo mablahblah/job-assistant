@@ -8,16 +8,24 @@ datasource db {
 }
 
 model Company {
-  id                   String   @id @default(cuid())
-  name                 String   @unique
-  employeeSatisfaction Int?     // 1–5
-  customerSatisfaction Int?     // 1–5
-  workLifeBalance      Int?     // 1–5
-  politicalAlignment   Int?     // 1–5
-  benefits             Int?     // 1–5
-  note                 String?  // brief scoring rationale from Claude
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  name                 String    @unique
+  employeeSatisfaction Int?      // 1–5
+  customerSatisfaction Int?      // 1–5
+  workLifeBalance      Int?      // 1–5
+  politicalAlignment   Int?      // 1–5
+  benefits             Int?      // 1–5
+  note                 String?   // brief scoring rationale from Claude
+  // enrichment fields for TWC work search log (address/phone populated by Feature 2)
+  address              String?
+  phone                String?
+  website              String?
+  enrichedAt           DateTime? // null = not yet enriched; prevents redundant API calls
+  enrichmentStatus     String?   // null = never triggered, "pending", "complete", "failed"
+  enrichmentUncertain  Boolean   @default(false) // true if any heuristic flag tripped during enrichment
+  enrichmentFlags      String?   // comma-separated reasons, e.g. "address_outside_us,name_mismatch"
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   jobs                 Job[]
 }
 
@@ -36,7 +44,8 @@ model Job {
   modifiedAt      DateTime?   // tracks when status was last changed (null = never changed)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  sources     JobSource[]
+  sources           JobSource[]
+  workSearchEntries WorkSearchEntry[] // auto-created when status moves to app. sent/screening/interview
 
   @@unique([url])
   @@index([companyId])
@@ -78,4 +87,18 @@ model ScrapingRun {
   jobsNew     Int       @default(0)
   startedAt   DateTime  @default(now())
   completedAt DateTime?
+}
+
+// One row per qualifying status change — feeds the TWC weekly work search log
+model WorkSearchEntry {
+  id           String   @id @default(cuid())
+  jobId        String
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  date         DateTime // when the status change happened
+  activityType String   // "Applied for job", "Had phone screen", "Had interview"
+  result       String   @default("Application filed") // TWC result checkbox value
+  createdAt    DateTime @default(now())
+
+  @@index([jobId])
+  @@index([date])
 }

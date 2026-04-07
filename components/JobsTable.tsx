@@ -125,7 +125,7 @@ export default function JobsTable({
   searchTerms: SearchTerm[];
 }) {
   const [isPending, startTransition] = useTransition();
-  const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
+  const [scrapeStatus, _setScrapeStatus] = useState<string | null>(null);
   const [newTerm, setNewTerm] = useState("");
   const [showScraperModal, setShowScraperModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null); // job awaiting delete confirmation

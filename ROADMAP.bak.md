@@ -1,0 +1,62 @@
+# Roadmap
+
+Completed features are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
+
+# Improvements
+
+## 🔥🔥🔥 High Priority
+
+- [ ] **More Aggregators** - We'll research, add, and ship each of these as individual features.
+  - https://www.behance.net/joblist?category=ui-ux-design
+  - https://wellfound.com/
+  - https://builtin.com/jobs
+  - https://www.workatastartup.com/
+  - https://app.usebraintrust.com/jobs/?role=3
+  - https://authenticjobs.com/
+  - https://weworkremotely.com/categories/remote-design-jobs
+- [ ] **Rotate API keys & scrub git history** _(audit: critical)_ — Real Adzuna + RapidAPI keys in `.env`; rotate credentials, move to `.env.local`, scrub from git history
+- [ ] **Extract shared multi-source scraper** _(audit: high)_ — Greenhouse and Lever functions in `scraper-actions.ts` are ~88 lines of near-identical code; refactor into a single `runMultiSourceScraper()` helper
+- [ ] **Manually Add Jobs** - Add the ability for a user to paste a link to a job, and have it manually added. User can fill out Company, Role, URL, posting date/age.
+
+## 🔥🔥 Medium Priority
+
+- **UX/UI Improvement Pass 2**
+  - Color Palette Update — audit and reconcile old purple/pink palette to new blue/neutral theme tokens; button + link colors
+  - Header Layout cleanup
+  - Separate column for type... include label on xl desktops and tooltip on smaller screens
+  - Spacing tokens take a pass at spacing / layout for everything
+  - tune terminal modal styling (icon sizes, spacing, colors, layout, etc...)
+  - location icon in table should be it's own cell so the size doesn't shrink when location is long (and/or the location should be ellipsized with a tooltip)
+  - Search Jobs button should become disabled, not hide when there are no roles being searched for
+  - Put "x hours since last job search" on jobs page
+- **Expand List of Scrapers**
+- **Code redundancy cleanup** _(found in audit)_
+  - Score fields constant defined 3x (CompaniesTable, exportPrompt, actions.ts) — extract to shared constant
+  - Salary parsing duplicated in companies/page.tsx — reuse `parseSalaryRange()` from scoring.ts
+  - Company upsert logic duplicated in scraper-orchestrator.ts — delegate to scraper-save.ts
+  - Slug capitalization duplicated in greenhouse.ts and lever.ts — extract to fetch-utils
+- **Remove dead code** _(audit: medium)_ — Delete unused `runScrape()` action in `actions.ts` and `lib/scraper-orchestrator.ts` if confirmed unused
+- **Add input validation to server actions** _(audit: medium)_ — Max-length on search terms/notes, status enum allowlist in `setJobStatus()`
+- **Dockerfile: add explicit `USER node`** _(audit: medium)_ — Add non-root user directive before CMD
+- **Address npm audit vulnerabilities** _(audit: medium)_ — 12 vulnerabilities (hono + lodash via chevrotain/prisma-ast); run `npm audit fix` or pin patched versions
+- **Add security headers middleware** _(audit: medium)_ — No CSP, HSTS, or X-Frame-Options configured; add `headers()` to `next.config.mjs`
+
+## 🔥 Lower Priority
+
+- [ ] **Audit cleanup — dead code & minor issues** _(found in audit)_
+  - Remove unused `toggleJobStatus` import and dead `scrapeStatus` state (setter never called) in JobsTable.tsx
+  - Remove unused `isSevenDaysOrOlder()` function in uiuxjobsboard.ts
+  - Remove unused `geistMono` font definition in layout.tsx
+  - Update boilerplate metadata in layout.tsx ("Create Next App" → actual app name)
+  - Remove or document commented-out slugs in scraper-config.ts
+  - Decide: remove unused `description` field from ScrapedJob type, or add to DB schema
+  - Fix raw `px` in `globals.css:543` and `rem` in `CompaniesTable.tsx:264` — ui.md requires `em`
+  - Add missing eli5 comments in StatusDropdown, ScraperModal, scraper-orchestrator
+  - Standardize scraper error handling (some throw, some silently catch)
+- [ ] **Save UX friction** — saving takes min 2s with a loading animation (intentional friction)
+- [ ] **Color Accessibility Audit**
+- [ ] **Remove Remotive**
+
+## Later
+
+- [ ] **Push through job aggregator sites** _(for later — [investigation notes](docs/investigations/aggregator-sites.md))_ — Many job results are actually aggregator sites hosting a link to a posting. The company is coming through as the aggregator site instead of the actual company. Observe more real-world examples before implementing.

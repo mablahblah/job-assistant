@@ -20,18 +20,6 @@ function parseRelativeTime(text: string): Date {
   return new Date(now.getTime() - num * ms);
 }
 
-// Returns true if a relative time string represents 7 days or older
-function isSevenDaysOrOlder(text: string): boolean {
-  const match = text.match(/(\d+)\s*(h|d|w|mo)/i);
-  if (!match) return false;
-  const num = parseInt(match[1], 10);
-  const unit = match[2].toLowerCase();
-  if (unit === "h") return false;
-  if (unit === "d") return num >= 7;
-  // weeks and months are always >= 7 days
-  return true;
-}
-
 export async function scrapeUiUxJobsBoard(
   queries: string[],
 ): Promise<ScrapedJob[]> {

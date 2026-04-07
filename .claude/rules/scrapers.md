@@ -1,13 +1,20 @@
-# OpenWolf
-
-@.wolf/OPENWOLF.md
-
-This project uses OpenWolf for context management. Read and follow .wolf/OPENWOLF.md every session. Check .wolf/cerebrum.md before generating code. Check .wolf/anatomy.md before reading files.
-
 # Scrapers — Rules & Conventions
 
-## System SearchTerms
+## Architecture
 
+- **Scraper config** — `lib/scrapers/scraper-config.ts` is the single source of truth for which scrapers run and which Greenhouse/Lever slugs are used. Set `enabled: false` to silently skip a scraper.
+- **Shared utilities** — `lib/scrapers/fetch-utils.ts` is the single shared utility layer for all scrapers. New scrapers should import from here rather than rolling their own salary parsing, work mode detection, etc.
+- **Two scraper patterns** — scrapers are wired up in one of two ways in `scraper-actions.ts`:
+  - *Per-search-term* (Adzuna, Dribbble): uses `runSearchTermScraper`, called once per user search term, saves under that term's ID.
+  - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. Use when the scraper needs to combine or transform terms.
+
+## Status Cascade
+On save in `scraper-save.ts`, new jobs are auto-classified in order: expired (≥8 days old) → too far (`classifyLocation`) → backlog. On page load, `expireOldBacklogJobs()` also expires any backlog jobs that aged out. In-progress statuses (anything beyond backlog) are never auto-expired.
+
+## Dedup Replaceable Statuses
+`REPLACEABLE_STATUSES` in `lib/scraper-save.ts` controls which job statuses can be overwritten when a duplicate posting is found (same company + title, different URL). Update this set whenever a new status is added — decide whether it's "safe to replace" or "sacred" (in-progress jobs that must never be clobbered).
+
+## System SearchTerms
 Scrapers that aren't keyword-based (e.g. Greenhouse, Lever) must link their jobs to an auto-created system SearchTerm using `getOrCreateSystemTerm(name)` from `lib/scraper-save.ts`. These terms are prefixed with `__` (e.g. `__greenhouse__`) and are never shown in the UI.
 
 **Important:** Always filter system terms in JavaScript, not via Prisma query. The libsql adapter does not support Prisma's `startsWith` filter. Use:
