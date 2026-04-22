@@ -100,6 +100,7 @@ describe("salaryModifier", () => {
 });
 
 describe("calculateScore with salary modifier", () => {
+  // 4 company-level scores (benefits removed)
   const company = {
     id: "1",
     name: "Test Co",
@@ -107,7 +108,7 @@ describe("calculateScore with salary modifier", () => {
     customerSatisfaction: 5,
     workLifeBalance: 5,
     politicalAlignment: 5,
-    benefits: 5,
+    note: null,
   };
 
   const baseJob = {
@@ -117,9 +118,15 @@ describe("calculateScore with salary modifier", () => {
     url: "https://example.com",
     location: "Remote",
     workMode: "remote",
-    postedAt: new Date().toISOString(), // fresh post, age modifier = 1.0
+    postedAt: new Date().toISOString(), // fresh post, age modifier = 1.2
     salaryRange: "?",
     status: "new",
+    modifiedAt: null,
+    locationFlagged: false,
+    jobAlignment: null as number | null,
+    titleMismatch: false,
+    titleMismatchReason: null as string | null,
+    isUnresolvedAggregator: false,
   };
 
   it("salary modifier does not affect score when salary unknown", () => {
@@ -136,9 +143,27 @@ describe("calculateScore with salary modifier", () => {
 
   it("high salary boosts score", () => {
     // all-5s company hits the 100 cap, so use 3s across the board to leave room for the boost
-    const lowerCompany = { ...company, employeeSatisfaction: 3 as number | null, customerSatisfaction: 3 as number | null, workLifeBalance: 3 as number | null, politicalAlignment: 3 as number | null, benefits: 3 as number | null };
+    const lowerCompany = {
+      ...company,
+      employeeSatisfaction: 3 as number | null,
+      customerSatisfaction: 3 as number | null,
+      workLifeBalance: 3 as number | null,
+      politicalAlignment: 3 as number | null,
+    };
     const neutral = calculateScore(baseJob, lowerCompany);
     const high = calculateScore({ ...baseJob, salaryRange: "$200-250k" }, lowerCompany);
     expect(high).toBeGreaterThan(neutral);
+  });
+
+  it("includes jobAlignment in score calculation", () => {
+    const withAlignment = calculateScore(
+      { ...baseJob, jobAlignment: 5 },
+      company
+    );
+    const withoutAlignment = calculateScore(
+      { ...baseJob, jobAlignment: null },
+      company
+    );
+    expect(withAlignment).toBeGreaterThan(withoutAlignment);
   });
 });

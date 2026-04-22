@@ -1,4 +1,5 @@
-import { PrismaClient } from "../app/generated/prisma/client";
+// lib/prisma.ts — singleton Prisma client using libsql adapter for SQLite
+import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };

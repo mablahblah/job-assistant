@@ -1,28 +1,36 @@
+---
+paths: ["lib/scoring.ts", "lib/scoring.test.ts", "scripts/cli.ts"]
+---
+
 # Scoring & Company Data Model Rules
 
-## Null Scores
-All 5 company scores (ES, CS, W/L, PA, Benefits) are nullable. Null displays as `"?"` in UI and is treated as `0` in the scoring formula so unscored companies sink to the bottom.
+## Dimensions
+4 company-level scores (ES, CS, W/L, PA) + 1 job-level score (JA). All nullable, 1-5.
 
-## Benefits on Company
-Benefits is a company-level score, not per-job.
+## Null Scores
+Null displays as `"?"` and is treated as `0` in the scoring formula so unscored items sink to bottom.
 
 ## Company Persistence
-Company entries persist in DB even when no jobs reference them. Manual delete is available on the companies page.
+Company entries persist in DB even when no jobs reference them.
 
 ## Scoring Formula
-All scores 1–5, weighted formula capped at 0–100 with two multipliers (age + salary). Weights are relative — they don't need to sum to 100.
+All scores 1–5, weighted formula with two multipliers (age + salary). Weights are relative — no upper cap on the composite score.
 
 ```
-sum((score ?? 0) / 5 * weight) * ageModifier * salaryModifier
+(companyScore + jobScore) * ageModifier * salaryModifier
 ```
-Rounded to nearest int, capped 0–100.
 
-- **Age modifier:** 1.5× if <1 day old, 1.0× if 1–3 days, decays 0.05/day after day 3, floor 0.5×
-- **Salary modifier:** ±0.1×/$25k from `TARGET_SALARY` (`lib/scoring.ts`); 1.0× when unknown; hourly ×2080, monthly ×12; no floor/ceiling
+Where:
+- companyScore = sum of (score/5 * weight) for ES(25), CS(10), W/L(25), PA(25)
+- jobScore = (JA/5) * 15
+- Rounded to nearest int, capped 0–100
 
-## Company Score Import Format
-Claude returns a JSON array keyed by `company` (matches DB unique name). All 5 score fields per entry plus optional `note`. Import fully overwrites existing scores and note. Strip markdown fences before parsing.
+**Age modifier:** 1.2× if <1 day old, 1.0× if 1–3 days, decays 0.05/day after day 3, floor 0.5×
 
-Export copies prompt to clipboard (shows toast). Prompt pre-fills a JSON stub with exact DB company names to prevent name-match failures.
+**Salary modifier:** ±0.1×/$25k from TARGET_SALARY ($150k); 1.0× when unknown; hourly ×2080, monthly ×12
 
-Company `note` stores Claude's scoring rationale and appears as a tooltip on the company name in both tables.
+## Job Alignment
+Scored per-job by Claude against the rubric in `.claude/rules/job-alignment.md`. Evaluated from scraped data only (title, company, location, salary) — no extra page fetches.
+
+## Company Scoring
+ES, CS, W/L, PA scored once per company via web research. `/score-companies` handles this. Existing scores are trusted and skipped unless explicitly asked to re-score.

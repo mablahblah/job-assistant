@@ -28,7 +28,7 @@ interface SearchResult {
 function extractPhone(items: SearchResult[]): string | undefined {
   for (const item of items) {
     // Matches (XXX) XXX-XXXX, XXX-XXX-XXXX, XXX.XXX.XXXX, etc.
-    const m = item.snippet.match(/\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}/);
+    const m = item.snippet.match(/\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/);
     if (m) return m[0];
   }
 }

@@ -2,7 +2,7 @@
 
 ## Brief
 
-A local Next.js app that automates the Product Designer job search: scraping jobs from multiple boards, scoring and tracking them, and generating tailored resume/cover letter frames via Claude + Figma MCP.
+A CLI tool (via Claude Code commands) that automates the Product Designer job search: scraping jobs from multiple boards, scoring and tracking them, with a local web dashboard for viewing results.
 
 ## Problem
 
@@ -25,6 +25,8 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 - As a user, I can track each job through a status pipeline (backlog → applied → interviewing, etc.)
 - As a user, I can score companies so their jobs surface higher or lower in rankings
 - As a user, I can generate tailored resume/cover letter content via Claude + Figma MCP
+- As a user, status changes auto-log TWC-compliant work search entries so I can fill out my weekly unemployment form without manual tracking
+- As a user, company contact info (address, phone, website) is auto-enriched when I first engage with a job, pre-filling the work search log
 
 ## Assets
 

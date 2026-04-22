@@ -3,36 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "rm -rf .next && next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "db:seed": "npx tsx prisma/seed.ts",
+    "scrape": "npx tsx scripts/scrape.ts",
+    "cli": "npx tsx scripts/cli.ts",
+    "db:seed": "npx tsx prisma/seed-work-log.ts",
+    "lint": "npx eslint . --ext .ts",
+    "serve": "npx tsx scripts/serve.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.14",
     "@libsql/client": "^0.17.0",
-    "@phosphor-icons/react": "^2.1.10",
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "apify-client": "^2.22.3",
     "dotenv": "^17.3.1",
-    "next": "^15.5.14",
+    "hono": "^4.12.14",
     "playwright": "^1.58.2",
-    "prisma": "^7.5.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-useanimations": "^2.10.0"
+    "prisma": "^7.5.0"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/parser": "^7",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^15.5.14",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.0"
   }

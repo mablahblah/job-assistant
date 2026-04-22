@@ -1,3 +1,7 @@
+---
+paths: ["lib/scrapers/**", "lib/scraper-save.ts", "lib/scraper-save.test.ts"]
+---
+
 # Scrapers — Rules & Conventions
 
 ## Architecture

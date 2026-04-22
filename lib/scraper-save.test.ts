@@ -8,11 +8,11 @@ vi.mock("@/lib/prisma", () => ({
     job: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       delete: vi.fn(),
     },
     jobSource: { upsert: vi.fn() },
-    $queryRawUnsafe: vi.fn(),
   },
 }));
 
@@ -30,11 +30,11 @@ const db = prisma as unknown as {
   job: {
     findUnique: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
   };
   jobSource: { upsert: ReturnType<typeof vi.fn> };
-  $queryRawUnsafe: ReturnType<typeof vi.fn>;
 };
 
 const baseJob = {
@@ -57,7 +57,7 @@ beforeEach(() => {
   // Default: no existing job by URL
   db.job.findUnique.mockResolvedValue(null);
   // Default: no existing dupe by company+title
-  db.$queryRawUnsafe.mockResolvedValue([]);
+  db.job.findMany.mockResolvedValue([]);
   // Default: job create returns a new job
   db.job.create.mockResolvedValue({ id: "job-new", ...baseJob });
   // Default: jobSource upsert succeeds
@@ -85,7 +85,7 @@ describe("saveScrapedJobs — deduplication", () => {
   });
 
   it("replaces a backlog dupe when same company+title found with different URL", async () => {
-    db.$queryRawUnsafe.mockResolvedValue([{ id: "job-old", title: "Product Designer", status: "backlog" }]);
+    db.job.findMany.mockResolvedValue([{ id: "job-old", title: "Product Designer", status: "backlog" }]);
     db.job.create.mockResolvedValue({ id: "job-new", ...baseJob });
 
     const result = await saveScrapedJobs([baseJob], "term-1");
@@ -102,7 +102,7 @@ describe("saveScrapedJobs — deduplication", () => {
       db.blockedJob.findMany.mockResolvedValue([]);
       db.company.upsert.mockResolvedValue({ id: "comp-1" });
       db.job.findUnique.mockResolvedValue(null);
-      db.$queryRawUnsafe.mockResolvedValue([{ id: `job-${status}`, title: "Product Designer", status }]);
+      db.job.findMany.mockResolvedValue([{ id: `job-${status}`, title: "Product Designer", status }]);
       db.job.create.mockResolvedValue({ id: "job-new" });
       db.jobSource.upsert.mockResolvedValue({});
 
@@ -119,7 +119,7 @@ describe("saveScrapedJobs — deduplication", () => {
       db.blockedJob.findMany.mockResolvedValue([]);
       db.company.upsert.mockResolvedValue({ id: "comp-1" });
       db.job.findUnique.mockResolvedValue(null);
-      db.$queryRawUnsafe.mockResolvedValue([{ id: `job-${status}`, title: "Product Designer", status }]);
+      db.job.findMany.mockResolvedValue([{ id: `job-${status}`, title: "Product Designer", status }]);
       db.jobSource.upsert.mockResolvedValue({});
 
       const result = await saveScrapedJobs([baseJob], "term-1");

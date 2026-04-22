@@ -1,5 +1,3 @@
-"use server";
-
 import { prisma } from "@/lib/prisma";
 import { type ScrapedJob } from "@/lib/scrapers/types";
 import { classifyLocation } from "@/lib/location";
@@ -22,7 +20,7 @@ export async function getOrCreateSystemTerm(name: string): Promise<string> {
 }
 
 // Statuses that are safe to replace when a duplicate is found (not actively in-progress)
-const REPLACEABLE_STATUSES = new Set(["backlog", "too far", "expired", "won't apply", "rejected"]);
+const REPLACEABLE_STATUSES = new Set(["backlog", "too far", "expired", "won't apply", "rejected", "repost"]);
 
 export async function saveScrapedJobs(
   jobs: ScrapedJob[],
@@ -53,12 +51,11 @@ export async function saveScrapedJobs(
       console.log(`[scraper-save] Skipped URL dupe: "${jobData.title}" at ${jobData.companyName}`);
     }
     if (!job) {
-      // 2. Company + title match — catch cross-board dupes and reposts (SQLite LIKE is case-insensitive for ASCII)
-      const dupeRows = await prisma.$queryRawUnsafe<{ id: string; title: string; status: string }[]>(
-        `SELECT id, title, status FROM Job WHERE companyId = ? AND title LIKE ?`,
-        company.id,
-        jobData.title
-      );
+      // 2. Company + title match — catch cross-board dupes and reposts
+      const dupeRows = await prisma.job.findMany({
+        where: { companyId: company.id, title: jobData.title },
+        select: { id: true, title: true, status: true },
+      });
       const existingDupe = dupeRows[0] ?? null;
 
       if (existingDupe) {

@@ -5,7 +5,7 @@ export const SCORE_WEIGHTS = {
   customerSatisfaction: 10,
   workLifeBalance: 25,
   politicalAlignment: 25,
-  benefits: 13,
+  jobAlignment: 15,
 } as const;
 
 // user's target annual salary — salary modifier centers on this value, needs to be in ##_### format.
@@ -113,23 +113,27 @@ function ageModifier(postedAt: string | Date, now: Date): number {
   return Math.max(0.5, 1 - (daysOld - 3) * 0.05); // decay starts after day 3
 }
 
-// score = category weights × age modifier × salary modifier, capped at 0–100
+// score = (company weights + job alignment weight) × age modifier × salary modifier, capped at 0–100
 export function calculateScore(
   job: Job,
   company: Company,
   now: Date = new Date(),
 ): number {
-  const categoryScore =
+  // company-level scores (4 dimensions, researched once per company)
+  const companyScore =
     ((company.employeeSatisfaction ?? 0) / 5) *
       SCORE_WEIGHTS.employeeSatisfaction +
     ((company.customerSatisfaction ?? 0) / 5) *
       SCORE_WEIGHTS.customerSatisfaction +
     ((company.workLifeBalance ?? 0) / 5) * SCORE_WEIGHTS.workLifeBalance +
-    ((company.politicalAlignment ?? 0) / 5) * SCORE_WEIGHTS.politicalAlignment +
-    ((company.benefits ?? 0) / 5) * SCORE_WEIGHTS.benefits;
+    ((company.politicalAlignment ?? 0) / 5) * SCORE_WEIGHTS.politicalAlignment;
+
+  // job-level score (1 dimension, evaluated per posting)
+  const jobScore =
+    ((job.jobAlignment ?? 0) / 5) * SCORE_WEIGHTS.jobAlignment;
 
   const adjusted =
-    categoryScore *
+    (companyScore + jobScore) *
     ageModifier(job.postedAt, now) *
     salaryModifier(job.salaryRange);
   return Math.round(adjusted);

@@ -1,0 +1,45 @@
+# Job Search Assistant
+
+A CLI tool (via Claude Code commands) to automate the Product Designer job search: scrape jobs, score and track them, manage applications.
+
+## How to Run
+
+- `npx tsx scripts/scrape.ts` — run all enabled scrapers, output JSON
+- `npx tsx scripts/cli.ts <subcommand>` — DB operations (backlog, active, status, score, alignment, etc.)
+- `/job-search` — full pipeline: scrape → classify → score → investigate → present
+- `/score-companies` — score unscored companies via web research
+- `/change-status` — change a job's status
+- `/view-backlog` — ranked backlog jobs
+- `/view-active-jobs` — jobs in the application pipeline
+- `/view-log` — TWC work search activity log
+
+## Rules
+
+- Use `/start-feature` to kick off each feature, `/ship-feature` to wrap up. `/ship-feature` updates CLAUDE.md with decisions, patterns, and architectural changes.
+- Roadmap lives in [ROADMAP.md](ROADMAP.md) (read during `/start-feature` and `/ship-feature`). Completed items in [ROADMAP-DONE.md](ROADMAP-DONE.md).
+- Commit work after every completed to-do.
+- Before starting any feature, work through the UX flow, edge cases, and UI decisions conversationally with me. Do not produce a plan or ask for confirmation — just talk it through.
+- CLAUDE.md updates should only include non-obvious guidelines for future work, not app documentation. Domain-specific rules go in CLAUDE.md files closer to the code (e.g. `lib/scrapers/CLAUDE.md`).
+
+## Domain Rules
+
+- **Scoring, company data model, job alignment** → read [`.claude/rules/scoring.md`](.claude/rules/scoring.md)
+- **Scrapers** → read [`.claude/rules/scrapers.md`](.claude/rules/scrapers.md)
+- **Work search log, company enrichment** → read [`.claude/rules/work-search-log.md`](.claude/rules/work-search-log.md)
+- **Job alignment profile & rubric** → read [`.claude/rules/job-alignment.md`](.claude/rules/job-alignment.md)
+
+## Testing & Linting
+
+- **Testing** — vitest for unit and integration tests. Run `npx vitest` to execute. Scraper integration tests mock `fetchWithTimeout` via `vi.mock`.
+- **Linting** — ESLint configured in `.eslintrc.json` with `@typescript-eslint`. Run `npm run lint` before shipping.
+
+## Tech Stack
+
+- TypeScript + Prisma + SQLite (libsql adapter)
+- CLI scripts via `tsx`
+- Playwright for browser-based scrapers
+- Claude Code commands for user-facing workflows
+
+## Documentation
+
+Human-facing docs live in `docs/`. Do not read them during normal tasks.

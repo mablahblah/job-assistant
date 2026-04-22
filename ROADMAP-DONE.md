@@ -39,3 +39,27 @@
 - [x] **Better deduplication** — added company+title fallback dedup (SQLite LIKE, case-insensitive) in `scraper-save.ts` alongside URL-exact match; `REPLACEABLE_STATUSES` set controls which statuses (backlog, too far, expired, won't apply, rejected) are safe to delete and replace with a fresh posting; in-progress statuses are never touched; Remotive disabled (was producing duplicates); vitest unit tests cover all dedup cases
 - [x] **jSearch volume increase** — bumped `num_pages` from 1 to 3 in `lib/scrapers/jsearch.ts`; fetches 30 results per search term per scrape run (up from 10); fits within the 200 req/month free tier at 1 scrape/day
 - [x] **UIUXJobsBoard scraper** — Playwright two-pass scraper for uiuxjobsboard.com; scrolls listing until 7d+ jobs appear, filters stubs by search terms, visits each matched detail page for accurate company name (JSON-LD), salary, date, and work mode; wired as a system-term scraper
+
+## Initiative: Work Search Activity Log
+
+_Goal: Automatically log TWC-compliant work search activities on status changes, enrich company data, and provide a weekly log view._
+
+- [x |status:released] - **Work Search Log Data Model & Auto-Logging** — New `WorkSearchEntry` table + auto-create entries when jobs move to applied/screening/interview
+- [x |status:released] - **Company Enrichment** — Add address/phone/website to Company model, look up via Apify Google Search scraper on first log trigger
+- [x |status:released] - **Work Search Log UI** — Weekly-grouped /work-log page with sidebar nav, scroll spy, edit modal, enrichment alerts, and 3-activity-per-week tracking
+- [x |status:released] - **Apify Enrichment** — Replace Google Places API with Apify Google Search scraper for company address/phone/website; add enrichment status tracking + pending/failed UI states
+
+## Superseded by CLI Migration
+
+_Web UI replaced entirely by Claude Code CLI commands. These items are no longer applicable._
+
+- [x |status:superseded] - **Security Headers Middleware** — CSP, HSTS, X-Frame-Options for Next.js (no longer serving web UI)
+- [x |status:superseded] - **Dockerfile: Add Non-Root User** — Docker deployment for web UI
+- [x |status:superseded] - **Add Input Validation to Server Actions** — Server actions replaced by CLI commands
+- [x |status:superseded] - **Audit Cleanup — Minor Issues** — Referenced web UI components (JobsTable, layout, CSS, fonts)
+- [x |status:superseded] - **UX Polish Pass 2** — Entire initiative (color palette, header layout, spacing tokens, terminal modal, location column, button states, timestamp, accessibility audit, save friction, Remotive removal, enrichment rerun modal)
+- [x |status:superseded] - **Aggregator Site Passthrough** — Implemented as aggregator auto-detection in `/job-search` pipeline + `cli.ts flag-aggregator` / `add-aggregator` commands
+- [x |status:superseded] - **Enrichment confirmation modal** — Web UI modal concept
+- [x |status:superseded] - **Re-run enrichment button** — Web UI button
+- [x |status:superseded] - **Terminal font on job search modal** — Web UI styling
+- [x |status:superseded] - **Mark replaced job as "Reposted"** — Implemented as `repost` status via `cli.ts status <id> repost`
