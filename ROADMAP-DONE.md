@@ -63,3 +63,13 @@ _Web UI replaced entirely by Claude Code CLI commands. These items are no longer
 - [x |status:superseded] - **Re-run enrichment button** — Web UI button
 - [x |status:superseded] - **Terminal font on job search modal** — Web UI styling
 - [x |status:superseded] - **Mark replaced job as "Reposted"** — Implemented as `repost` status via `cli.ts status <id> repost`
+
+## Initiative: First Pass Improvements
+
+_Goal: Make the entire job search workflow usable within one tool — no external workarounds needed._
+
+_Shipped 2026-04-22. Made the CLI self-sufficient: auto-expire stale jobs, local web dashboard for viewing data, and batch import of external job postings._
+
+- [x |status:released] - **Auto-Expire Stale Jobs** — Auto-expire backlog jobs older than 8 days
+- [x |status:released] - **Local Web View** — Lightweight local server serving a read-only HTML page for backlog, active jobs, disqualified jobs, and work log
+- [x |status:released] - **Add External Jobs** — `/add-external-jobs` command to paste job posting URLs and run them through the full pipeline as a batch

@@ -30,15 +30,17 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 
 ## Assets
 
-_None currently._
+- Local web dashboard (`npx tsx scripts/serve.ts`) — read-only HTML view for backlog, active jobs, disqualified jobs, and work log
 
 ## Documentation
 
 - [ROADMAP.md](ROADMAP.md) — Active roadmap
 - [ROADMAP-DONE.md](ROADMAP-DONE.md) — Completed features
+- [Search Issues](docs/search-issues.md) — Known issues and improvement opportunities in the job search pipeline
+- [First Pass Improvements](docs/initiatives/first-pass-improvements/initiative.md) — Initiative: auto-expire, web view, external jobs
 
 ## Notes
 
-- Deployed on personal UNRAID server via Docker
+- Runs locally as a CLI tool via Claude Code commands
 - SQLite via libsql adapter (not standard Prisma SQLite) — `startsWith` filter not supported, must filter system terms in JavaScript
 - System search terms prefixed with `__` (e.g. `__greenhouse__`) are never shown in the UI

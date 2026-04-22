@@ -1,35 +1,31 @@
+---
+name: job-search
+description: Runs the full job search pipeline while also documenting each step to fully automated a job search and prioritization.
+---
+
 # Job Search
 
-Run the full job search pipeline: scrape → classify → score → investigate aggregators → present results.
+Follow the steps explicitly, including each self-documentation, to search, classify, score, and present job opportunities a user can apply for.
 
-## Step 0: Self-Documentation
+## Instructions
 
-Self-document issues with this flow in /docs/search-issues.md, if it doesn't exist, create it. The goal of this task is to fully automate a job search so it could potentially run as a cron job without user intervention. Right now it is highly innefficient. After each step, document any opportunities for improvement. These may be:
+### Step 1: Scrape
 
-- If it is a repeatable action that can be done with a script
-- Overly ambigious instructions that resulted in results that were not as expected, requiring a re-search
-- Opportunities for simplificiation of the flow.
-- Any other things we should be looking for.
-
-## Step 1: Scrape
-
-Run all enabled scrapers and save results to the database.
+1. Run all enabled scrapers and save results to the database.
 
 ```bash
 npx tsx scripts/scrape.ts
 ```
 
-Read the JSON output. Note the `total.jobsNew` count and the `newJobs` array.
+2. Read the JSON output. Note the `total.jobsNew` count and the `newJobs` array.
 
-If `total.jobsNew` is 0, report "No new jobs found" and stop.
+3. IF `total.jobsNew` is 0: Report "No new jobs found" and STOP.
 
-Document any issues: See "Self-Documentation"
+4. `/self-document` Step 1 before proceeding to Step 2.
 
-## Step 2: Auto-classify new jobs
+### Step 2: Auto-classify new jobs
 
 For each job in the `newJobs` array:
-
-### 2a. Aggregator check
 
 Run `npx tsx scripts/cli.ts aggregators` to get the known aggregator list. For each new job where the company name matches (case-insensitive) a known aggregator, flag it:
 
@@ -39,21 +35,9 @@ npx tsx scripts/cli.ts flag-aggregator <jobId>
 
 Set these jobs aside — they'll be investigated in Step 4.
 
-Document any issues: See "Self-Documentation"
+Use `/self-document` to document optimization for Step 2.
 
-### 2b. Title mismatch check
-
-Compare each job title against the user's search terms (from the scrape output). If a title clearly doesn't match search intent (e.g., searched "product designer", got "graphic designer" or "project manager"), flag it with a reason:
-
-```bash
-npx tsx scripts/cli.ts flag-mismatch <jobId> "reason"
-```
-
-Still keep these jobs — they're flagged but saved.
-
-Document any issues: See "Self-Documentation"
-
-### 2c. Repost check
+#### 2c. Repost check
 
 For each new job, check if the DB already has a job with the same company and a very similar title (different URL). If so, mark the new one as a repost:
 
@@ -61,9 +45,9 @@ For each new job, check if the DB already has a job with the same company and a 
 npx tsx scripts/cli.ts status <jobId> repost
 ```
 
-Document any issues: See "Self-Documentation"
+Use `/self-document` to document optimization for Step 2c.
 
-## Step 3: Score
+### Step 3: Score
 
 Run `/score-companies` to score all unscored companies in the database. This command will:
 
@@ -78,9 +62,9 @@ Then for each new non-aggregator, non-repost job, evaluate Job Alignment (1-5) b
 npx tsx scripts/cli.ts alignment <jobId> <score>
 ```
 
-Document any issues: See "Self-Documentation"
+Use `/self-document` to document optimization for Step 3.
 
-## Step 4: Investigate aggregators
+### Step 4: Investigate aggregators
 
 For each aggregator-flagged job from Steps 2a and Step 3 (if any new aggregators were discovered):
 
@@ -99,18 +83,18 @@ Add any newly discovered aggregator names:
 npx tsx scripts/cli.ts add-aggregator "New Aggregator Name"
 ```
 
-Document any issues: See "Self-Documentation"
+Use `/self-document` to document optimization for Step 4.
 
-## Step 5: Present results
+### Step 5: Present results
 
-### Header
+#### Header
 
 - "**X** new jobs added"
 - "**Y** reposts found" (if any)
 - "**Z** aggregator matches — **W** resolved, **V** unresolved" (if any)
 - "**N** title mismatches flagged" (if any)
 
-### Jobs table
+#### Jobs table
 
 Show ALL new non-repost jobs, sorted by score descending:
 
@@ -123,10 +107,12 @@ Show ALL new non-repost jobs, sorted by score descending:
 - Flag title mismatches with ⚠️ and show reason
 - Flag unresolved aggregators with 🔍
 
-### Aggregator discoveries
+#### Aggregator discoveries
 
 If new aggregators were found, list them:
 
 - "Added N new aggregators: [names]"
 
-Document any issues: See "Self-Documentation"
+Use `/self-document` to document optimization for Step 5.
+THEN
+Use `/self-document` to document optimization for the process as a whole.
