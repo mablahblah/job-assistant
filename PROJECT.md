@@ -38,6 +38,7 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 - [ROADMAP-DONE.md](ROADMAP-DONE.md) — Completed features
 - [Search Issues](docs/search-issues.md) — Known issues and improvement opportunities in the job search pipeline
 - [First Pass Improvements](docs/initiatives/first-pass-improvements/initiative.md) — Initiative: auto-expire, web view, external jobs
+- [Smarter Auto-Classification](docs/initiatives/smarter-auto-classification/initiative.md) — Initiative: repost dedup, batch updates, batch scores
 
 ## Notes
 

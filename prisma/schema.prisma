@@ -38,12 +38,13 @@ model Job {
   workMode    String      @default("remote") // in-person, hybrid, remote
   postedAt    DateTime
   salaryRange String
-  status          String      @default("backlog") // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer
+  status          String      @default("backlog") // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer, expired
   locationFlagged Boolean     @default(false) // true when auto-set to "too far" because remote location didn't match inclusion/exclusion lists
   jobAlignment          Int?        // 1–5, alignment score evaluated by Claude against profile in job-alignment.md
   titleMismatch         Boolean     @default(false) // true when job title doesn't match the user's search intent
   titleMismatchReason   String?     // Claude's explanation of why title was flagged
   isUnresolvedAggregator Boolean   @default(false) // true when company is a known aggregator and real company hasn't been resolved yet
+  repost          Boolean     @default(false) // true when job is a refreshed posting of an already-classified listing
   modifiedAt      DateTime?   // tracks when status was last changed (null = never changed)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

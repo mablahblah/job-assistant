@@ -9,7 +9,7 @@ Change a job's status. Accepts natural language like:
 
 1. Parse the user's request to identify:
    - **Which job** — by session number (assigned by `/view-backlog` or `/view-active-jobs`), job ID, or description (company + title)
-   - **New status** — one of: `backlog`, `too far`, `won't apply`, `app. sent`, `rejected`, `screening`, `interview`, `test`, `offer`, `repost`, `expired`
+   - **New status** — one of: `backlog`, `too far`, `won't apply`, `app. sent`, `rejected`, `screening`, `interview`, `test`, `offer`, `expired`
 
 2. If the job reference is ambiguous (e.g., "the Stripe job" but there are multiple), ask for clarification.
 
@@ -18,7 +18,9 @@ Change a job's status. Accepts natural language like:
 4. Run:
 
    ```bash
-   npx tsx scripts/cli.ts status <jobId> "<newStatus>"
+   npx tsx scripts/cli.ts status <<'EOF'
+   [{"jobId":"<jobId>","status":"<newStatus>"}]
+   EOF
    ```
 
 5. Confirm the change: "Updated [Title] at [Company] → [status]"

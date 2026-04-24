@@ -3,8 +3,14 @@
 // Usage: npx tsx scripts/cli.ts <subcommand> [args...]
 // All output is JSON to stdout. Progress/errors to stderr.
 import { prisma } from "@/lib/prisma";
-import { logWorkSearchActivity } from "@/lib/work-search-log";
 import { enrichCompany } from "@/lib/company-enrichment";
+import {
+  readStdin,
+  batchAlignment,
+  batchFlagMismatch,
+  batchFlagAggregator,
+  batchStatus,
+} from "@/lib/batch-update";
 import { calculateScore } from "@/lib/scoring";
 import type { Company, Job } from "@/lib/types";
 
@@ -142,29 +148,13 @@ async function queryLog() {
   );
 }
 
-async function changeStatus() {
-  const [jobId, newStatus] = args;
-  if (!jobId || !newStatus) fail("Usage: status <jobId> <newStatus>");
-
-  await prisma.job.update({
-    where: { id: jobId },
-    data: { status: newStatus, modifiedAt: new Date(), locationFlagged: false },
-  });
-
-  // auto-log qualifying status changes for TWC work search compliance
-  await logWorkSearchActivity(jobId, newStatus);
-
-  const job = await prisma.job.findUnique({
-    where: { id: jobId },
-    include: { company: { select: { name: true } } },
-  });
-  out({
-    updated: true,
-    id: jobId,
-    status: newStatus,
-    company: job?.company.name,
-    title: job?.title,
-  });
+async function runBatchStatus() {
+  // reads status changes from stdin JSON, applies them and auto-logs qualifying changes
+  const raw = await readStdin();
+  let items;
+  try { items = JSON.parse(raw); } catch { fail("Invalid JSON on stdin"); }
+  const result = await batchStatus(items);
+  out(result);
 }
 
 async function saveCompanyScore() {
@@ -194,50 +184,31 @@ async function saveCompanyScore() {
   out({ updated: true, company: name, es, cs, wl, pa, note });
 }
 
-async function saveJobAlignment() {
-  // saves a 1-5 job alignment score for how well a posting matches Matthew's profile
-  const [jobId, scoreStr] = args;
-  if (!jobId || !scoreStr) fail("Usage: alignment <jobId> <score>");
-
-  const score = parseInt(scoreStr);
-  if (score < 1 || score > 5) fail("Score must be 1-5");
-
-  await prisma.job.update({
-    where: { id: jobId },
-    data: { jobAlignment: score },
-  });
-
-  out({ updated: true, jobId, jobAlignment: score });
+async function runBatchAlignment() {
+  // reads alignment scores from stdin JSON, saves them all at once
+  const raw = await readStdin();
+  let items;
+  try { items = JSON.parse(raw); } catch { fail("Invalid JSON on stdin"); }
+  const result = await batchAlignment(items);
+  out(result);
 }
 
-async function flagTitleMismatch() {
-  // marks a job where the actual role doesn't match what the title implies
-  const [jobId, ...reasonParts] = args;
-  if (!jobId || reasonParts.length === 0)
-    fail('Usage: flag-mismatch <jobId> "reason"');
-
-  await prisma.job.update({
-    where: { id: jobId },
-    data: {
-      titleMismatch: true,
-      titleMismatchReason: reasonParts.join(" "),
-    },
-  });
-
-  out({ flagged: true, jobId, reason: reasonParts.join(" ") });
+async function runBatchFlagMismatch() {
+  // reads title mismatch flags from stdin JSON, saves them all at once
+  const raw = await readStdin();
+  let items;
+  try { items = JSON.parse(raw); } catch { fail("Invalid JSON on stdin"); }
+  const result = await batchFlagMismatch(items);
+  out(result);
 }
 
-async function flagAggregator() {
-  // marks a job as posted by an aggregator (staffing/recruiting firm) rather than the real employer
-  const [jobId] = args;
-  if (!jobId) fail("Usage: flag-aggregator <jobId>");
-
-  await prisma.job.update({
-    where: { id: jobId },
-    data: { isUnresolvedAggregator: true },
-  });
-
-  out({ flagged: true, jobId });
+async function runBatchFlagAggregator() {
+  // reads aggregator job IDs from stdin JSON, flags them all at once
+  const raw = await readStdin();
+  let jobIds;
+  try { jobIds = JSON.parse(raw); } catch { fail("Invalid JSON on stdin"); }
+  const result = await batchFlagAggregator(jobIds);
+  out(result);
 }
 
 async function unflagAggregator() {
@@ -373,11 +344,11 @@ const commands: Record<string, () => Promise<void>> = {
   backlog: queryBacklog,
   active: queryActive,
   log: queryLog,
-  status: changeStatus,
+  status: runBatchStatus,
   score: saveCompanyScore,
-  alignment: saveJobAlignment,
-  "flag-mismatch": flagTitleMismatch,
-  "flag-aggregator": flagAggregator,
+  alignment: runBatchAlignment,
+  "flag-mismatch": runBatchFlagMismatch,
+  "flag-aggregator": runBatchFlagAggregator,
   "unflag-aggregator": unflagAggregator,
   aggregators: listAggregators,
   "add-aggregator": addAggregator,

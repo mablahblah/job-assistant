@@ -30,11 +30,12 @@ async function runSearchTermScraper(
 ): Promise<ScraperSaveResult> {
   const searchTerms = await getUserSearchTerms();
   if (searchTerms.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
   }
 
   let totalFound = 0;
   let totalNew = 0;
+  let totalReposted = 0;
   const warnings: string[] = [];
 
   for (const term of searchTerms) {
@@ -46,6 +47,7 @@ async function runSearchTermScraper(
         const result = await saveScrapedJobs(jobs, term.id);
         totalFound += result.jobsFound;
         totalNew += result.jobsNew;
+        totalReposted += result.jobsReposted;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -54,12 +56,13 @@ async function runSearchTermScraper(
   }
 
   if (warnings.length === searchTerms.length) {
-    return { jobsFound: 0, jobsNew: 0, error: warnings[0] };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: warnings[0] };
   }
 
   return {
     jobsFound: totalFound,
     jobsNew: totalNew,
+    jobsReposted: totalReposted,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
@@ -74,7 +77,7 @@ async function runMultiSourceScraper(
 ): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
   }
 
   // skip creating system term in dry-run — we won't save anything
@@ -85,6 +88,7 @@ async function runMultiSourceScraper(
 
   let totalFound = 0;
   let totalNew = 0;
+  let totalReposted = 0;
   const warnings: string[] = [];
 
   for (let i = 0; i < results.length; i++) {
@@ -96,6 +100,7 @@ async function runMultiSourceScraper(
         const saved = await saveScrapedJobs(result.value, systemTermId);
         totalFound += saved.jobsFound;
         totalNew += saved.jobsNew;
+        totalReposted += saved.jobsReposted;
       }
     } else {
       const msg =
@@ -107,12 +112,13 @@ async function runMultiSourceScraper(
   }
 
   if (warnings.length === slugs.length) {
-    return { jobsFound: 0, jobsNew: 0, error: `All ${name} companies failed` };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: `All ${name} companies failed` };
   }
 
   return {
     jobsFound: totalFound,
     jobsNew: totalNew,
+    jobsReposted: totalReposted,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
@@ -126,7 +132,7 @@ export async function runAdzuna(dryRun = false): Promise<ScraperSaveResult> {
 export async function runJSearch(dryRun = false): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
   }
 
   const systemTermId = dryRun ? "" : await getOrCreateSystemTerm("jsearch");
@@ -156,11 +162,11 @@ export async function runJSearch(dryRun = false): Promise<ScraperSaveResult> {
     warnings.push(`Austin search failed: ${austinJobs.reason}`);
 
   if (allJobs.length === 0 && warnings.length === 2) {
-    return { jobsFound: 0, jobsNew: 0, error: warnings.join("; ") };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: warnings.join("; ") };
   }
 
   if (dryRun) {
-    return { jobsFound: allJobs.length, jobsNew: 0, ...(warnings.length > 0 ? { warnings } : {}) };
+    return { jobsFound: allJobs.length, jobsNew: 0, jobsReposted: 0, ...(warnings.length > 0 ? { warnings } : {}) };
   }
 
   const result = await saveScrapedJobs(allJobs, systemTermId);
@@ -174,11 +180,11 @@ export async function runDribbble(dryRun = false): Promise<ScraperSaveResult> {
 export async function runWeLoveProduct(dryRun = false): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
   }
   if (dryRun) {
     const jobs = await scrapeWeLoveProduct(queries);
-    return { jobsFound: jobs.length, jobsNew: 0 };
+    return { jobsFound: jobs.length, jobsNew: 0, jobsReposted: 0 };
   }
   const systemTermId = await getOrCreateSystemTerm("weloveproduct");
   const jobs = await scrapeWeLoveProduct(queries);
@@ -206,11 +212,11 @@ export async function runLever(dryRun = false): Promise<ScraperSaveResult> {
 export async function runUiUxJobsBoard(dryRun = false): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
   }
   if (dryRun) {
     const jobs = await scrapeUiUxJobsBoard(queries);
-    return { jobsFound: jobs.length, jobsNew: 0 };
+    return { jobsFound: jobs.length, jobsNew: 0, jobsReposted: 0 };
   }
   const systemTermId = await getOrCreateSystemTerm("uiuxjobsboard");
   const jobs = await scrapeUiUxJobsBoard(queries);
@@ -220,7 +226,7 @@ export async function runUiUxJobsBoard(dryRun = false): Promise<ScraperSaveResul
 // --- Master runner ---
 
 export interface ScrapeAllResult {
-  total: { jobsFound: number; jobsNew: number };
+  total: { jobsFound: number; jobsNew: number; jobsReposted: number };
   scrapers: Record<string, ScraperSaveResult>;
 }
 
@@ -231,6 +237,7 @@ export async function runAllScrapers(dryRun = false): Promise<ScrapeAllResult> {
   const scrapers: Record<string, ScraperSaveResult> = {};
   let totalFound = 0;
   let totalNew = 0;
+  let totalReposted = 0;
 
   const runners: {
     name: string;
@@ -260,7 +267,7 @@ export async function runAllScrapers(dryRun = false): Promise<ScrapeAllResult> {
 
   for (const { name, fn, enabled } of runners) {
     if (!enabled) {
-      scrapers[name] = { jobsFound: 0, jobsNew: 0, error: "disabled" };
+      scrapers[name] = { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "disabled" };
       continue;
     }
     console.error(`[scrape${dryRun ? " dry-run" : ""}] Running ${name}...`);
@@ -268,15 +275,16 @@ export async function runAllScrapers(dryRun = false): Promise<ScrapeAllResult> {
       scrapers[name] = await fn();
       totalFound += scrapers[name].jobsFound;
       totalNew += scrapers[name].jobsNew;
+      totalReposted += scrapers[name].jobsReposted;
       console.error(
-        `[scrape] ${name}: found=${scrapers[name].jobsFound} new=${scrapers[name].jobsNew}`,
+        `[scrape] ${name}: found=${scrapers[name].jobsFound} new=${scrapers[name].jobsNew} reposted=${scrapers[name].jobsReposted}`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      scrapers[name] = { jobsFound: 0, jobsNew: 0, error: msg };
+      scrapers[name] = { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: msg };
       console.error(`[scrape] ${name} failed: ${msg}`);
     }
   }
 
-  return { total: { jobsFound: totalFound, jobsNew: totalNew }, scrapers };
+  return { total: { jobsFound: totalFound, jobsNew: totalNew, jobsReposted: totalReposted }, scrapers };
 }

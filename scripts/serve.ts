@@ -41,11 +41,11 @@ app.get("/", async (c) => {
         orderBy: { modifiedAt: "desc" },
       }),
 
-      // Disqualified: jobs with terminal statuses (including reposts)
+      // Disqualified: jobs with terminal statuses
       prisma.job.findMany({
         where: {
           status: {
-            in: ["expired", "too far", "rejected", "won't apply", "repost"],
+            in: ["expired", "too far", "rejected", "won't apply"],
           },
         },
         include: { company: true },
