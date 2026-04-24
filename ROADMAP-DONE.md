@@ -73,3 +73,14 @@ _Shipped 2026-04-22. Made the CLI self-sufficient: auto-expire stale jobs, local
 - [x |status:released] - **Auto-Expire Stale Jobs** — Auto-expire backlog jobs older than 8 days
 - [x |status:released] - **Local Web View** — Lightweight local server serving a read-only HTML page for backlog, active jobs, disqualified jobs, and work log
 - [x |status:released] - **Add External Jobs** — `/add-external-jobs` command to paste job posting URLs and run them through the full pipeline as a batch
+
+## Initiative: Smarter Auto-Classification
+
+_Goal: The pipelines run end-to-end with fewer CLI calls, fewer tokens, and less manual intervention._
+
+_Shipped 2026-04-24. Repost deduplication, batch stdin commands for status/alignment/flags, and separated search skills into independent reusable commands._
+
+- [x |status:released] - **Repost Deduplication** — Don't treat replaced jobs as truly new; skip already-classified dupes in downstream steps
+- [x |status:released] - **Batch Update Command** — Single CLI call for title mismatches and alignment scores instead of N sequential calls
+- [~ |status:cancelled] - **Batch Scores Command** — ~~Compute composite scores for arbitrary job IDs in one call, regardless of status~~ _Cancelled: solves a problem that doesn't exist — backlog command already scores the jobs that matter_
+- [x |status:released] - **Separated Search Skills** — Break apart job search and add job commands into separate re-usable skills

@@ -2,11 +2,9 @@
 
 Completed initiatives are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
-## _CURRENT_: [Smarter Auto-Classification](docs/initiatives/smarter-auto-classification/initiative.md)
+## _CURRENT_: Bug Fixes
 
-_Goal: The pipelines run end-to-end with fewer CLI calls, fewer tokens, and less manual intervention._
-
-- [x] **Repost Deduplication** — Don't treat replaced jobs as truly new; skip already-classified dupes in downstream steps
-- [x] **Batch Update Command** — Single CLI call for title mismatches and alignment scores instead of N sequential calls
-- [~] **Batch Scores Command** — ~~Compute composite scores for arbitrary job IDs in one call, regardless of status~~ _Cancelled: solves a problem that doesn't exist — backlog command already scores the jobs that matter_
-- [x] USER ONLY - Break apart job search and add job commands into separate re-usable skills
+- [ ] **Incorrect Job Type Assigned** - Some posts are incorrectly assigned types.
+  - https://uiuxjobsboard.com/job/1442426-staff-product-designer-new-york-united-states was assigned as remote, but it looks to be in-person
+  - https://jobgether.com/offer/69e60e6ec646310ee394abc8-senior-product-designer---finance-and-reporting---100-remote---emea - Is remote, but specifically from EMEA (Europe, Middle East, Africe), so it would be considered too far
+  - https://builtintoronto.com/job/lead-product-designer-ai-agentic-workflows/8895679 - Says hiring remotely in Canada, so it's too far

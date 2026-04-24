@@ -2,16 +2,9 @@
 
 ## Planned Initiatives
 
-### Initiative: Bug Fixes
-
-- [ ] **Incorrect Job Type Assigned** - Some posts are incorrectly assigned types.
-- https://uiuxjobsboard.com/job/1442426-staff-product-designer-new-york-united-states was assigned as remote, but it looks to be in-person
-- https://jobgether.com/offer/69e60e6ec646310ee394abc8-senior-product-designer---finance-and-reporting---100-remote---emea - Is remote, but specifically from EMEA (Europe, Middle East, Africe), so it would be considered too far
-- https://builtintoronto.com/job/lead-product-designer-ai-agentic-workflows/8895679 - Says hiring remotely in Canada, so it's too far
-
 ### Initiative: More Autonomy & Efficiency
 
-_Goal: Make `/add-external-jobs` autonomous — dedicated CLI support instead of inline scripts._
+_Goal: ...._
 
 - [ ] - **Only Score Companies & Jobs in the backlog** - Update `scripts/cli.ts unscored` to only score unscored in backlog, and update script in `/score-companies`
 - [ |status:not started] - **Add-External CLI Subcommand** — Single command to save an external job with forced "backlog" status, bypassing age-based auto-expire
