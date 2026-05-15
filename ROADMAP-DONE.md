@@ -84,3 +84,25 @@ _Shipped 2026-04-24. Repost deduplication, batch stdin commands for status/align
 - [x |status:released] - **Batch Update Command** — Single CLI call for title mismatches and alignment scores instead of N sequential calls
 - [~ |status:cancelled] - **Batch Scores Command** — ~~Compute composite scores for arbitrary job IDs in one call, regardless of status~~ _Cancelled: solves a problem that doesn't exist — backlog command already scores the jobs that matter_
 - [x |status:released] - **Separated Search Skills** — Break apart job search and add job commands into separate re-usable skills
+
+## Initiative: Reliable Scraping Pipeline
+
+_Goal: Zero misclassified jobs reach the backlog from known job boards, and generic-parsed jobs are flagged as lower confidence._
+
+_Shipped 2026-05-15. Built a collect → resolve → route → parse pipeline with registry-based parser dispatch. Added 5 parsers (Ashby, Greenhouse, Lever, Dribbble, Adzuna), blacklist filtering, post-collection dedup, unified greenlit matching, directed Playwright collectors, narrowed API searches, parse failure logging, and empty workMode classification fix._
+
+- [x |status:released] - **Separate Listing Collection from Detail Parsing** — Refactor scrapers into two stages: collect URLs, then parse through tiered parsers
+- [x |status:released] - **Identify Common Job Board URLs** — Research spike: discover real hosting domains behind aggregator links to prioritize greenlit parsers
+- [x |status:released] - **Blacklist URL List** — Domain/URL pattern blacklist to skip known-bad sources before processing
+- [x |status:released] - **Routing System + Ashby Parser** — Build resolve → route → parse pipeline, validate end-to-end with Ashby (Playwright-based, no API shortcut). Dry-run only
+- [x |status:released] - **Production Pipeline Integration** — Wire pipeline into `/job-search` and `/add-external-job`, connect `collectAll()`, save to DB, gracefully handle unparsed jobs. New parsers plug in via registry with no pipeline changes. Retires old scraper pipeline
+- [x |status:released] - **Dedupe after Collection** — Check originalURL list of existing jobs in db before resolution, and toss any search results which match exactly to avoid parsing
+- [x |status:released] - **Greenhouse & Lever Parsers** — API-based parsers with shared field mappers, ParserFn signature refactor, company name caching via DB, confidence comparison wiring, and Adzuna env var fix
+- [x |status:released] - **Define search terms in single location and use them in each collector**
+- [x |status:released] - **Adzuna Parser** — Pass-through parser for aggregator with no per-job API. Adzuna URLs skip resolution (greenlit), parser returns empty fields, pipeline saves with collector data at medium confidence
+- [x |status:released] - **Dribbble Parser** — First "Static HTML fetch" parser. Extracts all fields from server-rendered HTML (inline script data > JSON-LD > description text). No Playwright needed
+- [x |status:released] - **Unify Greenlit Matching** — Extract single domain-matching utility used by both pre-resolution shortcut and post-resolution router. Fixes `job-boards.greenhouse.io` routing bug
+- [x |status:released] - **Log Parse Failures** — Capture URL, parser name, and error message for each failure in pipeline log JSON
+- [x |status:released] - **Narrow API Searches** — Title-only matching, salary floor, date cap, separate remote + Austin calls per search term
+- [x |status:released] - **More directed collecting on Playwright collectors** — All three Playwright collectors rewritten to use each site's search/filter tools with 8-day age cutoff
+- [x |status:released] - **Empty WorkMode Classification** — `classifyLocation` treats empty workMode the same as remote, so jobs with remote-signal locations land in backlog instead of "too far"

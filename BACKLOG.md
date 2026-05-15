@@ -2,19 +2,7 @@
 
 ## Planned Initiatives
 
-### 1. Pipeline Accuracy
-
-_Goal: Stop misclassifying good jobs — fix location filtering, deduplication, and date handling so the backlog reflects reality._
-
-- [ ] **Expand AUSTIN_AREA whitelist** — Add missing Austin-metro neighborhoods (bee cave, tarrytown, dessau, bluff springs) that cause jobs to be misclassified as "too far"
-- [ ] **Geo-based Location Classification** — Replace the string whitelist with geocoding + radius check. Solves nearby-city misses and Adzuna's unreliable distance filter returning jobs in Fort Worth, NYC, etc.
-- [ ] **Dedupe Priority for Greenlit URLs** — Priority system at any dedupe stage to decide which match is saved and which is abandoned
-- [ ] **Staged Dedupe** — Dedupe at two stages: post-collection (collected URLs) and post-resolution (resolved URLs against DB, also where repost checking happens)
-- [ ] **Set Modified Date on auto-expired and 'too far' Jobs** — Disqualified jobs never appear at top of their list because modified date isn't set during pipeline classification
-
----
-
-### 2. Repost Handling
+### 1. Repost Handling
 
 _Goal: Correctly identify, store, and resurface reposted jobs so fresh listings don't get buried._
 
@@ -26,7 +14,7 @@ _Goal: Correctly identify, store, and resurface reposted jobs so fresh listings 
 
 ---
 
-### 3. Security & Hardening
+### 2. Security & Hardening
 
 _Goal: Rotate leaked credentials, lock down inputs, and add security headers._
 
@@ -39,7 +27,7 @@ _Goal: Rotate leaked credentials, lock down inputs, and add security headers._
 
 ---
 
-### 4. Parser & Collector Quality
+### 3. Parser & Collector Quality
 
 _Goal: Parse more jobs from more sources, and track quality to know where to invest._
 
@@ -51,7 +39,7 @@ _Goal: Parse more jobs from more sources, and track quality to know where to inv
 
 ---
 
-### 5. Scoring & Company Intelligence
+### 4. Scoring & Company Intelligence
 
 _Goal: Score the right things, resurface unknowns, and auto-expand coverage for top companies._
 
@@ -63,7 +51,7 @@ _Goal: Score the right things, resurface unknowns, and auto-expand coverage for 
 
 ---
 
-### 6. Aggregator Handling
+### 5. Aggregator Handling
 
 _Goal: Make aggregator resolution reliable and self-improving — investigate once, learn for next time._
 
@@ -75,7 +63,7 @@ _Goal: Make aggregator resolution reliable and self-improving — investigate on
 
 ---
 
-### 7. Workflow Automation
+### 6. Workflow Automation
 
 _Goal: Reduce manual steps in the daily job search workflow._
 
@@ -87,7 +75,7 @@ _Goal: Reduce manual steps in the daily job search workflow._
 
 ---
 
-### 8. More Data Sources
+### 7. More Data Sources
 
 _Goal: Broaden job coverage by adding new collector sources._
 
@@ -99,7 +87,7 @@ _Goal: Broaden job coverage by adding new collector sources._
 
 ---
 
-### 9. Dashboard & Web View
+### 8. Dashboard & Web View
 
 _Goal: Surface more useful information in the web UI._
 
@@ -111,7 +99,7 @@ _Goal: Surface more useful information in the web UI._
 
 ---
 
-### 10. Code Health
+### 9. Code Health
 
 _Goal: Clean up technical debt and dead code._
 
