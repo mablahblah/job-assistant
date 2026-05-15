@@ -23,6 +23,8 @@ model Company {
   enrichmentStatus     String?   // null = never triggered, "pending", "complete", "failed"
   enrichmentUncertain  Boolean   @default(false) // true if any heuristic flag tripped during enrichment
   enrichmentFlags      String?   // comma-separated reasons, e.g. "address_outside_us,name_mismatch"
+  atsPlatform          String?   // "greenhouse", "lever", "ashby", etc.
+  atsSlug              String?   // board slug, e.g. "gitlab", "plaid"
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   jobs                 Job[]
@@ -43,12 +45,13 @@ model Job {
   jobAlignment          Int?        // 1–5, alignment score evaluated by Claude against profile in job-alignment.md
   titleMismatch         Boolean     @default(false) // true when job title doesn't match the user's search intent
   titleMismatchReason   String?     // Claude's explanation of why title was flagged
-  isUnresolvedAggregator Boolean   @default(false) // true when company is a known aggregator and real company hasn't been resolved yet
   repost          Boolean     @default(false) // true when job is a refreshed posting of an already-classified listing
+  source          String?     // which collector found this job (e.g. "adzuna", "dribbble", "external")
+  parser          String?     // which parser processed it (e.g. "ashby", "collector-only"), null if unparsed
+  originalUrl     String?     // original collector URL, only set when resolution changed it
   modifiedAt      DateTime?   // tracks when status was last changed (null = never changed)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  sources           JobSource[]
   workSearchEntries WorkSearchEntry[] // auto-created when status moves to app. sent/screening/interview
 
   @@unique([url])
@@ -56,25 +59,6 @@ model Job {
   @@index([status])
 }
 
-model SearchTerm {
-  id        String      @id @default(cuid())
-  query     String      @unique
-  createdAt DateTime    @default(now())
-  sources   JobSource[]
-}
-
-model JobSource {
-  id           String     @id @default(cuid())
-  jobId        String
-  job          Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  searchTermId String
-  searchTerm   SearchTerm @relation(fields: [searchTermId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
-
-  @@unique([jobId, searchTermId])
-  @@index([jobId])
-  @@index([searchTermId])
-}
 
 // URLs of deleted jobs — scraper skips these so they don't reappear
 model BlockedJob {
@@ -91,13 +75,6 @@ model ScrapingRun {
   jobsNew     Int       @default(0)
   startedAt   DateTime  @default(now())
   completedAt DateTime?
-}
-
-// Known job aggregators and recruiters — jobs from these companies need investigation to find the real employer
-model Aggregator {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
 }
 
 // One row per qualifying status change — feeds the TWC weekly work search log

@@ -69,7 +69,7 @@ ELSE, score each metric _that has not been scored already_ on a 1 - 5 basis.
 
 ### Step 5: Evaluate Job Alignment
 
-1. For each Job Posting evaluate job alignment using `.claude/rules/job-alignment.md`
+1. Read `job-alignment.md` (in this skill's directory) and evaluate each job posting against the rubric.
 
 ### Step 6: Save Scores
 

@@ -23,13 +23,10 @@ export type Job = {
   jobAlignment: number | null // 1–5, job alignment score from Claude
   titleMismatch: boolean // true when title doesn't match search intent
   titleMismatchReason: string | null // Claude's reason for flagging
-  isUnresolvedAggregator: boolean // true when company is a known aggregator not yet resolved
   repost: boolean // true when job is a refreshed posting of an already-classified listing
-}
-
-export type SearchTerm = {
-  id: string
-  query: string
+  source: string | null // which collector found this job (e.g. "adzuna", "dribbble", "external")
+  parser: string | null // which parser processed it (e.g. "ashby", "collector-only"), null if unparsed
+  originalUrl: string | null // original collector URL, only set when resolution changed it
 }
 
 export type JobWithCompany = Job & {

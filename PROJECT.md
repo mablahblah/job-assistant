@@ -39,6 +39,7 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 - [Search Issues](docs/search-issues.md) — Known issues and improvement opportunities in the job search pipeline
 - [First Pass Improvements](docs/initiatives/first-pass-improvements/initiative.md) — Initiative (shipped): auto-expire, web view, external jobs
 - [Smarter Auto-Classification](docs/initiatives/smarter-auto-classification/initiative.md) — Initiative (shipped): repost dedup, batch updates, separated search skills
+- [Reliable Scraping Pipeline](docs/initiatives/reliable-scraping-pipeline/initiative.md) — Initiative (current): zero misclassified jobs from known boards
 - [Smarter Aggregator Handling](docs/initiatives/smarter-aggregator-handling/initiative.md) — Initiative (planned): reliable aggregator resolution
 
 ## Notes

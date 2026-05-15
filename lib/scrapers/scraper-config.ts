@@ -28,11 +28,6 @@ export const SCRAPER_CONFIG = {
   },
   lever: {
     enabled: true,
-    slugs: [
-      // "netflix",
-      "plaid",
-      // "benchling",
-      // "atlassian",
-    ],
+    slugs: ["plaid"],
   },
 } as const;

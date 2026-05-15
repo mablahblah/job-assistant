@@ -128,7 +128,7 @@ describe("batchFlagAggregator", () => {
     expect(result).toEqual({ updated: 3, failed: 0 });
     expect(db.job.update).toHaveBeenCalledWith({
       where: { id: "job-1" },
-      data: { isUnresolvedAggregator: true },
+      data: {},
     });
   });
 });

@@ -22,8 +22,15 @@ vi.mock("@/lib/location", () => ({
   classifyLocation: () => ({ tooFar: false, flagged: false }),
 }));
 
+vi.mock("@/lib/blacklist", () => ({
+  isBlacklistedUrl: vi.fn(() => false),
+}));
+
 import { prisma } from "@/lib/prisma";
+import { isBlacklistedUrl } from "@/lib/blacklist";
 import { saveScrapedJobs } from "./scraper-save";
+
+const mockIsBlacklisted = isBlacklistedUrl as ReturnType<typeof vi.fn>;
 
 const db = prisma as unknown as {
   blockedJob: { findMany: ReturnType<typeof vi.fn> };
@@ -52,6 +59,8 @@ const baseJob = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: no URLs are blacklisted
+  mockIsBlacklisted.mockReturnValue(false);
   // Default: no blocked URLs
   db.blockedJob.findMany.mockResolvedValue([]);
   // Default: company upsert returns an id
@@ -70,7 +79,7 @@ beforeEach(() => {
 
 describe("saveScrapedJobs — deduplication", () => {
   it("creates a new job when no URL or title match exists", async () => {
-    const result = await saveScrapedJobs([baseJob], "term-1");
+    const result = await saveScrapedJobs([baseJob], "term-1", "test-collector");
 
     expect(result.jobsNew).toBe(1);
     expect(result.jobsReposted).toBe(0);
@@ -81,20 +90,18 @@ describe("saveScrapedJobs — deduplication", () => {
   it("skips creation when exact URL already exists", async () => {
     db.job.findUnique.mockResolvedValue({ id: "job-existing", status: "backlog" });
 
-    const result = await saveScrapedJobs([baseJob], "term-1");
+    const result = await saveScrapedJobs([baseJob], "term-1", "test-collector");
 
     expect(result.jobsNew).toBe(0);
     expect(result.jobsReposted).toBe(0);
     expect(db.job.create).not.toHaveBeenCalled();
-    // Should still link the source
-    expect(db.jobSource.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("updates existing job as repost when company+title dupe found", async () => {
     db.job.findMany.mockResolvedValue([{ id: "job-old", title: "Product Designer", status: "backlog" }]);
     db.job.update.mockResolvedValue({ id: "job-old" });
 
-    const result = await saveScrapedJobs([baseJob], "term-1");
+    const result = await saveScrapedJobs([baseJob], "term-1", "test-collector");
 
     // Should update existing job, not delete + create
     expect(db.job.update).toHaveBeenCalledWith({
@@ -124,7 +131,7 @@ describe("saveScrapedJobs — deduplication", () => {
       db.job.update.mockResolvedValue({ id: `job-${status}` });
       db.jobSource.upsert.mockResolvedValue({});
 
-      const result = await saveScrapedJobs([baseJob], "term-1");
+      const result = await saveScrapedJobs([baseJob], "term-1", "test-collector");
 
       expect(db.job.update).toHaveBeenCalledTimes(1);
       expect(db.job.delete).not.toHaveBeenCalled();
@@ -143,7 +150,7 @@ describe("saveScrapedJobs — deduplication", () => {
       db.job.findMany.mockResolvedValue([{ id: `job-${status}`, title: "Product Designer", status }]);
       db.jobSource.upsert.mockResolvedValue({});
 
-      const result = await saveScrapedJobs([baseJob], "term-1");
+      const result = await saveScrapedJobs([baseJob], "term-1", "test-collector");
 
       expect(db.job.delete).not.toHaveBeenCalled();
       expect(db.job.create).not.toHaveBeenCalled();
@@ -155,11 +162,48 @@ describe("saveScrapedJobs — deduplication", () => {
   it("skips blocked URLs before any dedup check", async () => {
     db.blockedJob.findMany.mockResolvedValue([{ url: baseJob.url }]);
 
-    const result = await saveScrapedJobs([baseJob], "term-1");
+    const result = await saveScrapedJobs([baseJob], "term-1", "test-collector");
 
     expect(db.company.upsert).not.toHaveBeenCalled();
     expect(db.job.findUnique).not.toHaveBeenCalled();
     expect(result.jobsNew).toBe(0);
     expect(result.jobsReposted).toBe(0);
+  });
+});
+
+describe("saveScrapedJobs — blacklist filtering", () => {
+  it("skips blacklisted URLs before any DB writes and counts them", async () => {
+    mockIsBlacklisted.mockReturnValue(true);
+
+    const result = await saveScrapedJobs([baseJob], "term-1", "adzuna");
+
+    expect(result.jobsBlacklisted).toBe(1);
+    expect(result.jobsNew).toBe(0);
+    expect(db.company.upsert).not.toHaveBeenCalled();
+    expect(db.job.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns jobsBlacklisted: 0 when no URLs are blacklisted", async () => {
+    const result = await saveScrapedJobs([baseJob], "term-1", "adzuna");
+
+    expect(result.jobsBlacklisted).toBe(0);
+    expect(result.jobsNew).toBe(1);
+  });
+
+  it("mixes blacklisted and clean jobs in the same batch", async () => {
+    const blacklistedJob = { ...baseJob, url: "https://jobleads.com/j/1", externalId: "ext-2" };
+    mockIsBlacklisted.mockImplementation(
+      (url: string) => url === "https://jobleads.com/j/1",
+    );
+
+    const result = await saveScrapedJobs(
+      [baseJob, blacklistedJob],
+      "term-1",
+      "adzuna",
+    );
+
+    expect(result.jobsBlacklisted).toBe(1);
+    expect(result.jobsNew).toBe(1);
+    expect(result.jobsFound).toBe(2);
   });
 });

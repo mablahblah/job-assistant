@@ -1,23 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { type ScrapedJob } from "@/lib/scrapers/types";
 import { classifyLocation } from "@/lib/location";
+import { isBlacklistedUrl } from "@/lib/blacklist";
 
 export interface ScraperSaveResult {
   jobsFound: number;
   jobsNew: number;
   jobsReposted: number;
+  jobsBlacklisted: number;
   error?: string;
   warnings?: string[];
 }
 
-export async function getOrCreateSystemTerm(name: string): Promise<string> {
-  const query = `__${name}__`;
-  const term = await prisma.searchTerm.upsert({
-    where: { query },
-    create: { query },
-    update: {},
-  });
-  return term.id;
+// DEPRECATED: old scraper pipeline — SearchTerm model removed
+export async function getOrCreateSystemTerm(_name: string): Promise<string> {
+  return "deprecated";
 }
 
 // Statuses that are safe to update-in-place when a repost is found (not actively in-progress)
@@ -25,10 +22,12 @@ const REPLACEABLE_STATUSES = new Set(["backlog", "too far", "expired", "won't ap
 
 export async function saveScrapedJobs(
   jobs: ScrapedJob[],
-  searchTermId: string
+  searchTermId: string,
+  collectorName: string,
 ): Promise<ScraperSaveResult> {
   let jobsNew = 0;
   let jobsReposted = 0;
+  let jobsBlacklisted = 0;
 
   // Pre-fetch all blocked URLs so deleted jobs don't get re-imported
   const blockedUrls = new Set(
@@ -38,6 +37,13 @@ export async function saveScrapedJobs(
   for (const jobData of jobs) {
     if (blockedUrls.has(jobData.url)) {
       console.log(`[scraper-save] Skipped blocked URL: ${jobData.url} (previously deleted)`);
+      continue;
+    }
+
+    // Reject URLs from known low-quality job boards before touching the DB
+    if (isBlacklistedUrl(jobData.url)) {
+      console.log(`[blacklist] blocked | point: collection | url: ${jobData.url} | collector: ${collectorName}`);
+      jobsBlacklisted++;
       continue;
     }
 
@@ -112,12 +118,9 @@ export async function saveScrapedJobs(
       }
     }
 
-    await prisma.jobSource.upsert({
-      where: { jobId_searchTermId: { jobId: job.id, searchTermId } },
-      create: { jobId: job.id, searchTermId },
-      update: {},
-    });
+    // DEPRECATED: JobSource model removed — no-op
+    void searchTermId;
   }
 
-  return { jobsFound: jobs.length, jobsNew, jobsReposted };
+  return { jobsFound: jobs.length, jobsNew, jobsReposted, jobsBlacklisted };
 }

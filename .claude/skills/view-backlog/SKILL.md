@@ -1,3 +1,8 @@
+---
+name: view-backlog
+description: View Backlog
+---
+
 # View Backlog
 
 Show backlog jobs from the last 7 days, ranked by weighted score.

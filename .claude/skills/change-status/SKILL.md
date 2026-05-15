@@ -1,3 +1,8 @@
+---
+name: change-status
+description: Change a job's status
+---
+
 # Change Status
 
 Change a job's status. Accepts natural language like:

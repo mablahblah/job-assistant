@@ -1,3 +1,8 @@
+---
+name: view-active-jobs
+description: View Active Jobs
+---
+
 # View Active Jobs
 
 Show jobs that are in the application pipeline (beyond backlog).

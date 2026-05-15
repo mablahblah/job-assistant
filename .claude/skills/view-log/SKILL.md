@@ -1,3 +1,8 @@
+---
+name: view-log
+description: View Work Search Activity Log
+---
+
 # View Work Search Log
 
 Show the TWC work search activity log.

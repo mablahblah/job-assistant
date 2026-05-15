@@ -1,3 +1,8 @@
+---
+name: serve
+description: Serve Dashboard
+---
+
 # Serve Dashboard
 
 Run:

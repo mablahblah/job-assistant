@@ -3,7 +3,7 @@
 // hybrid/in-person jobs are checked against the Austin metro area.
 
 // Cities close enough to commute to (~25 mi of North Austin)
-const AUSTIN_AREA = ["austin", "round rock", "cedar park", "pflugerville"];
+const AUSTIN_AREA = ["austin", "round rock", "cedar park", "pflugerville", "bee cave"];
 
 // Remote job is eligible only if location contains one of these
 const REMOTE_ELIGIBLE_KEYWORDS = [
@@ -38,8 +38,8 @@ export type LocationResult =
 export function classifyLocation(workMode: string, location: string): LocationResult {
   const loc = (location ?? "").toLowerCase().trim();
 
-  // Hybrid / in-person / unknown → check Austin area
-  if (workMode !== "remote") {
+  // Hybrid / in-person → check Austin area (empty workMode falls through to remote branch)
+  if (workMode && workMode !== "remote") {
     if (isAustinArea(loc)) return { tooFar: false };
     return { tooFar: true, flagged: false };
   }

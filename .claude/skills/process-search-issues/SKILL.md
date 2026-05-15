@@ -1,7 +1,6 @@
 ---
 name: process-search-issues
 description: Convert items logged in the search issues .md file into backlog items
-agent: Sonnet
 ---
 
 # Process Search Issues

@@ -25,17 +25,19 @@ export async function getUserSearchTerms() {
 // runs a keyword-based scraper once per user search term, tolerating per-term failures
 // dryRun: scrape but skip saving to DB — useful for testing scrapers
 async function runSearchTermScraper(
+  name: string,
   scraperFn: (query: string) => Promise<ScrapedJob[]>,
   dryRun = false,
 ): Promise<ScraperSaveResult> {
   const searchTerms = await getUserSearchTerms();
   if (searchTerms.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: "No search terms configured" };
   }
 
   let totalFound = 0;
   let totalNew = 0;
   let totalReposted = 0;
+  let totalBlacklisted = 0;
   const warnings: string[] = [];
 
   for (const term of searchTerms) {
@@ -44,10 +46,11 @@ async function runSearchTermScraper(
       if (dryRun) {
         totalFound += jobs.length;
       } else {
-        const result = await saveScrapedJobs(jobs, term.id);
+        const result = await saveScrapedJobs(jobs, term.id, name);
         totalFound += result.jobsFound;
         totalNew += result.jobsNew;
         totalReposted += result.jobsReposted;
+        totalBlacklisted += result.jobsBlacklisted;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -56,13 +59,14 @@ async function runSearchTermScraper(
   }
 
   if (warnings.length === searchTerms.length) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: warnings[0] };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: warnings[0] };
   }
 
   return {
     jobsFound: totalFound,
     jobsNew: totalNew,
     jobsReposted: totalReposted,
+    jobsBlacklisted: totalBlacklisted,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
@@ -77,7 +81,7 @@ async function runMultiSourceScraper(
 ): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: "No search terms configured" };
   }
 
   // skip creating system term in dry-run — we won't save anything
@@ -89,6 +93,7 @@ async function runMultiSourceScraper(
   let totalFound = 0;
   let totalNew = 0;
   let totalReposted = 0;
+  let totalBlacklisted = 0;
   const warnings: string[] = [];
 
   for (let i = 0; i < results.length; i++) {
@@ -97,10 +102,11 @@ async function runMultiSourceScraper(
       if (dryRun) {
         totalFound += result.value.length;
       } else {
-        const saved = await saveScrapedJobs(result.value, systemTermId);
+        const saved = await saveScrapedJobs(result.value, systemTermId, name);
         totalFound += saved.jobsFound;
         totalNew += saved.jobsNew;
         totalReposted += saved.jobsReposted;
+        totalBlacklisted += saved.jobsBlacklisted;
       }
     } else {
       const msg =
@@ -112,13 +118,14 @@ async function runMultiSourceScraper(
   }
 
   if (warnings.length === slugs.length) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: `All ${name} companies failed` };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: `All ${name} companies failed` };
   }
 
   return {
     jobsFound: totalFound,
     jobsNew: totalNew,
     jobsReposted: totalReposted,
+    jobsBlacklisted: totalBlacklisted,
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
@@ -126,13 +133,13 @@ async function runMultiSourceScraper(
 // --- Individual scraper runners ---
 
 export async function runAdzuna(dryRun = false): Promise<ScraperSaveResult> {
-  return runSearchTermScraper(scrapeAdzuna, dryRun);
+  return runSearchTermScraper("adzuna", scrapeAdzuna, dryRun);
 }
 
 export async function runJSearch(dryRun = false): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: "No search terms configured" };
   }
 
   const systemTermId = dryRun ? "" : await getOrCreateSystemTerm("jsearch");
@@ -162,33 +169,33 @@ export async function runJSearch(dryRun = false): Promise<ScraperSaveResult> {
     warnings.push(`Austin search failed: ${austinJobs.reason}`);
 
   if (allJobs.length === 0 && warnings.length === 2) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: warnings.join("; ") };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: warnings.join("; ") };
   }
 
   if (dryRun) {
-    return { jobsFound: allJobs.length, jobsNew: 0, jobsReposted: 0, ...(warnings.length > 0 ? { warnings } : {}) };
+    return { jobsFound: allJobs.length, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, ...(warnings.length > 0 ? { warnings } : {}) };
   }
 
-  const result = await saveScrapedJobs(allJobs, systemTermId);
+  const result = await saveScrapedJobs(allJobs, systemTermId, "jsearch");
   return { ...result, ...(warnings.length > 0 ? { warnings } : {}) };
 }
 
 export async function runDribbble(dryRun = false): Promise<ScraperSaveResult> {
-  return runSearchTermScraper(scrapeDribbble, dryRun);
+  return runSearchTermScraper("dribbble", scrapeDribbble, dryRun);
 }
 
 export async function runWeLoveProduct(dryRun = false): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: "No search terms configured" };
   }
   if (dryRun) {
     const jobs = await scrapeWeLoveProduct(queries);
-    return { jobsFound: jobs.length, jobsNew: 0, jobsReposted: 0 };
+    return { jobsFound: jobs.length, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0 };
   }
   const systemTermId = await getOrCreateSystemTerm("weloveproduct");
   const jobs = await scrapeWeLoveProduct(queries);
-  return saveScrapedJobs(jobs, systemTermId);
+  return saveScrapedJobs(jobs, systemTermId, "weloveproduct");
 }
 
 export async function runGreenhouse(dryRun = false): Promise<ScraperSaveResult> {
@@ -212,21 +219,21 @@ export async function runLever(dryRun = false): Promise<ScraperSaveResult> {
 export async function runUiUxJobsBoard(dryRun = false): Promise<ScraperSaveResult> {
   const queries = (await getUserSearchTerms()).map((t) => t.query);
   if (queries.length === 0) {
-    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "No search terms configured" };
+    return { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: "No search terms configured" };
   }
   if (dryRun) {
     const jobs = await scrapeUiUxJobsBoard(queries);
-    return { jobsFound: jobs.length, jobsNew: 0, jobsReposted: 0 };
+    return { jobsFound: jobs.length, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0 };
   }
   const systemTermId = await getOrCreateSystemTerm("uiuxjobsboard");
   const jobs = await scrapeUiUxJobsBoard(queries);
-  return saveScrapedJobs(jobs, systemTermId);
+  return saveScrapedJobs(jobs, systemTermId, "uiuxjobsboard");
 }
 
 // --- Master runner ---
 
 export interface ScrapeAllResult {
-  total: { jobsFound: number; jobsNew: number; jobsReposted: number };
+  total: { jobsFound: number; jobsNew: number; jobsReposted: number; jobsBlacklisted: number };
   scrapers: Record<string, ScraperSaveResult>;
 }
 
@@ -238,6 +245,7 @@ export async function runAllScrapers(dryRun = false): Promise<ScrapeAllResult> {
   let totalFound = 0;
   let totalNew = 0;
   let totalReposted = 0;
+  let totalBlacklisted = 0;
 
   const runners: {
     name: string;
@@ -267,7 +275,7 @@ export async function runAllScrapers(dryRun = false): Promise<ScrapeAllResult> {
 
   for (const { name, fn, enabled } of runners) {
     if (!enabled) {
-      scrapers[name] = { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: "disabled" };
+      scrapers[name] = { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: "disabled" };
       continue;
     }
     console.error(`[scrape${dryRun ? " dry-run" : ""}] Running ${name}...`);
@@ -276,15 +284,16 @@ export async function runAllScrapers(dryRun = false): Promise<ScrapeAllResult> {
       totalFound += scrapers[name].jobsFound;
       totalNew += scrapers[name].jobsNew;
       totalReposted += scrapers[name].jobsReposted;
+      totalBlacklisted += scrapers[name].jobsBlacklisted ?? 0;
       console.error(
-        `[scrape] ${name}: found=${scrapers[name].jobsFound} new=${scrapers[name].jobsNew} reposted=${scrapers[name].jobsReposted}`,
+        `[scrape] ${name}: found=${scrapers[name].jobsFound} new=${scrapers[name].jobsNew} reposted=${scrapers[name].jobsReposted} blacklisted=${scrapers[name].jobsBlacklisted}`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      scrapers[name] = { jobsFound: 0, jobsNew: 0, jobsReposted: 0, error: msg };
+      scrapers[name] = { jobsFound: 0, jobsNew: 0, jobsReposted: 0, jobsBlacklisted: 0, error: msg };
       console.error(`[scrape] ${name} failed: ${msg}`);
     }
   }
 
-  return { total: { jobsFound: totalFound, jobsNew: totalNew, jobsReposted: totalReposted }, scrapers };
+  return { total: { jobsFound: totalFound, jobsNew: totalNew, jobsReposted: totalReposted, jobsBlacklisted: totalBlacklisted }, scrapers };
 }

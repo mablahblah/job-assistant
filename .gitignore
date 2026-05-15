@@ -45,3 +45,6 @@ generated/
 
 # OpenWolf runtime files
 .wolf/
+
+# Spike output data
+data/

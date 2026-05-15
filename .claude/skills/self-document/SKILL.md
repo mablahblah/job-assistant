@@ -19,7 +19,15 @@ description: Self documents command & skill flows after they are run to identify
 
 **Disqualified feedback:** Do not document issues with `/self-document` itself (e.g. skill invocation overhead, user turn pauses). Self-documentation is a temporary diagnostic tool — optimizing it is out of scope.
 
-### Step 2: Prepare the Search Issues Doc
+### Step 2: Ensure it isn't already logged
+
+1. Check `ROADMAP.md` and `BACKLOG.md` and `docs/search-issues.md`
+
+2. IF this issue will be resolved with future work already documented
+
+- Stop.
+
+### Step 3: Prepare the Search Issues Doc
 
 1. Read `docs/search-issues.md`
 
@@ -27,7 +35,7 @@ IF there is no heading in the doc for the step we just accomplished:
 
 - Place a new one in chronological order. (e.g. `## Step 1: Scrape`)
 
-### Step 3: Document
+### Step 4: Document
 
 IF the ONE best opportunity we identified is already documented:
 

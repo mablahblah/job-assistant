@@ -126,7 +126,10 @@ describe("calculateScore with salary modifier", () => {
     jobAlignment: null as number | null,
     titleMismatch: false,
     titleMismatchReason: null as string | null,
-    isUnresolvedAggregator: false,
+    repost: false,
+    source: null as string | null,
+    parser: null as string | null,
+    originalUrl: null as string | null,
   };
 
   it("salary modifier does not affect score when salary unknown", () => {

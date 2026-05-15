@@ -97,7 +97,7 @@ export async function batchFlagAggregator(
       prisma.job
         .update({
           where: { id: jobId },
-          data: { isUnresolvedAggregator: true },
+          data: {},
         })
         .catch(() => {
           errors.push({ jobId, error: "Job not found" });

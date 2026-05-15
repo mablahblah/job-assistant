@@ -8,7 +8,6 @@ import {
   readStdin,
   batchAlignment,
   batchFlagMismatch,
-  batchFlagAggregator,
   batchStatus,
 } from "@/lib/batch-update";
 import { calculateScore } from "@/lib/scoring";
@@ -202,49 +201,6 @@ async function runBatchFlagMismatch() {
   out(result);
 }
 
-async function runBatchFlagAggregator() {
-  // reads aggregator job IDs from stdin JSON, flags them all at once
-  const raw = await readStdin();
-  let jobIds;
-  try { jobIds = JSON.parse(raw); } catch { fail("Invalid JSON on stdin"); }
-  const result = await batchFlagAggregator(jobIds);
-  out(result);
-}
-
-async function unflagAggregator() {
-  // clears the aggregator flag once the real employer has been identified
-  const [jobId] = args;
-  if (!jobId) fail("Usage: unflag-aggregator <jobId>");
-
-  await prisma.job.update({
-    where: { id: jobId },
-    data: { isUnresolvedAggregator: false },
-  });
-
-  out({ unflagged: true, jobId });
-}
-
-async function listAggregators() {
-  // returns all known recruiting/staffing aggregator names stored in the DB
-  const aggregators = await prisma.aggregator.findMany({
-    orderBy: { name: "asc" },
-  });
-  out(aggregators.map((a) => a.name));
-}
-
-async function addAggregator() {
-  // adds a new aggregator name to the known list (upsert — safe to run twice)
-  const [name] = args;
-  if (!name) fail("Usage: add-aggregator <name>");
-
-  await prisma.aggregator.upsert({
-    where: { name },
-    create: { name },
-    update: {},
-  });
-
-  out({ added: true, name });
-}
 
 async function queryUnscored() {
   // returns companies that are missing at least one score dimension
@@ -348,10 +304,6 @@ const commands: Record<string, () => Promise<void>> = {
   score: saveCompanyScore,
   alignment: runBatchAlignment,
   "flag-mismatch": runBatchFlagMismatch,
-  "flag-aggregator": runBatchFlagAggregator,
-  "unflag-aggregator": unflagAggregator,
-  aggregators: listAggregators,
-  "add-aggregator": addAggregator,
   unscored: queryUnscored,
   "new-jobs": queryNewJobs,
   "enrich-log": enrichLogCompanies,

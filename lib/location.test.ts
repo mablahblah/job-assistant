@@ -12,13 +12,6 @@ describe("classifyLocation", () => {
   it("in-person in NYC → too far", () => {
     expect(classifyLocation("in-person", "New York, NY")).toEqual({ tooFar: true, flagged: false });
   });
-  it("unknown workMode in Austin → eligible", () => {
-    expect(classifyLocation("", "Austin, TX")).toEqual({ tooFar: false });
-  });
-  it("unknown workMode outside Austin → too far", () => {
-    expect(classifyLocation("", "San Francisco, CA")).toEqual({ tooFar: true, flagged: false });
-  });
-
   // --- Hybrid jobs ---
   it("hybrid in Austin → eligible", () => {
     expect(classifyLocation("hybrid", "Austin, TX")).toEqual({ tooFar: false });
@@ -88,5 +81,28 @@ describe("classifyLocation", () => {
   });
   it("remote in Poland → too far", () => {
     expect(classifyLocation("remote", "Remote - Poland")).toEqual({ tooFar: true, flagged: false });
+  });
+
+  // --- Empty workMode: takes remote path ---
+  it("empty workMode + Austin → eligible (matches via REMOTE_ELIGIBLE_KEYWORDS)", () => {
+    expect(classifyLocation("", "Austin, TX")).toEqual({ tooFar: false });
+  });
+  it("empty workMode + non-matching city → too far", () => {
+    expect(classifyLocation("", "San Francisco, CA")).toEqual({ tooFar: true, flagged: false });
+  });
+  it("empty workMode + bare 'US' → eligible", () => {
+    expect(classifyLocation("", "US")).toEqual({ tooFar: false });
+  });
+  it("empty workMode + 'US / Canada' → eligible", () => {
+    expect(classifyLocation("", "US / Canada")).toEqual({ tooFar: false });
+  });
+  it("empty workMode + 'Remote' → eligible", () => {
+    expect(classifyLocation("", "Remote")).toEqual({ tooFar: false });
+  });
+  it("empty workMode + empty location → eligible", () => {
+    expect(classifyLocation("", "")).toEqual({ tooFar: false });
+  });
+  it("empty workMode + international location → too far", () => {
+    expect(classifyLocation("", "London, United Kingdom")).toEqual({ tooFar: true, flagged: false });
   });
 });
