@@ -1,5 +1,5 @@
 ---
-paths: ["lib/collectors/**", "lib/parsers/**", "lib/pipeline.ts", "lib/pipeline-save.ts", "lib/dedupe.ts", "lib/dedupe.test.ts"]
+paths: ["lib/collectors/**", "lib/parsers/**", "lib/geocoding/**", "lib/pipeline.ts", "lib/pipeline-save.ts", "lib/dedupe.ts", "lib/dedupe.test.ts"]
 ---
 
 # Pipeline — Collectors, Parsers, & Orchestration
@@ -37,7 +37,7 @@ Domain-to-parser routing uses `matchDomain()` from `lib/parsers/registry.ts`. Cu
 
 ## Deduplication
 
-Three stages in `lib/dedupe.ts`, ordered cheapest-first: collect → **Dedupe 1** → resolve → **Dedupe 2** → route → parse → **Dedupe 3** → save.
+Three stages in `lib/dedupe.ts`, ordered cheapest-first: collect → **Dedupe 1** → resolve → **Dedupe 2** → route → parse → **Dedupe 3** → **Geo-classify** → save.
 
 **Dedupe 1** (post-collection): `dedupeByUrl()` against `job.originalUrl`. Drops re-collected jobs before resolution.
 
@@ -48,6 +48,23 @@ Three stages in `lib/dedupe.ts`, ordered cheapest-first: collect → **Dedupe 1*
 `PARSER_PRIORITY` in `dedupe.ts` is a manually-maintained 1-N ranking by result quality (lower = better). New parsers need a priority rank.
 
 `REPLACEABLE_STATUSES` in `dedupe.ts` controls which DB statuses Dedupe 3 may overwrite. Active statuses (applied, interviewing, etc.) are never touched. Update this set when adding a new status.
+
+## Geo-Classification
+
+Runs between Dedupe 3 and save in `lib/pipeline.ts`. Orchestrated by `lib/geocoding/classify-location.ts`.
+
+**Flow:** prefilter → cache check → geocode (if miss) → validate class → compute distance → classify.
+
+- Remote jobs (`workMode === "remote"`) skip geo-classification entirely → `geoStatus: "backlog"`
+- Non-remote jobs are geocoded via `lib/geocoding/geocode-client.ts` (geocode.maps.co API, rate-limited)
+- Results cached in `LocationCache` DB table keyed by normalized location string
+- Geocoding response `class` is validated against `GeocodingClassRule` DB table (allow/block)
+- Unknown classes → job is held back from save, written to `data/pipeline-logs/held-back-*.json`
+- `classify-held-back` CLI command re-classifies and saves after user resolves unknown classes
+
+`geoStatus` values on `SaveableJob`: `"backlog"` (in range or remote), `"too far"` (outside radius), `"skip"` (prefilter determined no geo needed — falls through to legacy `classifyLocation()` in pipeline-save).
+
+Config in `lib/location-config.ts`: anchor coordinates and radius in miles.
 
 ## Confidence
 

@@ -38,10 +38,11 @@ npm run test                          # Run all Vitest tests
 ```
 lib/
 ├── collectors/       # Job collection from external sources (API + Playwright)
+├── geocoding/        # Geo-based location classification (geocode, cache, prefilter, classify)
 ├── parsers/          # ATS-specific job page parsers (Greenhouse, Lever, Ashby, etc.)
 ├── scrapers/         # Legacy scrapers (replaced by collectors + parsers)
 ├── web/              # Dashboard HTML rendering and helpers
-├── pipeline.ts       # Collect → dedupe → resolve → route → parse → dedupe → save orchestration
+├── pipeline.ts       # Collect → dedupe → resolve → route → parse → dedupe → geo-classify → save
 ├── pipeline-save.ts  # Save parsed pipeline results to DB
 ├── dedupe.ts         # Three-stage deduplication with parser priority
 ├── scoring.ts        # Company + job composite scoring
