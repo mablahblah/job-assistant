@@ -7,18 +7,8 @@ description: Automatically classify new jobs that were collected in the previous
 
 ## Instructions
 
-### Step 1: Check for Reposts
+Repost detection is handled automatically by the pipeline's Dedupe 3 stage (content-based deduplication with parser priority). This skill no longer needs a manual repost step.
 
-1. For each job in the new jobs, check if the job has the same company name with a similar title to flag jobs as reposts:
-
-Mark all reposts at once:
-
-```bash
-npx tsx scripts/cli.ts status <<'EOF'
-[{"jobId":"<id>","status":"repost"}, ...]
-EOF
-```
-
-### Step 2: Self Document
+### Step 1: Self Document
 
 1. `/self-document` this step.

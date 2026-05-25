@@ -48,7 +48,7 @@ model Job {
   repost          Boolean     @default(false) // true when job is a refreshed posting of an already-classified listing
   source          String?     // which collector found this job (e.g. "adzuna", "dribbble", "external")
   parser          String?     // which parser processed it (e.g. "ashby", "collector-only"), null if unparsed
-  originalUrl     String?     // original collector URL, only set when resolution changed it
+  originalUrl     String?     // original collector URL (provenance — where the collector found this job)
   modifiedAt      DateTime?   // tracks when status was last changed (null = never changed)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -89,4 +89,22 @@ model WorkSearchEntry {
 
   @@index([jobId])
   @@index([date])
+}
+
+// Caches geocoded coordinates for location strings — one API call per unique string
+model LocationCache {
+  id             String   @id @default(cuid())
+  locationString String   @unique // normalized post-prefilter string
+  lat            Float
+  lon            Float
+  displayName    String   // full resolved name from geocoding
+  createdAt      DateTime @default(now())
+}
+
+// Allow/block decisions for Nominatim response classes (e.g. "boundary" allowed, "amenity" blocked)
+model GeocodingClassRule {
+  id        String   @id @default(cuid())
+  className String   @unique // Nominatim class value (e.g. "boundary", "amenity")
+  action    String   // "allow" or "block"
+  createdAt DateTime @default(now())
 }

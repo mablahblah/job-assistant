@@ -120,16 +120,16 @@ export async function parseAshbyJob(
 
     // Extract Ashby's React data blob for work mode + locations
     const appData: AshbyAppData | null = await page.evaluate(() => {
-      const raw = (window as any).__appData;
-      const d = raw?.jobPosting ?? raw?.posting ?? raw;
+      const raw = (window as Record<string, unknown>).__appData as Record<string, unknown> | undefined;
+      const d = (raw?.jobPosting ?? raw?.posting ?? raw) as Record<string, unknown> | undefined;
       if (!d) return null;
       return {
-        title: d.title,
-        workplaceType: d.workplaceType,
-        locationName: d.locationName,
-        secondaryLocationNames: d.secondaryLocationNames,
-        publishedDate: d.publishedDate,
-        compensationTierSummary: d.compensationTierSummary,
+        title: d.title as string | undefined,
+        workplaceType: d.workplaceType as string | undefined,
+        locationName: d.locationName as string | undefined,
+        secondaryLocationNames: d.secondaryLocationNames as string[] | undefined,
+        publishedDate: d.publishedDate as string | undefined,
+        compensationTierSummary: d.compensationTierSummary as string | undefined,
       };
     });
 

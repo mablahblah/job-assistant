@@ -1,9 +1,5 @@
-// Classifies whether a job is "too far" based on workMode and location text.
-// Remote jobs are checked against inclusion/exclusion keyword lists;
-// hybrid/in-person jobs are checked against the Austin metro area.
-
-// Cities close enough to commute to (~25 mi of North Austin)
-const AUSTIN_AREA = ["austin", "round rock", "cedar park", "pflugerville", "bee cave"];
+// Classifies whether a remote job is "too far" based on location text.
+// Non-remote jobs are handled by geo-based classification in lib/geocoding/.
 
 // Remote job is eligible only if location contains one of these
 const REMOTE_ELIGIBLE_KEYWORDS = [
@@ -20,37 +16,34 @@ const REMOTE_ELIGIBLE_KEYWORDS = [
   "worldwide",
   "global",
   "anywhere",
-  ...AUSTIN_AREA,
+  "austin",
+  "round rock",
+  "cedar park",
+  "pflugerville",
+  "bee cave",
 ];
 
-// Checks if a location string is in the Austin metro area
-function isAustinArea(location: string): boolean {
-  const loc = location.toLowerCase();
-  return AUSTIN_AREA.some((city) => loc.includes(city));
-}
-
 export type LocationResult =
-  | { tooFar: false }                        // eligible
-  | { tooFar: true; flagged: false }         // clearly too far
-  | { tooFar: true; flagged: true };         // unknown remote location, needs review
+  | { tooFar: false }
+  | { tooFar: true; flagged: false }
+  | { tooFar: true; flagged: true };
 
-// Classifies a job's location eligibility based on workMode and location text
+// Classifies a remote job's location eligibility based on keyword matching.
+// Only called for remote jobs — non-remote jobs use geo classification.
 export function classifyLocation(workMode: string, location: string): LocationResult {
   const loc = (location ?? "").toLowerCase().trim();
 
-  // Hybrid / in-person → check Austin area (empty workMode falls through to remote branch)
+  // Non-remote jobs should not reach here — but if they do, pass through
   if (workMode && workMode !== "remote") {
-    if (isAustinArea(loc)) return { tooFar: false };
-    return { tooFar: true, flagged: false };
+    return { tooFar: false };
   }
 
-  // Remote jobs → eligible only if location is empty, bare "remote", or matches approved list
+  // Remote jobs — eligible if location is empty, bare "remote", or matches approved list
   if (!loc || loc === "remote") return { tooFar: false };
 
   if (REMOTE_ELIGIBLE_KEYWORDS.some((kw) => loc.includes(kw))) {
     return { tooFar: false };
   }
 
-  // Doesn't match approved list → too far
   return { tooFar: true, flagged: false };
 }

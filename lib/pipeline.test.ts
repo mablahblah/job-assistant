@@ -5,12 +5,14 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     job: {
       findMany: vi.fn(() => Promise.resolve([])),
+      update: vi.fn(() => Promise.resolve({})),
     },
   },
 }));
 vi.mock("@/lib/location", () => ({ classifyLocation: vi.fn(() => "remote") }));
 vi.mock("./pipeline-save", () => ({
-  saveParsedJobs: vi.fn(() => Promise.resolve({ saved: 0, skipped: 0, reposted: 0, savedJobIds: [] })),
+  saveParsedJobs: vi.fn(() => Promise.resolve({ saved: 0, skipped: 0, savedJobIds: [] })),
+  toISODateTime: vi.fn((s: string) => s.includes("T") ? s : `${s}T00:00:00.000Z`),
 }));
 vi.mock("./parsers/registry", () => ({
   isGreenlitDomain: vi.fn(() => null),
@@ -48,7 +50,7 @@ const mockIsGreenlit = isGreenlitDomain as ReturnType<typeof vi.fn>;
 const mockGetParser = getParser as ReturnType<typeof vi.fn>;
 // Typed reference to the prisma mock so we can control findMany return values per test
 const mockPrisma = prisma as unknown as {
-  job: { findMany: ReturnType<typeof vi.fn> };
+  job: { findMany: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
@@ -57,7 +59,8 @@ beforeEach(() => {
   mockPrisma.job.findMany.mockResolvedValue([]);
   mockIsGreenlit.mockReturnValue(null);
   mockRoute.mockReturnValue({ matched: {}, unmatched: [] });
-  mockSave.mockResolvedValue({ saved: 0, skipped: 0, reposted: 0, savedJobIds: [] });
+  mockPrisma.job.update.mockResolvedValue({});
+  mockSave.mockResolvedValue({ saved: 0, skipped: 0, savedJobIds: [] });
 });
 
 describe("runPipeline", () => {
@@ -126,11 +129,14 @@ describe("runPipeline", () => {
     );
   });
 
-  it("filters out collected jobs whose URL already exists in the DB", async () => {
-    // DB has a job with this URL
-    mockPrisma.job.findMany.mockResolvedValue([
-      { url: "https://jobs.ashbyhq.com/acme/123", originalUrl: null },
-    ]);
+  it("filters out collected jobs whose originalUrl matches DB", async () => {
+    // Dedupe 1 checks collector URLs against DB originalUrls
+    mockPrisma.job.findMany.mockImplementation(({ where }: { where?: { originalUrl?: unknown } }) => {
+      if (where?.originalUrl) {
+        return Promise.resolve([{ originalUrl: "https://jobs.ashbyhq.com/acme/123" }]);
+      }
+      return Promise.resolve([]);
+    });
     mockIsGreenlit.mockReturnValue(null);
     mockRoute.mockReturnValue({ matched: {}, unmatched: [] });
 
@@ -141,31 +147,8 @@ describe("runPipeline", () => {
 
     const result = await runPipeline(jobs, "search", { skipPlaywright: true });
 
-    // Only the new job should reach routing — deduped URL must not appear in route call
-    expect(result.deduped).toBe(1);
+    expect(result.dedupe1.droppedDbMatches).toBe(1);
     expect(result.collected).toBe(2);
-    expect(mockRoute).toHaveBeenCalledWith(
-      expect.not.arrayContaining([
-        expect.objectContaining({ url: "https://jobs.ashbyhq.com/acme/123" }),
-      ]),
-    );
-  });
-
-  it("filters out collected jobs whose URL matches an existing originalUrl", async () => {
-    // DB has a job that was resolved from this collector URL
-    mockPrisma.job.findMany.mockResolvedValue([
-      { url: "https://jobs.ashbyhq.com/acme/resolved", originalUrl: "https://adzuna.com/job/789" },
-    ]);
-    mockIsGreenlit.mockReturnValue(null);
-    mockRoute.mockReturnValue({ matched: {}, unmatched: [] });
-
-    const jobs: CollectedJob[] = [
-      { url: "https://adzuna.com/job/789", source: "adzuna" },
-    ];
-
-    const result = await runPipeline(jobs, "search", { skipPlaywright: true });
-
-    expect(result.deduped).toBe(1);
   });
 
   it("passes through jobs not found in the DB", async () => {
@@ -179,7 +162,8 @@ describe("runPipeline", () => {
 
     const result = await runPipeline(jobs, "search", { skipPlaywright: true });
 
-    expect(result.deduped).toBe(0);
+    expect(result.dedupe1.droppedBatchDupes).toBe(0);
+    expect(result.dedupe1.droppedDbMatches).toBe(0);
   });
 
   it("records failure when parser returns success: false", async () => {

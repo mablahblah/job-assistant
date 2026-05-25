@@ -1,5 +1,5 @@
 // Search terms used by keyword-based collectors (adzuna, jsearch, dribbble, etc.)
-export const SEARCH_TERMS = ["Product Design", "UX"];
+export const SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 
 // Controls which job sources are active and (for Greenhouse/Lever) which company slugs to query
 export const COLLECTOR_CONFIG = {

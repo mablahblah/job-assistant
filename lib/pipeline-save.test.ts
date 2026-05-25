@@ -5,12 +5,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     blockedJob: { findMany: vi.fn() },
     company: { upsert: vi.fn() },
-    job: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
+    job: { create: vi.fn() },
   },
 }));
 
@@ -27,12 +22,7 @@ const mockClassify = classifyLocation as ReturnType<typeof vi.fn>;
 const db = prisma as unknown as {
   blockedJob: { findMany: ReturnType<typeof vi.fn> };
   company: { upsert: ReturnType<typeof vi.fn> };
-  job: {
-    findUnique: ReturnType<typeof vi.fn>;
-    findMany: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-  };
+  job: { create: ReturnType<typeof vi.fn> };
 };
 
 // Use a recent date so jobs don't auto-expire during tests
@@ -52,19 +42,17 @@ function makeJob(overrides: Partial<SaveableJob> = {}): SaveableJob {
     salaryRange: "$120-$150k",
     source: "adzuna",
     parser: "ashby",
-    originalUrl: null,
+    originalUrl: "https://jobs.ashbyhq.com/acme/123",
     ...overrides,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: no blocked URLs, no existing jobs
+  // Default: no blocked URLs
   db.blockedJob.findMany.mockResolvedValue([]);
   db.company.upsert.mockResolvedValue({ id: "comp-1", name: "Acme Corp" });
-  db.job.findUnique.mockResolvedValue(null);
-  db.job.findMany.mockResolvedValue([]);
-  db.job.create.mockImplementation(({ data }) => Promise.resolve({ id: "job-1", ...data }));
+  db.job.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: "job-1", ...data }));
 });
 
 describe("saveParsedJobs", () => {
@@ -79,7 +67,7 @@ describe("saveParsedJobs", () => {
         status: "backlog",
         source: "adzuna",
         parser: "ashby",
-        originalUrl: null,
+        originalUrl: "https://jobs.ashbyhq.com/acme/123",
       }),
     });
   });
@@ -94,39 +82,8 @@ describe("saveParsedJobs", () => {
     expect(db.job.create).not.toHaveBeenCalled();
   });
 
-  it("skips exact URL duplicates", async () => {
-    db.job.findUnique.mockResolvedValue({ id: "existing-1", url: "https://jobs.ashbyhq.com/acme/123" });
-
-    const result = await saveParsedJobs([makeJob()], "search");
-
-    expect(result.skipped).toBe(1);
-    expect(db.job.create).not.toHaveBeenCalled();
-  });
-
-  it("updates repost when company+title dupe has replaceable status", async () => {
-    db.job.findMany.mockResolvedValue([{ id: "dupe-1", title: "Product Designer", status: "backlog" }]);
-    db.job.update.mockResolvedValue({ id: "dupe-1" });
-
-    const result = await saveParsedJobs([makeJob()], "search");
-
-    expect(result.reposted).toBe(1);
-    expect(db.job.update).toHaveBeenCalledWith({
-      where: { id: "dupe-1" },
-      data: expect.objectContaining({ repost: true, source: "adzuna", parser: "ashby" }),
-    });
-  });
-
-  it("skips company+title dupe with sacred status", async () => {
-    db.job.findMany.mockResolvedValue([{ id: "dupe-1", title: "Product Designer", status: "interview" }]);
-
-    const result = await saveParsedJobs([makeJob()], "search");
-
-    expect(result.skipped).toBe(1);
-    expect(db.job.create).not.toHaveBeenCalled();
-  });
-
   it("classifies expired jobs in search mode", async () => {
-    const result = await saveParsedJobs([makeJob({ postedAt: "2026-04-01" })], "search");
+    await saveParsedJobs([makeJob({ postedAt: "2026-04-01" })], "search");
 
     expect(db.job.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "expired" }),
@@ -136,7 +93,7 @@ describe("saveParsedJobs", () => {
   it("classifies too-far jobs in search mode", async () => {
     mockClassify.mockReturnValue({ tooFar: true, flagged: false });
 
-    const result = await saveParsedJobs([makeJob()], "search");
+    await saveParsedJobs([makeJob()], "search");
 
     expect(db.job.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "too far" }),
@@ -146,7 +103,7 @@ describe("saveParsedJobs", () => {
   it("forces backlog in external mode regardless of location", async () => {
     mockClassify.mockReturnValue({ tooFar: true, flagged: false });
 
-    const result = await saveParsedJobs([makeJob()], "external");
+    await saveParsedJobs([makeJob()], "external");
 
     expect(db.job.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "backlog" }),
@@ -154,7 +111,7 @@ describe("saveParsedJobs", () => {
   });
 
   it("forces backlog in external mode regardless of age", async () => {
-    const result = await saveParsedJobs([makeJob({ postedAt: "2026-01-01" })], "external");
+    await saveParsedJobs([makeJob({ postedAt: "2026-01-01" })], "external");
 
     expect(db.job.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "backlog" }),
@@ -175,8 +132,34 @@ describe("saveParsedJobs", () => {
     expect(db.job.create).not.toHaveBeenCalled();
   });
 
+  it("uses geoStatus when provided (too far)", async () => {
+    await saveParsedJobs([makeJob({ geoStatus: "too far" })], "search");
+
+    expect(db.job.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ status: "too far" }),
+    });
+    expect(mockClassify).not.toHaveBeenCalled();
+  });
+
+  it("uses geoStatus when provided (backlog)", async () => {
+    await saveParsedJobs([makeJob({ geoStatus: "backlog" })], "search");
+
+    expect(db.job.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ status: "backlog" }),
+    });
+    expect(mockClassify).not.toHaveBeenCalled();
+  });
+
+  it("falls back to classifyLocation for remote jobs (geoStatus skip)", async () => {
+    mockClassify.mockReturnValue({ tooFar: false });
+
+    await saveParsedJobs([makeJob({ geoStatus: "skip", workMode: "remote" })], "search");
+
+    expect(mockClassify).toHaveBeenCalled();
+  });
+
   it("saves originalUrl when resolution changed the URL", async () => {
-    const result = await saveParsedJobs([makeJob({
+    await saveParsedJobs([makeJob({
       url: "https://jobs.ashbyhq.com/acme/123",
       originalUrl: "https://adzuna.com/job/456",
     })], "search");

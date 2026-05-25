@@ -12,6 +12,7 @@ import {
 } from "@/lib/batch-update";
 import { calculateScore } from "@/lib/scoring";
 import type { Company, Job } from "@/lib/types";
+import type { SaveableJob } from "@/lib/pipeline-save";
 
 const [, , command, ...args] = process.argv;
 
@@ -293,6 +294,102 @@ async function enrichLogCompanies() {
   out({ enriched: toEnrich.length });
 }
 
+async function classifyHeldBack() {
+  const filePath = args[0];
+  if (!filePath) {
+    fail("Usage: classify-held-back <path-to-held-back-file>");
+  }
+
+  const { readFileSync } = await import("fs");
+  const { classifyJobLocations } = await import("@/lib/geocoding");
+  const { saveParsedJobs } = await import("@/lib/pipeline-save");
+
+  // Parse and validate the held-back file
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(filePath, "utf-8"));
+  } catch {
+    fail(`Could not read held-back file: ${filePath}`);
+  }
+
+  const parsed = raw as { mode?: string; jobs?: unknown[] };
+  if (parsed.mode !== "search" && parsed.mode !== "external") {
+    fail(`Invalid mode in held-back file: ${parsed.mode}`);
+  }
+  if (!Array.isArray(parsed.jobs) || parsed.jobs.length === 0) {
+    fail("Held-back file contains no jobs");
+  }
+  const mode = parsed.mode as "search" | "external";
+  const jobs = parsed.jobs as SaveableJob[];
+
+  // Validate required fields on each job (file is pipeline-written but path is user-provided)
+  for (const job of jobs) {
+    if (!job.url || !job.title || !job.companyName || !job.postedAt || !job.source) {
+      fail(`Job missing required fields: ${JSON.stringify(job).slice(0, 100)}`);
+    }
+  }
+
+  // Skip jobs that were already saved by a subsequent pipeline run
+  const existingUrls = new Set(
+    (await prisma.job.findMany({ where: { url: { in: jobs.map((j) => j.url) } }, select: { url: true } }))
+      .map((j) => j.url),
+  );
+  const newJobs = jobs.filter((j) => !existingUrls.has(j.url));
+  if (existingUrls.size > 0) {
+    console.error(`[classify-held-back] Skipping ${existingUrls.size} job(s) already in DB (collected in a later run)`);
+  }
+  if (newJobs.length === 0) {
+    out({ saved: 0, skipped: existingUrls.size, savedJobIds: [] });
+    return;
+  }
+
+  const geoInput = newJobs.map((j) => ({
+    location: j.location ?? "",
+    workMode: j.workMode ?? "",
+  }));
+
+  const { results: geoResults, allUnknownClasses } = await classifyJobLocations(geoInput);
+
+  // Check if any classes are STILL unknown after user classification
+  if (allUnknownClasses.length > 0) {
+    console.error(`[classify-held-back] Still ${allUnknownClasses.length} unknown class(es):`);
+    for (const uc of allUnknownClasses) {
+      console.error(`  - class="${uc.className}" from "${uc.locationString}"`);
+    }
+    fail("Resolve all unknown classes before running classify-held-back");
+  }
+
+  // Annotate jobs with geo classification and save
+  const annotatedJobs: SaveableJob[] = newJobs.map((job, i) => ({
+    ...job,
+    geoStatus: geoResults[i].status,
+  }));
+
+  const save = await saveParsedJobs(annotatedJobs, mode);
+  out(save);
+}
+
+async function manageGeoClass() {
+  // Usage: geocode-class allow <className> OR geocode-class block <className>
+  if (args.length < 2) {
+    fail('Usage: geocode-class allow|block <className>');
+  }
+
+  const [action, className] = args;
+  if (action !== "allow" && action !== "block") {
+    fail('Action must be "allow" or "block"');
+  }
+
+  // Upsert so re-classifying an existing rule works
+  await prisma.geocodingClassRule.upsert({
+    where: { className },
+    create: { className, action },
+    update: { action },
+  });
+
+  out({ updated: true, className, action });
+}
+
 // --- Dispatch ---
 
 const commands: Record<string, () => Promise<void>> = {
@@ -307,6 +404,8 @@ const commands: Record<string, () => Promise<void>> = {
   unscored: queryUnscored,
   "new-jobs": queryNewJobs,
   "enrich-log": enrichLogCompanies,
+  "geocode-class": manageGeoClass,
+  "classify-held-back": classifyHeldBack,
 };
 
 if (!command || !commands[command]) {

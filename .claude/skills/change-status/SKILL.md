@@ -1,6 +1,7 @@
 ---
 name: change-status
 description: Change a job's status
+disable-model-invocation: true
 ---
 
 # Change Status

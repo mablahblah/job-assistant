@@ -113,7 +113,7 @@ function ageModifier(postedAt: string | Date, now: Date): number {
   return Math.max(0.5, 1 - (daysOld - 3) * 0.05); // decay starts after day 3
 }
 
-// score = (company weights + job alignment weight) × age modifier × salary modifier, capped at 0–100
+// score = (company weights + job alignment weight) × age modifier × salary modifier
 export function calculateScore(
   job: Job,
   company: Company,

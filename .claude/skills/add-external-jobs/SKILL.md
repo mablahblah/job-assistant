@@ -1,6 +1,7 @@
 ---
 name: add-external-jobs
-description: Accepts a list of links to job postings, and runs the post-scrape job search pipeline as if they were returned as job search results while also documenting each step to fully automated a job search and prioritization.
+description: Accepts a list of links to job postings, and runs the post-scrape job search pipeline as if they were returned as job search results while also documenting each step to fully automate a job search and prioritization.
+disable-model-invocation: true
 ---
 
 # Add External Jobs

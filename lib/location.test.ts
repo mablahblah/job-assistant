@@ -2,25 +2,12 @@ import { describe, it, expect } from "vitest";
 import { classifyLocation } from "./location";
 
 describe("classifyLocation", () => {
-  // --- In-person jobs ---
-  it("in-person in Austin → eligible", () => {
-    expect(classifyLocation("in-person", "Austin, TX")).toEqual({ tooFar: false });
+  // --- Non-remote jobs: pass through (geo handles them now) ---
+  it("in-person passes through (geo classification handles this)", () => {
+    expect(classifyLocation("in-person", "New York, NY")).toEqual({ tooFar: false });
   });
-  it("in-person in Round Rock → eligible", () => {
-    expect(classifyLocation("in-person", "Round Rock, TX")).toEqual({ tooFar: false });
-  });
-  it("in-person in NYC → too far", () => {
-    expect(classifyLocation("in-person", "New York, NY")).toEqual({ tooFar: true, flagged: false });
-  });
-  // --- Hybrid jobs ---
-  it("hybrid in Austin → eligible", () => {
-    expect(classifyLocation("hybrid", "Austin, TX")).toEqual({ tooFar: false });
-  });
-  it("hybrid in Cedar Park → eligible", () => {
-    expect(classifyLocation("hybrid", "Cedar Park, TX")).toEqual({ tooFar: false });
-  });
-  it("hybrid in Dallas → too far", () => {
-    expect(classifyLocation("hybrid", "Dallas, TX")).toEqual({ tooFar: true, flagged: false });
+  it("hybrid passes through (geo classification handles this)", () => {
+    expect(classifyLocation("hybrid", "Dallas, TX")).toEqual({ tooFar: false });
   });
 
   // --- Remote jobs: inclusion list ---

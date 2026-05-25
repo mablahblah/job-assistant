@@ -26,7 +26,7 @@ export type Job = {
   repost: boolean // true when job is a refreshed posting of an already-classified listing
   source: string | null // which collector found this job (e.g. "adzuna", "dribbble", "external")
   parser: string | null // which parser processed it (e.g. "ashby", "collector-only"), null if unparsed
-  originalUrl: string | null // original collector URL, only set when resolution changed it
+  originalUrl: string | null // original collector URL (provenance — where the collector found this job)
 }
 
 export type JobWithCompany = Job & {

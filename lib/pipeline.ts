@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { mkdirSync, writeFileSync } from "fs";
 import { chromium } from "playwright";
-import { saveParsedJobs, type PipelineSaveResult, type SaveableJob } from "./pipeline-save";
+import { saveParsedJobs, toISODateTime, type PipelineSaveResult, type SaveableJob } from "./pipeline-save";
 import { resolveJobUrl } from "./url-resolver";
 import {
   isGreenlitDomain,
@@ -20,6 +20,8 @@ import type { ResolutionChain } from "./url-resolver";
 import { compareFields } from "./parsers/confidence";
 import type { ParsedFields } from "./parsers/types";
 import { prisma } from "@/lib/prisma";
+import { dedupeByUrl, dedupeByContent, type ContentDedupeItem, type DbJobForDedupe } from "./dedupe";
+import { classifyJobLocations } from "@/lib/geocoding";
 
 // Register all available parsers at import time
 registerParser("jobs.ashbyhq.com", parseAshbyJob);
@@ -39,13 +41,20 @@ export interface ParseFailure {
 
 export interface PipelineResult {
   collected: number;
-  deduped: number;
+  dedupe1: { droppedBatchDupes: number; droppedDbMatches: number };
+  dedupe2: { droppedBatchDupes: number; droppedDbMatches: number };
+  dedupe3: { droppedBatchDupes: number; droppedByDb: number; dbUpdates: number };
   resolved: number;
   matched: number;
   unmatched: number;
   parsed: number;
   failures: ParseFailure[];
   save: PipelineSaveResult;
+  unknownGeoClasses: Array<{ className: string; locationString: string; displayName: string }>;
+  heldBack: {
+    count: number;
+    file: string | null;
+  };
 }
 
 export interface PipelineOptions {
@@ -63,18 +72,16 @@ export async function runPipeline(
 ): Promise<PipelineResult> {
   console.error(`\n[pipeline] Starting: ${jobs.length} jobs, mode=${mode}\n`);
 
-  // 0. Dedupe — drop collected jobs whose URL is already in the DB
-  const knownJobs = await prisma.job.findMany({
-    select: { url: true, originalUrl: true },
-  });
-  const knownUrls = new Set<string>();
-  for (const job of knownJobs) {
-    knownUrls.add(job.url);
-    if (job.originalUrl) knownUrls.add(job.originalUrl);
-  }
-  const deduped = jobs.filter((j) => knownUrls.has(j.url)).length;
-  const newJobs = jobs.filter((j) => !knownUrls.has(j.url));
-  console.error(`[pipeline] Dedupe: ${deduped} already in DB, ${newJobs.length} new jobs to process`);
+  // 0. Dedupe 1 — post-collection: dedupe by original/collector URL
+  const knownOriginalUrls = new Set<string>(
+    (await prisma.job.findMany({
+      where: { originalUrl: { not: null } },
+      select: { originalUrl: true },
+    })).map((j) => j.originalUrl!),
+  );
+  const dedupe1 = dedupeByUrl(jobs, (j) => j.url, knownOriginalUrls);
+  const newJobs = dedupe1.kept;
+  console.error(`[pipeline] Dedupe 1 (original URLs): ${dedupe1.droppedBatchDupes} batch dupes, ${dedupe1.droppedDbMatches} DB matches, ${newJobs.length} remaining`);
 
   // 1. Separate greenlit-domain jobs (skip resolution) from those that need it
   const greenlitJobs: PipelineJob[] = [];
@@ -149,8 +156,18 @@ export async function runPipeline(
     await browser.close();
   }
 
+  // 2b. Dedupe 2 — post-resolution: dedupe by final/resolved URL
+  const allPreRoute = [...greenlitJobs, ...resolvedJobs];
+  const knownFinalUrls = new Set<string>(
+    (await prisma.job.findMany({
+      select: { url: true },
+    })).map((j) => j.url),
+  );
+  const dedupe2 = dedupeByUrl(allPreRoute, (j) => j.finalUrl, knownFinalUrls);
+  console.error(`[pipeline] Dedupe 2 (final URLs): ${dedupe2.droppedBatchDupes} batch dupes, ${dedupe2.droppedDbMatches} DB matches, ${dedupe2.kept.length} remaining`);
+
   // 3. Route all jobs to parsers by their final domain
-  const allRoutable = [...greenlitJobs, ...resolvedJobs];
+  const allRoutable = dedupe2.kept;
   const { matched, unmatched } = routeByDomain(allRoutable);
   const matchedCount = Object.values(matched).reduce((sum, arr) => sum + arr.length, 0);
   console.error(`[pipeline] Routed: ${matchedCount} matched, ${unmatched.length} unmatched`);
@@ -221,7 +238,7 @@ export async function runPipeline(
       continue;
     }
 
-    const originalUrl = collectedJob && collectedJob.url !== result.finalUrl ? collectedJob.url : null;
+    const originalUrl = collectedJob?.url ?? null;
 
     // Build collector fields in ParsedFields shape for confidence comparison
     const collectorFields: Partial<ParsedFields> | null = collectedJob
@@ -275,24 +292,111 @@ export async function runPipeline(
         salaryRange: collectedJob?.salaryRange ?? "?",
         source: collectedJob?.source ?? "external",
         parser: null,
-        originalUrl: collectedJob && collectedJob.url !== pipelineJob.finalUrl ? collectedJob.url : null,
+        originalUrl: collectedJob?.url ?? null,
       });
     }
   }
 
-  // 6. Persist to database
-  const save = await saveParsedJobs(saveableJobs, mode);
+  // 5b. Dedupe 3 — post-parsing: content-based dedupe by title+company
+  const dbJobsForDedupe: DbJobForDedupe[] = await prisma.job.findMany({
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      parser: true,
+      postedAt: true,
+      location: true,
+      workMode: true,
+      salaryRange: true,
+      company: { select: { name: true } },
+    },
+  }).then((rows) =>
+    rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      companyName: r.company.name,
+      parser: r.parser,
+      postedAt: r.postedAt.toISOString().slice(0, 10),
+      status: r.status,
+      location: r.location ?? undefined,
+      workMode: r.workMode ?? undefined,
+      salaryRange: r.salaryRange ?? undefined,
+    })),
+  );
+
+  const dedupe3 = dedupeByContent(saveableJobs as ContentDedupeItem[], dbJobsForDedupe);
+  console.error(`[pipeline] Dedupe 3 (content): ${dedupe3.droppedBatchDupes} batch dupes, ${dedupe3.droppedByDb} DB conflicts, ${dedupe3.dbUpdates.length} DB updates, ${dedupe3.kept.length} new jobs`);
+
+  // Apply DB updates from Dedupe 3 (priority upgrades and reposts)
+  for (const update of dedupe3.dbUpdates) {
+    await prisma.job.update({
+      where: { id: update.id },
+      data: {
+        ...update.data,
+        postedAt: update.data.postedAt ? toISODateTime(update.data.postedAt) : undefined,
+        repost: update.repost,
+      },
+    });
+  }
+
+  // Declare log dir and timestamp here — needed for both held-back file and pipeline log
+  const logDir = "data/pipeline-logs";
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+  // 5c. Geo-based location classification — annotates each job with backlog/too far/skip
+  const geoInput = (dedupe3.kept as SaveableJob[]).map((j) => ({
+    location: j.location,
+    workMode: j.workMode,
+  }));
+  const { results: geoResults, allUnknownClasses } = await classifyJobLocations(geoInput);
+
+  // Partition: jobs with known classes get saved; jobs with unknown classes are held back
+  const classifiedJobs: SaveableJob[] = [];
+  const heldBackJobs: SaveableJob[] = [];
+
+  for (let i = 0; i < (dedupe3.kept as SaveableJob[]).length; i++) {
+    const job = (dedupe3.kept as SaveableJob[])[i];
+    const geoResult = geoResults[i];
+
+    if (geoResult.unknownClasses.length > 0) {
+      // Job hit an unknown class — hold back for user review
+      heldBackJobs.push(job);
+    } else {
+      // Job fully classified — annotate and save
+      classifiedJobs.push({ ...job, geoStatus: geoResult.status });
+    }
+  }
+
+  if (allUnknownClasses.length > 0) {
+    console.error(`[pipeline] Geo classification: ${allUnknownClasses.length} unknown class(es) encountered`);
+    console.error(`[pipeline] Held back ${heldBackJobs.length} job(s) pending class review`);
+    for (const uc of allUnknownClasses) {
+      console.error(`  - class="${uc.className}" from "${uc.locationString}" (resolved: "${uc.displayName}")`);
+    }
+  }
+
+  // Write held-back jobs to file so they survive across script invocations
+  let heldBackFile: string | null = null;
+  if (heldBackJobs.length > 0) {
+    heldBackFile = `${logDir}/held-back-${timestamp}.json`;
+    mkdirSync(logDir, { recursive: true });
+    writeFileSync(heldBackFile, JSON.stringify({ mode, jobs: heldBackJobs }, null, 2));
+    console.error(`[pipeline] Held-back jobs written to: ${heldBackFile}`);
+  }
+
+  // 6. Persist classified jobs to database (Dedupe 3 already handled updates)
+  const save = await saveParsedJobs(classifiedJobs, mode);
 
   // 7. Write a JSON log of this pipeline run for debugging
-  const logDir = "data/pipeline-logs";
   mkdirSync(logDir, { recursive: true });
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const logData = {
     timestamp: new Date().toISOString(),
     mode,
     summary: {
       collected: jobs.length,
-      deduped,
+      dedupe1: { droppedBatchDupes: dedupe1.droppedBatchDupes, droppedDbMatches: dedupe1.droppedDbMatches },
+      dedupe2: { droppedBatchDupes: dedupe2.droppedBatchDupes, droppedDbMatches: dedupe2.droppedDbMatches },
+      dedupe3: { droppedBatchDupes: dedupe3.droppedBatchDupes, droppedByDb: dedupe3.droppedByDb, dbUpdates: dedupe3.dbUpdates.length },
       greenlitShortcut: greenlitJobs.length,
       resolved: resolvedJobs.length,
       matched: matchedCount,
@@ -300,6 +404,9 @@ export async function runPipeline(
       parsed: parseResults.length,
       failureCount: failures.length,
       save,
+      unknownGeoClasses: allUnknownClasses.length,
+      heldBack: heldBackJobs.length,
+      heldBackFile,
     },
     // Domains with unmatched jobs, sorted by frequency — useful for deciding which parsers to add next
     unmatchedDomains: Object.entries(
@@ -323,12 +430,19 @@ export async function runPipeline(
 
   return {
     collected: jobs.length,
-    deduped,
+    dedupe1: { droppedBatchDupes: dedupe1.droppedBatchDupes, droppedDbMatches: dedupe1.droppedDbMatches },
+    dedupe2: { droppedBatchDupes: dedupe2.droppedBatchDupes, droppedDbMatches: dedupe2.droppedDbMatches },
+    dedupe3: { droppedBatchDupes: dedupe3.droppedBatchDupes, droppedByDb: dedupe3.droppedByDb, dbUpdates: dedupe3.dbUpdates.length },
     resolved: resolvedJobs.length,
     matched: matchedCount,
     unmatched: unmatched.length,
     parsed: parseResults.length,
     failures,
     save,
+    unknownGeoClasses: allUnknownClasses,
+    heldBack: {
+      count: heldBackJobs.length,
+      file: heldBackFile,
+    },
   };
 }
