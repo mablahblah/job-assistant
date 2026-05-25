@@ -85,6 +85,16 @@ _Shipped 2026-04-24. Repost deduplication, batch stdin commands for status/align
 - [~ |status:cancelled] - **Batch Scores Command** — ~~Compute composite scores for arbitrary job IDs in one call, regardless of status~~ _Cancelled: solves a problem that doesn't exist — backlog command already scores the jobs that matter_
 - [x |status:released] - **Separated Search Skills** — Break apart job search and add job commands into separate re-usable skills
 
+## Initiative: Pipeline Accuracy
+
+_Goal: Stop misclassifying good jobs — fix location filtering and deduplication so the backlog reflects reality._
+
+_Shipped 2026-05-25. Built three-stage deduplication with parser priority, evaluated geocoding providers, and replaced the hardcoded 5-city whitelist with geocoding + configurable radius check. Jobs with unknown geocoding classes are held back for user review before saving._
+
+- [x |status:released] - **Staged Dedupe** — Three-stage deduplication with parser-based priority (merges Dedupe Priority). [spec](docs/initiatives/pipeline-accuracy/staged-dedupe.md)
+- [x |status:released] - **Geocoding API Spike** _(research)_ — Evaluate geocoding providers against real pipeline location strings for accuracy, rate limits, cost, and edge case handling. [results](docs/initiatives/pipeline-accuracy/geocoding-api-spike-results.md)
+- [x |status:released] - **Geo-based Location Classification** — Replace the string whitelist with geocoding + configurable radius check from the user's zip code. [spec](docs/initiatives/pipeline-accuracy/geo-location-classification.md) [plan](docs/initiatives/pipeline-accuracy/geo-location-classification-plan.md)
+
 ## Initiative: Reliable Scraping Pipeline
 
 _Goal: Zero misclassified jobs reach the backlog from known job boards, and generic-parsed jobs are flagged as lower confidence._

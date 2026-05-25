@@ -2,16 +2,6 @@
 
 ## Planned Initiatives
 
-### Initiative: Security: Critical Fixes
-
-_Goal: Rotate leaked credentials and lock down external-facing inputs._
-
-- [ |status:not started] - **Rotate API Keys & Scrub Git History** — Real Adzuna + RapidAPI keys in `.env`; rotate credentials, move to `.env.local`, scrub from git history _(audit: critical)_
-- [ |status:not started] - **CLI Input Validation** — Add status enum whitelist, score range bounds (1-5), and minutesAgo bounds to `scripts/cli.ts` _(audit: major)_
-- [ |status:not started] - **Security Headers on Local Server** — Add CSP, X-Frame-Options, X-Content-Type-Options middleware to `scripts/serve.ts` _(audit: major)_
-
----
-
 ### Initiative: Repost Handling
 
 _Goal: Correctly identify, store, and resurface reposted jobs so fresh listings don't get buried._
@@ -129,3 +119,12 @@ _Ideas, bugs, and items not yet tied to an initiative._
 - [ |status:not started] - **Update Job Posting Data** — Skill to update a job's posting data; if the URL is changed, re-run resolver and parser on the new URL
 - [ |status:not started] - **Combine /self-document and /process-search-issues** — /self-document should automatically run /process-search-issues at the end, or merge the two skills
 - [ |status:not started] - **Adzuna Remote Work Mode from Search Context** — The Adzuna API has no structured work mode field, and the truncated description often drops "remote". Jobs from the `what: "remote"` collector call can safely default to `workMode: "remote"` since the API confirmed "remote" in the full content. Pass search context into `collectAdzuna` and use it as the default for `detectWorkModeFromText`
+- [ |status:not started] - **Early break swallows unknown geo classes on multi-location jobs** — `classify-location.ts:118` breaks on first in-range fragment, skipping later fragments that may have unknown classes
+- [ |status:not started] - **Job-search skill understates new job count when held back** — `save.saved` excludes held-back jobs; cosmetic only
+- [ |status:not started] - **No test for empty workMode in classify-location** — Falls through to geo classification correctly but no test covers the path
+- [ |status:not started] - **Classify-location loop doesn't break early on unresolvable** — Wastes API calls on multi-location jobs when no fragment is in range
+- [ |status:not started] - **Unknown class dedup loses per-location context** — Deduplicates by className only; first location's context kept
+- [ |status:not started] - **classify-held-back requires all unknown classes resolved** — Could partition and save the classifiable subset while holding back the rest
+- [ |status:not started] - **Held-back files accumulate silently** — No detection of unprocessed held-back files from prior pipeline runs
+- [ |status:not started] - **Remove spike-helpers directory** — `scripts/spike-helpers/` duplicates `lib/geocoding/haversine.ts` and `prefilter.ts` post-graduation
+- [ |status:not started] - **Extract REPLACEABLE_STATUSES constant** — Duplicated in `lib/dedupe.ts` and `lib/scraper-save.ts`
