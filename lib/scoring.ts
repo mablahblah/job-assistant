@@ -5,7 +5,7 @@ export const SCORE_WEIGHTS = {
   customerSatisfaction: 10,
   workLifeBalance: 25,
   politicalAlignment: 25,
-  jobAlignment: 15,
+  jobAlignment: 40,
 } as const;
 
 // user's target annual salary — salary modifier centers on this value, needs to be in ##_### format.
@@ -129,8 +129,7 @@ export function calculateScore(
     ((company.politicalAlignment ?? 0) / 5) * SCORE_WEIGHTS.politicalAlignment;
 
   // job-level score (1 dimension, evaluated per posting)
-  const jobScore =
-    ((job.jobAlignment ?? 0) / 5) * SCORE_WEIGHTS.jobAlignment;
+  const jobScore = ((job.jobAlignment ?? 0) / 5) * SCORE_WEIGHTS.jobAlignment;
 
   const adjusted =
     (companyScore + jobScore) *

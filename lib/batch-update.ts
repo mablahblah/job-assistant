@@ -114,11 +114,26 @@ export async function batchFlagAggregator(
   };
 }
 
+// The 10 statuses a job can have — source: prisma/schema.prisma Job.status comment
+const VALID_STATUSES = new Set([
+  "backlog", "too far", "won't apply", "app. sent", "rejected",
+  "screening", "interview", "test", "offer", "expired",
+]);
+
 // Updates job status and logs qualifying changes for TWC compliance — sequential to avoid concurrent side effects.
 export async function batchStatus(
   items: { jobId: string; status: string }[]
 ): Promise<BatchResult> {
   const errors: { jobId: string; error: string }[] = [];
+
+  // Validate all statuses up front — reject the entire batch if any are invalid
+  for (const item of items) {
+    if (!VALID_STATUSES.has(item.status)) {
+      throw new Error(
+        `Invalid status "${item.status}". Valid statuses: ${[...VALID_STATUSES].join(", ")}`
+      );
+    }
+  }
 
   for (const item of items) {
     try {

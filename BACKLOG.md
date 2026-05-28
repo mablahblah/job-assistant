@@ -2,6 +2,8 @@
 
 ## Planned Initiatives
 
+### Initiative: Export Parsable PDF Resume
+
 ### Initiative: Repost Handling
 
 _Goal: Correctly identify, store, and resurface reposted jobs so fresh listings don't get buried._
@@ -30,6 +32,7 @@ _Goal: Parse more jobs from more sources._
 
 - [ |status:not started] - **Generic Fallback** — Parse arbitrary HTML for unmatched domains. Failed parsing sets "needs review" status. Includes detecting custom-domain Greenhouse jobs via `gh_jid` and slug discovery. [research](docs/initiatives/reliable-scraping-pipeline/generic-fallback-research.md)
 - [ |status:not started] - **Remaining ATS Parsers** — Workable (22), SmartRecruiters (14), Gem (5), Workday (5), Jobvite (3), DigitalHire (2), ApplyToJob (2), BreezyHR (1), HiBob (1), Oracle/Taleo (1). [spike](docs/initiatives/reliable-scraping-pipeline/identify-common-job-board-urls.md)
+- [ |status:not started] - **weloveproduct Modal Overlay Handling** — Playwright collector fails entirely when site shows a modal overlay that intercepts pointer events. Add overlay dismissal logic before interacting with page elements
 
 ---
 
@@ -53,6 +56,8 @@ _Goal: Reduce manual steps in the daily job search workflow._
 - [ |status:not started] - **Fix Auto-Expire for External Jobs** — Prevent `expireJobs()` from re-expiring manually-added jobs
 - [ |status:not started] - **Find-by-Company CLI Subcommand** — Look up jobs by company name for repost checks without raw Prisma queries
 - [ |status:not started] - **Compact Scrape Summary** — Print a compact summary line to stderr so the pipeline can read results directly without extra parsing commands
+- [ |status:not started] - **Replace `new-jobs` Time Window with Pipeline Log** — `new-jobs` uses a fragile `minutesAgo` lookback that expires during long pipeline runs. Read `savedJobIds` from the latest pipeline log file instead, or accept a `--from-log` flag
+- [ |status:not started] - **Enrich Pipeline Log for Summary Breakdowns** — Pipeline log only records aggregate counts; summary step needs per-collector dedupe breakdowns, per-job distance values, and per-URL resolution outcomes. Enrich the log so summaries are complete without reconstruction
 
 ---
 
@@ -99,10 +104,13 @@ _Goal: Make the web UI useful for managing jobs through their lifecycle._
 _Goal: Clean up technical debt and dead code._
 
 - [ |status:not started] - **Extract Shared Multi-Source Scraper** — Greenhouse and Lever functions are ~88 lines of near-identical code; refactor into `runMultiSourceScraper()` helper
-- [ |status:not started] - **Code Redundancy Cleanup** — Score fields constant defined 3x, salary parsing duplicated, company upsert duplicated, slug capitalization duplicated, "no search terms" guard duplicated 3x
+- [ |status:not started] - **Code Redundancy Cleanup** — Score fields constant defined 3x, salary parsing duplicated, company upsert duplicated, slug capitalization duplicated, "no search terms" guard duplicated 3x, active statuses list hardcoded in 3 places (`scripts/cli.ts`, `scripts/serve.ts`, `scripts/cleanup-db.ts`)
 - [ |status:not started] - **Remove Dead Code** — Delete unused web UI code (Next.js pages, components, server actions, CSS, layouts), unused exports (`createPrismaClient`, `safeJson`, url-resolver internals, `generateWeekSlots`, `parseEnrichmentFlags`, `addScores` in serve.ts), orphaned config entries, commented-out slugs
 - [ |status:not started] - **Cleanup script deletes scored companies** — `cleanup-db.ts` deletes "orphaned" companies, destroying scores and enrichment data. Skip companies with scores/enrichment, or soft-delete
 - [ |status:not started] - **Remove Legacy Scrapers** — Delete `lib/scrapers/`, `lib/scraper-save.ts`, `lib/scraper-runner.ts`, `scripts/scrape.ts`, and `.claude/rules/scrapers.md`. The collector/parser/pipeline architecture fully replaces scrapers
+- [ |status:not started] - **Remove Vestigial Auto-Classify Skill** — `/auto-classify-jobs` is a no-op (Dedupe 3 handles repost detection) but `/post-scrape-pipeline` still invokes it. Remove the step from post-scrape-pipeline and delete the skill
+- [ |status:not started] - **Dedupe `savedJobIds` in Pipeline Output** — `savedJobIds` array contains heavy duplication (same ID repeated ~20x per run). Dedupe with a `Set` before returning; also investigate why the same job triggers multiple save calls
+- [ |status:not started] - **CLI error output prints full stack traces** — `scripts/cli.ts` global catch handler uses `console.error(e)` which prints the entire Error object including stack trace. For skill callers reading stderr, the trace is noise. Change to print just `e.message`
 - [ |status:not started] - **Small fixes** — Composite index on `(atsPlatform, atsSlug)`, pre-existing lint errors, convention drift (incorrect comment in scraper-config.ts, import alias in serve.ts), Adzuna collector env var loading (dotenv not loaded when pipeline runs via `npx tsx -e`)
 
 ---

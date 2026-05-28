@@ -40,7 +40,8 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 - [First Pass Improvements](docs/initiatives/first-pass-improvements/initiative.md) — Initiative (shipped): auto-expire, web view, external jobs
 - [Smarter Auto-Classification](docs/initiatives/smarter-auto-classification/initiative.md) — Initiative (shipped): repost dedup, batch updates, separated search skills
 - [Reliable Scraping Pipeline](docs/initiatives/reliable-scraping-pipeline/initiative.md) — Initiative (shipped): zero misclassified jobs from known boards
-- [Pipeline Accuracy](docs/initiatives/pipeline-accuracy/initiative.md) — Initiative (current): fix location filtering and deduplication
+- [Pipeline Accuracy](docs/initiatives/pipeline-accuracy/initiative.md) — Initiative (shipped): fix location filtering and deduplication
+- [Security: Critical Fixes](docs/initiatives/security-critical-fixes/initiative.md) — Initiative (current): rotate leaked credentials and lock down external-facing inputs
 - [Smarter Aggregator Handling](docs/initiatives/smarter-aggregator-handling/initiative.md) — Initiative (planned): reliable aggregator resolution
 
 - [Technical Documentation](docs/tech/table-of-contents.md) — Implementation-level docs: tech stack, views, styling, app functionality, testing, skills

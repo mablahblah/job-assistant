@@ -137,7 +137,7 @@ describe("batchStatus", () => {
   it("updates status and calls logWorkSearchActivity for each item", async () => {
     const { logWorkSearchActivity } = await import("@/lib/work-search-log");
     const input = [
-      { jobId: "job-1", status: "repost" },
+      { jobId: "job-1", status: "screening" },
       { jobId: "job-2", status: "app. sent" },
     ];
     const result = await batchStatus(input);
@@ -145,10 +145,44 @@ describe("batchStatus", () => {
     expect(db.job.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "job-1" },
-        data: expect.objectContaining({ status: "repost" }),
+        data: expect.objectContaining({ status: "screening" }),
       })
     );
-    expect(logWorkSearchActivity).toHaveBeenCalledWith("job-1", "repost");
+    expect(logWorkSearchActivity).toHaveBeenCalledWith("job-1", "screening");
     expect(logWorkSearchActivity).toHaveBeenCalledWith("job-2", "app. sent");
+  });
+
+  it("throws on invalid status value", async () => {
+    const input = [{ jobId: "job-1", status: "interviewing" }];
+    await expect(batchStatus(input)).rejects.toThrow(
+      'Invalid status "interviewing"'
+    );
+    // No DB writes should have happened
+    expect(db.job.update).not.toHaveBeenCalled();
+  });
+
+  it("throws if any item in a batch has an invalid status", async () => {
+    const input = [
+      { jobId: "job-1", status: "backlog" },
+      { jobId: "job-2", status: "applied" },
+    ];
+    await expect(batchStatus(input)).rejects.toThrow(
+      'Invalid status "applied"'
+    );
+    // No items written — entire batch rejected
+    expect(db.job.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts all 10 valid statuses", async () => {
+    const validStatuses = [
+      "backlog", "too far", "won't apply", "app. sent", "rejected",
+      "screening", "interview", "test", "offer", "expired",
+    ];
+    for (const status of validStatuses) {
+      vi.clearAllMocks();
+      db.job.update.mockResolvedValue({});
+      const result = await batchStatus([{ jobId: "job-1", status }]);
+      expect(result.updated).toBe(1);
+    }
   });
 });

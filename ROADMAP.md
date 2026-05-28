@@ -2,10 +2,15 @@
 
 Completed initiatives are in [ROADMAP-DONE.md](ROADMAP-DONE.md).
 
-## _CURRENT_ Initiative: Security: Critical Fixes
+## Initiative: Security: Critical Fixes — [plan](docs/initiatives/security-critical-fixes/initiative.md)
 
 _Goal: Rotate leaked credentials and lock down external-facing inputs._
 
-- [ |status:not started] - **Rotate API Keys & Scrub Git History** — Real Adzuna + RapidAPI keys in `.env`; rotate credentials, move to `.env.local`, scrub from git history _(audit: critical)_
-- [ |status:not started] - **CLI Input Validation** — Add status enum whitelist, score range bounds (1-5), and minutesAgo bounds to `scripts/cli.ts` _(audit: major)_
-- [ |status:not started] - **Security Headers on Local Server** — Add CSP, X-Frame-Options, X-Content-Type-Options middleware to `scripts/serve.ts` _(audit: major)_
+- [x|status:done] - **Scrub Credentials from Git History** — Scrub leaked Adzuna keys from `.env.local.example` history, rename to `.env.example` with all services _(audit: critical)_
+  - [Discovery Summary](docs/initiatives/security-critical-fixes/scrub-credentials/discovery-summary.md)
+  - [Feature Spec](docs/initiatives/security-critical-fixes/scrub-credentials/feature-spec.md)
+  - [Implementation Plan](docs/initiatives/security-critical-fixes/scrub-credentials/implementation-plan.md)
+- [x|status:done] - **CLI Input Validation** — Add status enum whitelist and score range bounds (1-5) to CLI boundary _(audit: major)_
+  - [Discovery Summary](docs/initiatives/security-critical-fixes/cli-input-validation/discovery-summary.md)
+  - [Feature Spec](docs/initiatives/security-critical-fixes/cli-input-validation/feature-spec.md)
+  - [Implementation Plan](docs/initiatives/security-critical-fixes/cli-input-validation/implementation-plan.md)

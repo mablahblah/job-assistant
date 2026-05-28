@@ -45,7 +45,8 @@ If `heldBack.count` is 0 (or no `heldBack` field), skip this step.
 1. Reflect on job search, and provide:
 - Collection: How many jobs were collected in the initial collection, broken out by:
    - How many collected by each collector, broken out by
-      - How many were duplicates from other collectors
+      - How many were duplicates from other collectors, broken out by:
+         - Where the collectors overlapped, and which of the overlaps was saved.
       - How many were duplicates that already exist in db
       - How many moved to next stage of pipeline
 - URL Resolution:
@@ -60,11 +61,13 @@ If `heldBack.count` is 0 (or no `heldBack` field), skip this step.
    - How many jobs did not match existing parser, and were abandoned.
 - Classification
    - Total Jobs that were successfully parsed, and moved to classification, broken out by:
+      - Jobs that were duplicates of other classified jobs, broken out by:
+         - Where parsers overlapped, and which of the overlaps was saved (by collector).
       - Jobs that were duplicates of existing jobs (same job, same age)
       - Jobs that were reposts
       - Jobs that were expired
       - Jobs that were NOT expired, broken out by:
-         - Jobs that were too far (each job listed w/ location, distance, and workmode type)
+         - Jobs that were too far (each job listed w/ location, distance in miles, and workmode type)
          - Jobs that were not too far (each job listed w/ location, distance, and workmode type)
 
 2. If any information was restricting you from the previous reflection, list this here so we can add proper logging.         

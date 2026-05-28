@@ -30,7 +30,7 @@ function workModeIcon(mode: string): string {
     "in-person": { icon: "ph-building-office", label: "In-Office" },
   };
   const { icon, label } = map[mode] ?? { icon: "ph-question", label: mode };
-  return `<i class="ph-bold ${icon}" title="${label}"></i>`;
+  return `<i class="ph-bold ${icon}" title="${escapeHtml(label)}"></i>`;
 }
 
 // Renders a single score/rating cell — number with color class, or "?" for null

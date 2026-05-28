@@ -44,6 +44,16 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
+// Parses a score arg: non-numeric → null, numeric outside 1-5 → hard fail
+export function parseScore(raw: string, label: string): number | null {
+  const n = parseInt(raw);
+  if (isNaN(n)) return null;
+  if (n < 1 || n > 5) {
+    fail(`Score "${label}" must be 1-5, got ${n}`);
+  }
+  return n;
+}
+
 // --- Subcommands ---
 
 async function expireJobs() {
@@ -170,13 +180,18 @@ async function saveCompanyScore() {
   const company = await prisma.company.findUnique({ where: { name } });
   if (!company) fail(`Company not found: "${name}"`);
 
+  // Validate score ranges before writing — hard fail on out-of-range values
+  const scores = {
+    employeeSatisfaction: parseScore(es, "es"),
+    customerSatisfaction: parseScore(cs, "cs"),
+    workLifeBalance: parseScore(wl, "wl"),
+    politicalAlignment: parseScore(pa, "pa"),
+  };
+
   await prisma.company.update({
     where: { id: company!.id },
     data: {
-      employeeSatisfaction: parseInt(es) || null,
-      customerSatisfaction: parseInt(cs) || null,
-      workLifeBalance: parseInt(wl) || null,
-      politicalAlignment: parseInt(pa) || null,
+      ...scores,
       note: note || null,
     },
   });
@@ -408,15 +423,18 @@ const commands: Record<string, () => Promise<void>> = {
   "classify-held-back": classifyHeldBack,
 };
 
-if (!command || !commands[command]) {
-  console.error(`Usage: npx tsx scripts/cli.ts <command> [args...]`);
-  console.error(`Commands: ${Object.keys(commands).join(", ")}`);
-  process.exit(1);
-}
-
-commands[command]()
-  .then(() => process.exit(0))
-  .catch((e) => {
-    console.error(e);
+// Only run the CLI dispatch when executed directly — not when imported in tests
+if (require.main === module) {
+  if (!command || !commands[command]) {
+    console.error(`Usage: npx tsx scripts/cli.ts <command> [args...]`);
+    console.error(`Commands: ${Object.keys(commands).join(", ")}`);
     process.exit(1);
-  });
+  }
+
+  commands[command]()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
+}
