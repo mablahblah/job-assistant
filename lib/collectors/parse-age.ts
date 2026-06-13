@@ -36,3 +36,11 @@ export function isStale(age: string): boolean {
   const days = parseAgeToDays(age);
   return days !== null && days >= 8;
 }
+
+// Converts a relative age string to an approximate Date.
+// Uses parseAgeToDays internally. Returns null if the string can't be parsed.
+export function ageToDate(age: string, now: Date = new Date()): Date | null {
+  const days = parseAgeToDays(age);
+  if (days === null) return null;
+  return new Date(now.getTime() - days * 86400000);
+}

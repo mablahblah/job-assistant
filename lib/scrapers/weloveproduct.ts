@@ -97,7 +97,7 @@ export async function scrapeWeLoveProduct(queries: string[]): Promise<ScrapedJob
         url: jobUrl,
         location: stub.location,
         workMode,
-        postedAt: posting.datePosted ? new Date(posting.datePosted) : new Date(),
+        firstPublished: posting.datePosted ? new Date(posting.datePosted) : new Date(),
         salaryRange: formatSalary(salary?.minValue, salary?.maxValue),
         description: "",
       });

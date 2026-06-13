@@ -76,7 +76,7 @@ export async function collectAdzuna(options: AdzunaOptions): Promise<CollectedJo
     companyName: job.company.display_name,
     location: job.location.display_name,
     workMode: detectWorkModeFromText(job.description + " " + job.title),
-    postedAt: new Date(job.created),
+    dates: [new Date(job.created)],
     salaryRange: formatSalary(job.salary_min, job.salary_max),
     description: job.description,
   }));

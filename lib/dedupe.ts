@@ -77,12 +77,11 @@ export interface ContentDedupeItem {
   companyName: string;
   location: string;
   workMode: string;
-  postedAt: string;
   salaryRange: string;
   source: string;
   parser: string | null;
   originalUrl: string | null;
-  repost?: boolean;
+  dates: string[];
 }
 
 // Minimal DB job info needed for content comparison
@@ -91,7 +90,8 @@ export interface DbJobForDedupe {
   title: string;
   companyName: string;
   parser: string | null;
-  postedAt: string;
+  firstPublished: string;
+  repostedAt: string | null;
   status: string;
   location?: string;
   workMode?: string;
@@ -101,7 +101,7 @@ export interface DbJobForDedupe {
 // Instructions to update an existing DB record with winning data
 export interface DbUpdate {
   id: string;
-  repost: boolean;
+  dates: string[];
   data: Partial<ContentDedupeItem>;
 }
 
@@ -113,7 +113,7 @@ export interface ContentDedupeResult {
 }
 
 // Mergeable fields — winner takes loser's value when winner's is empty
-const MERGEABLE_FIELDS = ["location", "workMode", "salaryRange", "postedAt"] as const;
+const MERGEABLE_FIELDS = ["location", "workMode", "salaryRange"] as const;
 
 // Returns true if a field value counts as "has data"
 function hasValue(val: string | undefined | null): boolean {
@@ -157,23 +157,17 @@ export function dedupeByContent(
       continue;
     }
 
-    // Sort by priority (ascending), then by date (descending) to pick the best
-    const sorted = [...group].sort((a, b) => {
-      const priDiff = getParserPriority(a.parser) - getParserPriority(b.parser);
-      if (priDiff !== 0) return priDiff;
-      return b.postedAt.localeCompare(a.postedAt);
-    });
+    // Sort by parser priority only (ascending) — dates don't affect winner selection
+    const sorted = [...group].sort((a, b) =>
+      getParserPriority(a.parser) - getParserPriority(b.parser),
+    );
 
     const winner = { ...sorted[0] };
     const losers = sorted.slice(1);
 
-    // Check if this is a repost (same parser, different date)
-    const winnerPri = getParserPriority(winner.parser);
+    // Pool dates from all group members and merge empty metadata fields
     for (const loser of losers) {
-      const loserPri = getParserPriority(loser.parser);
-      if (winnerPri === loserPri && winner.postedAt !== loser.postedAt) {
-        winner.repost = true;
-      }
+      winner.dates = [...winner.dates, ...loser.dates];
       mergeFields(winner, loser);
     }
 
@@ -207,25 +201,10 @@ export function dedupeByContent(
     const itemPri = getParserPriority(item.parser);
     const dbPri = getParserPriority(dbMatch.parser);
 
-    // Priority cascade: better parser wins, then newer date, then existing wins
-    let batchWins = false;
-    let isRepost = false;
-
-    if (itemPri !== dbPri) {
-      batchWins = itemPri < dbPri;
-    } else if (item.postedAt !== dbMatch.postedAt) {
-      batchWins = item.postedAt > dbMatch.postedAt;
-      isRepost = true;
-    }
-    // Same priority, same date — DB record wins (drop batch item)
-
-    if (batchWins) {
-      // Merge empty fields from DB record into batch winner
+    if (itemPri < dbPri) {
+      // Batch has better parser — full metadata update + date pool
       mergeFields(item, dbMatch);
-      if (isRepost) item.repost = true;
 
-      // Build the update payload (companyName excluded — it's a relation, not a Job field,
-      // and can't change since content dedupe matches by company+title)
       const updateData: Partial<ContentDedupeItem> = {
         url: item.url,
         title: item.title,
@@ -239,13 +218,21 @@ export function dedupeByContent(
         }
       }
 
-      dbUpdates.push({
-        id: dbMatch.id,
-        repost: item.repost ?? isRepost,
-        data: updateData,
-      });
-      // Don't add to kept — this updates an existing record, not a new insert
+      // Pool dates from batch item with existing DB dates
+      const pooledDates = [...item.dates];
+      if (dbMatch.firstPublished) pooledDates.push(dbMatch.firstPublished);
+      if (dbMatch.repostedAt) pooledDates.push(dbMatch.repostedAt);
+
+      dbUpdates.push({ id: dbMatch.id, dates: pooledDates, data: updateData });
+    } else if (itemPri === dbPri) {
+      // Same parser — date-only update (pool dates, no metadata change)
+      const pooledDates = [...item.dates];
+      if (dbMatch.firstPublished) pooledDates.push(dbMatch.firstPublished);
+      if (dbMatch.repostedAt) pooledDates.push(dbMatch.repostedAt);
+
+      dbUpdates.push({ id: dbMatch.id, dates: pooledDates, data: {} });
     } else {
+      // DB has better parser — drop batch item
       droppedByDb++;
     }
   }

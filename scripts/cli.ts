@@ -20,13 +20,13 @@ const [, , command, ...args] = process.argv;
 
 // converts Prisma job+company rows into the shape calculateScore expects
 function toScorable(
-  job: { postedAt: Date; salaryRange: string; jobAlignment: number | null } & Record<string, unknown>,
+  job: { firstPublished: Date; salaryRange: string; jobAlignment: number | null } & Record<string, unknown>,
   company: Record<string, unknown>,
 ): { job: Job; company: Company } {
   return {
     job: {
       ...job,
-      postedAt: (job.postedAt as Date).toISOString(),
+      firstPublished: (job.firstPublished as Date).toISOString(),
       modifiedAt: job.modifiedAt
         ? (job.modifiedAt as Date).toISOString()
         : null,
@@ -60,7 +60,7 @@ async function expireJobs() {
   // marks backlog jobs older than 8 days as expired so they don't clutter the queue
   const cutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   const result = await prisma.job.updateMany({
-    where: { status: "backlog", postedAt: { lt: cutoff } },
+    where: { status: "backlog", firstPublished: { lt: cutoff } },
     data: { status: "expired", modifiedAt: new Date() },
   });
   out({ expired: result.count });
@@ -72,7 +72,7 @@ async function queryBacklog() {
 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const jobs = await prisma.job.findMany({
-    where: { status: "backlog", postedAt: { gte: since } },
+    where: { status: "backlog", firstPublished: { gte: since } },
     include: { company: true },
   });
 
@@ -96,7 +96,7 @@ async function queryBacklog() {
       salary: j.salaryRange,
       url: j.url,
       ja: j.jobAlignment ?? "?",
-      posted: j.postedAt.toISOString().slice(0, 10),
+      posted: j.firstPublished.toISOString().slice(0, 10),
     })),
   );
 }
@@ -265,7 +265,7 @@ async function queryNewJobs() {
       workMode: j.workMode,
       salary: j.salaryRange,
       status: j.status,
-      posted: j.postedAt.toISOString().slice(0, 10),
+      posted: j.firstPublished.toISOString().slice(0, 10),
     })),
   );
 }
@@ -339,7 +339,7 @@ async function classifyHeldBack() {
 
   // Validate required fields on each job (file is pipeline-written but path is user-provided)
   for (const job of jobs) {
-    if (!job.url || !job.title || !job.companyName || !job.postedAt || !job.source) {
+    if (!job.url || !job.title || !job.companyName || !job.dates || !job.source) {
       fail(`Job missing required fields: ${JSON.stringify(job).slice(0, 100)}`);
     }
   }

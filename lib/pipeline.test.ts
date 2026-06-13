@@ -12,7 +12,6 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/location", () => ({ classifyLocation: vi.fn(() => "remote") }));
 vi.mock("./pipeline-save", () => ({
   saveParsedJobs: vi.fn(() => Promise.resolve({ saved: 0, skipped: 0, savedJobIds: [] })),
-  toISODateTime: vi.fn((s: string) => s.includes("T") ? s : `${s}T00:00:00.000Z`),
 }));
 vi.mock("./parsers/registry", () => ({
   isGreenlitDomain: vi.fn(() => null),
@@ -258,7 +257,7 @@ describe("runPipeline", () => {
     mockParse.mockResolvedValue({
       finalUrl: "https://www.adzuna.com/details/99",
       parser: "adzuna",
-      fields: { title: "Designer", companyName: "Acme", location: "Remote", workMode: "remote", postedAt: "2026-04-01", salaryRange: "?" },
+      fields: { title: "Designer", companyName: "Acme", location: "Remote", workMode: "remote", dates: ["2026-04-01"], salaryRange: "?" },
     });
 
     const jobs: CollectedJob[] = [

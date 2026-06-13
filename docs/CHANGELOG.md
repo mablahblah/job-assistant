@@ -2,6 +2,8 @@
 
 <!-- Chronological order — newest at bottom -->
 
+## Pre-Feature Items
+
 - [x] **Project scaffold** — `create-next-app` with TypeScript + Tailwind, Prisma + SQLite, `.env.local` template, basic folder structure, Dockerfile for UNRAID deployment
 - [x] **Connect to GIT** — `git init`, remote connected, `/start-feature` creates feature branches, `/commit` stages + commits + pushes, `/ship-feature` opens and merges PRs via `gh`
 - [x] **Jobs table UI** — scored jobs table with weighted formula (employee/customer satisfaction, work-life balance, political alignment, benefits + posting age decay), applied checkbox with in-memory save, mock data for 6 companies and 12 jobs
@@ -40,79 +42,26 @@
 - [x] **jSearch volume increase** — bumped `num_pages` from 1 to 3 in `lib/scrapers/jsearch.ts`; fetches 30 results per search term per scrape run (up from 10); fits within the 200 req/month free tier at 1 scrape/day
 - [x] **UIUXJobsBoard scraper** — Playwright two-pass scraper for uiuxjobsboard.com; scrolls listing until 7d+ jobs appear, filters stubs by search terms, visits each matched detail page for accurate company name (JSON-LD), salary, date, and work mode; wired as a system-term scraper
 
-## Initiative: Work Search Activity Log
-
-_Goal: Automatically log TWC-compliant work search activities on status changes, enrich company data, and provide a weekly log view._
-
-- [x |status:released] - **Work Search Log Data Model & Auto-Logging** — New `WorkSearchEntry` table + auto-create entries when jobs move to applied/screening/interview
-- [x |status:released] - **Company Enrichment** — Add address/phone/website to Company model, look up via Apify Google Search scraper on first log trigger
-- [x |status:released] - **Work Search Log UI** — Weekly-grouped /work-log page with sidebar nav, scroll spy, edit modal, enrichment alerts, and 3-activity-per-week tracking
-- [x |status:released] - **Apify Enrichment** — Replace Google Places API with Apify Google Search scraper for company address/phone/website; add enrichment status tracking + pending/failed UI states
-
 ## Superseded by CLI Migration
 
 _Web UI replaced entirely by Claude Code CLI commands. These items are no longer applicable._
 
-- [x |status:superseded] - **Security Headers Middleware** — CSP, HSTS, X-Frame-Options for Next.js (no longer serving web UI)
-- [x |status:superseded] - **Dockerfile: Add Non-Root User** — Docker deployment for web UI
-- [x |status:superseded] - **Add Input Validation to Server Actions** — Server actions replaced by CLI commands
-- [x |status:superseded] - **Audit Cleanup — Minor Issues** — Referenced web UI components (JobsTable, layout, CSS, fonts)
-- [x |status:superseded] - **UX Polish Pass 2** — Entire initiative (color palette, header layout, spacing tokens, terminal modal, location column, button states, timestamp, accessibility audit, save friction, Remotive removal, enrichment rerun modal)
-- [x |status:superseded] - **Aggregator Site Passthrough** — Implemented as aggregator auto-detection in `/job-search` pipeline + `cli.ts flag-aggregator` / `add-aggregator` commands
-- [x |status:superseded] - **Enrichment confirmation modal** — Web UI modal concept
-- [x |status:superseded] - **Re-run enrichment button** — Web UI button
-- [x |status:superseded] - **Terminal font on job search modal** — Web UI styling
-- [x |status:superseded] - **Mark replaced job as "Reposted"** — Implemented as `repost` status via `cli.ts status <id> repost`
+- [x] **Security Headers Middleware** — CSP, HSTS, X-Frame-Options for Next.js (no longer serving web UI)
+- [x] **Dockerfile: Add Non-Root User** — Docker deployment for web UI
+- [x] **Add Input Validation to Server Actions** — Server actions replaced by CLI commands
+- [x] **Audit Cleanup — Minor Issues** — Referenced web UI components (JobsTable, layout, CSS, fonts)
+- [x] **UX Polish Pass 2** — Entire feature (color palette, header layout, spacing tokens, terminal modal, location column, button states, timestamp, accessibility audit, save friction, Remotive removal, enrichment rerun modal)
+- [x] **Aggregator Site Passthrough** — Implemented as aggregator auto-detection in `/job-search` pipeline + `cli.ts flag-aggregator` / `add-aggregator` commands
+- [x] **Enrichment confirmation modal** — Web UI modal concept
+- [x] **Re-run enrichment button** — Web UI button
+- [x] **Terminal font on job search modal** — Web UI styling
+- [x] **Mark replaced job as "Reposted"** — Implemented as `repost` status via `cli.ts status <id> repost`
 
-## Initiative: First Pass Improvements
+## Completed Features
 
-_Goal: Make the entire job search workflow usable within one tool — no external workarounds needed._
-
-_Shipped 2026-04-22. Made the CLI self-sufficient: auto-expire stale jobs, local web dashboard for viewing data, and batch import of external job postings._
-
-- [x |status:released] - **Auto-Expire Stale Jobs** — Auto-expire backlog jobs older than 8 days
-- [x |status:released] - **Local Web View** — Lightweight local server serving a read-only HTML page for backlog, active jobs, disqualified jobs, and work log
-- [x |status:released] - **Add External Jobs** — `/add-external-jobs` command to paste job posting URLs and run them through the full pipeline as a batch
-
-## Initiative: Smarter Auto-Classification
-
-_Goal: The pipelines run end-to-end with fewer CLI calls, fewer tokens, and less manual intervention._
-
-_Shipped 2026-04-24. Repost deduplication, batch stdin commands for status/alignment/flags, and separated search skills into independent reusable commands._
-
-- [x |status:released] - **Repost Deduplication** — Don't treat replaced jobs as truly new; skip already-classified dupes in downstream steps
-- [x |status:released] - **Batch Update Command** — Single CLI call for title mismatches and alignment scores instead of N sequential calls
-- [~ |status:cancelled] - **Batch Scores Command** — ~~Compute composite scores for arbitrary job IDs in one call, regardless of status~~ _Cancelled: solves a problem that doesn't exist — backlog command already scores the jobs that matter_
-- [x |status:released] - **Separated Search Skills** — Break apart job search and add job commands into separate re-usable skills
-
-## Initiative: Pipeline Accuracy
-
-_Goal: Stop misclassifying good jobs — fix location filtering and deduplication so the backlog reflects reality._
-
-_Shipped 2026-05-25. Built three-stage deduplication with parser priority, evaluated geocoding providers, and replaced the hardcoded 5-city whitelist with geocoding + configurable radius check. Jobs with unknown geocoding classes are held back for user review before saving._
-
-- [x |status:released] - **Staged Dedupe** — Three-stage deduplication with parser-based priority (merges Dedupe Priority). [spec](docs/initiatives/pipeline-accuracy/staged-dedupe.md)
-- [x |status:released] - **Geocoding API Spike** _(research)_ — Evaluate geocoding providers against real pipeline location strings for accuracy, rate limits, cost, and edge case handling. [results](docs/initiatives/pipeline-accuracy/geocoding-api-spike-results.md)
-- [x |status:released] - **Geo-based Location Classification** — Replace the string whitelist with geocoding + configurable radius check from the user's zip code. [spec](docs/initiatives/pipeline-accuracy/geo-location-classification.md) [plan](docs/initiatives/pipeline-accuracy/geo-location-classification-plan.md)
-
-## Initiative: Reliable Scraping Pipeline
-
-_Goal: Zero misclassified jobs reach the backlog from known job boards, and generic-parsed jobs are flagged as lower confidence._
-
-_Shipped 2026-05-15. Built a collect → resolve → route → parse pipeline with registry-based parser dispatch. Added 5 parsers (Ashby, Greenhouse, Lever, Dribbble, Adzuna), blacklist filtering, post-collection dedup, unified greenlit matching, directed Playwright collectors, narrowed API searches, parse failure logging, and empty workMode classification fix._
-
-- [x |status:released] - **Separate Listing Collection from Detail Parsing** — Refactor scrapers into two stages: collect URLs, then parse through tiered parsers
-- [x |status:released] - **Identify Common Job Board URLs** — Research spike: discover real hosting domains behind aggregator links to prioritize greenlit parsers
-- [x |status:released] - **Blacklist URL List** — Domain/URL pattern blacklist to skip known-bad sources before processing
-- [x |status:released] - **Routing System + Ashby Parser** — Build resolve → route → parse pipeline, validate end-to-end with Ashby (Playwright-based, no API shortcut). Dry-run only
-- [x |status:released] - **Production Pipeline Integration** — Wire pipeline into `/job-search` and `/add-external-job`, connect `collectAll()`, save to DB, gracefully handle unparsed jobs. New parsers plug in via registry with no pipeline changes. Retires old scraper pipeline
-- [x |status:released] - **Dedupe after Collection** — Check originalURL list of existing jobs in db before resolution, and toss any search results which match exactly to avoid parsing
-- [x |status:released] - **Greenhouse & Lever Parsers** — API-based parsers with shared field mappers, ParserFn signature refactor, company name caching via DB, confidence comparison wiring, and Adzuna env var fix
-- [x |status:released] - **Define search terms in single location and use them in each collector**
-- [x |status:released] - **Adzuna Parser** — Pass-through parser for aggregator with no per-job API. Adzuna URLs skip resolution (greenlit), parser returns empty fields, pipeline saves with collector data at medium confidence
-- [x |status:released] - **Dribbble Parser** — First "Static HTML fetch" parser. Extracts all fields from server-rendered HTML (inline script data > JSON-LD > description text). No Playwright needed
-- [x |status:released] - **Unify Greenlit Matching** — Extract single domain-matching utility used by both pre-resolution shortcut and post-resolution router. Fixes `job-boards.greenhouse.io` routing bug
-- [x |status:released] - **Log Parse Failures** — Capture URL, parser name, and error message for each failure in pipeline log JSON
-- [x |status:released] - **Narrow API Searches** — Title-only matching, salary floor, date cap, separate remote + Austin calls per search term
-- [x |status:released] - **More directed collecting on Playwright collectors** — All three Playwright collectors rewritten to use each site's search/filter tools with 8-day age cutoff
-- [x |status:released] - **Empty WorkMode Classification** — `classifyLocation` treats empty workMode the same as remote, so jobs with remote-signal locations land in backlog instead of "too far"
+- [Work Search Activity Log](features/work-search-log/work-search-log-spec.md)
+- [First Pass Improvements](features/first-pass-improvements/first-pass-improvements-spec.md)
+- [Smarter Auto-Classification](features/smarter-auto-classification/smarter-auto-classification-spec.md)
+- [Pipeline Accuracy](features/pipeline-accuracy/pipeline-accuracy-spec.md)
+- [Reliable Scraping Pipeline](features/reliable-scraping-pipeline/reliable-scraping-pipeline-spec.md)
+- [Security: Critical Fixes](features/security-critical-fixes/security-critical-fixes-spec.md)

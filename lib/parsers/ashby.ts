@@ -75,12 +75,11 @@ export function parseAshbyHtml(
     if (parts.length > 0) fields.location = parts.join(", ");
   }
 
-  // Posted date: __appData > JSON-LD (raw string, no timezone conversion)
-  if (appData?.publishedDate) {
-    fields.postedAt = appData.publishedDate;
-  } else if (ld.datePosted) {
-    fields.postedAt = ld.datePosted;
-  }
+  // Dates: __appData > JSON-LD (raw string, no TZ conversion)
+  const dates: string[] = [];
+  if (appData?.publishedDate) dates.push(appData.publishedDate);
+  else if (ld.datePosted) dates.push(ld.datePosted);
+  if (dates.length > 0) fields.dates = dates;
 
   // Salary: JSON-LD baseSalary > __appData summary > text scan
   if (ld.baseSalary?.value) {

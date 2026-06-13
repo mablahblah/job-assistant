@@ -41,7 +41,7 @@ export async function scrapeLeverCompany(slug: string, queries: string[]): Promi
     location: posting.categories?.location || "",
     // try structured enum first, fall back to text detection on description
     workMode: detectWorkModeFromData({ workplaceType: posting.workplaceType }) || detectWorkModeFromText(posting.descriptionPlain || posting.description || ""),
-    postedAt: new Date(posting.createdAt),
+    firstPublished: new Date(posting.createdAt),
     salaryRange: "?",
     description: posting.descriptionPlain || posting.description || "",
   }));

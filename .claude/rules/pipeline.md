@@ -10,7 +10,7 @@ paths: ["lib/collectors/**", "lib/parsers/**", "lib/geocoding/**", "lib/pipeline
 
 `salaryRange` uses `"?"` when unknown — not empty string. Known salaries format as `$XXX-$XXXk`.
 
-`postedAt` is an ISO date string. Prisma DateTime fields reject date-only strings — coerce to full ISO-8601.
+Dates flow as `dates: Date[]` on `CollectedJob` and `dates?: string[]` on `ParsedFields`/`SaveableJob`. `resolveJobDates()` in `lib/shared-utils/resolve-job-dates.ts` computes `firstPublished`/`repostedAt` at save time — no date logic in collectors, parsers, or the pipeline itself. Prisma DateTime fields reject date-only strings — `resolveJobDates` returns `Date` objects, so `.toISOString()` produces valid ISO-8601.
 
 ## Collectors
 
@@ -43,7 +43,7 @@ Three stages in `lib/dedupe.ts`, ordered cheapest-first: collect → **Dedupe 1*
 
 **Dedupe 2** (post-resolution): `dedupeByUrl()` against `job.url`. Catches convergent redirects.
 
-**Dedupe 3** (post-parsing): `dedupeByContent()` matches by title+company. Priority cascade: better parser wins → newer date wins (flags repost) → existing record wins. Empty fields on the winner are filled from the loser (`null`, `""`, and `"?"` count as empty).
+**Dedupe 3** (post-parsing): `dedupeByContent()` matches by title+company. Parser priority is the sole winner selector — dates do not affect it. Three outcomes: better parser in batch → full metadata update + dates pooled; same parser → date-only update (dates pooled, metadata unchanged); worse parser → batch item dropped. Winner collects all dates from losers. Empty metadata fields on the winner are filled from the loser (`null`, `""`, and `"?"` count as empty). `repostedAt !== null` replaces the former `repost` boolean.
 
 `PARSER_PRIORITY` in `dedupe.ts` is a manually-maintained 1-N ranking by result quality (lower = better). New parsers need a priority rank.
 

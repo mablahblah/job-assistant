@@ -91,14 +91,14 @@ describe("parseAshbyHtml", () => {
       <script type="application/ld+json">{"@type": "JobPosting", "datePosted": "2026-04-10"}</script>
     </head></html>`;
     const appData: AshbyAppData = { publishedDate: "2026-04-15" };
-    expect(parseAshbyHtml(html, appData).postedAt).toBe("2026-04-15");
+    expect(parseAshbyHtml(html, appData).dates).toContain("2026-04-15");
   });
 
   it("falls back to JSON-LD datePosted", () => {
     const html = `<html><head>
       <script type="application/ld+json">{"@type": "JobPosting", "datePosted": "2026-04-15"}</script>
     </head></html>`;
-    expect(parseAshbyHtml(html).postedAt).toBe("2026-04-15");
+    expect(parseAshbyHtml(html).dates).toContain("2026-04-15");
   });
 
   // -- Salary --

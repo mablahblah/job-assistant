@@ -118,7 +118,8 @@ describe("calculateScore with salary modifier", () => {
     url: "https://example.com",
     location: "Remote",
     workMode: "remote",
-    postedAt: new Date().toISOString(), // fresh post, age modifier = 1.2
+    firstPublished: new Date().toISOString(), // fresh post, age modifier = 1.2
+    repostedAt: null as string | null,
     salaryRange: "?",
     status: "new",
     modifiedAt: null,
@@ -126,7 +127,6 @@ describe("calculateScore with salary modifier", () => {
     jobAlignment: null as number | null,
     titleMismatch: false,
     titleMismatchReason: null as string | null,
-    repost: false,
     source: null as string | null,
     parser: null as string | null,
     originalUrl: null as string | null,

@@ -58,7 +58,7 @@ After implementing a Playwright scraper, MUST run it against real data and manua
 - **url** — MUST link directly to the job posting
 - **location** — MUST be city/region, MUST NOT be empty or garbled
 - **workMode** — MUST be `"remote"`, `"hybrid"`, `"in-person"`, or `""`
-- **postedAt** — MUST be a real date, MUST NOT be `new Date()` fallback for all jobs
+- **firstPublished** — MUST be a real date, MUST NOT be `new Date()` fallback for all jobs
 - **salaryRange** — MUST be `"?"` if unknown, formatted correctly if known
 
 MUST NOT ship until all fields have been spot-checked on a real scrape run.

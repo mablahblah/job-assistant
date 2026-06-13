@@ -12,7 +12,8 @@ const mockJob: WebJob = {
   url: "https://example.com/jobs/123",
   workMode: "remote",
   location: "San Francisco, CA",
-  postedAt: new Date("2026-04-18T00:00:00Z"),
+  firstPublished: new Date("2026-04-18T00:00:00Z"),
+  repostedAt: null,
   salaryRange: "$120k–$150k",
   jobAlignment: 4,
   modifiedAt: null,
@@ -24,6 +25,12 @@ const mockJob: WebJob = {
     workLifeBalance: 5,
     politicalAlignment: 4,
   },
+};
+
+const mockRepostedJob: WebJob = {
+  ...mockJob,
+  id: "test-repost",
+  repostedAt: new Date("2026-06-12T00:00:00Z"),
 };
 
 const mockEntry: WebWorkLogEntry = {
@@ -148,6 +155,18 @@ describe("renderJobTable", () => {
   it("renders empty state when no jobs", () => {
     const html = renderJobTable([], "backlog");
     expect(html).toContain("No jobs in backlog");
+  });
+
+  it("renders RP pill with repost tooltip when repostedAt is set", () => {
+    const html = renderJobTable([mockRepostedJob], "backlog");
+    expect(html).toContain("repost-pill");
+    expect(html).toContain(">RP<");
+    expect(html).toContain('title="Reposted');
+  });
+
+  it("does not render RP pill when repostedAt is null", () => {
+    const html = renderJobTable([mockJob], "backlog");
+    expect(html).not.toContain("repost-pill");
   });
 
   it("escapes HTML in user content", () => {

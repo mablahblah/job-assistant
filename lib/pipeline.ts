@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { mkdirSync, writeFileSync } from "fs";
 import { chromium } from "playwright";
-import { saveParsedJobs, toISODateTime, type PipelineSaveResult, type SaveableJob } from "./pipeline-save";
+import { saveParsedJobs, type PipelineSaveResult, type SaveableJob } from "./pipeline-save";
 import { resolveJobUrl } from "./url-resolver";
 import {
   isGreenlitDomain,
@@ -22,6 +22,7 @@ import type { ParsedFields } from "./parsers/types";
 import { prisma } from "@/lib/prisma";
 import { dedupeByUrl, dedupeByContent, type ContentDedupeItem, type DbJobForDedupe } from "./dedupe";
 import { classifyJobLocations } from "@/lib/geocoding";
+import { resolveJobDates } from "@/lib/shared-utils/resolve-job-dates";
 
 // Register all available parsers at import time
 registerParser("jobs.ashbyhq.com", parseAshbyJob);
@@ -241,13 +242,13 @@ export async function runPipeline(
     const originalUrl = collectedJob?.url ?? null;
 
     // Build collector fields in ParsedFields shape for confidence comparison
+    // Dates are excluded — they flow through resolveJobDates, not confidence comparison
     const collectorFields: Partial<ParsedFields> | null = collectedJob
       ? {
           title: collectedJob.title || undefined,
           companyName: collectedJob.companyName || undefined,
           location: collectedJob.location || undefined,
           workMode: collectedJob.workMode || undefined,
-          postedAt: collectedJob.postedAt?.toISOString().slice(0, 10) || undefined,
           salaryRange: collectedJob.salaryRange || undefined,
         }
       : null;
@@ -259,13 +260,19 @@ export async function runPipeline(
       winning[c.field] = c.value;
     }
 
+    // Pool dates from parser and collector — resolveJobDates handles everything at save time
+    const dates: string[] = [
+      ...(result.fields.dates ?? []),
+      ...(collectedJob?.dates?.map((d) => d.toISOString().slice(0, 10)) ?? []),
+    ];
+
     saveableJobs.push({
       url: result.finalUrl,
       title: winning.title ?? result.fields.title ?? collectedJob?.title ?? "",
       companyName: winning.companyName ?? result.fields.companyName ?? collectedJob?.companyName ?? "",
       location: winning.location ?? result.fields.location ?? collectedJob?.location ?? "",
       workMode: winning.workMode ?? result.fields.workMode ?? collectedJob?.workMode ?? "",
-      postedAt: winning.postedAt ?? result.fields.postedAt ?? collectedJob?.postedAt?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+      dates,
       salaryRange: winning.salaryRange ?? result.fields.salaryRange ?? collectedJob?.salaryRange ?? "?",
       source: collectedJob?.source ?? "unknown",
       parser: result.parser,
@@ -288,7 +295,7 @@ export async function runPipeline(
         companyName: collectedJob?.companyName ?? pipelineJob.companyName ?? "",
         location: collectedJob?.location ?? "",
         workMode: collectedJob?.workMode ?? "",
-        postedAt: collectedJob?.postedAt?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+        dates: collectedJob?.dates?.map((d) => d.toISOString().slice(0, 10)) ?? [],
         salaryRange: collectedJob?.salaryRange ?? "?",
         source: collectedJob?.source ?? "external",
         parser: null,
@@ -304,7 +311,8 @@ export async function runPipeline(
       title: true,
       status: true,
       parser: true,
-      postedAt: true,
+      firstPublished: true,
+      repostedAt: true,
       location: true,
       workMode: true,
       salaryRange: true,
@@ -316,7 +324,8 @@ export async function runPipeline(
       title: r.title,
       companyName: r.company.name,
       parser: r.parser,
-      postedAt: r.postedAt.toISOString().slice(0, 10),
+      firstPublished: r.firstPublished.toISOString().slice(0, 10),
+      repostedAt: r.repostedAt?.toISOString().slice(0, 10) ?? null,
       status: r.status,
       location: r.location ?? undefined,
       workMode: r.workMode ?? undefined,
@@ -329,12 +338,21 @@ export async function runPipeline(
 
   // Apply DB updates from Dedupe 3 (priority upgrades and reposts)
   for (const update of dedupe3.dbUpdates) {
+    // Resolve dates — pool batch dates with existing DB dates via resolveJobDates
+    const existingJob = dbJobsForDedupe.find((j) => j.id === update.id);
+    const existing = existingJob ? {
+      firstPublished: new Date(existingJob.firstPublished),
+      repostedAt: existingJob.repostedAt ? new Date(existingJob.repostedAt) : null,
+    } : null;
+    const newDates = update.dates.map((d) => new Date(d));
+    const resolved = resolveJobDates(existing, newDates);
+
     await prisma.job.update({
       where: { id: update.id },
       data: {
         ...update.data,
-        postedAt: update.data.postedAt ? toISODateTime(update.data.postedAt) : undefined,
-        repost: update.repost,
+        firstPublished: resolved.firstPublished.toISOString(),
+        repostedAt: resolved.repostedAt?.toISOString() ?? null,
       },
     });
   }

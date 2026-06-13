@@ -84,9 +84,9 @@ export async function collectJSearch({
     companyName: job.employer_name,
     location: formatLocation(job),
     workMode: detectWorkModeFromData({ isRemote: job.job_is_remote }),
-    postedAt: job.job_posted_at_datetime_utc
-      ? new Date(job.job_posted_at_datetime_utc)
-      : new Date(),
+    dates: job.job_posted_at_datetime_utc
+      ? [new Date(job.job_posted_at_datetime_utc)]
+      : [],
     salaryRange: formatSalary(
       job.job_min_salary,
       job.job_max_salary,

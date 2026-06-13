@@ -8,7 +8,8 @@ export type WebJob = {
   url: string;
   workMode: string; // "remote", "hybrid", "in-person"
   location: string;
-  postedAt: Date;
+  firstPublished: Date;
+  repostedAt: Date | null;
   salaryRange: string;
   jobAlignment: number | null; // 1–5
   modifiedAt: Date | null;

@@ -135,7 +135,7 @@ async function main() {
           url: `https://jobs.example.com/fake-${++jobCounter}`,
           location: company.address ?? "Austin, TX",
           workMode: pick(["remote", "hybrid", "in-person"]),
-          postedAt: addDays(entryDate, -Math.floor(Math.random() * 14)),
+          firstPublished: addDays(entryDate, -Math.floor(Math.random() * 14)),
           salaryRange: pick(["$120-$160k", "$140-$180k", "$160-$200k", "?"]),
           status: pick(["app. sent", "screening", "interview", "rejected"]),
           modifiedAt: entryDate,

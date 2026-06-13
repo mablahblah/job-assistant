@@ -43,7 +43,10 @@ export async function collectGreenhouseCompany(
       companyName: slug.charAt(0).toUpperCase() + slug.slice(1),
       location: mapped.location,
       workMode: mapped.workMode,
-      postedAt: new Date(job.updated_at),
+      dates: [
+        ...(job.first_published ? [new Date(job.first_published)] : []),
+        new Date(job.updated_at),
+      ],
       salaryRange: mapped.salaryRange,
       description: job.content || "",
     };

@@ -2,7 +2,7 @@
 // Shared field mapper is used by both this parser and the Lever collector.
 
 import type { Browser } from "playwright";
-import type { ParserResult } from "./types";
+import type { ParsedFields, ParserResult } from "./types";
 import { TRACKED_FIELDS } from "./types";
 import { detectWorkModeFromData, detectWorkModeFromText, parseSalaryFromText, fetchWithTimeout, safeJson } from "../scrapers/fetch-utils";
 import { resolveCompanyName } from "./company-cache";
@@ -25,7 +25,7 @@ export function mapLeverFields(posting: LeverApiPosting): {
   title: string;
   location: string;
   workMode: string;
-  postedAt: string;
+  dates: string[];
   salaryRange: string;
 } {
   const title = posting.text;
@@ -36,17 +36,16 @@ export function mapLeverFields(posting: LeverApiPosting): {
     detectWorkModeFromData({ workplaceType: posting.workplaceType }) ||
     detectWorkModeFromText(posting.descriptionPlain || posting.description || "");
 
-  // Date: convert epoch ms to ISO date string (UTC)
-  const postedAt = posting.createdAt
-    ? new Date(posting.createdAt).toISOString().slice(0, 10)
-    : "";
+  // Dates: createdAt epoch ms converted to ISO date string (UTC)
+  const dates: string[] = [];
+  if (posting.createdAt) dates.push(new Date(posting.createdAt).toISOString().slice(0, 10));
 
   // Salary: scan description text (Lever API has no structured salary field)
   const salaryRange = parseSalaryFromText(
     posting.descriptionPlain || posting.description || posting.additional || "",
   );
 
-  return { title, location, workMode, postedAt, salaryRange };
+  return { title, location, workMode, dates, salaryRange };
 }
 
 // Extract slug and posting ID from a Lever URL: jobs.lever.co/{slug}/{id}
@@ -121,7 +120,7 @@ export async function parseLeverJob(
       "lever", slug, fetchLeverCompanyName,
     );
 
-    const fields: Record<string, string> = { ...mapped };
+    const fields: Partial<ParsedFields> = { ...mapped };
     if (companyName) fields.companyName = companyName;
 
     const failedFields = TRACKED_FIELDS.filter((f) => !fields[f]);

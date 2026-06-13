@@ -34,15 +34,16 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 
 ## Documentation
 
-- [ROADMAP.md](ROADMAP.md) — Active roadmap
-- [ROADMAP-DONE.md](ROADMAP-DONE.md) — Completed features
+- [CURRENT-FEATURE.md](CURRENT-FEATURE.md) — Active feature
+- [CHANGELOG.md](docs/CHANGELOG.md) — Completed features
 - [Search Issues](docs/search-issues.md) — Known issues and improvement opportunities in the job search pipeline
-- [First Pass Improvements](docs/initiatives/first-pass-improvements/initiative.md) — Initiative (shipped): auto-expire, web view, external jobs
-- [Smarter Auto-Classification](docs/initiatives/smarter-auto-classification/initiative.md) — Initiative (shipped): repost dedup, batch updates, separated search skills
-- [Reliable Scraping Pipeline](docs/initiatives/reliable-scraping-pipeline/initiative.md) — Initiative (shipped): zero misclassified jobs from known boards
-- [Pipeline Accuracy](docs/initiatives/pipeline-accuracy/initiative.md) — Initiative (shipped): fix location filtering and deduplication
-- [Security: Critical Fixes](docs/initiatives/security-critical-fixes/initiative.md) — Initiative (current): rotate leaked credentials and lock down external-facing inputs
-- [Smarter Aggregator Handling](docs/initiatives/smarter-aggregator-handling/initiative.md) — Initiative (planned): reliable aggregator resolution
+- [First Pass Improvements](docs/features/first-pass-improvements/first-pass-improvements-spec.md) — Feature (shipped): auto-expire, web view, external jobs
+- [Smarter Auto-Classification](docs/features/smarter-auto-classification/smarter-auto-classification-spec.md) — Feature (shipped): repost dedup, batch updates, separated search skills
+- [Reliable Scraping Pipeline](docs/features/reliable-scraping-pipeline/reliable-scraping-pipeline-spec.md) — Feature (shipped): zero misclassified jobs from known boards
+- [Pipeline Accuracy](docs/features/pipeline-accuracy/pipeline-accuracy-spec.md) — Feature (shipped): fix location filtering and deduplication
+- [Security: Critical Fixes](docs/features/security-critical-fixes/security-critical-fixes-spec.md) — Feature (shipped): rotate leaked credentials and lock down external-facing inputs
+- [Dual Date Model](docs/features/dual-date-model/dual-date-model-spec.md) — Feature (current): honest job dates with firstPublished + repostedAt
+- [Smarter Aggregator Handling](docs/features/smarter-aggregator-handling/smarter-aggregator-handling-spec.md) — Feature (planned): reliable aggregator resolution
 
 - [Technical Documentation](docs/tech/table-of-contents.md) — Implementation-level docs: tech stack, views, styling, app functionality, testing, skills
 

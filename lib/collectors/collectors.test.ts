@@ -103,7 +103,7 @@ describe("collectAdzuna", () => {
       companyName: "Acme Corp",
       location: "New York, NY",
       workMode: "remote",
-      postedAt: new Date("2026-03-15T00:00:00Z"),
+      dates: [new Date("2026-03-15T00:00:00Z")],
       salaryRange: "$120-180k",
       description: "Remote role designing products",
     });
@@ -156,7 +156,7 @@ describe("collectJSearch", () => {
       companyName: "DesignCo",
       location: "Austin, TX, US",
       workMode: "remote",
-      postedAt: new Date("2026-03-10T12:00:00Z"),
+      dates: [new Date("2026-03-10T12:00:00Z")],
       salaryRange: "$100-150k",
       description: "Design amazing products",
     });
@@ -210,10 +210,32 @@ describe("collectGreenhouseCompany", () => {
       companyName: "Acme",
       location: "San Francisco, CA",
       workMode: "hybrid",
-      postedAt: new Date("2026-03-12T00:00:00Z"),
+      dates: [new Date("2026-03-12T00:00:00Z")],
       salaryRange: "$150-200k",
       description: "<p>We are hiring a hybrid product designer. Salary: $150,000 - $200,000</p>",
     });
+  });
+
+  it("includes both first_published and updated_at in dates when present", async () => {
+    mockFetch.mockResolvedValue(fakeResponse({
+      jobs: [
+        {
+          id: 201,
+          title: "Product Designer",
+          absolute_url: "https://boards.greenhouse.io/acme/jobs/201",
+          location: { name: "Remote" },
+          first_published: "2024-11-01T00:00:00Z",
+          updated_at: "2026-04-16T00:00:00Z",
+          content: "<p>Design role</p>",
+        },
+      ],
+    }));
+
+    const jobs = await collectGreenhouseCompany("acme", ["product designer"]);
+    expect(jobs[0].dates).toEqual([
+      new Date("2024-11-01T00:00:00Z"),
+      new Date("2026-04-16T00:00:00Z"),
+    ]);
   });
 
   it("throws on 404", async () => {
@@ -263,7 +285,7 @@ describe("collectLeverCompany", () => {
       companyName: "Company",
       location: "Remote, US",
       workMode: "remote",
-      postedAt: new Date(1710288000000),
+      dates: [new Date(1710288000000)],
       salaryRange: "?",
       description: "Design things remotely",
     });

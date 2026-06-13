@@ -70,7 +70,7 @@ describe("mapLeverFields", () => {
     const posting = {
       id: "1", text: "D", categories: {}, createdAt: 1776816000000,
     };
-    expect(mapLeverFields(posting).postedAt).toBe("2026-04-22");
+    expect(mapLeverFields(posting).dates).toContain("2026-04-22");
   });
 
   it("returns '?' salary when no match in description", () => {

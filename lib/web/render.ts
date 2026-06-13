@@ -47,7 +47,12 @@ function renderJobRow(job: WebJob, variant: TableVariant): string {
   const location = escapeHtml(job.location);
   const salary = escapeHtml(job.salaryRange);
   const mode = workModeIcon(job.workMode);
-  const posted = relativeDate(job.postedAt);
+  const posted = relativeDate(job.firstPublished);
+
+  // RP pill — shown inline after the date when the job has been reposted
+  const repostHtml = job.repostedAt
+    ? ` <span class="repost-pill" title="Reposted ${relativeDate(job.repostedAt)}">RP</span>`
+    : "";
 
   // Composite score cell
   const scoreHtml = `<span class="${scoreColor(job.score)}">${job.score}</span>`;
@@ -92,7 +97,7 @@ function renderJobRow(job: WebJob, variant: TableVariant): string {
   <td><div class="company-role-cell"><span class="company-name"${noteAttr}>${name}</span><a href="${url}" target="_blank" rel="noopener noreferrer" class="link">${title}</a></div></td>
   <td class="work-mode"${location ? ` title="${location}"` : ""}>${mode}</td>
   <td class="col-hide-xl text-muted">${location}</td>
-  <td class="col-hide-phone"><span class="text-faint">${posted}</span></td>
+  <td class="col-posted"><div class="posted-cell"><span class="text-faint">${posted}</span>${repostHtml}</div></td>
   <td class="text-muted col-hide-phone">${salary}</td>
   <td class="col-rating-individual text-center">${ja}</td>
   <td class="col-rating-individual text-center">${es}</td>
@@ -126,7 +131,7 @@ export function renderJobTable(jobs: WebJob[], variant: TableVariant): string {
       <th>Role</th>
       <th>Type</th>
       <th class="col-hide-xl">Location</th>
-      <th class="col-hide-phone">Posted</th>
+      <th class="col-posted">Posted</th>
       <th class="col-hide-phone">Salary</th>
       <th class="col-rating col-rating-individual text-center">Job<br>Align.</th>
       <th class="col-rating col-rating-individual text-center">Employee<br>Sat.</th>

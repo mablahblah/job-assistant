@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAgeToDays, isStale } from "./parse-age";
+import { parseAgeToDays, isStale, ageToDate } from "./parse-age";
 
 describe("parseAgeToDays", () => {
   it("parses hours as 0 days", () => {
@@ -66,5 +66,36 @@ describe("isStale", () => {
     // parseAgeToDays returns null, so isStale should not treat it as stale
     expect(isStale("Apply now")).toBe(false);
     expect(isStale("")).toBe(false);
+  });
+});
+
+describe("ageToDate", () => {
+  it("returns approximate date for '3 days ago'", () => {
+    const now = new Date("2026-06-12T12:00:00Z");
+    const result = ageToDate("3 days ago", now);
+    // 3 days ago from noon June 12 = June 9
+    expect(result).not.toBeNull();
+    expect(result!.toISOString().slice(0, 10)).toBe("2026-06-09");
+  });
+
+  it("returns today's date for 'just now'", () => {
+    const now = new Date("2026-06-12T12:00:00Z");
+    const result = ageToDate("just now", now);
+    expect(result).not.toBeNull();
+    expect(result!.toISOString().slice(0, 10)).toBe("2026-06-12");
+  });
+
+  it("returns null for unparseable string", () => {
+    const now = new Date("2026-06-12T12:00:00Z");
+    expect(ageToDate("not a date", now)).toBeNull();
+  });
+
+  it("defaults to Date.now() when no reference date provided", () => {
+    const before = Date.now();
+    const result = ageToDate("0 days ago");
+    const after = Date.now();
+    expect(result).not.toBeNull();
+    expect(result!.getTime()).toBeGreaterThanOrEqual(before - 86400000);
+    expect(result!.getTime()).toBeLessThanOrEqual(after);
   });
 });

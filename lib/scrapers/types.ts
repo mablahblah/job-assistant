@@ -5,7 +5,7 @@ export interface ScrapedJob {
   url: string;
   location: string;
   workMode: string;
-  postedAt: Date;
+  firstPublished: Date;
   salaryRange: string;
   description: string;
 }

@@ -48,7 +48,7 @@ describe("mapGreenhouseFields", () => {
     const result = mapGreenhouseFields(job);
     expect(result.title).toBe("Senior Product Designer");
     expect(result.location).toBe("San Francisco, CA");
-    expect(result.postedAt).toBe("2026-04-15");
+    expect(result.dates).toContain("2026-04-15");
     expect(result.salaryRange).toBe("$150-200k");
     expect(result.workMode).toBe("remote");
   });
@@ -77,6 +77,21 @@ describe("mapGreenhouseFields", () => {
     expect(result.salaryRange).toBe("?");
   });
 
+  it("includes both first_published and updated_at when present", () => {
+    const job = {
+      id: 1,
+      title: "Designer",
+      location: { name: "Remote" },
+      first_published: "2024-11-01T00:00:00Z",
+      updated_at: "2026-04-16T10:00:00Z",
+      content: "",
+    };
+    const result = mapGreenhouseFields(job);
+    expect(result.dates).toContain("2024-11-01");
+    expect(result.dates).toContain("2026-04-16");
+    expect(result.dates).toHaveLength(2);
+  });
+
   it("extracts date portion only from updated_at", () => {
     const job = {
       id: 1,
@@ -86,7 +101,7 @@ describe("mapGreenhouseFields", () => {
       content: "",
     };
     const result = mapGreenhouseFields(job);
-    expect(result.postedAt).toBe("2026-04-22");
+    expect(result.dates).toContain("2026-04-22");
   });
 
   it("detects hybrid work mode from content", () => {

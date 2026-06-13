@@ -20,7 +20,7 @@ description: Self documents command & skill flows after they are run to identify
 
 ### Step 2: Ensure it isn't already logged
 
-1. Check `ROADMAP.md` and `BACKLOG.md` and `docs/search-issues.md`
+1. Check `docs/CURRENT-FEATURE.md` and `docs/BACKLOG.md` and `docs/search-issues.md`
    - If this issue will be resolved with future work already documented: stop.
 
 ### Step 3: Prepare the Search Issues Doc

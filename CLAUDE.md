@@ -41,6 +41,7 @@ lib/
 ├── geocoding/        # Geo-based location classification (geocode, cache, prefilter, classify)
 ├── parsers/          # ATS-specific job page parsers (Greenhouse, Lever, Ashby, etc.)
 ├── scrapers/         # Legacy scrapers (replaced by collectors + parsers)
+├── shared-utils/     # Pure utility functions shared across lib/ modules
 ├── web/              # Dashboard HTML rendering and helpers
 ├── pipeline.ts       # Collect → dedupe → resolve → route → parse → dedupe → geo-classify → save
 ├── pipeline-save.ts  # Save parsed pipeline results to DB
@@ -59,12 +60,13 @@ scripts/
 ├── pipeline.ts       # Dry-run pipeline for parser development
 ├── resolve-urls.ts   # Bulk URL resolution diagnostic
 ├── validate-adzuna.ts # Adzuna collector diagnostic
-└── cleanup-db.ts     # Remove stale DB entries
+├── cleanup-db.ts     # Remove stale DB entries
+└── seed-repost-dates.ts  # Seed repostedAt for RP pill visual testing
 prisma/               # Schema, migrations, seed data
 public/               # Dashboard static assets (CSS, JS)
 docs/                 # Human-facing documentation, not read during normal tasks
-ROADMAP.md            # Current initiative we are actively working on
-BACKLOG.md            # Future work we have not started yet
+docs/CURRENT-FEATURE.md  # Current feature we are actively working on
+docs/BACKLOG.md          # Future work we have not started yet
 ```
 
 ## Terminology

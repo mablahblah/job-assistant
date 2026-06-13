@@ -15,7 +15,7 @@ describe("parseAdzunaJob", () => {
       companyName: "Acme Corp",
       location: "Austin, TX",
       workMode: "remote",
-      postedAt: new Date("2026-04-20"),
+      dates: [new Date("2026-04-20")],
       salaryRange: "$120-160k",
     };
 

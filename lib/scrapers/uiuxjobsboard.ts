@@ -155,7 +155,7 @@ export async function scrapeUiUxJobsBoard(
         : `https://uiuxjobsboard.com${stub.url}`;
 
       // Start with listing card data
-      let postedAt = stub.timeText
+      let firstPublished = stub.timeText
         ? parseRelativeTime(stub.timeText)
         : new Date();
       let workMode = stub.workMode; // from card location link hrefs
@@ -169,7 +169,7 @@ export async function scrapeUiUxJobsBoard(
         // Try JSON-LD first
         const posting = await parseJobPostingLD(page);
 
-        if (posting.datePosted) postedAt = new Date(posting.datePosted);
+        if (posting.datePosted) firstPublished = new Date(posting.datePosted);
 
         // Company from JSON-LD overrides card extraction (most reliable)
         if (posting.hiringOrganization?.name) {
@@ -227,7 +227,7 @@ export async function scrapeUiUxJobsBoard(
         url: jobUrl,
         location,
         workMode,
-        postedAt,
+        firstPublished,
         salaryRange: salary,
         description: "",
       });

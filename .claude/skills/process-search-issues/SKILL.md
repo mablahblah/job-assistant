@@ -18,7 +18,7 @@ For each logged issue in `docs/search-issues.md`:
 
 ### If no longer an issue and it says it has been documented in the backlog:
 
-2a. Remove issue from `docs/search-issues.md` and `BACKLOG.md` (or `ROADMAP.md`)
+2a. Remove issue from `docs/search-issues.md` and `docs/BACKLOG.md` (or `docs/CURRENT-FEATURE.md`)
 3a. If there are no more issues under the heading, remove heading as well.
 
 ### If still an issue:

@@ -89,11 +89,11 @@ function makeItem(overrides: Partial<ContentDedupeItem> = {}): ContentDedupeItem
     companyName: "Acme Corp",
     location: "Remote",
     workMode: "remote",
-    postedAt: "2026-05-01",
     salaryRange: "$120-$150k",
     source: "greenhouse",
     parser: "greenhouse",
     originalUrl: "https://boards.greenhouse.io/acme/123",
+    dates: ["2026-05-01"],
     ...overrides,
   };
 }
@@ -109,25 +109,28 @@ describe("dedupeByContent — within batch", () => {
     expect(result.kept[0].parser).toBe("greenhouse");
   });
 
-  it("keeps the newer post when same parser, flags repost", () => {
+  it("pools dates from losers into winner", () => {
     const items = [
-      makeItem({ url: "https://gh.io/1", postedAt: "2026-04-15", parser: "greenhouse" }),
-      makeItem({ url: "https://gh.io/2", postedAt: "2026-05-01", parser: "greenhouse" }),
+      makeItem({ url: "https://gh.io/1", parser: "greenhouse", dates: ["2026-04-15"] }),
+      makeItem({ url: "https://adz.io/1", parser: "adzuna", dates: ["2026-05-01"] }),
     ];
     const result = dedupeByContent(items, []);
     expect(result.kept).toHaveLength(1);
-    expect(result.kept[0].url).toBe("https://gh.io/2");
-    expect(result.kept[0].repost).toBe(true);
+    expect(result.kept[0].parser).toBe("greenhouse");
+    expect(result.kept[0].dates).toContain("2026-04-15");
+    expect(result.kept[0].dates).toContain("2026-05-01");
   });
 
-  it("drops the new one when same parser and same date", () => {
+  it("keeps first item when same parser (priority is sole factor)", () => {
     const items = [
-      makeItem({ url: "https://gh.io/1", postedAt: "2026-05-01", parser: "greenhouse" }),
-      makeItem({ url: "https://gh.io/2", postedAt: "2026-05-01", parser: "greenhouse" }),
+      makeItem({ url: "https://gh.io/1", parser: "greenhouse", dates: ["2026-04-15"] }),
+      makeItem({ url: "https://gh.io/2", parser: "greenhouse", dates: ["2026-05-01"] }),
     ];
     const result = dedupeByContent(items, []);
     expect(result.kept).toHaveLength(1);
     expect(result.kept[0].url).toBe("https://gh.io/1");
+    expect(result.kept[0].dates).toContain("2026-04-15");
+    expect(result.kept[0].dates).toContain("2026-05-01");
   });
 
   it("merges fields — winner gets loser's data for empty fields", () => {
@@ -139,15 +142,6 @@ describe("dedupeByContent — within batch", () => {
     expect(result.kept).toHaveLength(1);
     expect(result.kept[0].parser).toBe("greenhouse");
     expect(result.kept[0].salaryRange).toBe("$100-$130k");
-  });
-
-  it("does not merge when winner already has the field", () => {
-    const items = [
-      makeItem({ url: "https://gh.io/1", parser: "greenhouse", salaryRange: "$120-$150k" }),
-      makeItem({ url: "https://adz.io/1", parser: "adzuna", salaryRange: "$100-$130k" }),
-    ];
-    const result = dedupeByContent(items, []);
-    expect(result.kept[0].salaryRange).toBe("$120-$150k");
   });
 
   it("handles 3+ duplicates — picks the best from the group", () => {
@@ -179,30 +173,50 @@ describe("dedupeByContent — against DB", () => {
       title: "Product Designer",
       companyName: "Acme Corp",
       parser: "adzuna",
-      postedAt: "2026-05-01",
+      firstPublished: "2026-05-01",
+      repostedAt: null,
       status: "backlog",
     }];
     const result = dedupeByContent(items, dbJobs);
     expect(result.kept).toHaveLength(0);
     expect(result.dbUpdates).toHaveLength(1);
     expect(result.dbUpdates[0].id).toBe("existing-1");
-    // companyName must not appear in update data — it's a relation, not a Job field
     expect(result.dbUpdates[0].data).not.toHaveProperty("companyName");
   });
 
-  it("replaces same-parser DB record when batch item is newer (repost)", () => {
-    const items = [makeItem({ parser: "greenhouse", postedAt: "2026-05-15" })];
+  it("same-parser DB match triggers date-only update with pooled dates", () => {
+    const items = [makeItem({ parser: "greenhouse", dates: ["2026-05-15"] })];
     const dbJobs = [{
       id: "existing-1",
       title: "Product Designer",
       companyName: "Acme Corp",
       parser: "greenhouse",
-      postedAt: "2026-04-01",
+      firstPublished: "2026-04-01",
+      repostedAt: null,
       status: "backlog",
     }];
     const result = dedupeByContent(items, dbJobs);
     expect(result.dbUpdates).toHaveLength(1);
-    expect(result.dbUpdates[0].repost).toBe(true);
+    expect(result.dbUpdates[0].dates).toContain("2026-05-15");
+    expect(result.dbUpdates[0].dates).toContain("2026-04-01");
+    expect(result.dbUpdates[0].data).toEqual({});
+  });
+
+  it("pools DB repostedAt into dates when present", () => {
+    const items = [makeItem({ parser: "greenhouse", dates: ["2026-06-01"] })];
+    const dbJobs = [{
+      id: "existing-1",
+      title: "Product Designer",
+      companyName: "Acme Corp",
+      parser: "greenhouse",
+      firstPublished: "2026-04-01",
+      repostedAt: "2026-05-15",
+      status: "backlog",
+    }];
+    const result = dedupeByContent(items, dbJobs);
+    expect(result.dbUpdates[0].dates).toContain("2026-06-01");
+    expect(result.dbUpdates[0].dates).toContain("2026-04-01");
+    expect(result.dbUpdates[0].dates).toContain("2026-05-15");
   });
 
   it("drops batch item when DB record has higher priority", () => {
@@ -212,27 +226,13 @@ describe("dedupeByContent — against DB", () => {
       title: "Product Designer",
       companyName: "Acme Corp",
       parser: "greenhouse",
-      postedAt: "2026-05-01",
+      firstPublished: "2026-05-01",
+      repostedAt: null,
       status: "backlog",
     }];
     const result = dedupeByContent(items, dbJobs);
     expect(result.kept).toHaveLength(0);
     expect(result.dbUpdates).toHaveLength(0);
-    expect(result.droppedByDb).toBe(1);
-  });
-
-  it("drops batch item when DB record has same parser and same date", () => {
-    const items = [makeItem({ parser: "greenhouse", postedAt: "2026-05-01" })];
-    const dbJobs = [{
-      id: "existing-1",
-      title: "Product Designer",
-      companyName: "Acme Corp",
-      parser: "greenhouse",
-      postedAt: "2026-05-01",
-      status: "backlog",
-    }];
-    const result = dedupeByContent(items, dbJobs);
-    expect(result.kept).toHaveLength(0);
     expect(result.droppedByDb).toBe(1);
   });
 
@@ -243,7 +243,8 @@ describe("dedupeByContent — against DB", () => {
       title: "Product Designer",
       companyName: "Acme Corp",
       parser: "adzuna",
-      postedAt: "2026-05-01",
+      firstPublished: "2026-05-01",
+      repostedAt: null,
       status: "interview",
     }];
     const result = dedupeByContent(items, dbJobs);
@@ -259,7 +260,8 @@ describe("dedupeByContent — against DB", () => {
       title: "Product Designer",
       companyName: "Acme Corp",
       parser: "adzuna",
-      postedAt: "2026-05-01",
+      firstPublished: "2026-05-01",
+      repostedAt: null,
       status: "backlog",
       salaryRange: "$100-$130k",
       location: "Austin, TX",

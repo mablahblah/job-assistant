@@ -174,7 +174,8 @@ async function main() {
         url: job.finalUrl,
         location: result.fields.location ?? "",
         workMode: result.fields.workMode ?? "",
-        postedAt: result.fields.postedAt ?? new Date().toISOString(),
+        firstPublished: result.fields.dates?.[0] ?? new Date().toISOString(),
+        repostedAt: null,
         salaryRange: result.fields.salaryRange ?? "?",
         status: "backlog",
         modifiedAt: null,
@@ -182,7 +183,6 @@ async function main() {
         jobAlignment: null,
         titleMismatch: false,
         titleMismatchReason: null,
-        repost: false,
         source: null,
         parser: result.parser,
         originalUrl: null,
@@ -372,7 +372,7 @@ function printSamples(
     console.log(`   Company:  ${f.companyName ?? "(not extracted)"}`);
     console.log(`   Salary:   ${f.salaryRange ?? "(not extracted)"}`);
     console.log(
-      `   Posted:   ${f.postedAt ?? "(not extracted)"}`,
+      `   Posted:   ${f.dates?.[0] ?? "(not extracted)"}`,
     );
     console.log(`   Location: ${f.location ?? "(not extracted)"}`);
     console.log(`   Mode:     ${f.workMode ?? "(not extracted)"}`);

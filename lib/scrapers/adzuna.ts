@@ -50,7 +50,7 @@ export async function scrapeAdzuna(query = "Product Designer", resultsPerPage = 
     url: job.redirect_url,
     location: job.location.display_name,
     workMode: detectWorkModeFromText(job.description + " " + job.title),
-    postedAt: new Date(job.created),
+    firstPublished: new Date(job.created),
     salaryRange: formatSalary(job.salary_min, job.salary_max),
     description: job.description,
   }));

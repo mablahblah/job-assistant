@@ -18,7 +18,7 @@ async function main() {
       companyName: job.companyName || undefined,
       location: job.location || undefined,
       workMode: job.workMode || undefined,
-      postedAt: job.postedAt?.toISOString().slice(0, 10) || undefined,
+      // dates excluded — they flow through resolveJobDates, not confidence comparison
       salaryRange: job.salaryRange || undefined,
     };
 
@@ -29,7 +29,7 @@ async function main() {
     console.log(`URL:     ${job.url}`);
     console.log(`Title:   ${job.title}`);
     console.log(`Company: ${job.companyName}`);
-    console.log(`Posted:  ${job.postedAt?.toISOString().slice(0, 10)}`);
+    console.log(`Posted:  ${job.dates?.[0]?.toISOString().slice(0, 10) ?? "(none)"}`);
     console.log(`Loc:     ${job.location}`);
     console.log(`Mode:    ${job.workMode}`);
     console.log(`Salary:  ${job.salaryRange}`);

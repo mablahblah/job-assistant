@@ -1,5 +1,5 @@
 import type { CollectedJob } from "./types";
-import { isStale } from "./parse-age";
+import { isStale, ageToDate } from "./parse-age";
 import { matchCategories, type Category } from "./match-categories";
 import { chromium, type Page } from "playwright";
 
@@ -85,9 +85,11 @@ async function runFilteredSearch(
         shouldStop = true;
         break;
       }
+      const approxDate = ageToDate(r.age);
       jobs.push({
         url: r.url.startsWith("http") ? r.url : `https://uiuxjobsboard.com${r.url}`,
         source: "uiuxjobsboard",
+        dates: approxDate ? [approxDate] : [],
       });
     }
 

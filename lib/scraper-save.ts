@@ -78,11 +78,10 @@ export async function saveScrapedJobs(
           where: { id: existingDupe.id },
           data: {
             url: jobData.url,
-            postedAt: jobData.postedAt,
+            firstPublished: jobData.firstPublished,
             location: jobData.location,
             workMode: jobData.workMode,
             salaryRange: jobData.salaryRange,
-            repost: true,
           },
         });
         console.log(`[scraper-save] Updated repost "${existingDupe.title}" (${existingDupe.status}) with fresh posting data`);
@@ -97,11 +96,11 @@ export async function saveScrapedJobs(
               url: jobData.url,
               location: jobData.location,
               workMode: jobData.workMode,
-              postedAt: jobData.postedAt,
+              firstPublished: jobData.firstPublished,
               salaryRange: jobData.salaryRange,
               // Auto-classify on scrape: expired (8+ days) → too far → backlog
               ...(() => {
-                const ageMs = Date.now() - new Date(jobData.postedAt).getTime();
+                const ageMs = Date.now() - new Date(jobData.firstPublished).getTime();
                 const ageDays = ageMs / (1000 * 60 * 60 * 24);
                 if (ageDays >= 8) return { status: "expired" };
                 const result = classifyLocation(jobData.workMode, jobData.location);

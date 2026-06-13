@@ -19,6 +19,6 @@ prisma/*.db-journal
 *.test.ts
 *.test.tsx
 vitest.config.ts
-ROADMAP.md
-ROADMAP-DONE.md
+docs/CURRENT-FEATURE.md
+docs/CHANGELOG.md
 README.md

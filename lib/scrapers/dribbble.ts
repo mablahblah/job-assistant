@@ -74,7 +74,7 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
       const jobUrl = stub.url.startsWith("http") ? stub.url : `https://dribbble.com${stub.url}`;
 
       let salary = "?";
-      let postedAt = new Date();
+      let firstPublished = new Date();
       // Prefer structured data for work mode, fall back to listing card text, default to in-person
       let workMode = detectWorkModeFromText(stub.workModeText, "in-person");
 
@@ -84,7 +84,7 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
         // Parse JSON-LD for date and work mode
         const posting = await parseJobPostingLD(page);
 
-        if (posting.datePosted) postedAt = new Date(posting.datePosted);
+        if (posting.datePosted) firstPublished = new Date(posting.datePosted);
 
         // Structured work mode from JSON-LD overrides listing card text
         const ldWorkMode = detectWorkModeFromData({
@@ -113,7 +113,7 @@ export async function scrapeDribbble(query = "Product Designer"): Promise<Scrape
         url: jobUrl,
         location: stub.location,
         workMode,
-        postedAt,
+        firstPublished,
         salaryRange: salary,
         description: "",
       });

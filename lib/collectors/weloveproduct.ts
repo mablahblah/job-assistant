@@ -1,7 +1,7 @@
 // lib/collectors/weloveproduct.ts
 import type { CollectedJob } from "./types";
 import { withBrowser } from "../scrapers/fetch-utils";
-import { isStale } from "./parse-age";
+import { isStale, ageToDate } from "./parse-age";
 import type { Page } from "playwright";
 
 // Runs a single search on weloveproduct.co and collects results until 8d+ old.
@@ -77,9 +77,11 @@ async function runSearch(
         shouldStop = true;
         break;
       }
+      const approxDate = ageToDate(r.age);
       jobs.push({
         url: r.url.startsWith("http") ? r.url : `https://weloveproduct.co${r.url}`,
         source: "weloveproduct",
+        dates: approxDate ? [approxDate] : [],
       });
     }
 

@@ -142,7 +142,7 @@ describe("parseDribbbleHtml", () => {
   // -- Posted date --
 
   it("extracts date from JSON-LD datePosted (first 10 chars)", () => {
-    expect(parseDribbbleHtml(fixtureHtml).postedAt).toBe("2026-04-15");
+    expect(parseDribbbleHtml(fixtureHtml).dates).toContain("2026-04-15");
   });
 
   it("handles date-only datePosted without time component", () => {
@@ -152,7 +152,7 @@ describe("parseDribbbleHtml", () => {
         "datePosted": "2026-03-01"
       }</script>
     </head></html>`;
-    expect(parseDribbbleHtml(html).postedAt).toBe("2026-03-01");
+    expect(parseDribbbleHtml(html).dates).toContain("2026-03-01");
   });
 
   // -- Salary --
@@ -201,7 +201,7 @@ describe("parseDribbbleHtml", () => {
     expect(result.companyName).toBeUndefined();
     expect(result.workMode).toBeUndefined();
     expect(result.location).toBeUndefined();
-    expect(result.postedAt).toBeUndefined();
+    expect(result.dates).toBeUndefined();
     expect(result.salaryRange).toBeUndefined();
   });
 });

@@ -1,11 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { classifyLocation } from "@/lib/location";
-
-// Ensures a date string is a full ISO-8601 DateTime for Prisma (e.g. "2026-04-22" → "2026-04-22T00:00:00.000Z")
-export function toISODateTime(dateStr: string): string {
-  if (dateStr.includes("T")) return dateStr;
-  return `${dateStr}T00:00:00.000Z`;
-}
+import { resolveJobDates } from "@/lib/shared-utils/resolve-job-dates";
 
 // Shape the pipeline passes to the save function
 export interface SaveableJob {
@@ -14,7 +9,7 @@ export interface SaveableJob {
   companyName: string;
   location: string;
   workMode: string;
-  postedAt: string;      // raw date string, no Date round-trip
+  dates: string[];             // ISO date strings — resolved into firstPublished/repostedAt at save time
   salaryRange: string;
   source: string;        // which collector found this job
   parser: string | null; // which parser processed it, null if unparsed
@@ -65,10 +60,16 @@ export async function saveParsedJobs(
       update: {},
     });
 
+    // Resolve dates — resolveJobDates handles the empty-dates fallback (returns today)
+    const newDates = jobData.dates.map((d) => new Date(d));
+    const resolved = resolveJobDates(null, newDates);
+
+    const firstPublished = resolved.firstPublished.toISOString();
+
     // Determine status before persisting
     const status = (() => {
       if (mode === "external") return "backlog";
-      const ageMs = Date.now() - new Date(jobData.postedAt).getTime();
+      const ageMs = Date.now() - resolved.firstPublished.getTime();
       const ageDays = ageMs / (1000 * 60 * 60 * 24);
       if (ageDays >= 8) return "expired";
 
@@ -92,7 +93,8 @@ export async function saveParsedJobs(
         url: jobData.url,
         location: jobData.location,
         workMode: jobData.workMode,
-        postedAt: toISODateTime(jobData.postedAt),
+        firstPublished,
+        repostedAt: resolved.repostedAt?.toISOString() ?? null,
         salaryRange: jobData.salaryRange,
         status,
         locationFlagged,

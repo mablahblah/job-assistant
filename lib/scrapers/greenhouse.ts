@@ -36,7 +36,7 @@ export async function scrapeGreenhouseCompany(slug: string, queries: string[]): 
     url: job.absolute_url,
     location: job.location?.name || "",
     workMode: detectWorkModeFromText((job.content || "") + " " + (job.location?.name || "")),
-    postedAt: new Date(job.updated_at),
+    firstPublished: new Date(job.updated_at),
     salaryRange: parseSalaryFromText(job.content || ""),
     description: job.content || "",
   }));

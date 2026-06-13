@@ -104,8 +104,8 @@ export function salaryModifier(salaryRange: string): number {
 }
 
 // <1 day: 1.5x boost, 1–3 days: neutral, then decays 5%/day, floor 0.5
-function ageModifier(postedAt: string | Date, now: Date): number {
-  const posted = typeof postedAt === "string" ? new Date(postedAt) : postedAt;
+function ageModifier(firstPublished: string | Date, now: Date): number {
+  const posted = typeof firstPublished === "string" ? new Date(firstPublished) : firstPublished;
   const daysOld = (now.getTime() - posted.getTime()) / (1000 * 60 * 60 * 24);
 
   if (daysOld < 1) return 1.2; // fresh boost for jobs posted today
@@ -133,7 +133,7 @@ export function calculateScore(
 
   const adjusted =
     (companyScore + jobScore) *
-    ageModifier(job.postedAt, now) *
+    ageModifier(job.firstPublished, now) *
     salaryModifier(job.salaryRange);
   return Math.round(adjusted);
 }

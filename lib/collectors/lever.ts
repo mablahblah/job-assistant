@@ -42,7 +42,7 @@ export async function collectLeverCompany(
       companyName: slug.charAt(0).toUpperCase() + slug.slice(1),
       location: mapped.location,
       workMode: mapped.workMode,
-      postedAt: new Date(posting.createdAt),
+      dates: [new Date(posting.createdAt)],
       salaryRange: mapped.salaryRange,
       description: posting.descriptionPlain || posting.description || "",
     };

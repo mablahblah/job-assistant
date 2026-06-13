@@ -69,7 +69,7 @@ export async function scrapeJSearch({ query, location, workFromHome }: JSearchOp
     url: job.job_apply_link,
     location: formatLocation(job),
     workMode: detectWorkModeFromData({ isRemote: job.job_is_remote }),
-    postedAt: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : new Date(),
+    firstPublished: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc) : new Date(),
     salaryRange: formatSalary(job.job_min_salary, job.job_max_salary, job.job_salary_period ?? undefined),
     description: job.job_description || "",
   }));

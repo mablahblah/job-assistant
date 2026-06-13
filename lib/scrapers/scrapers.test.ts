@@ -64,7 +64,7 @@ describe("scrapeAdzuna", () => {
       url: "https://adzuna.com/job/abc123",
       location: "New York, NY",
       workMode: "remote",
-      postedAt: new Date("2026-03-15T00:00:00Z"),
+      firstPublished: new Date("2026-03-15T00:00:00Z"),
       salaryRange: "$120-180k",
       description: "Remote role designing products",
     });
@@ -136,7 +136,7 @@ describe("scrapeJSearch", () => {
       url: "https://designco.com/apply",
       location: "Austin, TX, US",
       workMode: "remote",
-      postedAt: new Date("2026-03-10T12:00:00Z"),
+      firstPublished: new Date("2026-03-10T12:00:00Z"),
       salaryRange: "$100-150k",
       description: "Design amazing products",
     });
@@ -271,7 +271,7 @@ describe("scrapeLeverCompany", () => {
       url: "https://jobs.lever.co/company/lev-001",
       location: "Remote, US",
       workMode: "remote",
-      postedAt: new Date(1710288000000),
+      firstPublished: new Date(1710288000000),
       salaryRange: "?",
       description: "Design things remotely",
     });

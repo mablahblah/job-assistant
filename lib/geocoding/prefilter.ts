@@ -49,6 +49,14 @@ const SPLIT_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /\s*\/\s*/, name: "slash" },
 ];
 
+// Bare country names too broad to geocode meaningfully
+const COUNTRY_ONLY_PATTERNS = [
+  /^\s*US\s*$/i,
+  /^\s*USA\s*$/i,
+  /^\s*United States\s*$/i,
+  /^\s*United States of America\s*$/i,
+];
+
 // Strings that are ONLY remote qualifiers with optional region
 const PURE_REMOTE_PATTERNS = [
   /^\s*remote\s*$/i,
@@ -65,6 +73,20 @@ function isPureRemote(s: string): boolean {
   const trimmed = s.trim();
   if (!trimmed) return true;
   return PURE_REMOTE_PATTERNS.some((p) => p.test(trimmed));
+}
+
+/**
+ * Check if a string is a bare country name too broad to geocode
+ */
+function isCountryOnly(s: string): boolean {
+  return COUNTRY_ONLY_PATTERNS.some((p) => p.test(s.trim()));
+}
+
+/**
+ * Check if a fragment is non-geocodable (remote qualifier or bare country)
+ */
+function isNonGeocodable(s: string): boolean {
+  return isPureRemote(s) || isCountryOnly(s);
 }
 
 /**
@@ -158,7 +180,7 @@ export function prefilterLocation(raw: string): PrefilterResult {
     // Strip work-mode qualifiers from each fragment, then filter
     const geocodable = parts
       .map((p) => stripWorkMode(stripSuffixes(p)).trim())
-      .filter((p) => p && !isPureRemote(p));
+      .filter((p) => p && !isNonGeocodable(p));
 
     if (geocodable.length === 0) {
       return { fragments: [], action: "skipped" };
@@ -187,14 +209,18 @@ export function prefilterLocation(raw: string): PrefilterResult {
   // Use comma-split only if we got multiple fragments AND the original had
   // work-mode content stripped (to avoid splitting "Austin, Texas")
   if (commaParts.length > 1 && strippedWorkMode !== cleaned) {
-    const geocodable = commaParts.filter((p) => !isPureRemote(p));
+    const geocodable = commaParts.filter((p) => !isNonGeocodable(p));
     if (geocodable.length === 0) {
       return { fragments: [], action: "skipped" };
     }
     return { fragments: geocodable, action: "split" };
   }
 
-  // Step 4: Single fragment — check if anything changed
+  // Step 4: Single fragment — skip if it's a bare country name
+  if (isCountryOnly(strippedWorkMode)) {
+    return { fragments: [], action: "skipped" };
+  }
+
   const wasChanged = strippedWorkMode !== trimmed;
   return {
     fragments: [strippedWorkMode],

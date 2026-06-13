@@ -38,7 +38,7 @@ async function main() {
       workMode: j.workMode,
       salaryRange: j.salaryRange,
       status: j.status,
-      postedAt: j.postedAt.toISOString(),
+      firstPublished: j.firstPublished.toISOString(),
     })),
   };
 

@@ -38,7 +38,7 @@ function makeJob(overrides: Partial<SaveableJob> = {}): SaveableJob {
     companyName: "Acme Corp",
     location: "Remote",
     workMode: "remote",
-    postedAt: recentDate,
+    dates: [recentDate],
     salaryRange: "$120-$150k",
     source: "adzuna",
     parser: "ashby",
@@ -68,6 +68,7 @@ describe("saveParsedJobs", () => {
         source: "adzuna",
         parser: "ashby",
         originalUrl: "https://jobs.ashbyhq.com/acme/123",
+        repostedAt: null,
       }),
     });
   });
@@ -83,7 +84,7 @@ describe("saveParsedJobs", () => {
   });
 
   it("classifies expired jobs in search mode", async () => {
-    await saveParsedJobs([makeJob({ postedAt: "2026-04-01" })], "search");
+    await saveParsedJobs([makeJob({ dates: ["2026-04-01"] })], "search");
 
     expect(db.job.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "expired" }),
@@ -111,7 +112,7 @@ describe("saveParsedJobs", () => {
   });
 
   it("forces backlog in external mode regardless of age", async () => {
-    await saveParsedJobs([makeJob({ postedAt: "2026-01-01" })], "external");
+    await saveParsedJobs([makeJob({ dates: ["2026-01-01"] })], "external");
 
     expect(db.job.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "backlog" }),

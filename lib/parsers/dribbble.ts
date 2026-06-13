@@ -132,9 +132,9 @@ export function parseDribbbleHtml(html: string): Partial<ParsedFields> {
     fields.location = dedupedParts.join(", ");
   }
 
-  // Posted date: JSON-LD datePosted, first 10 chars (date portion only, no TZ conversion)
+  // Dates: JSON-LD datePosted, first 10 chars (date portion only, no TZ conversion)
   if (ld.datePosted) {
-    fields.postedAt = ld.datePosted.slice(0, 10);
+    fields.dates = [ld.datePosted.slice(0, 10)];
   }
 
   // Salary: scan JSON-LD description text (no structured salary field on Dribbble)

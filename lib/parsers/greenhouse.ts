@@ -12,7 +12,7 @@
 // could replace the separate /boards/{slug} call. Left as a future optimization.
 
 import type { Browser } from "playwright";
-import type { ParserResult } from "./types";
+import type { ParsedFields, ParserResult } from "./types";
 import { TRACKED_FIELDS } from "./types";
 import { detectWorkModeFromText, parseSalaryFromText, fetchWithTimeout, safeJson } from "../scrapers/fetch-utils";
 import { resolveCompanyName } from "./company-cache";
@@ -23,6 +23,7 @@ export interface GreenhouseApiJob {
   title: string;
   location: { name: string };
   updated_at: string;
+  first_published?: string; // undocumented field — present on some boards
   content?: string;
   pay_input_ranges?: Array<{
     min_cents: number;
@@ -38,7 +39,7 @@ export function mapGreenhouseFields(job: GreenhouseApiJob): {
   title: string;
   location: string;
   workMode: string;
-  postedAt: string;
+  dates: string[];
   salaryRange: string;
 } {
   const title = job.title;
@@ -47,8 +48,11 @@ export function mapGreenhouseFields(job: GreenhouseApiJob): {
   // Work mode: scan content + location text (Greenhouse API has no structured field)
   const workMode = detectWorkModeFromText((job.content || "") + " " + location);
 
-  // Date: take the first 10 chars of the ISO datetime (no timezone conversion)
-  const postedAt = job.updated_at?.slice(0, 10) || "";
+  // Dates: first_published (when it exists) then updated_at — both are ISO datetimes,
+  // slice to date portion only (no timezone conversion)
+  const dates: string[] = [];
+  if (job.first_published) dates.push(job.first_published.slice(0, 10));
+  if (job.updated_at) dates.push(job.updated_at.slice(0, 10));
 
   // Salary: use structured pay_input_ranges first, fall back to scanning the text
   let salaryRange = "?";
@@ -61,7 +65,7 @@ export function mapGreenhouseFields(job: GreenhouseApiJob): {
     salaryRange = parseSalaryFromText(job.content);
   }
 
-  return { title, location, workMode, postedAt, salaryRange };
+  return { title, location, workMode, dates, salaryRange };
 }
 
 // Extract slug and job ID from a Greenhouse URL.
@@ -149,7 +153,7 @@ export async function parseGreenhouseJob(
       "greenhouse", slug, fetchGreenhouseCompanyName,
     );
 
-    const fields: Record<string, string> = { ...mapped };
+    const fields: Partial<ParsedFields> = { ...mapped };
     if (companyName) fields.companyName = companyName;
 
     const failedFields = TRACKED_FIELDS.filter((f) => !fields[f]);

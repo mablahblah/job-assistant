@@ -9,17 +9,17 @@ export interface ParsedFields {
   companyName: string;
   location: string;
   workMode: string;
-  postedAt: string; // ISO date string
   salaryRange: string;
+  dates?: string[]; // ISO date strings — all dates the parser found
 }
 
 // All tracked field names — used for iteration in confidence comparison
+// Dates are excluded — they flow through resolveJobDates, not confidence comparison
 export const TRACKED_FIELDS = [
   "title",
   "companyName",
   "location",
   "workMode",
-  "postedAt",
   "salaryRange",
 ] as const;
 export type TrackedFieldName = (typeof TRACKED_FIELDS)[number];

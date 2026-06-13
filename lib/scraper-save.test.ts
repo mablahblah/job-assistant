@@ -52,7 +52,7 @@ const baseJob = {
   url: "https://board-a.com/job/1",
   location: "Remote",
   workMode: "remote",
-  postedAt: new Date("2026-03-28"),
+  firstPublished: new Date("2026-03-28"),
   salaryRange: "?",
   externalId: "ext-1",
 };
@@ -108,11 +108,10 @@ describe("saveScrapedJobs — deduplication", () => {
       where: { id: "job-old" },
       data: {
         url: baseJob.url,
-        postedAt: baseJob.postedAt,
+        firstPublished: baseJob.firstPublished,
         location: baseJob.location,
         workMode: baseJob.workMode,
         salaryRange: baseJob.salaryRange,
-        repost: true,
       },
     });
     expect(db.job.delete).not.toHaveBeenCalled();

@@ -44,6 +44,27 @@ describe("prefilterLocation", () => {
       const result = prefilterLocation("Remote- United States");
       expect(result).toEqual({ fragments: [], action: "skipped" });
     });
+
+    it("skips bare 'US'", () => {
+      const result = prefilterLocation("US");
+      expect(result).toEqual({ fragments: [], action: "skipped" });
+    });
+
+    it("skips bare 'USA'", () => {
+      const result = prefilterLocation("USA");
+      expect(result).toEqual({ fragments: [], action: "skipped" });
+    });
+
+    it("skips 'United States'", () => {
+      const result = prefilterLocation("United States");
+      expect(result).toEqual({ fragments: [], action: "skipped" });
+    });
+
+    it("does NOT skip 'US' embedded in a city string", () => {
+      const result = prefilterLocation("Chattanooga, TN, US, Tennessee, United States");
+      expect(result.fragments).toEqual(["Chattanooga, TN, US, Tennessee, United States"]);
+      expect(result.action).toBe("passthrough");
+    });
   });
 
   // --- Suffix stripping ---
@@ -122,9 +143,10 @@ describe("prefilterLocation", () => {
       expect(result.action).toBe("split");
     });
 
-    it("splits on slashes", () => {
+    it("splits on slashes and filters country-only fragments", () => {
       const result = prefilterLocation("UK / US");
-      expect(result.fragments).toEqual(["UK", "US"]);
+      // "US" is filtered as a bare country name; "UK" remains
+      expect(result.fragments).toEqual(["UK"]);
       expect(result.action).toBe("split");
     });
   });

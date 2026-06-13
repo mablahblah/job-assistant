@@ -1,6 +1,6 @@
 import type { CollectedJob } from "./types";
 import { withBrowser } from "../scrapers/fetch-utils";
-import { isStale } from "./parse-age";
+import { isStale, ageToDate } from "./parse-age";
 import type { Page } from "playwright";
 
 // Scrape job URLs and ages from the current Dribbble listing page.
@@ -53,9 +53,11 @@ async function runSearch(
         shouldStop = true;
         break;
       }
+      const approxDate = ageToDate(r.age);
       jobs.push({
         url: r.url.startsWith("http") ? r.url : `https://dribbble.com${r.url}`,
         source: "dribbble",
+        dates: approxDate ? [approxDate] : [],
       });
     }
 

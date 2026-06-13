@@ -15,7 +15,8 @@ export type Job = {
   url: string
   location: string
   workMode: string // in-person, hybrid, remote
-  postedAt: string // ISO date string
+  firstPublished: string // ISO date string
+  repostedAt: string | null // ISO date string, null if never reposted
   salaryRange: string // e.g. "$120k–$150k"
   status: string // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer, expired
   modifiedAt: string | null // ISO date when status was last changed
@@ -23,7 +24,6 @@ export type Job = {
   jobAlignment: number | null // 1–5, job alignment score from Claude
   titleMismatch: boolean // true when title doesn't match search intent
   titleMismatchReason: string | null // Claude's reason for flagging
-  repost: boolean // true when job is a refreshed posting of an already-classified listing
   source: string | null // which collector found this job (e.g. "adzuna", "dribbble", "external")
   parser: string | null // which parser processed it (e.g. "ashby", "collector-only"), null if unparsed
   originalUrl: string | null // original collector URL (provenance — where the collector found this job)

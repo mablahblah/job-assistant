@@ -8,7 +8,7 @@ export interface CollectedJob {
   companyName?: string;
   location?: string;
   workMode?: string;
-  postedAt?: Date;
+  dates?: Date[];
   salaryRange?: string;
   description?: string;
 }
