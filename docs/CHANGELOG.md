@@ -1,63 +1,82 @@
-# Completed Features
+# Changelog
 
-<!-- Chronological order — newest at bottom -->
+<!-- Newest at top -->
 
-## Pre-Feature Items
+## June 12, 2026 - v0.2.0
 
-- [x] **Project scaffold** — `create-next-app` with TypeScript + Tailwind, Prisma + SQLite, `.env.local` template, basic folder structure, Dockerfile for UNRAID deployment
-- [x] **Connect to GIT** — `git init`, remote connected, `/start-feature` creates feature branches, `/commit` stages + commits + pushes, `/ship-feature` opens and merges PRs via `gh`
-- [x] **Jobs table UI** — scored jobs table with weighted formula (employee/customer satisfaction, work-life balance, political alignment, benefits + posting age decay), applied checkbox with in-memory save, mock data for 6 companies and 12 jobs
-- [x] **Database schema** — Company, Job, ScrapingRun models with Prisma + SQLite (libsql adapter); location + workMode fields; status pipeline (new → applied → screened → interviewed → tested → offer → rejected); server action for toggling applied status; seed script with 6 companies and 12 jobs
-- [x] **First scraper** — Adzuna API (US, "Product Designer"), orchestrator with ScrapingRun tracking, deduplication by URL, placeholder company/job ratings; "Scrape Now" + "Delete All" UI buttons
-- [x] **Role/title search config** — `SearchTerm` DB model; UI with input + "+" button and removable badge pills below page title; `addSearchTerm`/`removeSearchTerm` server actions; orchestrator scrapes all active terms in parallel and deduplicates by URL
-- [x] **Scrape-only data** — removed mock companies/jobs and seed data entirely; app starts empty and relies on scraper for all data; scrape no-ops gracefully when no search terms are configured
-- [x] **Search term → job tracking** — `JobSource` join table links jobs to the search term(s) that found them; orphaned jobs (all source terms removed) are cleaned up on next scrape; multi-term overlap protected; search bar UI redesigned with inline + button, "Search Jobs" / red "Delete All" toggle, divider layout
-- [x] **Companies page** — nav bar (Jobs | Companies); companies table with auto-saving 1–5 score dropdowns, "Missing scores only" filter, per-company delete; all 5 scores nullable on Company model (benefits moved from Job → Company); company entries persist across scrapes; placeholder ratings removed
-- [x] **Design system cleanup** — switched to Phosphor Icons (bold default, duotone for active states); removed dark theme; extracted Tailwind color/style utilities into semantic CSS classes (`.btn-primary`, `.table`, `.badge`, etc.) with CSS custom properties for the color palette; Tailwind retained for layout only (grid/flex/padding/margins); new palette: near-white bg, cream secondary, teal accent, deep purple text
-- [x] **Jobs table UI overhaul** — full column header labels (two-line, vertically centered); status column replaced checkbox with pencil icon + inline native select (auto-closes on selection); work mode displayed as icon inline with location (WifiHigh/Bicycle/BuildingOffice, no badge/label); salary reformatted as `$120-150k`
-- [x] **Exportable Company Prompt** — export button downloads a `.md` prompt listing companies with missing scores + a representative job link each; import button opens a paste-JSON modal that overwrites company scores via server action; matched by company name; validation and success/failure feedback
-- [x] **More scrapers** — added JSearch (RapidAPI), Greenhouse (per-company API), Lever (per-company API), Dribbble (Playwright), and WeLoveProduct (Playwright); "Search Jobs" opens a modal running all 6 scrapers in parallel with live progress, per-scraper success/warning/error states, expandable failure details, and company-by-company progress for Greenhouse/Lever
-- [x] **Scraper on/off config** — `lib/scrapers/scraper-config.ts` replaces `company-slugs.ts`; single file holds enabled flags for all 6 scrapers plus Greenhouse/Lever slugs; disabled scrapers are silently skipped in the modal; also fixed `deleteAllJobs` wiping companies (scores now survive job deletes)
-- [x] **WeLoveProduct scraper fixes** — fixed location (now reads `<a href="/locations/...">` link), work mode (reads `jobBenefits`/`jobLocationType` from detail page JSON-LD instead of guessing from location string), salary (parsed from `baseSalary` JSON-LD and formatted to `$150-188k`), and date (reads `datePosted` from detail page JSON-LD instead of hardcoding today); scraper uses a two-pass approach: collect stubs from listing pages, then visit each matched job's detail page for structured data
-- [x] **Greenhouse scraper fixes** — removed `snap` slug (no Greenhouse board exists); added salary parsing from HTML content field, handling double-encoded entities (`&amp;mdash;` etc.) and structured `<span>`-based markup; output normalized to `$XXX-$XXXk` format matching other scrapers
-- [x] **Scraper utils refactor** — extracted shared utilities into `fetch-utils.ts` (`formatSalary`, `detectWorkModeFromText/Data`, `matchesQuery`, `fetchWithTimeout`, `safeJson`, `httpError`, `withBrowser`, `parseSalaryFromText`, `decodeHtmlEntities`, `parseJobPostingLD`); all 6 scrapers refactored to use shared layer; added Dribbble salary + date extraction via two-pass detail page pattern; 62 vitest unit tests for utility functions + scraper integration tests
-- [x] **Salary scoring** — salary modifier (±0.1× per $25k gap from $150k target) applied alongside age modifier in `calculateScore`; parses all `formatSalary` output formats; hourly annualized ×2080, monthly ×12; unknown salary neutral 1.0×; `TARGET_SALARY` constant in `lib/scoring.ts`
-- [x] **Job search filter** — client-side filter on jobs table (on by default) hiding posts older than 10 days and non-remote jobs outside Austin metro (Austin, Round Rock, Cedar Park, Pflugerville); unknown workMode treated as in-person; FunnelIcon toggle top-right; count in title row shows "X jobs (Y total)" when filtering; two-line header layout (title+count / toolbar) standardized across Jobs and Companies pages
-- [x] **JSearch Austin + remote split** — replaced per-search-term jSearch calls with 2 fixed searches per scrape run: one remote (`work_from_home=true`) and one Austin (`location=Austin, United States`); both sorted by `date_posted`; all user search terms combined into a single OR query (e.g. "Product Designer OR UX Designer"); saves under `__jsearch__` system term; uses `Promise.allSettled` so one failing search doesn't block the other
-- [x] **Status UX/UI improvement** — replaced native `<select>` with custom `StatusDropdown` component; 8 statuses (backlog, won't apply, app. sent, rejected, screening, interview, test, offer) each with unique Phosphor icon and semantic color; pill button with selected state (inset box-shadow); dropdown menu with title header, hover/active states; established two-tier CSS token system (theme colors → semantic colors) and began Nunito Sans migration; removed table row striping; white table background
-- [x] **UX/UI Improvement Pass 1** — Fully responsive table with phone/tablet/desktop/xl breakpoints: status pill icon-only below xl, location icon-only below xl (city in tooltip), 5 score columns collapse to avg on phone/tablet (individual scores in tooltip), posted/salary columns hidden on phone; merged company + role into single stacked cell; global Nunito Sans with responsive root font-size (14px/16px/18px) and em-based type scale throughout
-- [x] **Scraper performance** — parallelized Greenhouse (9 slugs) and Lever (10 slugs) API calls with `Promise.allSettled` so all slugs fire concurrently per scraper; added ESLint (`eslint`, `@typescript-eslint`) to the project with audit script
-- [x] **Scraper modal terminal UI** — replaced scraper modal with a terminal-style UI (dark bg, Geist Mono, typewriter animation); one row per scraper × search term cascading sequentially; rows phase through searching (min 5s) → processing (4 sub-stages, min 4s each) → result independently; real scrapers fire immediately in background; added `--orange-100` theme color + `--color-warning-text` semantic token for partial-success state
-- [x] **Scraper modal animated icons** — replaced static Phosphor spinner with Lottie animations via `react-useanimations`; each terminal phase has a distinct animation (loading circular → refresh → maximizeMinimize → filter → edit); custom JSONs from useanimations.com stored in `lib/animations/`; done states use Phosphor fill icons (CheckCircle / Warning / WarningOctagon)
-- [x] **Modified date tracking** — added nullable `modifiedAt` field to Job model; `setJobStatus` server action sets it to `new Date()` on every status change and logs `[status-change]` to the server terminal for debugging
-- [x] **"Too Far" status** — `lib/location.ts` classifies jobs at scrape time; remote jobs eligible only if location is empty/bare "remote" or matches approved keyword list (US, Americas, Texas, CST, Austin area, global, etc.); "too far" added as a manually-selectable status in StatusDropdown (Binoculars icon); flag icon (FlagPennant duotone) shown next to status pill for ambiguous locations, clears on manual status change; removed client-side filter toggle
-- [x] **Expired status** — jobs 8+ days old are auto-set to "expired" on scrape (before too-far/backlog cascade: expired → too far → backlog); backlog jobs also auto-expired on page load via `expireOldBacklogJobs` server action; manually selectable in StatusDropdown (CalendarX icon, tertiary text color)
-- [x] **Job sections (tab nav)** — jobs table split into 3 tabs: Backlog (score desc), In Progress (stage order: offer→test→interview→screening→app.sent), Disqualified (modifiedAt desc); tab counts from full list; active tab reflected in URL via `window.history.replaceState`; status changes stay in current tab until page refresh; search controls sit between page title and tab nav
-- [x] **Deletable jobs** — per-row delete button with confirm dialog; deleted jobs are fully removed from DB and their URL is written to `BlockedJob` table so the scraper skips them on future runs; bulk delete removed
-- [x] **Company list filters** — three filter checkboxes (Has jobs, Active jobs, Missing scores) that AND together to narrow the companies table; export button now passes the filtered `displayed` list to `generateCompanyPrompt` so only matching companies are included in the export prompt
-- [x] **Company score import improvements** — export button copies prompt to clipboard (not file download); prompt pre-fills JSON stub with exact DB company names so Claude returns them unchanged, preventing name-match failures on import; added `note` field to Company (schema + migration) to persist Claude's scoring rationale; note imported alongside scores and shown as tooltip on company name in both Jobs and Companies tables
-- [x] **Full titles in company page** — score column headers changed from abbreviations (ES, CS, W/L, PA, Ben) to full titles (Employee Satisfaction, Customer Satisfaction, Work/Life Balance, Political Alignment, Benefits), matching the UX style of the jobs page
-- [x] **Remotive scraper** — added Remotive (free public API, no key required) as a system-term scraper; joins all user search terms into a single query, filters by `design` category; all jobs treated as remote workMode; wired into scraper-actions.ts via `getOrCreateSystemTerm` pattern and shown in ScraperModal
-- [x] **Better deduplication** — added company+title fallback dedup (SQLite LIKE, case-insensitive) in `scraper-save.ts` alongside URL-exact match; `REPLACEABLE_STATUSES` set controls which statuses (backlog, too far, expired, won't apply, rejected) are safe to delete and replace with a fresh posting; in-progress statuses are never touched; Remotive disabled (was producing duplicates); vitest unit tests cover all dedup cases
-- [x] **jSearch volume increase** — bumped `num_pages` from 1 to 3 in `lib/scrapers/jsearch.ts`; fetches 30 results per search term per scrape run (up from 10); fits within the 200 req/month free tier at 1 scrape/day
-- [x] **UIUXJobsBoard scraper** — Playwright two-pass scraper for uiuxjobsboard.com; scrolls listing until 7d+ jobs appear, filters stubs by search terms, visits each matched detail page for accurate company name (JSON-LD), salary, date, and work mode; wired as a system-term scraper
+### New Features
 
-## Superseded by CLI Migration
+#### Dual Date Model
 
-_Web UI replaced entirely by Claude Code CLI commands. These items are no longer applicable._
+Some job boards reset a posting's date every time the employer makes an edit, making months-old jobs look brand new. Jobs now track two dates — when the job was originally posted and when it was last refreshed — so the age shown in the dashboard reflects reality. Scoring and auto-expiry use the original date, and reposted jobs are visually tagged.
 
-- [x] **Security Headers Middleware** — CSP, HSTS, X-Frame-Options for Next.js (no longer serving web UI)
-- [x] **Dockerfile: Add Non-Root User** — Docker deployment for web UI
-- [x] **Add Input Validation to Server Actions** — Server actions replaced by CLI commands
-- [x] **Audit Cleanup — Minor Issues** — Referenced web UI components (JobsTable, layout, CSS, fonts)
-- [x] **UX Polish Pass 2** — Entire feature (color palette, header layout, spacing tokens, terminal modal, location column, button states, timestamp, accessibility audit, save friction, Remotive removal, enrichment rerun modal)
-- [x] **Aggregator Site Passthrough** — Implemented as aggregator auto-detection in `/job-search` pipeline + `cli.ts flag-aggregator` / `add-aggregator` commands
-- [x] **Enrichment confirmation modal** — Web UI modal concept
-- [x] **Re-run enrichment button** — Web UI button
-- [x] **Terminal font on job search modal** — Web UI styling
-- [x] **Mark replaced job as "Reposted"** — Implemented as `repost` status via `cli.ts status <id> repost`
+### Improvements
 
-## Completed Features
+- **Dashboard** Reposted jobs show an "RP" badge with a tooltip displaying when the job was reposted
+- **Job collection** Dribbble, UIUXJobsBoard, and WeLoveProduct now capture approximate posting dates from age labels like "3 days ago" instead of discarding them
+- **Job collection** If a job is later found on a better source with an older original date, the displayed age updates to reflect the real posting date
+
+### Fixes
+
+- **JSearch** Jobs without a date from the API now show the date they were collected instead of pretending they were posted today
+
+## v0.1.0
+
+### New Features
+
+#### Job Search Dashboard
+
+A local dashboard for tracking job postings across multiple sources. Jobs are displayed in a scored, ranked table with columns for company, role, location, work mode, salary, posting date, and status. The dashboard is responsive across phone, tablet, and desktop.
+
+#### Multi-Source Job Collection
+
+Jobs are automatically collected from seven sources: Adzuna, JSearch, Greenhouse, Lever, Dribbble, WeLoveProduct, and UIUXJobsBoard. API-based sources pull structured data directly. Browser-based sources visit job listing pages, scroll through results, and visit individual job detail pages for accurate information. All sources run in parallel during a collection.
+
+#### Job Scoring & Ranking
+
+Each job receives a composite score based on four company-level dimensions (employee satisfaction, customer satisfaction, work/life balance, political alignment), a per-job alignment rating, salary proximity to a target, and posting age. Fresher jobs get a small boost, and scores decay gradually after three days. Jobs are ranked by score so the best matches appear first.
+
+#### Company Research & Scoring
+
+Companies are scored on four dimensions using a 1–5 scale. An export button generates a prompt listing unscored companies with a representative job link. After researching, scores and notes are imported back. Notes appear as tooltips on company names throughout the dashboard.
+
+#### Automatic Job Classification
+
+Jobs are automatically sorted into statuses on collection. Jobs with locations too far away are marked "too far." Jobs older than eight days are marked "expired." The remaining jobs land in the backlog for review. Location classification uses geocoding to determine distance, with configurable rules for which areas to allow or block.
+
+#### Job Management
+
+Jobs move through a status pipeline: backlog, app. sent, screening, interview, test, and offer. Each status has a distinct icon and color. Jobs can be deleted individually, and deleted job URLs are remembered so the same posting isn't collected again.
+
+#### Dashboard Organization
+
+The dashboard is split into three tabs — Backlog (ranked by score), Active (sorted by pipeline stage), and Disqualified (expired, too far, rejected, won't apply). Company scores can be filtered by "has jobs," "active jobs," and "missing scores."
+
+#### Work Search Activity Log
+
+A log of job search activities for unemployment reporting. Each entry records the date, company, job title, and activity type. Company contact details (address, phone, website) are automatically looked up and filled in.
+
+#### Reliable Collection Pipeline
+
+Job collection follows a structured pipeline: collect from sources, remove duplicates, resolve shortened or redirected URLs to find the original posting, parse detailed information from the original source, remove duplicates again using the parsed data, classify by location, and save. Each step is independent and testable.
+
+### Improvements
+
+- **Dashboard** Responsive layout adapts columns and content at four breakpoints — score columns collapse to an average on smaller screens, location shows as an icon with tooltip, status shows as icon-only
+- **Dashboard** Avenir Next system font with responsive sizing
+- **Job collection** Greenhouse and Lever each support multiple company boards running in parallel
+- **Job collection** JSearch runs two searches per collection — one for remote jobs and one for Austin-area jobs — to maximize coverage within API limits
+- **Scoring** Salary influences ranking — jobs paying above target get a boost, below target get a penalty, and unknown salaries are neutral
+- **Deduplication** When the same job appears from multiple sources, the version from the most reliable source wins. Jobs already being applied to are never overwritten.
+- **Security** API credentials removed from git history; CLI inputs validated at all boundaries
+
+### Superseded by CLI Migration
+
+_The following items were built for an earlier web UI that was replaced by CLI commands. They are no longer part of the application._
+
+- Security headers middleware, Dockerfile non-root user, server action input validation, UX polish pass, aggregator site passthrough, enrichment modal, terminal font styling, repost status marking
+
+## Completed Feature Specs
 
 - [Work Search Activity Log](features/work-search-log/work-search-log-spec.md)
 - [First Pass Improvements](features/first-pass-improvements/first-pass-improvements-spec.md)
@@ -65,3 +84,4 @@ _Web UI replaced entirely by Claude Code CLI commands. These items are no longer
 - [Pipeline Accuracy](features/pipeline-accuracy/pipeline-accuracy-spec.md)
 - [Reliable Scraping Pipeline](features/reliable-scraping-pipeline/reliable-scraping-pipeline-spec.md)
 - [Security: Critical Fixes](features/security-critical-fixes/security-critical-fixes-spec.md)
+- [Dual Date Model](features/dual-date-model/dual-date-model-spec.md)
