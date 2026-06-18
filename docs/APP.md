@@ -42,7 +42,7 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 - [Reliable Scraping Pipeline](docs/features/reliable-scraping-pipeline/reliable-scraping-pipeline-spec.md) — Feature (shipped): zero misclassified jobs from known boards
 - [Pipeline Accuracy](docs/features/pipeline-accuracy/pipeline-accuracy-spec.md) — Feature (shipped): fix location filtering and deduplication
 - [Security: Critical Fixes](docs/features/security-critical-fixes/security-critical-fixes-spec.md) — Feature (shipped): rotate leaked credentials and lock down external-facing inputs
-- [Dual Date Model](docs/features/dual-date-model/dual-date-model-spec.md) — Feature (current): honest job dates with firstPublished + repostedAt
+- [Dual Date Model](docs/features/dual-date-model/dual-date-model-spec.md) — Feature (shipped): honest job dates with firstPublished + repostedAt
 - [Smarter Aggregator Handling](docs/features/smarter-aggregator-handling/smarter-aggregator-handling-spec.md) — Feature (planned): reliable aggregator resolution
 
 - [Technical Documentation](docs/tech/table-of-contents.md) — Implementation-level docs: tech stack, views, styling, app functionality, testing, skills

@@ -60,7 +60,6 @@ scripts/
 ├── pipeline.ts       # Dry-run pipeline for parser development
 ├── resolve-urls.ts   # Bulk URL resolution diagnostic
 ├── validate-adzuna.ts # Adzuna collector diagnostic
-├── cleanup-db.ts     # Remove stale DB entries
 └── seed-repost-dates.ts  # Seed repostedAt for RP pill visual testing
 prisma/               # Schema, migrations, seed data
 public/               # Dashboard static assets (CSS, JS)

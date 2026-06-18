@@ -2,6 +2,12 @@
 
 <!-- Newest at top -->
 
+## June 18, 2026 - v0.2.1
+
+### Internal
+
+- **Scripts** Removed one-time `cleanup-db.ts` script — its "orphaned company" deletion violated the company persistence rule and the script had already served its purpose
+
 ## June 12, 2026 - v0.2.0
 
 ### New Features
