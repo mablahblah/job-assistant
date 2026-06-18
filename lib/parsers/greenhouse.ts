@@ -83,8 +83,9 @@ export function extractGreenhouseSlugAndId(
   const hostname = parsed.hostname.toLowerCase();
   const pathParts = parsed.pathname.split("/").filter(Boolean);
 
-  // Standard: boards.greenhouse.io/{slug}/jobs/{id}
-  if (hostname === "boards.greenhouse.io") {
+  // Standard board URLs: boards.greenhouse.io, job-boards.greenhouse.io, job-boards.eu.greenhouse.io
+  // All use /{slug}/jobs/{id} path structure where slug = company name
+  if (/boards.*greenhouse/.test(hostname)) {
     const jobsIdx = pathParts.indexOf("jobs");
     if (jobsIdx > 0 && jobsIdx + 1 < pathParts.length) {
       return { slug: pathParts[jobsIdx - 1], jobId: pathParts[jobsIdx + 1] };
