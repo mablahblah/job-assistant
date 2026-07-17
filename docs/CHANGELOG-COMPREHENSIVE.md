@@ -2,6 +2,25 @@
 
 <!-- Newest at top -->
 
+## July 17, 2026 - v0.3.0
+
+### New Features
+
+#### Export Parsable PDF Resume
+
+Applying to a job means tailoring your resume to the posting — slow, repetitive work. You can now run `/generate-resume [company] [role]` against jobs you've already collected. It reads the posting's description, picks the most relevant material from your resume inventory, and walks you through a section-by-section rationale — title, summary, bullets, skills, and tools — before anything is generated. Once you approve, it exports a correctly-named, ATS-parsable PDF ready to submit. If the posting's link is dead, it tells you and offers to retry, mark the job expired, or work from pasted page content instead.
+
+### Fixes
+
+- **Work Search Log** Work search log entries are no longer lost when the job database is rebuilt, and entries previously lost to the dual-date migration have been restored
+
+### Internal
+
+- **Schema** `WorkSearchEntry` foreign key changed from `CASCADE` to `RESTRICT` on delete, so rebuilding the Job table no longer cascades away TWC records
+- **Scripts** Added a backfill script to recreate the lost entries; `TRIGGER_STATUS_MAP` is now exported from its canonical module and imported by the backfill instead of duplicated
+- **Serve** Serve skill reads start/stop commands and port from a gitignored `.serve.json`; dashboard port configurable via the `PORT` env var (default 3000); removed the redundant in-repo serve skill
+- **Docs** Added company research notes; restructured backlog and renamed r&d files; logged audit findings
+
 ## June 18, 2026 - v0.2.1
 
 ### Internal

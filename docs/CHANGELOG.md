@@ -2,6 +2,18 @@
 
 <!-- Newest at top -->
 
+## July 17, 2026 - v0.3.0
+
+### New Features
+
+#### Export Parsable PDF Resume
+
+Applying to a job means tailoring your resume to the posting — slow, repetitive work. You can now run `/generate-resume [company] [role]` against jobs you've already collected. It reads the posting's description, picks the most relevant material from your resume inventory, and walks you through a section-by-section rationale — title, summary, bullets, skills, and tools — before anything is generated. Once you approve, it exports a correctly-named, ATS-parsable PDF ready to submit. If the posting's link is dead, it tells you and offers to retry, mark the job expired, or work from pasted page content instead.
+
+### Fixes
+
+- **Work Search Log** Work search log entries are no longer lost when the job database is rebuilt, and entries previously lost to a schema change have been restored
+
 ## June 12, 2026 - v0.2.0
 
 ### New Features
