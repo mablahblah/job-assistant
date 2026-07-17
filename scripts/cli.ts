@@ -4,6 +4,8 @@
 // All output is JSON to stdout. Progress/errors to stderr.
 import { prisma } from "@/lib/prisma";
 import { enrichCompany } from "@/lib/company-enrichment";
+import { findJobs } from "@/lib/find-job";
+import { fetchPage } from "@/lib/fetch-page";
 import {
   readStdin,
   batchAlignment,
@@ -384,6 +386,32 @@ async function classifyHeldBack() {
   out(save);
 }
 
+async function findJob() {
+  // looks up jobs by fuzzy company name and optional role
+  const company = args[0];
+  if (!company) {
+    fail('Usage: find-job <company> [role]');
+  }
+  const role = args[1];
+
+  const results = await findJobs(company, role);
+  if (results.length === 0) {
+    fail(`No jobs found for company "${company}"${role ? ` with role "${role}"` : ""}`);
+  }
+  out(results);
+}
+
+async function fetchPageCmd() {
+  // fetches the fully-rendered HTML of a URL via headless Chromium
+  const url = args[0];
+  if (!url) {
+    fail('Usage: fetch-page <url>');
+  }
+  const html = await fetchPage(url);
+  // Output raw HTML to stdout (not JSON-wrapped — consumers read it directly)
+  console.log(html);
+}
+
 async function manageGeoClass() {
   // Usage: geocode-class allow <className> OR geocode-class block <className>
   if (args.length < 2) {
@@ -421,6 +449,8 @@ const commands: Record<string, () => Promise<void>> = {
   "enrich-log": enrichLogCompanies,
   "geocode-class": manageGeoClass,
   "classify-held-back": classifyHeldBack,
+  "find-job": findJob,
+  "fetch-page": fetchPageCmd,
 };
 
 // Only run the CLI dispatch when executed directly — not when imported in tests

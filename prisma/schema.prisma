@@ -81,7 +81,7 @@ model ScrapingRun {
 model WorkSearchEntry {
   id           String   @id @default(cuid())
   jobId        String
-  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Restrict)
   date         DateTime // when the status change happened
   activityType String   // "Applied for job", "Had phone screen", "Had interview"
   result       String   @default("Application filed") // TWC result checkbox value

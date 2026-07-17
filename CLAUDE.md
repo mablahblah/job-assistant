@@ -28,7 +28,9 @@ npx tsx scripts/cli.ts new-jobs       # Lists jobs collected in the most recent 
 npx tsx scripts/cli.ts expire         # Marks backlog jobs older than 8 days as expired
 npx tsx scripts/cli.ts geocode-class  # Manage geocoding class allow/block rules
 npx tsx scripts/cli.ts classify-held-back <file>  # Re-classify and save held-back jobs after updating geo class rules
-npx tsx scripts/serve.ts              # Starts local dashboard on port 3000
+npx tsx scripts/cli.ts find-job <company> [role]  # Look up jobs by fuzzy company name and optional role
+npx tsx scripts/cli.ts fetch-page <url>           # Fetch fully-rendered HTML from a URL via headless Chromium
+npx tsx scripts/serve.ts              # Starts local dashboard (default port 3000, override with PORT)
 npm run lint                          # Run ESLint across the project
 npm run test                          # Run all Vitest tests
 ```
@@ -53,6 +55,8 @@ lib/
 ├── location.ts       # Location parsing and normalization
 ├── company-enrichment.ts  # Enrich companies with address/phone/website
 ├── work-search-log.ts     # TWC work search activity log entries
+├── find-job.ts       # Fuzzy job lookup by company/role
+├── fetch-page.ts     # Rendered HTML retrieval via headless Chromium
 └── prisma.ts         # Prisma client singleton
 scripts/
 ├── cli.ts            # CLI subcommands for DB operations

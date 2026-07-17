@@ -123,8 +123,8 @@ app.get("/", async (c) => {
   return c.html(html);
 });
 
-// Start the server
-const port = 3000;
+// Start the server — honor PORT from the environment, default to 3000
+const port = Number(process.env.PORT) || 3000;
 serve({ fetch: app.fetch, port }, () => {
   console.log(`\n  Dashboard → http://localhost:${port}\n`);
 });

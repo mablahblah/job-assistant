@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { enrichCompany } from "@/lib/company-enrichment";
 
-// Maps the statuses that trigger a TWC work search log entry to their human-readable activity labels
-const TRIGGER_STATUS_MAP: Record<string, string> = {
+// Maps the statuses that trigger a TWC work search log entry to their human-readable activity labels.
+// Canonical source — the backfill script imports this rather than keeping its own copy.
+export const TRIGGER_STATUS_MAP: Record<string, string> = {
   "app. sent": "Applied for job",
   "screening": "Had phone screen",
   "interview": "Had interview",

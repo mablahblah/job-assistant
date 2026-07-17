@@ -48,6 +48,10 @@ generated/
 
 # Spike output data
 data/
+
+# Generated resumes
+resumes/
+
 # Added by code-review-graph
 .code-review-graph/
 
@@ -72,3 +76,5 @@ data/
 .claude/rules/meeting-notes.md
 .claude/rules/roadmap-backlog.md
 # --- end workflow-profile ---
+
+.serve.json
