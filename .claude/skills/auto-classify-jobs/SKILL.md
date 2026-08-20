@@ -8,7 +8,3 @@ description: Automatically classify new jobs that were collected in the previous
 ## Instructions
 
 Repost detection is handled automatically by the pipeline's Dedupe 3 stage (content-based deduplication with parser priority). This skill no longer needs a manual repost step.
-
-### Step 1: Self Document
-
-1. `/self-document` this step.

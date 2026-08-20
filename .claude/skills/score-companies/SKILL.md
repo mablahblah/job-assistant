@@ -72,5 +72,3 @@ npx tsx scripts/cli.ts alignment <<'EOF'
 [{"jobId":"<id>","score":<1-5>}, ...]
 EOF
 ```
-
-7b. `/self-document` this step.

@@ -1,12 +1,12 @@
 ---
 name: job-search
-description: Runs the full job search pipeline while also documenting each step to fully automate a job search and prioritization.
+description: Runs the full job search pipeline to fully automate a job search and prioritization.
 disable-model-invocation: true
 ---
 
 # Job Search
 
-Follow the steps explicitly, including each self-documentation, to search, classify, and score job opportunities a user can apply for.
+Follow the steps explicitly to search, classify, and score job opportunities a user can apply for.
 
 ## Instructions
 
@@ -35,10 +35,6 @@ main().catch(e => { console.error(e); process.exit(1); });
 
 3. IF `save.saved` is 0 AND (`heldBack.count` is 0 or not present): Report "No new jobs found" and STOP.
 
-### Step 2: Self Document
-
-1. `/self-document` this step.
-
-### Step 3: Post-Scrape Pipeline
+### Step 2: Post-Scrape Pipeline
 
 1. Run `/post-scrape-pipeline` to classify, score, and present the new jobs.

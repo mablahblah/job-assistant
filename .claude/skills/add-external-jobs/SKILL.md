@@ -1,6 +1,6 @@
 ---
 name: add-external-jobs
-description: Accepts a list of links to job postings, and runs the post-scrape job search pipeline as if they were returned as job search results while also documenting each step to fully automate a job search and prioritization.
+description: Accepts a list of links to job postings, and runs the post-scrape job search pipeline as if they were returned as job search results to fully automate a job search and prioritization.
 disable-model-invocation: true
 ---
 
@@ -30,8 +30,6 @@ main().catch(e => { console.error(e); process.exit(1); });
 ```
 
 Replace `<URL_1>`, `<URL_2>`, etc. with the actual pasted URLs.
-
-2. `/self-document` Step 1 before proceeding to Step 2.
 
 ### Step 2: Post-Scrape Pipeline
 
