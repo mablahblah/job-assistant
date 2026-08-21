@@ -8,6 +8,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { prisma } from "../lib/prisma";
 import { generateWeekSlots } from "../lib/work-search-weeks";
 import { calculateScore } from "../lib/scoring";
+import { ACTIVE_STATUSES, DISQUALIFIED_STATUSES } from "../lib/shared-utils/job-status";
 import { renderPage } from "../lib/web/render";
 import type { WebJob, WebWorkLogEntry } from "../lib/web/types";
 import type { Company, Job } from "../lib/types";
@@ -34,7 +35,7 @@ app.get("/", async (c) => {
       prisma.job.findMany({
         where: {
           status: {
-            in: ["app. sent", "screening", "interview", "test", "offer"],
+            in: ACTIVE_STATUSES,
           },
         },
         include: { company: true },
@@ -45,7 +46,7 @@ app.get("/", async (c) => {
       prisma.job.findMany({
         where: {
           status: {
-            in: ["expired", "too far", "rejected", "won't apply"],
+            in: DISQUALIFIED_STATUSES,
           },
         },
         include: { company: true },

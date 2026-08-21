@@ -15,6 +15,7 @@ import {
   batchStatus,
 } from "@/lib/batch-update";
 import { calculateScore } from "@/lib/scoring";
+import { ACTIVE_STATUSES } from "@/lib/shared-utils/job-status";
 import type { Company, Job } from "@/lib/types";
 import type { SaveableJob } from "@/lib/pipeline-save";
 
@@ -107,15 +108,8 @@ async function queryBacklog() {
 
 async function queryActive() {
   // jobs beyond backlog status (in the application pipeline)
-  const activeStatuses = [
-    "app. sent",
-    "screening",
-    "interview",
-    "test",
-    "offer",
-  ];
   const jobs = await prisma.job.findMany({
-    where: { status: { in: activeStatuses } },
+    where: { status: { in: ACTIVE_STATUSES } },
     include: { company: true },
     orderBy: { modifiedAt: "desc" },
   });

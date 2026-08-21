@@ -1,4 +1,5 @@
 import { hasFieldValue } from "@/lib/shared-utils/has-field-value";
+import { isReplaceableStatus } from "@/lib/shared-utils/job-status";
 
 // Parser fidelity ranking — lower number = higher quality results.
 // When adding a new parser, slot it in by result quality.
@@ -68,9 +69,6 @@ export function dedupeByUrl<T>(
 }
 
 // --- Content-based dedupe (Dedupe 3) ---
-
-// Statuses safe to replace when a content match is found
-const REPLACEABLE_STATUSES = new Set(["backlog", "too far", "expired", "won't apply", "rejected"]);
 
 // A batch item going through content dedupe — matches SaveableJob shape
 export interface ContentDedupeItem {
@@ -190,7 +188,7 @@ export function dedupeByContent(
     }
 
     // Active job — never touch it, drop the batch item
-    if (!REPLACEABLE_STATUSES.has(dbMatch.status)) {
+    if (!isReplaceableStatus(dbMatch.status)) {
       droppedByDb++;
       continue;
     }

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { type ScrapedJob } from "@/lib/scrapers/types";
 import { classifyLocation } from "@/lib/location";
 import { isBlacklistedUrl } from "@/lib/blacklist";
+import { isReplaceableStatus } from "@/lib/shared-utils/job-status";
 
 export interface ScraperSaveResult {
   jobsFound: number;
@@ -16,9 +17,6 @@ export interface ScraperSaveResult {
 export async function getOrCreateSystemTerm(_name: string): Promise<string> {
   return "deprecated";
 }
-
-// Statuses that are safe to update-in-place when a repost is found (not actively in-progress)
-const REPLACEABLE_STATUSES = new Set(["backlog", "too far", "expired", "won't apply", "rejected"]);
 
 export async function saveScrapedJobs(
   jobs: ScrapedJob[],
@@ -68,7 +66,7 @@ export async function saveScrapedJobs(
       const existingDupe = dupeRows[0] ?? null;
 
       if (existingDupe) {
-        if (!REPLACEABLE_STATUSES.has(existingDupe.status)) {
+        if (!isReplaceableStatus(existingDupe.status)) {
           // In-progress job — don't touch it
           console.log(`[scraper-save] Skipped dupe "${jobData.title}" at ${jobData.companyName} — existing job is ${existingDupe.status}`);
           continue;
