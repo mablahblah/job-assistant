@@ -107,7 +107,7 @@ async function queryBacklog() {
 }
 
 async function queryActive() {
-  // jobs beyond backlog status (in the application pipeline)
+  // the application pipeline
   const jobs = await prisma.job.findMany({
     where: { status: { in: ACTIVE_STATUSES } },
     include: { company: true },
