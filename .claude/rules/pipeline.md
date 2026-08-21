@@ -22,7 +22,7 @@ New collectors register in `lib/collectors/collector-config.ts`. Keyword-based c
 
 Parsers implement `ParserFn` from `lib/parsers/types.ts`: `(url, browser, collectorData?) => Promise<ParserResult>`.
 
-New parsers register via `registerParser(domain, fn)` in `lib/pipeline.ts`.
+New parsers register via `registerParser(domain, fn)` inside `registerAllParsers()` in `lib/parsers/register-all.ts`. That is the only registration list — `lib/pipeline.ts` and `scripts/pipeline.ts` both call it.
 
 Three parser patterns:
 - **API** (Greenhouse, Lever, Ashby) — structured data from ATS APIs
@@ -47,7 +47,7 @@ Three stages in `lib/dedupe.ts`, ordered cheapest-first: collect → **Dedupe 1*
 
 `PARSER_PRIORITY` in `dedupe.ts` is a manually-maintained 1-N ranking by result quality (lower = better). New parsers need a priority rank.
 
-`REPLACEABLE_STATUSES` in `dedupe.ts` controls which DB statuses Dedupe 3 may overwrite. Active statuses (applied, interviewing, etc.) are never touched. Update this set when adding a new status.
+`isReplaceableStatus()` from `lib/shared-utils/job-status.ts` controls which DB statuses Dedupe 3 may overwrite. Active statuses are never touched. That module holds all ten statuses and is the only place a new one is added.
 
 ## Geo-Classification
 
