@@ -18,7 +18,7 @@ On save in `scraper-save.ts`, new jobs MUST be auto-classified in order: expired
 
 ## Dedup Replaceable Statuses
 
-`isReplaceableStatus()` from `lib/shared-utils/job-status.ts` controls which job statuses can be overwritten when a duplicate posting is found (same company + title, different URL). A new status MUST be added to that module and placed in a group — `ACTIVE_STATUSES` for in-progress jobs that MUST NOT be clobbered, or `DISQUALIFIED_STATUSES` for terminal ones that are safe to replace.
+`isReplaceableStatus()` from `lib/shared-utils/job-status.ts` controls which job statuses can be overwritten when a duplicate posting is found (same company + title, different URL). A new status MUST be added to that module and placed in a group — `ACTIVE_STATUSES` for in-progress jobs that MUST NOT be clobbered, or `DISQUALIFIED_STATUSES` for terminal ones that are safe to replace. `BACKLOG_STATUS` is the queue and stands alone.
 
 ## System SearchTerms
 

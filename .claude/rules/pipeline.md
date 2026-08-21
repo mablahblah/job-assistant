@@ -47,7 +47,7 @@ Three stages in `lib/dedupe.ts`, ordered cheapest-first: collect → **Dedupe 1*
 
 `PARSER_PRIORITY` in `dedupe.ts` is a manually-maintained 1-N ranking by result quality (lower = better). New parsers need a priority rank.
 
-`isReplaceableStatus()` from `lib/shared-utils/job-status.ts` controls which DB statuses Dedupe 3 may overwrite. Active statuses are never touched. That module holds all ten statuses and is the only place a new one is added.
+`isReplaceableStatus()` from `lib/shared-utils/job-status.ts` controls which DB statuses Dedupe 3 may overwrite. Active statuses are never touched. A new status MUST be added to that module and placed in a group — `ACTIVE_STATUSES` for in-progress jobs that MUST NOT be clobbered, `DISQUALIFIED_STATUSES` for terminal ones that are safe to replace, and `BACKLOG_STATUS` is the queue. The `Job.status` comment in `prisma/schema.prisma` restates the list and needs the same edit.
 
 ## Geo-Classification
 
