@@ -1,3 +1,5 @@
+import { hasFieldValue } from "@/lib/shared-utils/has-field-value";
+
 // Parser fidelity ranking — lower number = higher quality results.
 // When adding a new parser, slot it in by result quality.
 export const PARSER_PRIORITY: Record<string, number> = {
@@ -115,15 +117,10 @@ export interface ContentDedupeResult {
 // Mergeable fields — winner takes loser's value when winner's is empty
 const MERGEABLE_FIELDS = ["location", "workMode", "salaryRange"] as const;
 
-// Returns true if a field value counts as "has data"
-function hasValue(val: string | undefined | null): boolean {
-  return val != null && val !== "" && val !== "?";
-}
-
 // Merges empty fields from loser into winner. Mutates winner in place.
 function mergeFields(winner: ContentDedupeItem, loser: Partial<Record<string, string>>): void {
   for (const field of MERGEABLE_FIELDS) {
-    if (!hasValue(winner[field]) && hasValue(loser[field])) {
+    if (!hasFieldValue(winner[field]) && hasFieldValue(loser[field])) {
       (winner as Record<string, unknown>)[field] = loser[field];
     }
   }
@@ -213,7 +210,7 @@ export function dedupeByContent(
         originalUrl: item.originalUrl,
       };
       for (const field of MERGEABLE_FIELDS) {
-        if (hasValue(item[field])) {
+        if (hasFieldValue(item[field])) {
           (updateData as Record<string, unknown>)[field] = item[field];
         }
       }
