@@ -17,17 +17,13 @@ vi.mock("./parsers/registry", () => ({
   isGreenlitDomain: vi.fn(() => null),
   routeByDomain: vi.fn(() => ({ matched: {}, unmatched: [] })),
   getParser: vi.fn(() => null),
-  registerParser: vi.fn(),
 }));
-vi.mock("./parsers/ashby", () => ({
-  parseAshbyJob: vi.fn(),
+vi.mock("./parsers/register-all", () => ({
+  registerAllParsers: vi.fn(),
 }));
-vi.mock("./parsers/greenhouse", () => ({
-  parseGreenhouseJob: vi.fn(),
-}));
-vi.mock("./parsers/lever", () => ({
-  parseLeverJob: vi.fn(),
-}));
+// lib/pipeline.ts no longer imports this parser directly, but the source-gate
+// test below dynamically imports it to control its return value, so it stays
+// mocked to keep the real ATS parser (and its transitive imports) out of the test.
 vi.mock("./parsers/adzuna", () => ({
   parseAdzunaJob: vi.fn(),
 }));

@@ -2,6 +2,8 @@
 // Database operations for Claude Code commands.
 // Usage: npx tsx scripts/cli.ts <subcommand> [args...]
 // All output is JSON to stdout. Progress/errors to stderr.
+// Loads .env first — must come before any import that reads process.env at module load.
+import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { enrichCompany } from "@/lib/company-enrichment";
 import { findJobs } from "@/lib/find-job";
@@ -13,6 +15,7 @@ import {
   batchStatus,
 } from "@/lib/batch-update";
 import { calculateScore } from "@/lib/scoring";
+import { BACKLOG_STATUS, ACTIVE_STATUSES } from "@/lib/shared-utils/job-status";
 import type { Company, Job } from "@/lib/types";
 import type { SaveableJob } from "@/lib/pipeline-save";
 
@@ -62,7 +65,7 @@ async function expireJobs() {
   // marks backlog jobs older than 8 days as expired so they don't clutter the queue
   const cutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   const result = await prisma.job.updateMany({
-    where: { status: "backlog", firstPublished: { lt: cutoff } },
+    where: { status: BACKLOG_STATUS, firstPublished: { lt: cutoff } },
     data: { status: "expired", modifiedAt: new Date() },
   });
   out({ expired: result.count });
@@ -74,7 +77,7 @@ async function queryBacklog() {
 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const jobs = await prisma.job.findMany({
-    where: { status: "backlog", firstPublished: { gte: since } },
+    where: { status: BACKLOG_STATUS, firstPublished: { gte: since } },
     include: { company: true },
   });
 
@@ -104,16 +107,9 @@ async function queryBacklog() {
 }
 
 async function queryActive() {
-  // jobs beyond backlog status (in the application pipeline)
-  const activeStatuses = [
-    "app. sent",
-    "screening",
-    "interview",
-    "test",
-    "offer",
-  ];
+  // the application pipeline
   const jobs = await prisma.job.findMany({
-    where: { status: { in: activeStatuses } },
+    where: { status: { in: ACTIVE_STATUSES } },
     include: { company: true },
     orderBy: { modifiedAt: "desc" },
   });
@@ -303,10 +299,13 @@ async function enrichLogCompanies() {
     });
   }
 
-  // fire all enrichments in parallel, don't wait for them
-  for (const { companyId, location } of toEnrich) {
-    enrichCompany(companyId, location).catch(console.error);
-  }
+  // Run all enrichments in parallel and wait — unlike a status change, this command
+  // exists only to enrich, so exiting early would kill the in-flight requests.
+  await Promise.all(
+    toEnrich.map(({ companyId, location }) =>
+      enrichCompany(companyId, location).catch(console.error),
+    ),
+  );
 
   out({ enriched: toEnrich.length });
 }
