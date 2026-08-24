@@ -8,7 +8,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { prisma } from "../lib/prisma";
 import { generateWeekSlots } from "../lib/work-search-weeks";
 import { calculateScore } from "../lib/scoring";
-import { ACTIVE_STATUSES, DISQUALIFIED_STATUSES } from "../lib/shared-utils/job-status";
+import { BACKLOG_STATUS, ACTIVE_STATUSES, DISQUALIFIED_STATUSES } from "../lib/shared-utils/job-status";
 import { renderPage } from "../lib/web/render";
 import type { WebJob, WebWorkLogEntry } from "../lib/web/types";
 import type { Company, Job } from "../lib/types";
@@ -27,7 +27,7 @@ app.get("/", async (c) => {
       // Backlog: all jobs with status "backlog" — scored and sorted in JS below
       // Feature 1 (auto-expire) handles removing stale jobs — no date filter needed
       prisma.job.findMany({
-        where: { status: "backlog" },
+        where: { status: BACKLOG_STATUS },
         include: { company: true },
       }),
 
@@ -126,6 +126,6 @@ app.get("/", async (c) => {
 
 // Start the server — honor PORT from the environment, default to 3000
 const port = Number(process.env.PORT) || 3000;
-serve({ fetch: app.fetch, port }, () => {
+serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, () => {
   console.log(`\n  Dashboard → http://localhost:${port}\n`);
 });
