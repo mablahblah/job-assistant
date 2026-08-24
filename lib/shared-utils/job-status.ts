@@ -18,14 +18,8 @@ export const REPLACEABLE_STATUSES = [BACKLOG_STATUS, ...DISQUALIFIED_STATUSES];
 export const ALL_STATUSES = [BACKLOG_STATUS, ...ACTIVE_STATUSES, ...DISQUALIFIED_STATUSES];
 
 // Sets backing the predicates below so membership checks stay constant-time.
-const ACTIVE_SET = new Set(ACTIVE_STATUSES);
 const REPLACEABLE_SET = new Set(REPLACEABLE_STATUSES);
 const ALL_SET = new Set(ALL_STATUSES);
-
-// True when the job is somewhere in the application pipeline.
-export function isActiveStatus(status: string): boolean {
-  return ACTIVE_SET.has(status);
-}
 
 // True when the job's record may be overwritten in place.
 export function isReplaceableStatus(status: string): boolean {

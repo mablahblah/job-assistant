@@ -5,7 +5,6 @@ import {
   DISQUALIFIED_STATUSES,
   REPLACEABLE_STATUSES,
   ALL_STATUSES,
-  isActiveStatus,
   isReplaceableStatus,
   isValidStatus,
 } from "./job-status";
@@ -38,32 +37,13 @@ describe("status groups", () => {
     expect(new Set(ALL_STATUSES).size).toBe(10);
   });
 
-  it("makes active and replaceable exact complements", () => {
-    const combined = [...ACTIVE_STATUSES, ...REPLACEABLE_STATUSES].sort();
-    expect(combined).toEqual([...ALL_STATUSES].sort());
+  it("covers exactly the ten statuses this file names", () => {
+    expect([...ALL_STATUSES].sort()).toEqual([...ACTIVE, ...REPLACEABLE].sort());
   });
 
   it("shares no status between active and replaceable", () => {
     const overlap = ACTIVE_STATUSES.filter((s) => REPLACEABLE_STATUSES.includes(s));
     expect(overlap).toEqual([]);
-  });
-});
-
-describe("isActiveStatus", () => {
-  for (const status of ACTIVE) {
-    it(`returns true for "${status}"`, () => {
-      expect(isActiveStatus(status)).toBe(true);
-    });
-  }
-
-  for (const status of REPLACEABLE) {
-    it(`returns false for "${status}"`, () => {
-      expect(isActiveStatus(status)).toBe(false);
-    });
-  }
-
-  it("returns false for an unknown status", () => {
-    expect(isActiveStatus("interviewing")).toBe(false);
   });
 });
 

@@ -15,7 +15,7 @@ import {
   batchStatus,
 } from "@/lib/batch-update";
 import { calculateScore } from "@/lib/scoring";
-import { ACTIVE_STATUSES } from "@/lib/shared-utils/job-status";
+import { BACKLOG_STATUS, ACTIVE_STATUSES } from "@/lib/shared-utils/job-status";
 import type { Company, Job } from "@/lib/types";
 import type { SaveableJob } from "@/lib/pipeline-save";
 
@@ -65,7 +65,7 @@ async function expireJobs() {
   // marks backlog jobs older than 8 days as expired so they don't clutter the queue
   const cutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   const result = await prisma.job.updateMany({
-    where: { status: "backlog", firstPublished: { lt: cutoff } },
+    where: { status: BACKLOG_STATUS, firstPublished: { lt: cutoff } },
     data: { status: "expired", modifiedAt: new Date() },
   });
   out({ expired: result.count });
@@ -77,7 +77,7 @@ async function queryBacklog() {
 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const jobs = await prisma.job.findMany({
-    where: { status: "backlog", firstPublished: { gte: since } },
+    where: { status: BACKLOG_STATUS, firstPublished: { gte: since } },
     include: { company: true },
   });
 
