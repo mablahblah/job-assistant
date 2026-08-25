@@ -3,11 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "scrape": "npx tsx scripts/scrape.ts",
-    "cli": "npx tsx scripts/cli.ts",
-    "db:seed": "npx tsx prisma/seed-work-log.ts",
+    "cli": "npx tsx legacy/scripts/cli.ts",
+    "serve": "npx tsx legacy/scripts/serve.ts",
     "lint": "npx eslint . --ext .ts",
-    "serve": "npx tsx scripts/serve.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

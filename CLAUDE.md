@@ -12,65 +12,37 @@ A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, t
 - **Linting:** ESLint with @typescript-eslint
 - **Workflows:** Claude Code skills orchestrating CLI subcommands
 
+## Branch: unified pipeline rebuild
+
+This branch rebuilds the pipeline from scratch. The old one is quarantined in [`legacy/`](legacy/README.md) and does not run here — it is reference material to copy from, never to import.
+
+**No bleed-through.** New code imports nothing from `legacy/`. Anything worth keeping is copied out, so shipping means deleting that folder in one move.
+
+Real job searches run on `main`, where the old pipeline is untouched. The database is untracked and survives branch switches; `dev.db` at the repo root is the live one.
+
 ## Commands
 
 ```bash
-npx tsx scripts/cli.ts backlog        # Shows ranked backlog jobs, auto-expires posts older than 8 days
-npx tsx scripts/cli.ts active         # Shows jobs currently in the application pipeline
-npx tsx scripts/cli.ts log            # Shows TWC work search activity log
-npx tsx scripts/cli.ts enrich-log     # Fills in missing company address/phone/website on log entries
-npx tsx scripts/cli.ts status         # Batch update job statuses via JSON on stdin
-npx tsx scripts/cli.ts score          # Save company scores for a single company
-npx tsx scripts/cli.ts alignment      # Batch update job alignment scores via JSON on stdin
-npx tsx scripts/cli.ts flag-mismatch  # Batch flag work-mode mismatches via JSON on stdin
-npx tsx scripts/cli.ts unscored       # Lists companies that haven't been scored yet
-npx tsx scripts/cli.ts new-jobs       # Lists jobs collected in the most recent run
-npx tsx scripts/cli.ts expire         # Marks backlog jobs older than 8 days as expired
-npx tsx scripts/cli.ts geocode-class  # Manage geocoding class allow/block rules
-npx tsx scripts/cli.ts classify-held-back <file>  # Re-classify and save held-back jobs after updating geo class rules
-npx tsx scripts/cli.ts find-job <company> [role]  # Look up jobs by fuzzy company name and optional role
-npx tsx scripts/cli.ts fetch-page <url>           # Fetch fully-rendered HTML from a URL via headless Chromium
-npx tsx scripts/serve.ts              # Starts local dashboard (default port 3000, override with PORT)
-npm run lint                          # Run ESLint across the project
-npm run test                          # Run all Vitest tests
+npm run lint    # ESLint — legacy/ and docs/ are ignored
+npm run test    # Vitest — legacy/ and docs/ are excluded
 ```
+
+The new pipeline has no entry points yet. `npm run cli` and `npm run serve` reach into `legacy/` and are retired with it.
 
 ## Architecture
 
-```
-lib/
-├── collectors/       # Job collection from external sources (API + Playwright)
-├── geocoding/        # Geo-based location classification (geocode, cache, prefilter, classify)
-├── parsers/          # ATS-specific job page parsers (Greenhouse, Lever, Ashby, etc.)
-├── scrapers/         # Legacy scrapers (replaced by collectors + parsers)
-├── shared-utils/     # Pure utility functions shared across lib/ modules
-├── web/              # Dashboard HTML rendering and helpers
-├── pipeline.ts       # Collect → dedupe → resolve → route → parse → dedupe → geo-classify → save
-├── pipeline-save.ts  # Save parsed pipeline results to DB
-├── dedupe.ts         # Three-stage deduplication with parser priority
-├── scoring.ts        # Company + job composite scoring
-├── url-resolver.ts   # Follow redirects to resolve final job URLs
-├── blacklist.ts      # Company blacklist filtering
-├── batch-update.ts   # Batch status, alignment, and flag-mismatch updates
-├── location.ts       # Location parsing and normalization
-├── company-enrichment.ts  # Enrich companies with address/phone/website
-├── work-search-log.ts     # TWC work search activity log entries
-├── find-job.ts       # Fuzzy job lookup by company/role
-├── fetch-page.ts     # Rendered HTML retrieval via headless Chromium
-└── prisma.ts         # Prisma client singleton
-scripts/
-├── cli.ts            # CLI subcommands for DB operations
-├── serve.ts          # Local dashboard web server
-├── pipeline.ts       # Dry-run pipeline for parser development
-├── resolve-urls.ts   # Bulk URL resolution diagnostic
-├── validate-adzuna.ts # Adzuna collector diagnostic
-└── seed-repost-dates.ts  # Seed repostedAt for RP pill visual testing
-prisma/               # Schema, migrations, seed data
-public/               # Dashboard static assets (CSS, JS)
-docs/                 # Human-facing documentation, not read during normal tasks
-docs/CURRENT-FEATURE.md  # Current feature we are actively working on
-docs/BACKLOG.md          # Future work we have not started yet
-```
+Nothing is built yet. The target shape is a single pipeline whose only differentiated code is collectors and parsers, running four phases — Collection, Resolution, Parsing, Classification — each ending in a database write so no phase depends on the one before it.
+
+Planning lives in [`docs/features/unified-pipeline/`](docs/features/unified-pipeline/):
+
+| File | What it is |
+|------|-----------|
+| `decision-log.md` | Signed-off decisions — read this first |
+| `feature_r&d.md` | Brain dump, measured database facts, title-normalization research |
+| `db-entries.md` | Field-by-field shape of the current Job and Company records |
+| `location-research/` | Proposed `location_match` rule, tested against all 1,853 jobs |
+
+Path-scoped rules describing the old architecture moved to `legacy/rules/`, so they no longer apply. New rules get written as the new pipeline takes shape.
 
 ## Terminology
 

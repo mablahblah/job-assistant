@@ -1,0 +1,6 @@
+node_modules
+generated
+# Quarantined old pipeline — deleted once the new one ships
+legacy
+# Research spikes, not app code
+docs
