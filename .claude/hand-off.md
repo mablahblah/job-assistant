@@ -13,65 +13,37 @@
 
 ## Current Task
 
-**Feature:** Update Job Entries (`minor` `L`) — `docs/features/update-job-entries/feature_spec.md`. Eight tasks. Branch `feature/update-job-entries`.
+**Feature:** Export Parsable PDF Resume (`minor` `M`) — see `docs/features/export-parsable-pdf-resume/feature_spec.md`.
 
-**In progress:** Task 1 of 8, **Extract Reusable Pipeline Helpers**. Planning is finished and approved. **No code has been written** — the next session starts implementation from a rails-grade plan.
+**In progress:** Reconnecting the `/generate-resume` pipeline after the portfolio project was rebuilt from a static HTML site into a React SPA (renamed `home-site` → `mablahblah_com`). The `generate-pdf.js` CLI contract survived the rebuild unchanged — **the skill needs no logic changes; only the environment moved.** Verified end-to-end via smoke test.
 
-- Spec: `docs/features/update-job-entries/task_extract-reusable-pipeline-helpers/task_spec.md`
-- Plan: `docs/features/update-job-entries/task_extract-reusable-pipeline-helpers/task_plan.md` — six sub-tasks, TDD, one commit each
-- Meeting notes: `docs/features/update-job-entries/task_extract-reusable-pipeline-helpers/task_meeting-notes.md`
+**Validation gate:** The user is running a real job search and applying to jobs with `/generate-resume` — this is the first true end-to-end exercise of the skill (find-job → fetch-page → selection → PDF) and of the PDF's visual layout. **If that goes smoothly, it's the green light to ship Task 3 and then the feature.**
 
-**What the task builds:** three modules that give one home each to facts currently duplicated — `lib/parsers/register-all.ts` (`registerAllParsers()`), `lib/shared-utils/has-field-value.ts` (`hasFieldValue()`, renamed from `dedupe.ts`'s private `hasValue()`), and `lib/shared-utils/job-status.ts` (all ten statuses, grouped, plus three predicates). Seven files drop local copies; three docs get repointed. The only behavior change anywhere is `scripts/pipeline.ts` gaining the `adzuna` and `dribbble` parsers it was silently missing.
-
-**Modified files, this session:**
-
-| File | Status |
-|---|---|
-| `docs/features/update-job-entries/` | Untracked, all new — task spec, plan, meeting notes, feature spec, decision log |
-| `docs/features/code-health/feature_r&d.md` | +3/−2 — added **Repository does not typecheck** task |
-
-**In flight from earlier sessions, unrelated:** `.claude/skills/process-search-issues/SKILL.md`, `.claude/skills/self-document/SKILL.md`, `docs/search-issues.md`, `docs/features/company-scoring-improvements/feature_r&d.md`, `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md`. `.codegraph/` self-ignores and is not work in flight.
+**Modified files (grouped):**
+- *This feature — commit together:* `.claude/skills/generate-resume/SKILL.md` (portfolio path `home-site` → `mablahblah_com`, ×3), `docs/features/export-parsable-pdf-resume/integration-contract.md` (Node 22, `npm install` prereq, auto-build note, `src/data/resume.json` ×3), plus June-24 closeout edits to `feature_spec.md` / `decision-log.md` / `CURRENT-FEATURE.md` / `BACKLOG.md`, the untracked `task_generate-resume-skill/` docs, and the `docs/ideas/fetch-page-paste-fallback/` idea.
+- *Unrelated — do NOT sweep into feature commits:* `docs/research/*`, `prisma/schema.prisma` + `prisma/migrations/20260628000000_work_search_entry_restrict_delete/`, `scripts/backfill-work-log.ts`, `.claude/skills/serve/SKILL.md`, `docs/search-issues.md`.
 
 ## Completed This Session
 
-- Designed and specced Task 1; wrote the six-part implementation plan
-- Reconciled `feature_spec.md` — `hasValue()` → `hasFieldValue()`, status-module consumers widened from three files to five, task spec and plan linked into the Tasks entry
-- Decision log now at 22 entries: 3 new for this task, 3 backfilled that were missing from feature planning (invocation shape, unknown-geocoding-class handling, `register-all.ts` placement), 1 superseded
-- Filed the repository's typecheck debt to Code Health
-- Fixed a stray `y` byte corrupting line 1 of `feature_spec.md`
+- Smoke-tested `generate-pdf.js` against the rebuilt React portfolio: `--inventory` returns valid JSON; `--selections`/`--output` produced a real 32 KB `%PDF-`. Contract confirmed intact.
+- Refreshed `integration-contract.md`: Node v18+ → v22, added `npm install` prerequisite, added the one-command auto-build/serve behavior, and `data/resume.json` → `src/data/resume.json` (3 spots).
+- Added two `2026-07-17` entries to the feature decision log (React target + contract-unchanged; Task 3 framing).
 
 ## Decisions & Context
 
-Decisions are in `docs/features/update-job-entries/decision-log.md`. What follows is context that lives nowhere else.
-
-**Verification gotchas, both load-bearing for the plan:**
-
-- **Do not gate on `npx tsc --noEmit`.** The repository does not typecheck clean — pre-existing errors in `lib/dedupe.ts` (3), `lib/url-resolver.ts`, `lib/url-resolver.test.ts`, `lib/scraper-save.test.ts` (10), `scripts/geocoding-spike.ts`, and several `lib/scrapers/` files using DOM globals without the `dom` lib configured. Nothing gates on `tsc`, which is why it went unnoticed. Now a Code Health task.
-- **`npm run lint` baseline is 0 errors, 1 warning** — `lib/parsers/lever.ts:90`, dead `browser` argument, already filed to Code Health's "Small fixes". Lint is the gate; that warning is not a regression.
-
-**Structural facts that shaped the design:**
-
-- **`lib/pipeline.ts` is imported by nothing but its own test.** `/job-search` and `/add-external-jobs` reach `runPipeline` through an inline `import` in a tsx script and rely on import-time registration. This is why `registerAllParsers()` must stay at module top level and must not move inside `runPipeline()`.
-- **`lib/parsers/greenhouse.ts` and `lib/parsers/lever.ts` transitively import Prisma** via `lib/parsers/company-cache.ts`, which constructs a client at import time and fails under Vitest. Any test importing them must `vi.mock("@/lib/prisma")` first — `lib/parsers/greenhouse.test.ts:4` is the existing pattern.
-- **Active and replaceable statuses are exact complements** of the ten in `prisma/schema.prisma:44`. `scripts/serve.ts:48` holds a third grouping, "disqualified" = replaceable minus `backlog`.
-
-**Nothing was tried and abandoned.**
-
-**Open threads:**
-
-- The user is fixing global `ROADMAP.md` references. In this project ROADMAP.md means BACKLOG.md. Four global files hardcode the path: `~/.claude/skills/wrap-up-planning/SKILL.md:42`, `~/.claude/skills/init-project/SKILL.md:32`, `~/.claude/workflow-profiles/rocket-ship/skills/plan-feature/SKILL.md:33`, `~/.claude/rules/roadmap.md:2`. Three other projects still hold a real ROADMAP.md, so removing the concept globally would break them.
-- `docs/CURRENT-FEATURE.md` does not link the task docs. The backlog rule says relevant feature docs are linked there as they are created; the feature spec links them instead. Possibly intentional — raised, not acted on.
-- **Orphaned company rows** after a job re-points are recorded as out of scope in the feature meeting notes, deferred to "a future job that cleans out old company rows." No such job exists in the backlog. Known and accepted.
+- **Portfolio is now a React SPA at `~/Documents/Projects/code/mablahblah_com`.** The `generate-pdf.js` contract is unchanged (flags, selections format, `ERROR:` semantics). New env requirements: Node 22, `npm install` in the portfolio, the script auto-builds/serves itself, inventory at `src/data/resume.json`. You never start a dev/preview server.
+- **Task 2 was built and worked pre-rebuild, then the migration broke its environment.** Rather than ship a broken Task 2, the reconnection is tracked as **Task 3 (Reconnect Resume Generation to React Portfolio)** — env/doc only, no code. Task 3's ship is the real deliverable; Task 2 is not shipped independently.
+- **Workflow mechanics:** a task "Ship" is a marker commit *on the feature branch* (e.g. `f90c8b2 Ship: Job Lookup CLI Commands`), NOT a merge to main. Only the **feature** ship merges to main via PR (`Close feature:` convention). Nothing broken can reach main before the feature ship.
+- **Open question:** whether to check Task 2 off as *built-but-superseded* (recommended — honestly records build → external change → adapt) or leave it unchecked. User's call, still unresolved.
+- **`feature_spec.md` Architectural Blueprint is stale** — still says portfolio path `home-site` and `data/resume.json`. Needs updating as part of the Task 3 ship (not yet done).
 
 ## Next Steps
 
-1. **Run `/start-task`** for Extract Reusable Pipeline Helpers.
-2. **Execute `task_plan.md` with `subagent-driven-development`**, in order — the plan commits after each sub-task:
-   1. `hasFieldValue()` + point `lib/dedupe.ts` at it
-   2. `lib/shared-utils/job-status.ts` + tests
-   3. Point the five status consumers at it (`dedupe.ts`, `scraper-save.ts`, `batch-update.ts`, `cli.ts`, `serve.ts`)
-   4. `registerAllParsers()` + tests
-   5. Point both pipelines at it; fix the mocks in `lib/pipeline.test.ts`
-   6. Repoint `.claude/rules/pipeline.md`, `.claude/rules/scrapers.md`, and `.claude/skills/add-parser/SKILL.md`
-3. **Verify with `npm run test` and `npm run lint`** — not `tsc`. See the baseline above.
-4. **Then plan Task 2**, Extract Single-Job Location Classification, via `/plan-task`.
+_Do these only if the job applications went smoothly (skill works end-to-end)._
+
+1. **Add Task 3 to `feature_spec.md`:** "Reconnect Resume Generation to React Portfolio — env/doc only; update SKILL.md path, integration-contract.md, and the Architectural Blueprint." Check off Task 2 per the open-question decision.
+2. **Update the `feature_spec.md` Architectural Blueprint:** portfolio path → `mablahblah_com`, `data/resume.json` → `src/data/resume.json`, note Node 22 + auto-build.
+3. **Check off the feature's Acceptance Criteria** now satisfied by the successful end-to-end run.
+4. **Stage ONLY this feature's files** (see grouping above) — keep the unrelated changes out. Commit the Task 3 work.
+5. **Ship Task 3** — marker commit on the feature branch (`Ship: Reconnect Resume Generation to React Portfolio`).
+6. **Ship the feature** — run the `merge` skill to audit/QA/test, open the PR, merge to main, and verify a clean tree. Handle the unrelated uncommitted changes separately (their own commits) so the tree is clean before the merge.

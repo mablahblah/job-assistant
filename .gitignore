@@ -78,6 +78,3 @@ resumes/
 # --- end workflow-profile ---
 
 .serve.json
-
-# CodeGraph index — machine-local generated database and daemon state
-.codegraph/

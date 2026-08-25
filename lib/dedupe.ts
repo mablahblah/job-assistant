@@ -1,6 +1,3 @@
-import { hasFieldValue } from "@/lib/shared-utils/has-field-value";
-import { isReplaceableStatus } from "@/lib/shared-utils/job-status";
-
 // Parser fidelity ranking — lower number = higher quality results.
 // When adding a new parser, slot it in by result quality.
 export const PARSER_PRIORITY: Record<string, number> = {
@@ -70,6 +67,9 @@ export function dedupeByUrl<T>(
 
 // --- Content-based dedupe (Dedupe 3) ---
 
+// Statuses safe to replace when a content match is found
+const REPLACEABLE_STATUSES = new Set(["backlog", "too far", "expired", "won't apply", "rejected"]);
+
 // A batch item going through content dedupe — matches SaveableJob shape
 export interface ContentDedupeItem {
   url: string;
@@ -115,10 +115,15 @@ export interface ContentDedupeResult {
 // Mergeable fields — winner takes loser's value when winner's is empty
 const MERGEABLE_FIELDS = ["location", "workMode", "salaryRange"] as const;
 
+// Returns true if a field value counts as "has data"
+function hasValue(val: string | undefined | null): boolean {
+  return val != null && val !== "" && val !== "?";
+}
+
 // Merges empty fields from loser into winner. Mutates winner in place.
 function mergeFields(winner: ContentDedupeItem, loser: Partial<Record<string, string>>): void {
   for (const field of MERGEABLE_FIELDS) {
-    if (!hasFieldValue(winner[field]) && hasFieldValue(loser[field])) {
+    if (!hasValue(winner[field]) && hasValue(loser[field])) {
       (winner as Record<string, unknown>)[field] = loser[field];
     }
   }
@@ -188,7 +193,7 @@ export function dedupeByContent(
     }
 
     // Active job — never touch it, drop the batch item
-    if (!isReplaceableStatus(dbMatch.status)) {
+    if (!REPLACEABLE_STATUSES.has(dbMatch.status)) {
       droppedByDb++;
       continue;
     }
@@ -208,7 +213,7 @@ export function dedupeByContent(
         originalUrl: item.originalUrl,
       };
       for (const field of MERGEABLE_FIELDS) {
-        if (hasFieldValue(item[field])) {
+        if (hasValue(item[field])) {
           (updateData as Record<string, unknown>)[field] = item[field];
         }
       }

@@ -7,8 +7,13 @@ import {
   isGreenlitDomain,
   routeByDomain,
   getParser,
+  registerParser,
 } from "./parsers/registry";
-import { registerAllParsers } from "./parsers/register-all";
+import { parseAshbyJob } from "./parsers/ashby";
+import { parseGreenhouseJob } from "./parsers/greenhouse";
+import { parseLeverJob } from "./parsers/lever";
+import { parseAdzunaJob } from "./parsers/adzuna";
+import { parseDribbbleJob } from "./parsers/dribbble";
 import type { CollectedJob } from "./collectors/types";
 import type { PipelineJob, ParserResult } from "./parsers/types";
 import type { ResolutionChain } from "./url-resolver";
@@ -20,7 +25,11 @@ import { classifyJobLocations } from "@/lib/geocoding";
 import { resolveJobDates } from "@/lib/shared-utils/resolve-job-dates";
 
 // Register all available parsers at import time
-registerAllParsers();
+registerParser("jobs.ashbyhq.com", parseAshbyJob);
+registerParser("boards.greenhouse.io", parseGreenhouseJob);
+registerParser("jobs.lever.co", parseLeverJob);
+registerParser("adzuna.com", parseAdzunaJob);
+registerParser("dribbble.com", parseDribbbleJob);
 
 // Max concurrent browser pages during resolution
 const CONCURRENCY = 3;

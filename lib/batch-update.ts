@@ -1,7 +1,6 @@
 // Batch update operations — accepts JSON arrays, returns summary counts.
 import { prisma } from "@/lib/prisma";
 import { logWorkSearchActivity } from "@/lib/work-search-log";
-import { ALL_STATUSES, isValidStatus } from "@/lib/shared-utils/job-status";
 
 // Reads raw text from stdin so the CLI can receive heredoc JSON input.
 export async function readStdin(): Promise<string> {
@@ -115,6 +114,12 @@ export async function batchFlagAggregator(
   };
 }
 
+// The 10 statuses a job can have — source: prisma/schema.prisma Job.status comment
+const VALID_STATUSES = new Set([
+  "backlog", "too far", "won't apply", "app. sent", "rejected",
+  "screening", "interview", "test", "offer", "expired",
+]);
+
 // Updates job status and logs qualifying changes for TWC compliance — sequential to avoid concurrent side effects.
 export async function batchStatus(
   items: { jobId: string; status: string }[]
@@ -123,9 +128,9 @@ export async function batchStatus(
 
   // Validate all statuses up front — reject the entire batch if any are invalid
   for (const item of items) {
-    if (!isValidStatus(item.status)) {
+    if (!VALID_STATUSES.has(item.status)) {
       throw new Error(
-        `Invalid status "${item.status}". Valid statuses: ${ALL_STATUSES.join(", ")}`
+        `Invalid status "${item.status}". Valid statuses: ${[...VALID_STATUSES].join(", ")}`
       );
     }
   }

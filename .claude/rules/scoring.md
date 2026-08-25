@@ -14,7 +14,7 @@ Null scores display as `"?"` and are treated as `0` in the scoring formula so un
 Company entries persist in DB even when no jobs reference them. MUST NOT delete companies when their jobs are removed.
 
 ## Scoring Formula
-All scores 1–5, weighted formula with two multipliers (age + salary). Weights are relative and sum to 125, not 100 — there is no upper cap on the composite score.
+All scores 1–5, weighted formula with two multipliers (age + salary). Weights are relative — no upper cap on the composite score.
 
 ```
 (companyScore + jobScore) * ageModifier * salaryModifier
@@ -22,7 +22,7 @@ All scores 1–5, weighted formula with two multipliers (age + salary). Weights 
 
 Where:
 - companyScore = sum of (score/5 * weight) for ES(25), CS(10), W/L(25), PA(25)
-- jobScore = (JA/5) * 40 — job alignment carries the single largest weight
+- jobScore = (JA/5) * 15
 - Result is rounded to nearest int
 
 **Age modifier:** 1.2× if <1 day old, 1.0× if 1–3 days, decays 0.05/day after day 3, floor 0.5×

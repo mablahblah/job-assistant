@@ -33,7 +33,7 @@ argument-hint: "Workable"
 
 5. Create `lib/parsers/{ats_name}.ts` implementing `ParserFn`.
 6. Create `lib/parsers/{ats_name}.test.ts` with fixture-based tests.
-7. Register via `registerParser(domain, fn)` inside `registerAllParsers()` in `lib/parsers/register-all.ts`, and add the domain and its parser to the `EXPECTED` list in `lib/parsers/register-all.test.ts`.
+7. Register via `registerParser(domain, fn)` in `lib/pipeline.ts`.
 7b. Add the parser to the priority list in `lib/dedupe.ts` — slot it by result quality (lower number = higher fidelity). See existing entries for reference.
 8. If pass-through: add source gate in `pipeline.ts`.
 

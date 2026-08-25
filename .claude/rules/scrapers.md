@@ -13,15 +13,12 @@ paths: ["lib/scrapers/**", "lib/scraper-save.ts", "lib/scraper-save.test.ts"]
   - *System-term* (jSearch, WeLoveProduct, Greenhouse, Lever): collects all user terms itself, runs fixed search logic, saves under a `__name__` system term via `getOrCreateSystemTerm`. MUST use when the scraper needs to combine or transform terms.
 
 ## Status Cascade
-
 On save in `scraper-save.ts`, new jobs MUST be auto-classified in order: expired (≥8 days old) → too far (`classifyLocation`) → backlog. On page load, `expireOldBacklogJobs()` also expires any backlog jobs that aged out. In-progress statuses (anything beyond backlog) MUST NOT be auto-expired.
 
 ## Dedup Replaceable Statuses
-
-`isReplaceableStatus()` from `lib/shared-utils/job-status.ts` controls which job statuses can be overwritten when a duplicate posting is found (same company + title, different URL). A new status MUST be added to that module and placed in a group — `ACTIVE_STATUSES` for in-progress jobs that MUST NOT be clobbered, or `DISQUALIFIED_STATUSES` for terminal ones that are safe to replace. `BACKLOG_STATUS` is the queue and stands alone.
+`REPLACEABLE_STATUSES` in `lib/scraper-save.ts` controls which job statuses can be overwritten when a duplicate posting is found (same company + title, different URL). MUST update this set whenever a new status is added — decide whether it's "safe to replace" or "sacred" (in-progress jobs that MUST NOT be clobbered).
 
 ## System SearchTerms
-
 Scrapers that aren't keyword-based (e.g. Greenhouse, Lever) MUST link their jobs to an auto-created system SearchTerm using `getOrCreateSystemTerm(name)` from `lib/scraper-save.ts`. These terms are prefixed with `__` (e.g. `__greenhouse__`) and MUST NOT be shown in the UI.
 
 System terms MUST be filtered in JavaScript, not via Prisma query. The libsql adapter does not support Prisma's `startsWith` filter. Use:

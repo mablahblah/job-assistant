@@ -11,10 +11,13 @@ import {
 } from "../lib/url-resolver";
 import {
   isGreenlitDomain,
+  registerParser,
   routeByDomain,
   getParser,
 } from "../lib/parsers/registry";
-import { registerAllParsers } from "../lib/parsers/register-all";
+import { parseAshbyJob } from "../lib/parsers/ashby";
+import { parseGreenhouseJob } from "../lib/parsers/greenhouse";
+import { parseLeverJob } from "../lib/parsers/lever";
 import { calculateScore } from "../lib/scoring";
 import type { Job, Company } from "../lib/types";
 import type { PipelineJob, ParserResult } from "../lib/parsers/types";
@@ -24,7 +27,9 @@ const CONCURRENCY = 3;
 const SAMPLE_COUNT = 5;
 
 // Register all available parsers
-registerAllParsers();
+registerParser("jobs.ashbyhq.com", parseAshbyJob);
+registerParser("boards.greenhouse.io", parseGreenhouseJob);
+registerParser("jobs.lever.co", parseLeverJob);
 
 // -- Main --
 async function main() {
