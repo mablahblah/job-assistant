@@ -13,37 +13,46 @@
 
 ## Current Task
 
-**Feature:** Export Parsable PDF Resume (`minor` `M`) — see `docs/features/export-parsable-pdf-resume/feature_spec.md`.
+Feature: **Unified Job Pipeline** — one feature, thirteen phases, on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**In progress:** Reconnecting the `/generate-resume` pipeline after the portfolio project was rebuilt from a static HTML site into a React SPA (renamed `home-site` → `mablahblah_com`). The `generate-pdf.js` CLI contract survived the rebuild unchanged — **the skill needs no logic changes; only the environment moved.** Verified end-to-end via smoke test.
+Planning is finished and closed out. No pipeline code exists. The next unchecked item in `CURRENT-FEATURE.md` is **Plan phase 1 — Collection**.
 
-**Validation gate:** The user is running a real job search and applying to jobs with `/generate-resume` — this is the first true end-to-end exercise of the skill (find-job → fetch-page → selection → PDF) and of the PDF's visual layout. **If that goes smoothly, it's the green light to ship Task 3 and then the feature.**
-
-**Modified files (grouped):**
-- *This feature — commit together:* `.claude/skills/generate-resume/SKILL.md` (portfolio path `home-site` → `mablahblah_com`, ×3), `docs/features/export-parsable-pdf-resume/integration-contract.md` (Node 22, `npm install` prereq, auto-build note, `src/data/resume.json` ×3), plus June-24 closeout edits to `feature_spec.md` / `decision-log.md` / `CURRENT-FEATURE.md` / `BACKLOG.md`, the untracked `task_generate-resume-skill/` docs, and the `docs/ideas/fetch-page-paste-fallback/` idea.
-- *Unrelated — do NOT sweep into feature commits:* `docs/research/*`, `prisma/schema.prisma` + `prisma/migrations/20260628000000_work_search_entry_restrict_delete/`, `scripts/backfill-work-log.ts`, `.claude/skills/serve/SKILL.md`, `docs/search-issues.md`.
+Nothing is committed. Last commit `b0c9fbb`. Everything modified or added is documentation.
 
 ## Completed This Session
 
-- Smoke-tested `generate-pdf.js` against the rebuilt React portfolio: `--inventory` returns valid JSON; `--selections`/`--output` produced a real 32 KB `%PDF-`. Contract confirmed intact.
-- Refreshed `integration-contract.md`: Node v18+ → v22, added `npm install` prerequisite, added the one-command auto-build/serve behavior, and `data/resume.json` → `src/data/resume.json` (3 spots).
-- Added two `2026-07-17` entries to the feature decision log (React target + contract-unchanged; Task 3 framing).
+`spec-review` and `wrap-up-planning` both ran, which were the two steps blocking the build.
+
+The feature spec gained an **Architectural Constraints** section that outranks the stories beneath it, and a **Vocabulary** section. Eleven decisions were added to the log. Meeting notes now carry a Session 2 covering this conversation.
+
+Phase files were restructured: each phase has an r&d file from the start (`phase-{nn}-{name}-r&d.md`), and its spec is written beside it at planning time. Every phase-specific open question moved out of `feature_spec.md` and `feature_r&d.md` into the phase that owns it.
+
+Backlog: Update Job Workflow and Add External Job Workflow added as items 1 and 2 with r&d files; External Jobs Workflow deleted as outdated; two Future Ideas deleted, one a duplicate of the Tracking Dashboard and one already working.
 
 ## Decisions & Context
 
-- **Portfolio is now a React SPA at `~/Documents/Projects/code/mablahblah_com`.** The `generate-pdf.js` contract is unchanged (flags, selections format, `ERROR:` semantics). New env requirements: Node 22, `npm install` in the portfolio, the script auto-builds/serves itself, inventory at `src/data/resume.json`. You never start a dev/preview server.
-- **Task 2 was built and worked pre-rebuild, then the migration broke its environment.** Rather than ship a broken Task 2, the reconnection is tracked as **Task 3 (Reconnect Resume Generation to React Portfolio)** — env/doc only, no code. Task 3's ship is the real deliverable; Task 2 is not shipped independently.
-- **Workflow mechanics:** a task "Ship" is a marker commit *on the feature branch* (e.g. `f90c8b2 Ship: Job Lookup CLI Commands`), NOT a merge to main. Only the **feature** ship merges to main via PR (`Close feature:` convention). Nothing broken can reach main before the feature ship.
-- **Open question:** whether to check Task 2 off as *built-but-superseded* (recommended — honestly records build → external change → adapt) or leave it unchecked. User's call, still unresolved.
-- **`feature_spec.md` Architectural Blueprint is stale** — still says portfolio path `home-site` and `data/resume.json`. Needs updating as part of the Task 3 ship (not yet done).
+All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Not repeated here.
+
+Context that is not a decision:
+
+- **Open questions live in the phase that answers them**, in `phases/phase-{nn}-{name}-r&d.md`. Never in `feature_spec.md` or `feature_r&d.md`. Phase 1 planning reads Phase 1's r&d and nothing else's.
+- **The architectural constraints outrank the stories.** A story that cannot be built without breaking one is the story that gives way.
+- **`dev.db` at the repo root is the live database.** Untracked, so it survives branch switches.
+- Backlog items the spec already covers — weloveproduct Collector Reliability, Ashby API Collector, Company Scoring Improvements, ATS Company Graduation — stay on the backlog until the work is actually built. The backlog is swept once after Phase 12, against what shipped rather than what was planned.
+
+Unresolved, each recorded in the phase that owns it:
+
+- **Phase 2** — whether tracing is a seventh singular service, and what shape it takes.
+- **Phase 3** — how company name normalization works, and where the normalized name lives on an unsaved Job List entry.
+- **Phase 4** — parsed against unparsed in the merge.
+- **Phase 5** — the repost cut-off, missing posting dates, and the company-and-title clause firing regardless of URL.
+- **Phase 6** — what safeguards an unbounded hop walk, and what an update-job fix writes.
+- **Phases 7, 8, 9, 11** — one question each. Phases 1, 10, and 12 have none recorded.
 
 ## Next Steps
 
-_Do these only if the job applications went smoothly (skill works end-to-end)._
+1. Commit the planning docs.
+2. **Plan phase 1 — Collection.** Run `phase-planning-procedure.md` against `docs/features/unified-pipeline/phases/phase-01-collection-r&d.md`. Phase 1 builds the search orchestrator (collection only — later phases add their steps), ports the seven collectors and `fetch-utils`, and builds the Ashby collector new. Prisma setup for the new database lands here too.
+3. Then **Build phase 1**.
 
-1. **Add Task 3 to `feature_spec.md`:** "Reconnect Resume Generation to React Portfolio — env/doc only; update SKILL.md path, integration-contract.md, and the Architectural Blueprint." Check off Task 2 per the open-question decision.
-2. **Update the `feature_spec.md` Architectural Blueprint:** portfolio path → `mablahblah_com`, `data/resume.json` → `src/data/resume.json`, note Node 22 + auto-build.
-3. **Check off the feature's Acceptance Criteria** now satisfied by the successful end-to-end run.
-4. **Stage ONLY this feature's files** (see grouping above) — keep the unrelated changes out. Commit the Task 3 work.
-5. **Ship Task 3** — marker commit on the feature branch (`Ship: Reconnect Resume Generation to React Portfolio`).
-6. **Ship the feature** — run the `merge` skill to audit/QA/test, open the PR, merge to main, and verify a clean tree. Handle the unrelated uncommitted changes separately (their own commits) so the tree is clean before the merge.
+The FigJam is linked from `feature_spec.md` under Related Documents.
