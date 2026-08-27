@@ -46,8 +46,17 @@ model Job {
   original_mode_list     Json?
   // Which collector produced it.
   collector              String?
-  // Salary as published, kept so a parse can be redone.
+  // Salary as the source published it, kept so a parse can be redone.
   salary_raw             String?
+  // The bottom of the published salary range, in whole currency units.
+  salary_low             Int?
+  // The top of the published salary range, in whole currency units.
+  salary_high            Int?
+  // What the salary figures are per: year, month, week, day, or hour.
+  salary_period          String?
+  // The posting's own words, as the source supplied them. Scoring reads this
+  // rather than reopening the posting to fetch them again.
+  description            String?
   company                Company?  @relation(fields: [company_id], references: [id])
 }
 

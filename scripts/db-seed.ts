@@ -3,6 +3,7 @@
 // schema change adds the new setting and leaves everything else as it was.
 import "dotenv/config";
 import { createPipelineDb } from "../lib/pipeline-db";
+import { nameFromSlug } from "../lib/ats-slug-name";
 
 const SETTING_DEFAULTS = {
   search_terms: ["Product Design", "UX", "Founding Design"],
@@ -32,16 +33,6 @@ const SLUGS_BY_PLATFORM: Record<string, string[]> = {
   lever: ["gohighlevel", "USMobile", "bhvr"],
   ashby: ["hinge-health", "legora", "bjakcareer", "voodoo", "scorewarrior"],
 };
-
-// A stand-in name built from the slug, which a collector replaces with the
-// employer's real name. Separators become spaces and each word gets a capital
-// first letter, leaving the rest of the word alone.
-function nameFromSlug(slug: string): string {
-  return slug
-    .split(/[-_]/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 

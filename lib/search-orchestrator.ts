@@ -1,0 +1,87 @@
+// Runs every collector in turn and folds their results into one report. A
+// collector is isolated from its neighbours: a throw, an error string, and a
+// warning string all become the same shape, so one source dropping out never
+// costs the run the others.
+import type { Collector } from "./collectors/types";
+import type { JobListEntry } from "./job-list-entry";
+import type { SettingsService } from "./settings-service";
+
+// An error or a warning, always carrying the collector that produced it.
+// Thirteen companies sit behind one ATS collector, so the collector's own
+// message is what names the board or search and is never rewritten.
+export interface CollectionIssue {
+  collector: string;
+  message: string;
+}
+
+export interface CollectionReport {
+  jobs: JobListEntry[];
+  errors: CollectionIssue[];
+  warnings: CollectionIssue[];
+}
+
+export interface CollectionOptions {
+  settings: SettingsService;
+  collectors: Collector[];
+  // How many jobs each collector stops after. Omitted means unlimited.
+  limit?: number;
+  // Where progress lines go. Defaults to stderr, so a job list printed on
+  // stdout stays clean.
+  log?: (message: string) => void;
+}
+
+// A thrown value is not guaranteed to be an Error, so this always yields
+// something readable rather than "[object Object]".
+function messageFromThrown(thrown: unknown): string {
+  return thrown instanceof Error ? thrown.message : String(thrown);
+}
+
+export async function runCollection(options: CollectionOptions): Promise<CollectionReport> {
+  // `??` rather than `||`: a limit of 0 is a real value meaning collect
+  // nothing, and `0 || Infinity` would read it as no limit at all.
+  const limit = options.limit ?? Infinity;
+  const log = options.log ?? console.error;
+
+  const report: CollectionReport = { jobs: [], errors: [], warnings: [] };
+
+  // Asking for no jobs reaches no source. The collectors are skipped
+  // outright rather than run and their results thrown away.
+  if (limit <= 0) {
+    return report;
+  }
+
+  // Sequential and in the given order, so a job list reads the way the run
+  // happened and one collector's failure cannot cancel another's work.
+  for (const collector of options.collectors) {
+    log(`[collect] Running ${collector.name}...`);
+
+    try {
+      // A fresh context per collector, so nothing one collector does to it
+      // reaches the next.
+      const result = await collector.collect({ settings: options.settings, limit });
+
+      for (const job of result.jobs) {
+        // The orchestrator is the authority on which collector found a job,
+        // so it stamps the name onto a copy rather than trusting the field
+        // or editing what the collector handed back.
+        report.jobs.push({ ...job, collector: collector.name });
+      }
+      for (const message of result.errors) {
+        report.errors.push({ collector: collector.name, message });
+      }
+      for (const message of result.warnings) {
+        report.warnings.push({ collector: collector.name, message });
+      }
+
+      log(`[collect] ${collector.name}: found=${result.jobs.length}`);
+    } catch (thrown) {
+      const message = messageFromThrown(thrown);
+      report.errors.push({ collector: collector.name, message });
+      // Named as a failure rather than a count, because "found=0" reads as a
+      // quiet week when what happened is that the collector fell over.
+      log(`[collect] ${collector.name} failed: ${message}`);
+    }
+  }
+
+  return report;
+}

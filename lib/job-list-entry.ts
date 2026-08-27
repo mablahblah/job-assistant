@@ -20,7 +20,7 @@ export type JobListEntry = Omit<
   delete_on_save?: boolean;
 };
 
-// The 18 Job columns in schema order, plus delete_on_save last. The
+// Every Job column in schema order, plus delete_on_save last. The
 // `satisfies` clause ties this list to JobListEntry, so a name that is not a
 // field of the type fails to compile.
 export const JOB_LIST_ENTRY_FIELDS = [
@@ -42,5 +42,9 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "original_mode_list",
   "collector",
   "salary_raw",
+  "salary_low",
+  "salary_high",
+  "salary_period",
+  "description",
   "delete_on_save",
 ] as const satisfies readonly (keyof JobListEntry)[];

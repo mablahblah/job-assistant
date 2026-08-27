@@ -8,6 +8,7 @@
     "postinstall": "npx prisma generate",
     "db:create": "npx tsx scripts/db-create.ts",
     "db:seed": "npx tsx scripts/db-seed.ts",
+    "collect": "npx tsx scripts/collect.ts",
     "lint": "npx eslint . --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest"

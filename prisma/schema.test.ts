@@ -38,6 +38,10 @@ const EXPECTED_JOB_COLUMNS = [
   "original_mode_list",
   "collector",
   "salary_raw",
+  "salary_low",
+  "salary_high",
+  "salary_period",
+  "description",
 ];
 
 const EXPECTED_COMPANY_COLUMNS = [
@@ -74,6 +78,10 @@ const COLLECTOR_WRITTEN_COLUMNS = [
   "original_mode_list",
   "collector",
   "salary_raw",
+  "salary_low",
+  "salary_high",
+  "salary_period",
+  "description",
   "is_resolved",
   "is_parsed",
   "is_classified",

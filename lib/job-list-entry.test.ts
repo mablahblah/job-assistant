@@ -87,8 +87,10 @@ describe("AC 26: a job list entry's fields map one to one onto the Job row", () 
   });
 
   test("the field count is the column count plus one for delete_on_save", () => {
-    expect(jobColumns.length).toBe(18);
-    expect(JOB_LIST_ENTRY_FIELDS.length).toBe(19);
+    // The relationship rather than the numbers, because the schema grows a
+    // phase at a time and a hardcoded count would have to be edited each time
+    // without catching anything the missing-field test above does not.
+    expect(JOB_LIST_ENTRY_FIELDS.length).toBe(jobColumns.length + 1);
   });
 
   test("no field is named twice", () => {
