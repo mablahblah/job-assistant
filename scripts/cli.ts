@@ -2,6 +2,8 @@
 // Database operations for Claude Code commands.
 // Usage: npx tsx scripts/cli.ts <subcommand> [args...]
 // All output is JSON to stdout. Progress/errors to stderr.
+// Loads .env first — must come before any import that reads process.env at module load.
+import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { enrichCompany } from "@/lib/company-enrichment";
 import { findJobs } from "@/lib/find-job";
@@ -303,10 +305,13 @@ async function enrichLogCompanies() {
     });
   }
 
-  // fire all enrichments in parallel, don't wait for them
-  for (const { companyId, location } of toEnrich) {
-    enrichCompany(companyId, location).catch(console.error);
-  }
+  // Run all enrichments in parallel and wait — unlike a status change, this command
+  // exists only to enrich, so exiting early would kill the in-flight requests.
+  await Promise.all(
+    toEnrich.map(({ companyId, location }) =>
+      enrichCompany(companyId, location).catch(console.error),
+    ),
+  );
 
   out({ enriched: toEnrich.length });
 }
