@@ -15,47 +15,50 @@
 
 Feature: **Unified Job Pipeline** — one feature, thirteen phases, on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is fully planned. Nothing is built.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **Build phase 1 — Collection**, task 1.
+**Phase 1 (Collection) is building. Task 1 of 14 is done; 13 remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 2, schema and create command**.
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — 66 stories, 73 acceptance criteria, 14 ordered tasks, the regression net, and the approach. Read it with `phase-01-collection-r&d.md` beside it, which carries the brain dump, what planning settled, and everything measured live.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — 73 acceptance criteria and 14 ordered tasks. Read it with `phase-01-collection-r&d.md` beside it, which carries the brain dump, what planning settled, and everything measured during planning and during the build.
 
-Working tree is clean. Everything is committed and pushed through `f213bbc`.
+Working tree is clean. Everything is committed and pushed through `a6cf53f`.
 
 ## Completed This Session
 
-Phase 1 planning, start to finish: brain dump, thirteen uncertainties discussed one at a time, three questions answered by live investigation, a four-agent stress test producing roughly sixty findings, a spec review, and the full wrap-up.
+**Task 1 — separate the database.** `prisma.config.ts` reads `PIPELINE_DATABASE_URL` and points at `prisma/schema.prisma`, so no Prisma command on this branch reaches the `dev.db` real job searches use. `pipeline-env.ts` holds the lookup and throws when the variable is missing. `prisma/schema.prisma` carries a generator and a sqlite datasource and no models. `prisma.config.test.ts` covers AC 1–3 in nine tests.
 
-Meeting notes were split into one dated file per session under `meeting-notes/`, since a single file would grow across thirteen phases.
+Built test-first: the test file was written first, then a stub that deliberately fell back to `DATABASE_URL`, which failed 7 of 9 tests. The real implementation took it to 9 of 9.
 
-The phase planning procedure gained a brain-dump step and a discuss-uncertainties step, and stopped naming tests during planning.
-
-Sixteen decisions were added to the log and four items were filed to the backlog.
+Verified at commit, all exit 0 — `npm run test` 9/9, `npm run lint`, `tsc --noEmit`, `prisma validate`, and `dev.db` matched its pre-work checksum.
 
 ## Decisions & Context
 
-All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Not repeated here.
+All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Not repeated here. Two were added this session, covering the generated-client output path and why the database URL lookup is its own module.
 
-Two prerequisites the build will trip over:
+**The new pipeline has no source root.** The schema sits at `prisma/` and `pipeline-env.ts` sits at the repo root, the latter only because `prisma.config.ts` must live there and imports it. Neither is a convention. Tasks 4, 5 and 6 each need a home for their code, and choosing one per task scatters them.
 
-- **`stemmer` is not installed.** AC 43 and task 6 name it; `package.json` has no text-processing dependency. It was tested in a scratchpad only. It would be the project's first such dependency.
-- **`PIPELINE_DATABASE_URL` exists nowhere** — not in `.env`, not in `.env.example`. Until task 1 creates it, every Prisma command on this branch still resolves to `dev.db`, the database real job searches use.
+Prerequisites the build still trips over:
 
-Two working gotchas:
+- **`stemmer` is not installed.** AC 43 and task 6 name it; `package.json` has no text-processing dependency. It would be the project's first.
 
-- **The spec's criterion numbers are cross-referenced** by the Tasks list and the Edge Cases table. Inserting a criterion shifts everything after it and silently breaks those references. It happened twice this session; both were caught only by checking each reference's text against what it claimed. Repair references after any renumbering.
-- **Playwright diagnostics cannot run from the scratchpad.** `tsx` resolves `node_modules` from the script's location, so a diagnostic must live in the repo root. Use a dot-prefixed temp file and delete it after.
+Working gotchas:
+
+- **`pipeline.db` exists and holds no tables**, created while verifying task 1. AC 4 reads "given an empty directory", so task 2 deletes it and creates from scratch rather than pushing onto it.
+- **The `dev.db` baseline checksum does not survive a session.** Take a fresh one before running anything that touches a database. It is `60e476eefc0c96d0836b96718d4332a1bf94570e7c85bd26fe216a2beee158b7` at 1,810,432 bytes as of `a6cf53f`.
+- **`env -u PIPELINE_DATABASE_URL` does not test the missing-variable case.** `prisma.config.ts` imports `dotenv/config`, which reloads `.env` and restores the variable, so the command succeeds and reads as a pass. Verifying AC 2 needs `DOTENV_CONFIG_PATH` pointed at an empty file.
+- **The `\bDATABASE_URL\b` guard in `prisma.config.test.ts` works because `_` is a regex word character**, so the pattern cannot match inside `PIPELINE_DATABASE_URL`. Rewriting it as a substring check breaks it.
+- **A relative Prisma URL resolves from the `prisma.config.ts` directory**, not the schema directory, so `file:./pipeline.db` lands at the repo root. Measured.
+- **The spec's criterion numbers are cross-referenced** by the Tasks list and the Edge Cases table. Inserting a criterion shifts everything after it and silently breaks those references.
+- **Playwright diagnostics cannot run from the scratchpad.** `tsx` resolves `node_modules` from the script's location, so a diagnostic lives in the repo root. Use a dot-prefixed temp file and delete it after.
 
 Approaches tried and dropped:
 
-- **Saved page fixtures alone** were rejected — a saved copy cannot drift, so it cannot catch drift. Replaced by a fixture that refreshes only after a clean run, paired with a self-check inside the collector.
-- **Card extraction of location, work mode, and salary** was agreed and then reversed. Collectors do not parse; the browser collectors gain only the title.
-- **Tracking every collector's attendance** in the orchestrator's return value was dropped. Absent errors already mean success, and Phase 2 owns the durable version.
-
-No open questions remain for Phase 1. Carried-in items wait in the r&d files for phases 2, 4, 5, 7, 8, 9, and 11.
+- **`(?<!PIPELINE_)DATABASE_URL`** as the guard against the old variable. It matches its own error message, which reads "the legacy `DATABASE_URL`", so the test fails on arrival.
+- **Asserting on the config file's source text** to prove it reads the right variable. That passes against a config that reads `PIPELINE_DATABASE_URL` and then ignores it. The committed tests import the config and assert on the resolved object instead.
 
 ## Next Steps
 
-1. **Task 1 — separate the database.** Do this before anything else; it is the only task whose omission is unrecoverable. Point `prisma.config.ts` at a schema outside `legacy/` and at `PIPELINE_DATABASE_URL`; add that variable to `.env` and `.env.example`; confirm the new file is untracked and `dev.db` is unchanged. — AC 1–3
-2. **Task 2 — schema and create command.** Every collector-written field nullable or defaulted; list fields as `Json`. — AC 4–5, 17, 26
-3. **Task 3 — seed script**, then **task 4 — settings service**. Tasks 5 through 14 follow in the spec's order, which puts the working collectors before weLoveProduct and Ashby.
-4. Each task is built test-first. Invoke `test-driven-development` before writing implementation code — the acceptance criteria are the test list.
+1. **Settle where the new pipeline's source code lives**, before task 2 writes anything outside `prisma/`. Tasks 4, 5 and 6 need a home for the settings service, the job list entry type, and the analyzer. This is a decision for the user, and it belongs in the decision log once made.
+2. **Task 2 — schema and create command.** The Job, Company, and settings tables collection needs. Every collector-written field nullable or defaulted; list fields as `Json`; snake_case names with no `@map`. The target shapes are in `docs/features/unified-pipeline/db-entries.md` under *Job — target* and *Company — target*. Delete `pipeline.db` first so the create command is tested from nothing, and take a `dev.db` checksum before starting. — AC 4–5, 17, 26
+3. **Task 3 — seed script.** Fills what is absent, overwrites nothing. Search terms, location, radius, the expiry threshold, the 13 Greenhouse companies, and the Lever and Ashby test companies. — AC 6–8, 12–13
+4. **Task 4 — settings service.** Reads only, throws on a missing setting. — AC 9–11
+5. Tasks 5 through 14 follow in the spec's order, which puts the working collectors before weLoveProduct and Ashby.
+6. Each task is built test-first. Invoke `test-driven-development` before writing implementation code — the acceptance criteria are the test list.
