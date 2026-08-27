@@ -8,3 +8,77 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+// A single job posting. Collection fills what its source supplied and leaves
+// the rest empty, so a later phase can tell what still needs doing.
+model Job {
+  id                     String    @id @default(cuid())
+  // Set when save matches this job to a Company row.
+  company_id             String?
+  // The employer as the collector spelled it. The normalized name lives on
+  // the company record.
+  company_name           String?
+  // The title as the source published it, kept exactly.
+  original_title         String?
+  // The link the collector found, often an aggregator redirect.
+  original_url           String?
+  // The source posting, found by following original_url.
+  resolved_url           String?
+  // When the source says the posting went live.
+  posting_date           DateTime?
+  // When the source says the posting last changed, where the source
+  // distinguishes the two.
+  posting_updated_date   DateTime?
+  created_at             DateTime  @default(now())
+  modified_at            DateTime  @updatedAt
+  // Phase gates. Each phase sets its own once it has handled the job.
+  is_resolved            Boolean   @default(false)
+  is_parsed              Boolean   @default(false)
+  is_classified          Boolean   @default(false)
+  // Lifecycle state: backlog, expired, too far, unresolvable, unparseable,
+  // and the active states the user moves a job through.
+  status                 String    @default("backlog")
+  // Every location collected, kept intact. Independent of the mode list,
+  // not paired by position.
+  original_location_list Json?
+  // Every work mode collected, kept intact. Independent of the location
+  // list, not paired by position.
+  original_mode_list     Json?
+  // Which collector produced it.
+  collector              String?
+  // Salary as published, kept so a parse can be redone.
+  salary_raw             String?
+  company                Company?  @relation(fields: [company_id], references: [id])
+}
+
+// An employer. A collector polls the companies carrying its ats_platform and
+// an ats_slug, so the slug lists are these rows rather than a table of their own.
+model Company {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  // Which applicant tracking system the company posts on, where known.
+  ats_platform String?
+  // The company's board slug on that system, where known.
+  ats_slug     String?
+  created_at   DateTime @default(now())
+  modified_at  DateTime @updatedAt
+  jobs         Job[]
+}
+
+// Single-row configuration. A seed script fills whatever is absent and
+// overwrites nothing; the settings service reads only and throws when a
+// setting is missing, so an empty default never reaches a collector.
+model Setting {
+  id               Int      @id @default(1)
+  // The terms every collector searches for.
+  search_terms     Json?
+  // The location the Austin searches read.
+  location         String?
+  // Search radius around that location, in miles.
+  radius           Int?
+  // How many days old a posting may be before it counts as expired. The
+  // browser collectors stop paginating once they reach it.
+  expiry_threshold Int?
+  created_at       DateTime @default(now())
+  modified_at      DateTime @updatedAt
+}

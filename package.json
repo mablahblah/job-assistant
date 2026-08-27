@@ -5,6 +5,7 @@
   "scripts": {
     "cli": "npx tsx legacy/scripts/cli.ts",
     "serve": "npx tsx legacy/scripts/serve.ts",
+    "db:create": "npx tsx scripts/db-create.ts",
     "lint": "npx eslint . --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest"
