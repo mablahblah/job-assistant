@@ -2,7 +2,7 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
-import { getPipelineDatabaseUrl } from "./pipeline-env";
+import { getPipelineDatabaseUrl } from "./lib/pipeline-env";
 
 export default defineConfig({
   // The new pipeline's schema and migrations sit outside legacy/.
