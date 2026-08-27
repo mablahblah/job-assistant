@@ -15,66 +15,65 @@
 
 Feature: **Unified Job Pipeline** — one feature, twelve phases, on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is building. Tasks 1 through 7 of 14 are done; 7 remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 8, the collector interface and orchestrator**.
+**Phase 1 (Collection) is building. Tasks 1 through 9 are done and task 11 is withdrawn; 4 remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 10, the two browser collectors**.
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — now 77 acceptance criteria and 14 ordered tasks. Read it with `phase-01-collection-r&d.md` beside it.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — now 85 acceptance criteria and 14 tasks, one of them withdrawn in place. Read it with `phase-01-collection-r&d.md` beside it.
 
-Working tree is clean. Everything is committed and pushed through `04dd6dc`.
+Working tree is clean. Everything is committed and pushed, including this file.
 
-The pipeline database exists at `pipeline.db`, created and seeded: one `Setting` row and 21 companies (13 Greenhouse, 3 Lever, 5 Ashby).
+The pipeline database at `pipeline.db` was recreated on the grown schema and reseeded: one `Setting` row and 21 companies (13 Greenhouse, 3 Lever, 5 Ashby).
 
 ## Completed This Session
 
-**Task 6 — search-term analyzer.** `lib/search-term-analyzer.ts` exposes `analyze`, which turns text into search tokens, and `matchesSearchTerms`, which the ATS collectors will call to filter their board results. `stemmer` is now a dependency. 15 tests cover AC 40–44 and 77.
+**Task 8 — collector interface and orchestrator.** `lib/collectors/types.ts` holds the one shape every collector returns. `lib/search-orchestrator.ts` runs them in order, catches each on its own, stamps the collector name onto every job, and pairs every error and warning with the collector that raised it. `lib/collectors/registry.ts` is the only place a collector joins a search. `lib/collectors/ats-boards.ts` warns when a platform has no boards to poll. `scripts/collect.ts` and `npm run collect` run it for real.
 
-**Task 7 — date util.** `lib/job-age.ts` exposes `parseAgeToDays`, `isPastThreshold`, and `ageToDate`, adapted from `legacy/lib/collectors/parse-age.ts`. 37 tests cover AC 70 and the strings every browser collector reads.
+**Task 9 — the four API collectors.** Adzuna, JSearch, Greenhouse and Lever, stripped of what served the old pipeline. `lib/collectors/fetch-utils.ts` and `lib/ats-slug-name.ts` came across, the latter now shared with `scripts/db-seed.ts`. `lib/collectors/ats-company-name.ts` holds the board-title stripping and the shared slug fallback.
 
-**A hole in the spec's stemming guard, found by measuring.** The guard was written as "tokens under three characters are not stemmed", but `uxs` is exactly three characters, so an "under three" guard skips it and the stemmer turns it into `ux`. Ten real `UxS ...` titles then matched the search term `UX`. The rule is now "three characters or fewer", which drops all ten and loses no real `UX` title. Spec AC 30 and 43 and the r&d file are corrected, and the decision log entry is superseded.
+**Description and salary, after a gap was found.** The schema grew `description`, `salary_low`, `salary_high` and `salary_period`. `lib/salary.ts` turns every source's numbers into one shape and rounds to whole units. All four collectors fill both. Spec stories 67–70 and AC 78–85 cover it.
 
-**The spec gained AC 77**, appended rather than inserted, because inserting shifts every number after it and silently breaks the Tasks list and the Edge Cases table.
+**weLoveProduct is out.** The site became a paid service. Story 57, AC 56 and task 11 are withdrawn in place, keeping their numbers so nothing citing them shifts.
 
-**Every guard was proven by breaking it.** Weakening the length cutoff to "under three" fails two tests. Swapping the Unicode split for `[^a-zA-Z0-9]+` fails two more. Pinning `isPastThreshold` back to a hardcoded 8 fails three. Making its boundary exclusive fails one.
+**A hole in the Phase 7 plan, found by the user.** Phase 7 claimed no parser ever runs on an ATS job. That holds only for jobs an ATS collector produced — an aggregator job resolving to a Greenhouse, Lever or Ashby URL arrives unparsed. All three need a parser there, sharing one field mapper with their collector. `phase-07-parsers-r&d.md` now says so.
 
-Verified at each commit, all exit 0 — `npm run test` 167/167 across 7 files, `npm run lint`, and `tsc --noEmit`. `dev.db` was read but never written.
+**Greenhouse stopped asking twice.** Every posting already carries `company_name`, so the second request per board is gone.
+
+Verified at each step, all exit 0 — `npm run test` 459 across 19 files, `npm run lint`, and `tsc --noEmit`. `dev.db` was read but never written.
 
 ## Decisions & Context
 
-All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Four were touched this session: the analyzer entry was superseded to carry the corrected cutoff, and three were added covering the blank search term, the `isPastThreshold` shape, and the committed title fixture.
-
-**Analyzer shape:**
-
-- `analyze(text)` splits on any run of characters that are neither letters nor numbers, lowercases, then stems tokens of four characters or more.
-- The split is Unicode-aware. A plain `[^a-zA-Z0-9]+` breaks `Ingénieur` into `ing` and `nieur`.
-- `matchesSearchTerms(title, terms)` analyzes the title once and reuses it across every term.
-
-**Date util shape:**
-
-- `isPastThreshold(days, threshold)` takes a day count, not the age string, so a collector reads each card once and then asks.
-- Its `days` parameter is `number`, never `number | null`. A collector that skips the unreadable-string check therefore fails to compile.
-- The boundary is inclusive. Exactly `threshold` days old counts as past it.
-- `parseAgeToDays` returning null is the signal a collector acts on: stop paginating, report the string verbatim. That warning is task 10's work, not the util's.
+All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Twelve were added this session.
 
 **Constraints, all measured:**
 
-- **No two-character token is altered by the Porter stemmer.** Every short token it does alter is three characters — `uxs`, `uis`, `ais`, `qas`, `hrs`. That is why the cutoff had to move to "three or fewer" and why hunting for a two-character counterexample is a dead end.
-- **`stemmer` 2.0.1 is ESM-only** and works unchanged under tsx and Vitest, because `tsconfig.json` sets `module: esnext`.
-- **`npx tsx -e "<code>"` cannot use top-level await.** It transforms to CommonJS and throws a TransformError. Write a real script file instead.
-- **`resolveJsonModule: true` is already set**, so a test imports a fixture with `import fixture from "./ux-titles.fixture.json"`.
-- **`noUncheckedIndexedAccess` is NOT set**, so `match[1]` on a `RegExpMatchArray` is `string`, not `string | undefined`. No `?? "0"` fallback is needed.
-- **The measured UX counts have drifted** since planning, from 592 and 22 to 603 and 24, because `dev.db` kept growing. The user ruled the spec's numbers do not matter, and no test asserts a count.
+- **`RequestInfo` is not in this project's type set.** `tsconfig.json` sets `lib: ["esnext"]` with no DOM, so a test typing a captured fetch url as `RequestInfo` passes under Vitest and fails `tsc --noEmit`. Type it `unknown`.
+- **A hardcoded column count breaks every time the schema grows.** `lib/job-list-entry.test.ts` now asserts the relationship to the live column list instead. `prisma/schema.test.ts` still keeps two explicit lists, and both must grow together.
+- **Registering a collector puts live job-site requests inside `npm run test`** unless `scripts/collect.test.ts` runs the command at `--limit 0`. That is why the flag exists.
+- **`npx tsx` cannot resolve modules from the scratchpad directory.** A throwaway probe script has to sit in the repo root.
+- **Greenhouse sends salary in cents.** `min_cents: 14000000` is $140,000. Adzuna sends fractional dollars such as `134044.9`. JSearch sends an upper-case period enum. The util takes whole units and rounds; the cents division is Greenhouse's own business.
+- **Adzuna truncates every description to 500 characters.**
+- **Greenhouse's `/boards/{slug}` endpoint times out intermittently** at the 15-second ceiling. That is what left `Gitlab` on a `GitLab` job before the second request was dropped.
+- **Every seeded Lever and Ashby slug answers 200 at the casing stored**, `USMobile` included, which settles the case-sensitivity question AC 37 raises.
+- **Lever board titles are already bare names**; Ashby titles always end in ` Jobs`, twice with a doubled space.
 
 **Approaches tried and dropped:**
 
-- **Asserting the counts 603 and 24 in the AC 40 test.** The fixture is the source of truth and its size is not a fact worth pinning. The test asserts that the wrongly-matched list is empty and names any offenders.
-- **Moving the month check ahead of the day check in `parseAgeToDays`.** One writer proposed it against future day-word variants. Speculative, and the proven order already gives every right answer.
-- **Validating search terms in the settings service.** Three options were on the table — the analyzer guard, a settings check, or both. The guard won because no settings page exists yet to validate at. The constraint is recorded in `docs/features/settings-page/feature_r&d.md` for when that page is built.
+- **Hardcoding the field count** in `lib/job-list-entry.test.ts`. The plan grows the schema every phase, so the number would need editing each time while catching nothing the missing-field test does not.
+- **Asserting exact `salary_raw` strings from the collector tests.** They assert the figures are present instead, so the util's wording can change in one place.
+- **`?? undefined` for a description.** A blank string would survive it, and a blank description is no description. `|| undefined` is used.
+- **Rounding salary inside each collector.** The util's name promises whole units, so it is the one place that can keep the promise.
 
-**Working with the writer agents.** Two per chunk, tests first and implementation second, with the failing test run in between. A correction sent mid-flight does reach a running agent and it revises. On the two implementations the outputs were near-identical both times; on the test files they diverged enough that combining was worth the read. One test file carried a wrong date, `2023-01-16` for 365 days before `2024-01-15`. Check date arithmetic rather than trusting it.
+**Working with the writer agents.** Two per chunk, tests first and implementation second, with the failing run in between. The two implementations came back near-identical every single time; the test files diverged enough that reading both and combining was worth it. Breaking every guard after green paid off once: the board-title strip passed without its leading space, meaning a company named `Snapjobs` would have lost its tail. A test was added for it.
 
 ## Next Steps
 
-1. **Task 8 — collector interface and orchestrator.** One shape for every collector, a limit argument, per-collector catch, errors and warnings returned, per-collector logging, and a warning when an ATS platform has no boards to poll. — AC 14–16, 18, 20–25, 76
-2. **Task 9 — port the four API collectors.** Adzuna, JSearch, Greenhouse, Lever — stripped, renamed canonically, company names fetched once per slug, JSearch's dropped half surfaced, Adzuna's remote search left without a radius. — AC 27–29, 31–35, 46–48, 66, 71–72
-3. **Task 10 — port Dribbble and uiuxjobsboard.** The first users of `lib/job-age.ts`. Title read off the card, pagination stop, six-page ceiling, per-search self-checks, fixture writing. uiuxjobsboard keeps its visible browser. — AC 49–55, 58–60, 62, 65
-4. Tasks 11 through 14 follow in the spec's order, which puts the working collectors before weLoveProduct and Ashby.
-5. Each task is built test-first. Invoke `test-driven-development` before writing implementation code — the acceptance criteria are the test list.
+1. **Close the open threads first.** All four are small, and two of them shape the tasks below.
+   - **JSearch's `employer_name` returned `remote zest jobs`** on a live run, which reads like the query echoed back rather than an employer. Run `npm run collect -- --limit 5` and read what JSearch actually sends. If the field is unreliable, that is the collector's problem to fix before anything else builds on top of it.
+   - **Lever's salary needs a ruling.** Lever publishes no salary field, and no parser ever runs on a Lever job, so a Lever job has no salary at all unless its collector reads one out of the description prose. That cuts against "collectors do not parse", and Ashby is about to face the same question in task 12, so settle it before then.
+   - **`docs/features/weloveproduct-collector-reliability/` still exists** though its backlog entry is gone. Delete the folder or record why it stays.
+   - **AC 66 names five API collectors** while four exist. It closes when task 12 adds Ashby, so this is a thing to know rather than a thing to do.
+
+2. **Task 10 — port the two browser collectors.** Dribbble and uiuxjobsboard. Title read off the card, pagination stop, six-page ceiling, per-search self-checks, modal dismissal, fixture writing. uiuxjobsboard keeps its visible browser. They are the first users of `lib/job-age.ts`. — AC 49–55, 57–60, 62, 65
+3. **Task 12 — build the Ashby collector.** Public job board API by slug, `isListed` filter, company name from the board page title through `resolveAtsCompanyName`, and the description and salary an ATS job needs because no parser will fill them. — AC 30, 36–37
+4. **Task 13 — wire the `job-search` skill.** Emptied to one step that runs the orchestrator and surfaces errors and warnings first. — AC 19
+5. **Task 14 — live one-job command.** Outside the default suite, one job per browser collector, no fixture written. It uses the same `--limit` the collect command already takes. — AC 61, 68–69
+6. Each task is built test-first, through `crowd-code` with two writers. Break every guard after it goes green.

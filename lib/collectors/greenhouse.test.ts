@@ -57,6 +57,7 @@ const seniorProductDesigner = {
   first_published: "2026-06-01T00:00:00.000Z",
   updated_at: "2026-06-20T00:00:00.000Z",
   location: { name: "Remote - US" },
+  company_name: "Stripe",
   content: "<p>Design beautiful products at Stripe.</p>",
   pay_input_ranges: [{ min_cents: 14000000, max_cents: 21000000, currency_type: "USD" }],
 };
@@ -73,7 +74,6 @@ const backendEngineer = {
 async function collectOneJob() {
   stubFetch({
     [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
-    [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
   });
   const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
   const result = await greenhouseCollector.collect({ settings, limit: Infinity });
@@ -81,8 +81,10 @@ async function collectOneJob() {
   return posting;
 }
 
-describe("AC 27: the company name is fetched once no matter how many postings match", () => {
-  test("the board endpoint is called exactly once", async () => {
+describe("AC 27: the company name costs no request of its own", () => {
+  test("the board endpoint is never called", async () => {
+    // The name rides along on every posting, so a board with many matches
+    // still costs exactly one request.
     const calls = stubFetch({
       [jobsUrl("stripe")]: () =>
         jsonResponse({
@@ -92,13 +94,23 @@ describe("AC 27: the company name is fetched once no matter how many postings ma
             { ...seniorProductDesigner, id: 555114, title: "Lead Product Designer" },
           ],
         }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 
     await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(calls.filter((url) => url === boardUrl("stripe"))).toHaveLength(1);
+    expect(calls.filter((url) => url === boardUrl("stripe"))).toEqual([]);
+  });
+
+  test("the jobs endpoint is the only request the board costs", async () => {
+    const calls = stubFetch({
+      [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
+    });
+    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+
+    await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(calls).toEqual([jobsUrl("stripe")]);
   });
 });
 
@@ -125,7 +137,6 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
   function run() {
     stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [] }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
     return greenhouseCollector.collect({ settings, limit: Infinity });
@@ -144,7 +155,6 @@ describe("AC 38: postings whose title does not match the search terms are absent
   test("only the matching posting is returned", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner, backendEngineer] }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 
@@ -166,7 +176,6 @@ describe("AC 24: limit stops collection after that many jobs", () => {
             { ...seniorProductDesigner, id: 555115, title: "Staff Product Designer" },
           ],
         }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 
@@ -190,17 +199,31 @@ describe("AC 48: the dates are written to their own fields", () => {
   });
 });
 
-describe("AC 28: the company name comes from the board endpoint's name field", () => {
-  test("company_name is exactly what the board endpoint's name field held", async () => {
+describe("AC 28: the company name comes from the posting itself", () => {
+  test("company_name is the posting's own company_name", async () => {
     stubFetch({
-      [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe, Inc." }),
+      [jobsUrl("stripe")]: () =>
+        jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: "Stripe, Inc." }] }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
     expect(result.jobs[0].company_name).toBe("Stripe, Inc.");
+  });
+
+  test("the name stored in settings is ignored in favour of the posting's", async () => {
+    stubFetch({
+      [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
+    });
+    const settings = makeSettings(
+      [{ name: "Whatever Settings Says", ats_slug: "stripe" }],
+      SEARCH_TERMS
+    );
+
+    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].company_name).toBe("Stripe");
   });
 });
 
@@ -221,7 +244,6 @@ describe("a board answering 404 records a warning and lets the other slugs run",
     stubFetch({
       [jobsUrl("acme")]: () => new Response("Not Found", { status: 404 }),
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings(
       [
@@ -247,21 +269,30 @@ describe("a board answering 404 records a warning and lets the other slugs run",
   });
 });
 
-describe("a slug whose name lookup fails still yields its jobs", () => {
-  test("company_name is built from the slug rather than left empty", async () => {
-    // No stub is set for the board-name endpoint, so the lookup fails and the
-    // shared resolver falls back to a name built from the slug.
+describe("AC 31: a posting carrying no company_name falls back to the slug", () => {
+  function collectFromNamelessBoard() {
+    const nameless = { ...seniorProductDesigner, company_name: undefined };
     stubFetch({
-      [jobsUrl("brightwave-labs")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
+      [jobsUrl("brightwave-labs")]: () => jsonResponse({ jobs: [nameless] }),
     });
     const settings = makeSettings(
       [{ name: "Ignored Settings Name", ats_slug: "brightwave-labs" }],
       SEARCH_TERMS
     );
+    return greenhouseCollector.collect({ settings, limit: Infinity });
+  }
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+  test("company_name is built from the slug rather than left empty", async () => {
+    expect((await collectFromNamelessBoard()).jobs[0].company_name).toBe("Brightwave Labs");
+  });
 
-    expect(result.jobs[0].company_name).toBe("Brightwave Labs");
+  test("a warning names the slug", async () => {
+    const result = await collectFromNamelessBoard();
+    expect(result.warnings.some((warning) => warning.includes("brightwave-labs"))).toBe(true);
+  });
+
+  test("the posting still comes back", async () => {
+    expect((await collectFromNamelessBoard()).jobs).toHaveLength(1);
   });
 });
 
@@ -325,7 +356,6 @@ describe("a posting missing a location gives an empty location list", () => {
             },
           ],
         }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 
@@ -356,7 +386,6 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
             },
           ],
         }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 
@@ -423,7 +452,6 @@ describe("AC 84: a posting with no pay_input_ranges leaves the salary fields uns
             },
           ],
         }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
     return greenhouseCollector.collect({ settings, limit: Infinity }).then((r) => r.jobs[0]);
@@ -462,7 +490,6 @@ describe("an empty pay_input_ranges array leaves the salary fields unset", () =>
             },
           ],
         }),
-      [boardUrl("stripe")]: () => jsonResponse({ name: "Stripe" }),
     });
     const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
 

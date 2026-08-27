@@ -14,8 +14,6 @@ const PLATFORM = "greenhouse";
 const jobsUrl = (slug: string) =>
   `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true&pay_transparency=true`;
 
-const boardUrl = (slug: string) => `https://boards-api.greenhouse.io/v1/boards/${slug}`;
-
 interface GreenhousePayRange {
   min_cents: number;
   max_cents: number;
@@ -30,25 +28,11 @@ interface GreenhousePosting {
   location?: { name: string };
   content?: string;
   pay_input_ranges?: GreenhousePayRange[];
+  company_name?: string;
 }
 
 interface GreenhouseJobsResponse {
   jobs: GreenhousePosting[];
-}
-
-interface GreenhouseBoardResponse {
-  name?: string;
-}
-
-// The board endpoint carries the employer's real name. A board that will not
-// answer throws, so the shared resolver records why before falling back.
-async function lookUpCompanyName(slug: string): Promise<string | null> {
-  const res = await fetchWithTimeout(boardUrl(slug));
-  if (!res.ok) {
-    throw httpError(`greenhouse board "${slug}"`, res.status);
-  }
-  const body = await safeJson<GreenhouseBoardResponse>(res, `greenhouse board "${slug}"`);
-  return body.name ?? null;
 }
 
 function toJobListEntry(
@@ -121,11 +105,13 @@ export const greenhouseCollector: Collector = {
       );
       if (matched.length === 0) continue;
 
-      // Asked once per board, however many of its postings matched.
+      // Every posting carries the employer's real name, so the name costs no
+      // request of its own. It matches the board endpoint's name exactly, and
+      // that endpoint is the one that intermittently times out.
       const { name: companyName, warnings: nameWarnings } = await resolveAtsCompanyName(
         PLATFORM,
         board.ats_slug,
-        () => lookUpCompanyName(board.ats_slug)
+        async () => matched[0]?.company_name ?? null
       );
       warnings.push(...nameWarnings);
 
