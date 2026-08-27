@@ -15,44 +15,47 @@
 
 Feature: **Unified Job Pipeline** — one feature, thirteen phases, on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-Planning is finished and closed out. No pipeline code exists. The next unchecked item in `CURRENT-FEATURE.md` is **Plan phase 1 — Collection**.
+**Phase 1 (Collection) is fully planned. Nothing is built.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **Build phase 1 — Collection**, task 1.
 
-Nothing is committed. Last commit `b0c9fbb`. Everything modified or added is documentation.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — 66 stories, 73 acceptance criteria, 14 ordered tasks, the regression net, and the approach. Read it with `phase-01-collection-r&d.md` beside it, which carries the brain dump, what planning settled, and everything measured live.
+
+Working tree is clean. Everything is committed and pushed through `f213bbc`.
 
 ## Completed This Session
 
-`spec-review` and `wrap-up-planning` both ran, which were the two steps blocking the build.
+Phase 1 planning, start to finish: brain dump, thirteen uncertainties discussed one at a time, three questions answered by live investigation, a four-agent stress test producing roughly sixty findings, a spec review, and the full wrap-up.
 
-The feature spec gained an **Architectural Constraints** section that outranks the stories beneath it, and a **Vocabulary** section. Eleven decisions were added to the log. Meeting notes now carry a Session 2 covering this conversation.
+Meeting notes were split into one dated file per session under `meeting-notes/`, since a single file would grow across thirteen phases.
 
-Phase files were restructured: each phase has an r&d file from the start (`phase-{nn}-{name}-r&d.md`), and its spec is written beside it at planning time. Every phase-specific open question moved out of `feature_spec.md` and `feature_r&d.md` into the phase that owns it.
+The phase planning procedure gained a brain-dump step and a discuss-uncertainties step, and stopped naming tests during planning.
 
-Backlog: Update Job Workflow and Add External Job Workflow added as items 1 and 2 with r&d files; External Jobs Workflow deleted as outdated; two Future Ideas deleted, one a duplicate of the Tracking Dashboard and one already working.
+Sixteen decisions were added to the log and four items were filed to the backlog.
 
 ## Decisions & Context
 
 All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Not repeated here.
 
-Context that is not a decision:
+Two prerequisites the build will trip over:
 
-- **Open questions live in the phase that answers them**, in `phases/phase-{nn}-{name}-r&d.md`. Never in `feature_spec.md` or `feature_r&d.md`. Phase 1 planning reads Phase 1's r&d and nothing else's.
-- **The architectural constraints outrank the stories.** A story that cannot be built without breaking one is the story that gives way.
-- **`dev.db` at the repo root is the live database.** Untracked, so it survives branch switches.
-- Backlog items the spec already covers — weloveproduct Collector Reliability, Ashby API Collector, Company Scoring Improvements, ATS Company Graduation — stay on the backlog until the work is actually built. The backlog is swept once after Phase 12, against what shipped rather than what was planned.
+- **`stemmer` is not installed.** AC 43 and task 6 name it; `package.json` has no text-processing dependency. It was tested in a scratchpad only. It would be the project's first such dependency.
+- **`PIPELINE_DATABASE_URL` exists nowhere** — not in `.env`, not in `.env.example`. Until task 1 creates it, every Prisma command on this branch still resolves to `dev.db`, the database real job searches use.
 
-Unresolved, each recorded in the phase that owns it:
+Two working gotchas:
 
-- **Phase 2** — whether tracing is a seventh singular service, and what shape it takes.
-- **Phase 3** — how company name normalization works, and where the normalized name lives on an unsaved Job List entry.
-- **Phase 4** — parsed against unparsed in the merge.
-- **Phase 5** — the repost cut-off, missing posting dates, and the company-and-title clause firing regardless of URL.
-- **Phase 6** — what safeguards an unbounded hop walk, and what an update-job fix writes.
-- **Phases 7, 8, 9, 11** — one question each. Phases 1, 10, and 12 have none recorded.
+- **The spec's criterion numbers are cross-referenced** by the Tasks list and the Edge Cases table. Inserting a criterion shifts everything after it and silently breaks those references. It happened twice this session; both were caught only by checking each reference's text against what it claimed. Repair references after any renumbering.
+- **Playwright diagnostics cannot run from the scratchpad.** `tsx` resolves `node_modules` from the script's location, so a diagnostic must live in the repo root. Use a dot-prefixed temp file and delete it after.
+
+Approaches tried and dropped:
+
+- **Saved page fixtures alone** were rejected — a saved copy cannot drift, so it cannot catch drift. Replaced by a fixture that refreshes only after a clean run, paired with a self-check inside the collector.
+- **Card extraction of location, work mode, and salary** was agreed and then reversed. Collectors do not parse; the browser collectors gain only the title.
+- **Tracking every collector's attendance** in the orchestrator's return value was dropped. Absent errors already mean success, and Phase 2 owns the durable version.
+
+No open questions remain for Phase 1. Carried-in items wait in the r&d files for phases 2, 4, 5, 7, 8, 9, and 11.
 
 ## Next Steps
 
-1. Commit the planning docs.
-2. **Plan phase 1 — Collection.** Run `phase-planning-procedure.md` against `docs/features/unified-pipeline/phases/phase-01-collection-r&d.md`. Phase 1 builds the search orchestrator (collection only — later phases add their steps), ports the seven collectors and `fetch-utils`, and builds the Ashby collector new. Prisma setup for the new database lands here too.
-3. Then **Build phase 1**.
-
-The FigJam is linked from `feature_spec.md` under Related Documents.
+1. **Task 1 — separate the database.** Do this before anything else; it is the only task whose omission is unrecoverable. Point `prisma.config.ts` at a schema outside `legacy/` and at `PIPELINE_DATABASE_URL`; add that variable to `.env` and `.env.example`; confirm the new file is untracked and `dev.db` is unchanged. — AC 1–3
+2. **Task 2 — schema and create command.** Every collector-written field nullable or defaulted; list fields as `Json`. — AC 4–5, 17, 26
+3. **Task 3 — seed script**, then **task 4 — settings service**. Tasks 5 through 14 follow in the spec's order, which puts the working collectors before weLoveProduct and Ashby.
+4. Each task is built test-first. Invoke `test-driven-development` before writing implementation code — the acceptance criteria are the test list.
