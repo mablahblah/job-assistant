@@ -1,0 +1,10 @@
+// Schema for the new pipeline's database. It grows a phase at a time; the
+// tables collection needs are added with the schema task.
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/pipeline"
+}
+
+datasource db {
+  provider = "sqlite"
+}
