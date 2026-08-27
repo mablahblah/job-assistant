@@ -15,57 +15,66 @@
 
 Feature: **Unified Job Pipeline** — one feature, twelve phases, on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is building. Tasks 1 through 5 of 14 are done; 9 remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 6, the search-term analyzer**.
+**Phase 1 (Collection) is building. Tasks 1 through 7 of 14 are done; 7 remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 8, the collector interface and orchestrator**.
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — now 76 acceptance criteria and 14 ordered tasks. Read it with `phase-01-collection-r&d.md` beside it.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md` — now 77 acceptance criteria and 14 ordered tasks. Read it with `phase-01-collection-r&d.md` beside it.
 
-Working tree is clean. Everything is committed and pushed through `1f40819`.
+Working tree is clean. Everything is committed and pushed through `04dd6dc`.
 
 The pipeline database exists at `pipeline.db`, created and seeded: one `Setting` row and 21 companies (13 Greenhouse, 3 Lever, 5 Ashby).
 
 ## Completed This Session
 
-**The `.env` trap, closed at its source.** `lib/pipeline-db.ts` imports `dotenv/config`, so every collector, service, and script reaching the database gets `PIPELINE_DATABASE_URL` without loading `.env` itself. It sits there rather than in `lib/pipeline-env.ts` because that module exists to be testable with the variable unset.
+**Task 6 — search-term analyzer.** `lib/search-term-analyzer.ts` exposes `analyze`, which turns text into search tokens, and `matchesSearchTerms`, which the ATS collectors will call to filter their board results. `stemmer` is now a dependency. 15 tests cover AC 40–44 and 77.
 
-**Task 4 — settings service.** `lib/settings-service.ts` exposes `createSettingsService(db)`, returning five getters and nothing else. 25 tests cover AC 9–11 and 75.
+**Task 7 — date util.** `lib/job-age.ts` exposes `parseAgeToDays`, `isPastThreshold`, and `ageToDate`, adapted from `legacy/lib/collectors/parse-age.ts`. 37 tests cover AC 70 and the strings every browser collector reads.
 
-**Task 5 — job list entry type.** `lib/job-list-entry.ts` exposes `JobListEntry`, derived from the generated `Job` model, and `JOB_LIST_ENTRY_FIELDS`, the same fields at runtime. 5 tests cover AC 26.
+**A hole in the spec's stemming guard, found by measuring.** The guard was written as "tokens under three characters are not stemmed", but `uxs` is exactly three characters, so an "under three" guard skips it and the stemmer turns it into `ux`. Ten real `UxS ...` titles then matched the search term `UX`. The rule is now "three characters or fewer", which drops all ten and loses no real `UX` title. Spec AC 30 and 43 and the r&d file are corrected, and the decision log entry is superseded.
 
-**The spec gained AC 75 and AC 76**, both appended rather than inserted, because inserting shifts every number after it and silently breaks the Tasks list and the Edge Cases table.
+**The spec gained AC 77**, appended rather than inserted, because inserting shifts every number after it and silently breaks the Tasks list and the Edge Cases table.
 
-Verified at each commit, all exit 0 — `npm run test` 115/115 across 5 files, `npm run lint`, `tsc --noEmit`, and `prisma validate`. `dev.db` was not touched.
+**Every guard was proven by breaking it.** Weakening the length cutoff to "under three" fails two tests. Swapping the Unicode split for `[^a-zA-Z0-9]+` fails two more. Pinning `isPastThreshold` back to a hardcoded 8 fails three. Making its boundary exclusive fails one.
 
-**Both new guards were proven by breaking them.** Removing `import "dotenv/config"` from `lib/pipeline-db.ts` fails the AC 75 test. Removing `salary_raw` from `JOB_LIST_ENTRY_FIELDS` fails the AC 26 test and names that field.
+Verified at each commit, all exit 0 — `npm run test` 167/167 across 7 files, `npm run lint`, and `tsc --noEmit`. `dev.db` was read but never written.
 
 ## Decisions & Context
 
-All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Three were added this session, covering where `.env` loads, the empty ATS platform answer, and deriving the job list entry type.
+All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Four were touched this session: the analyzer entry was superseded to carry the corrected cutoff, and three were added covering the blank search term, the `isPastThreshold` shape, and the committed title fixture.
 
-**Settings service shape:**
+**Analyzer shape:**
 
-- `createSettingsService(db)` takes a client rather than building one, so the caller owns the connection and closes it. The orchestrator will build one client and pass it down.
-- The returned object is a plain literal with exactly five keys. That is what makes AC 10 testable — the test reads `Object.keys(service)`.
-- A missing setting throws and names the column. An ATS platform with no companies returns an empty list.
+- `analyze(text)` splits on any run of characters that are neither letters nor numbers, lowercases, then stems tokens of four characters or more.
+- The split is Unicode-aware. A plain `[^a-zA-Z0-9]+` breaks `Ingénieur` into `ing` and `nieur`.
+- `matchesSearchTerms(title, terms)` analyzes the title once and reuses it across every term.
+
+**Date util shape:**
+
+- `isPastThreshold(days, threshold)` takes a day count, not the age string, so a collector reads each card once and then asks.
+- Its `days` parameter is `number`, never `number | null`. A collector that skips the unreadable-string check therefore fails to compile.
+- The boundary is inclusive. Exactly `threshold` days old counts as past it.
+- `parseAgeToDays` returning null is the signal a collector acts on: stop paginating, report the string verbatim. That warning is task 10's work, not the util's.
 
 **Constraints, all measured:**
 
-- **`npx tsx -e "<code>"` can `require()` a TypeScript module under `lib/`** when run from the repo root. That is how the AC 75 test runs the service the way a collector will, in a process that never receives `PIPELINE_DATABASE_URL`.
-- **`as const satisfies readonly (keyof JobListEntry)[]` compiles here.** It rejects a name that is not a field of the type, but it does not catch a field left off the list — the `PRAGMA table_info(Job)` test does that.
-- **The generated `Job` model type excludes the `company` relation**, so `Partial<Job>` is already exactly the 18 columns.
-- **ESLint config is `.eslintrc.json`, not a flat config**, and `no-unused-vars` is a warning, so warnings do not fail `npm run lint`.
-- **A `Json` column read back through raw libsql is a JSON text string**, not an array, which tests must `JSON.parse`.
+- **No two-character token is altered by the Porter stemmer.** Every short token it does alter is three characters — `uxs`, `uis`, `ais`, `qas`, `hrs`. That is why the cutoff had to move to "three or fewer" and why hunting for a two-character counterexample is a dead end.
+- **`stemmer` 2.0.1 is ESM-only** and works unchanged under tsx and Vitest, because `tsconfig.json` sets `module: esnext`.
+- **`npx tsx -e "<code>"` cannot use top-level await.** It transforms to CommonJS and throws a TransformError. Write a real script file instead.
+- **`resolveJsonModule: true` is already set**, so a test imports a fixture with `import fixture from "./ux-titles.fixture.json"`.
+- **`noUncheckedIndexedAccess` is NOT set**, so `match[1]` on a `RegExpMatchArray` is `string`, not `string | undefined`. No `?? "0"` fallback is needed.
+- **The measured UX counts have drifted** since planning, from 592 and 22 to 603 and 24, because `dev.db` kept growing. The user ruled the spec's numbers do not matter, and no test asserts a count.
 
 **Approaches tried and dropped:**
 
-- **Putting `import "dotenv/config"` in `lib/pipeline-env.ts`.** That module exists so a test can unset the variable and reach the throw; loading `.env` there puts the variable straight back.
-- **Throwing when an ATS platform has no companies.** Built that way first and changed. Emptying a platform's companies is how that platform is switched off, so an empty list is a real answer rather than a broken database. AC 76 covers the warning that replaces the noise the throw used to make.
+- **Asserting the counts 603 and 24 in the AC 40 test.** The fixture is the source of truth and its size is not a fact worth pinning. The test asserts that the wrongly-matched list is empty and names any offenders.
+- **Moving the month check ahead of the day check in `parseAgeToDays`.** One writer proposed it against future day-word variants. Speculative, and the proven order already gives every right answer.
+- **Validating search terms in the settings service.** Three options were on the table — the analyzer guard, a settings check, or both. The guard won because no settings page exists yet to validate at. The constraint is recorded in `docs/features/settings-page/feature_r&d.md` for when that page is built.
 
-**Working with the writer agents.** Two per chunk, tests first and implementation second, with the failing test run in between. On the small type module both outputs were nearly identical; on the test files they diverged enough that combining halves was worth the read.
+**Working with the writer agents.** Two per chunk, tests first and implementation second, with the failing test run in between. A correction sent mid-flight does reach a running agent and it revises. On the two implementations the outputs were near-identical both times; on the test files they diverged enough that combining was worth the read. One test file carried a wrong date, `2023-01-16` for 365 days before `2024-01-15`. Check date arithmetic rather than trusting it.
 
 ## Next Steps
 
-1. **Task 6 — search-term analyzer.** Install `stemmer` first; it is still not a dependency and would be the project's first text-processing one. Tokenise, lowercase, stem, pass tokens under three characters through unstemmed, and match token to token with every term word present. Tested against the measured `dev.db` titles. — AC 38–45
-2. **Task 7 — date util.** Ported from `parse-age`, taking the expiry threshold as an argument rather than hardcoding eight. — AC 49–51, 70
-3. **Task 8 — collector interface and orchestrator.** One shape for every collector, a limit argument, per-collector catch, errors and warnings returned, per-collector logging, and a warning when an ATS platform has no boards to poll. — AC 14–16, 18, 20–25, 76
-4. Tasks 9 through 14 follow in the spec's order, which puts the working collectors before weLoveProduct and Ashby.
+1. **Task 8 — collector interface and orchestrator.** One shape for every collector, a limit argument, per-collector catch, errors and warnings returned, per-collector logging, and a warning when an ATS platform has no boards to poll. — AC 14–16, 18, 20–25, 76
+2. **Task 9 — port the four API collectors.** Adzuna, JSearch, Greenhouse, Lever — stripped, renamed canonically, company names fetched once per slug, JSearch's dropped half surfaced, Adzuna's remote search left without a radius. — AC 27–29, 31–35, 46–48, 66, 71–72
+3. **Task 10 — port Dribbble and uiuxjobsboard.** The first users of `lib/job-age.ts`. Title read off the card, pagination stop, six-page ceiling, per-search self-checks, fixture writing. uiuxjobsboard keeps its visible browser. — AC 49–55, 58–60, 62, 65
+4. Tasks 11 through 14 follow in the spec's order, which puts the working collectors before weLoveProduct and Ashby.
 5. Each task is built test-first. Invoke `test-driven-development` before writing implementation code — the acceptance criteria are the test list.
