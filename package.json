@@ -5,6 +5,7 @@
   "scripts": {
     "cli": "npx tsx legacy/scripts/cli.ts",
     "serve": "npx tsx legacy/scripts/serve.ts",
+    "postinstall": "npx prisma generate",
     "db:create": "npx tsx scripts/db-create.ts",
     "db:seed": "npx tsx scripts/db-seed.ts",
     "lint": "npx eslint . --ext .ts",

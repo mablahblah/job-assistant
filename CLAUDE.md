@@ -23,11 +23,15 @@ Real job searches run on `main`, where the old pipeline is untouched. The databa
 ## Commands
 
 ```bash
-npm run lint    # ESLint — legacy/ and docs/ are ignored
-npm run test    # Vitest — legacy/ and docs/ are excluded
+npm run db:create   # Delete the pipeline database and rebuild it from the schema
+npm run db:seed     # Fill absent settings and ATS companies, overwriting nothing
+npm run lint        # ESLint — legacy/ and docs/ are ignored
+npm run test        # Vitest — legacy/ and docs/ are excluded
 ```
 
-The new pipeline has no entry points yet. `npm run cli` and `npm run serve` reach into `legacy/` and are retired with it.
+**After editing `prisma/schema.prisma`, run `npx prisma generate`.** `prisma db push` does not regenerate the client, so `db:create` alone leaves it describing the old schema. A fresh clone is covered by `postinstall`, which generates on install.
+
+`npm run cli` and `npm run serve` reach into `legacy/` and are retired with it.
 
 ## Architecture
 
