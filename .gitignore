@@ -55,6 +55,9 @@ resumes/
 # Added by code-review-graph
 .code-review-graph/
 
+# CodeGraph index — generated locally, includes a running daemon's socket and pid
+.codegraph/
+
 # --- workflow-profile: waterfall (managed by sync-workflow, do not edit) ---
 .claude/workflow-profile.json
 .claude/skills/add-to-backlog
