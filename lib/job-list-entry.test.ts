@@ -1,0 +1,97 @@
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { createClient } from "@libsql/client";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { JOB_LIST_ENTRY_FIELDS } from "./job-list-entry";
+
+// This file lives in lib/, so the repo root is one level up.
+const libDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(libDir, "..");
+
+// Creating a scratch database measured well under two seconds. This is a
+// ceiling rather than a budget.
+const CREATE_TIMEOUT_MS = 45_000;
+
+// The one field a job list entry carries that is not a Job column.
+const DELETE_ON_SAVE = "delete_on_save";
+
+// An absolute url, because a relative Prisma url resolves from the directory
+// holding prisma.config.ts rather than from the working directory.
+function makeTempDb(prefix: string): { dir: string; url: string } {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  return { dir, url: `file:${join(dir, "pipeline.db")}` };
+}
+
+// Runs a real script against a scratch database. The url travels in the
+// environment because dotenv never overwrites a variable that is already set,
+// so this value wins over the repo's .env and the real pipeline.db is never
+// touched.
+function runScript(script: string, url: string): void {
+  execFileSync("npx", ["tsx", `scripts/${script}`], {
+    cwd: repoRoot,
+    env: { ...process.env, PIPELINE_DATABASE_URL: url },
+    stdio: "pipe",
+  });
+}
+
+// Asks sqlite itself for the Job table's columns rather than trusting a list
+// kept here, so a column added to the schema and left off the type fails this
+// file instead of passing silently. A relation such as `company` never
+// appears, because PRAGMA table_info lists only real columns.
+async function readJobColumns(url: string): Promise<string[]> {
+  const client = createClient({ url });
+  try {
+    const result = await client.execute("PRAGMA table_info(Job)");
+    return result.rows.map((row) => String((row as unknown as Record<string, unknown>)["name"]));
+  } finally {
+    client.close();
+  }
+}
+
+// Every name in `left` that is absent from `right`, sorted so a failure names
+// the offending field whatever order either list came in.
+function missingFrom(left: string[], right: string[]): string[] {
+  const rightSet = new Set(right);
+  return left.filter((item) => !rightSet.has(item)).sort();
+}
+
+describe("AC 26: a job list entry's fields map one to one onto the Job row", () => {
+  let dir: string;
+  let jobColumns: string[];
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-job-list-entry-");
+    dir = temp.dir;
+    runScript("db-create.ts", temp.url);
+    jobColumns = await readJobColumns(temp.url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("every Job column has a same-named field on the entry", () => {
+    expect(missingFrom(jobColumns, [...JOB_LIST_ENTRY_FIELDS])).toEqual([]);
+  });
+
+  test("every entry field besides delete_on_save is a real Job column", () => {
+    const columnFields = JOB_LIST_ENTRY_FIELDS.filter((field) => field !== DELETE_ON_SAVE);
+    expect(missingFrom([...columnFields], jobColumns)).toEqual([]);
+  });
+
+  test("delete_on_save is not a Job column, because it never reaches the database", () => {
+    expect(jobColumns).not.toContain(DELETE_ON_SAVE);
+  });
+
+  test("the field count is the column count plus one for delete_on_save", () => {
+    expect(jobColumns.length).toBe(18);
+    expect(JOB_LIST_ENTRY_FIELDS.length).toBe(19);
+  });
+
+  test("no field is named twice", () => {
+    expect(new Set(JOB_LIST_ENTRY_FIELDS).size).toBe(JOB_LIST_ENTRY_FIELDS.length);
+  });
+});
