@@ -203,4 +203,11 @@ cd ~/Documents/Projects/code/mablahblah_com && node scripts/generate-pdf.js --se
 rm {selections-file-path}
 ```
 
-7. Report: "Resume saved to `resumes/{approved-filename}`"
+7. Report the saved path and the resume's portfolio link together:
+
+   ```
+   Resume saved to `resumes/{approved-filename}`
+   Portfolio link on this resume: https://www.mablahblah.com/c/{company-path}
+   ```
+
+   `{company-path}` is the DB company name from Step 1 run through the same rule the generator uses (`src/resume/companyPath.js`): fold accents to plain letters, lowercase, turn each run of non-alphanumeric characters into a single hyphen, and trim hyphens off both ends. "Tailscale" becomes `tailscale`; "Lumen Solutions Group Inc." becomes `lumen-solutions-group-inc`.
