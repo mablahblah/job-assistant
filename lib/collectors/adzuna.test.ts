@@ -126,6 +126,9 @@ const seniorProductDesigner = {
   description: "Design beautiful products at Acme Corp.",
   salary_min: 140000,
   salary_max: 210000,
+  // Only an explicit "0" marks a salary the employer published; Adzuna predicts
+  // the rest.
+  salary_is_predicted: "0",
 };
 
 // The one job the Austin search produces from a single posting.
@@ -442,5 +445,85 @@ describe("AC 84: a job with no salary leaves all four fields unset", () => {
 
   test("salary_raw is undefined", async () => {
     expect((await collectWithoutSalary()).salary_raw).toBeUndefined();
+  });
+});
+
+describe('AC 99: salary is collected when salary_is_predicted is "0"', () => {
+  function collectWithPublishedFlag() {
+    stubFetch(routesFor({ austin: [{ ...seniorProductDesigner, salary_is_predicted: "0" }] }));
+    return adzunaCollector
+      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .then((r) => r.jobs[0]);
+  }
+
+  test("salary_low is collected", async () => {
+    expect((await collectWithPublishedFlag()).salary_low).toBe(140000);
+  });
+
+  test("salary_high is collected", async () => {
+    expect((await collectWithPublishedFlag()).salary_high).toBe(210000);
+  });
+});
+
+describe("AC 98: a predicted salary is excluded", () => {
+  // Adzuna's own model fills the figure where the flag is "1", and a guess reads
+  // as fact once it is stored.
+  function collectWithPredictedSalary() {
+    stubFetch(routesFor({ austin: [{ ...seniorProductDesigner, salary_is_predicted: "1" }] }));
+    return adzunaCollector
+      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .then((r) => r.jobs[0]);
+  }
+
+  test("salary_low is undefined", async () => {
+    expect((await collectWithPredictedSalary()).salary_low).toBeUndefined();
+  });
+
+  test("salary_high is undefined", async () => {
+    expect((await collectWithPredictedSalary()).salary_high).toBeUndefined();
+  });
+
+  test("salary_period is undefined", async () => {
+    expect((await collectWithPredictedSalary()).salary_period).toBeUndefined();
+  });
+
+  test("salary_raw is undefined", async () => {
+    expect((await collectWithPredictedSalary()).salary_raw).toBeUndefined();
+  });
+});
+
+describe("when salary_is_predicted is absent, the salary is left unset", () => {
+  function collectWithoutFlag() {
+    const noFlag = {
+      id: "9876543",
+      title: "Senior Product Designer",
+      company: { display_name: "Acme Corp" },
+      redirect_url: "https://www.adzuna.com/land/ad/9876543",
+      location: { display_name: "Austin, TX, USA" },
+      created: "2026-08-20T00:00:00.000Z",
+      description: "Design beautiful products at Acme Corp.",
+      salary_min: 140000,
+      salary_max: 210000,
+    };
+    stubFetch(routesFor({ austin: [noFlag] }));
+    return adzunaCollector
+      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .then((r) => r.jobs[0]);
+  }
+
+  test("salary_low is undefined", async () => {
+    expect((await collectWithoutFlag()).salary_low).toBeUndefined();
+  });
+
+  test("salary_high is undefined", async () => {
+    expect((await collectWithoutFlag()).salary_high).toBeUndefined();
+  });
+
+  test("salary_period is undefined", async () => {
+    expect((await collectWithoutFlag()).salary_period).toBeUndefined();
+  });
+
+  test("salary_raw is undefined", async () => {
+    expect((await collectWithoutFlag()).salary_raw).toBeUndefined();
   });
 });

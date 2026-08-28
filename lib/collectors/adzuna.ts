@@ -19,6 +19,7 @@ interface AdzunaJob {
   description?: string;
   salary_min?: number;
   salary_max?: number;
+  salary_is_predicted?: string;
 }
 
 interface AdzunaSearchResponse {
@@ -42,8 +43,12 @@ function toJobListEntry(job: AdzunaJob): JobListEntry {
     // Adzuna truncates its descriptions to 500 characters. The collector keeps
     // whatever it was sent, and a blank one counts as none.
     description: job.description || undefined,
-    // Adzuna states no period and no currency, so the util decides those.
-    ...normalizeSalary({ low: job.salary_min, high: job.salary_max }),
+    // Read salary only where salary_is_predicted is "0". Adzuna's model outputs
+    // "1" (measured 133 of 150 results as predicted); guesses read as fact once
+    // stored. Adzuna states no period and no currency, so the util decides those.
+    ...(job.salary_is_predicted === "0"
+      ? normalizeSalary({ low: job.salary_min, high: job.salary_max })
+      : {}),
     is_resolved: false,
     is_parsed: false,
     is_classified: false,
