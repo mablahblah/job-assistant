@@ -247,7 +247,7 @@ describe("AC 39: results come back unfiltered", () => {
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
-    expect(result.jobs.map((job) => job.original_title)).toContain("Warehouse Associate");
+    expect(result.jobs.map((job) => job.raw_title)).toContain("Warehouse Associate");
   });
 });
 
@@ -272,26 +272,26 @@ describe("the field mapping from an Adzuna job to a job list entry", () => {
     expect((await collectOneJob()).original_url).toBe("https://www.adzuna.com/land/ad/1234567");
   });
 
-  test("original_title is the title", async () => {
-    expect((await collectOneJob()).original_title).toBe("Senior Product Designer");
+  test("raw_title is the title", async () => {
+    expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
   });
 
-  test("company_name is company.display_name", async () => {
-    expect((await collectOneJob()).company_name).toBe("Acme Corp");
+  test("raw_company_name is company.display_name", async () => {
+    expect((await collectOneJob()).raw_company_name).toBe("Acme Corp");
   });
 
   test("posting_date is created", async () => {
     expect((await collectOneJob()).posting_date).toEqual(new Date("2026-08-20T00:00:00.000Z"));
   });
 
-  test("original_location_list holds location.display_name", async () => {
-    expect((await collectOneJob()).original_location_list).toEqual(["Austin, TX, USA"]);
+  test("raw_location_list holds location.display_name", async () => {
+    expect((await collectOneJob()).raw_location_list).toEqual(["Austin, TX, USA"]);
   });
 
-  test("original_mode_list is always empty", async () => {
+  test("raw_mode_list is always empty", async () => {
     // Adzuna publishes no structured work mode, and reading one out of the
     // description text is a parser's job.
-    expect((await collectOneJob()).original_mode_list).toEqual([]);
+    expect((await collectOneJob()).raw_mode_list).toEqual([]);
   });
 
   test("is_resolved is false", async () => {
@@ -313,7 +313,7 @@ describe("the field mapping from an Adzuna job to a job list entry", () => {
 });
 
 describe("a job missing a location gives an empty location list", () => {
-  test("original_location_list is empty rather than holding a placeholder", async () => {
+  test("raw_location_list is empty rather than holding a placeholder", async () => {
     const withoutLocation = {
       id: "7654321",
       title: "Senior Product Designer",
@@ -326,7 +326,7 @@ describe("a job missing a location gives an empty location list", () => {
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
-    expect(result.jobs[0].original_location_list).toEqual([]);
+    expect(result.jobs[0].raw_location_list).toEqual([]);
   });
 });
 
@@ -391,31 +391,32 @@ describe("AC 79: a job with no description leaves the field unset", () => {
   });
 });
 
-describe("AC 80: the salary fields are filled from the job's numbers", () => {
-  test("salary_low is salary_min, unchanged", async () => {
-    expect((await collectOneJob()).salary_low).toBe(140000);
+describe("AC 80: raw_salary holds the job's numbers and no column is written", () => {
+  test("raw_salary holds salary_min and salary_max, unchanged", async () => {
+    expect((await collectOneJob()).raw_salary).toEqual({
+      salary_min: 140000,
+      salary_max: 210000,
+    });
   });
 
-  test("salary_high is salary_max, unchanged", async () => {
-    expect((await collectOneJob()).salary_high).toBe(210000);
-  });
-
-  test("salary_period is filled", async () => {
-    expect((await collectOneJob()).salary_period).toBeDefined();
-  });
-
-  test("salary_raw holds the job's figures", async () => {
-    expect((await collectOneJob()).salary_raw).toContain("140000-210000");
+  test("the salary columns are left for normalization to fill", async () => {
+    const job = await collectOneJob();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
 
-describe("AC 82: salary_period is year, since Adzuna states no period", () => {
-  test("salary_period is year", async () => {
-    expect((await collectOneJob()).salary_period).toBe("year");
+describe("AC 103: Adzuna states no period, no currency and no unit", () => {
+  test("only the two figure keys are present", async () => {
+    expect(Object.keys((await collectOneJob()).raw_salary ?? {}).sort()).toEqual([
+      "salary_max",
+      "salary_min",
+    ]);
   });
 });
 
-describe("AC 84: a job with no salary leaves all four fields unset", () => {
+describe("AC 84: a job with no salary gets no raw_salary at all", () => {
   function collectWithoutSalary() {
     const withoutSalary = {
       id: "7654323",
@@ -431,20 +432,15 @@ describe("AC 84: a job with no salary leaves all four fields unset", () => {
       .then((r) => r.jobs[0]);
   }
 
-  test("salary_low is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_low).toBeUndefined();
+  test("raw_salary is absent rather than an empty envelope", async () => {
+    expect((await collectWithoutSalary()).raw_salary).toBeUndefined();
   });
 
-  test("salary_high is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_high).toBeUndefined();
-  });
-
-  test("salary_period is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_period).toBeUndefined();
-  });
-
-  test("salary_raw is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_raw).toBeUndefined();
+  test("the salary columns are left unset", async () => {
+    const job = await collectWithoutSalary();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
 
@@ -456,12 +452,11 @@ describe('AC 99: salary is collected when salary_is_predicted is "0"', () => {
       .then((r) => r.jobs[0]);
   }
 
-  test("salary_low is collected", async () => {
-    expect((await collectWithPublishedFlag()).salary_low).toBe(140000);
-  });
-
-  test("salary_high is collected", async () => {
-    expect((await collectWithPublishedFlag()).salary_high).toBe(210000);
+  test("raw_salary holds the published figures", async () => {
+    expect((await collectWithPublishedFlag()).raw_salary).toEqual({
+      salary_min: 140000,
+      salary_max: 210000,
+    });
   });
 });
 
@@ -475,20 +470,15 @@ describe("AC 98: a predicted salary is excluded", () => {
       .then((r) => r.jobs[0]);
   }
 
-  test("salary_low is undefined", async () => {
-    expect((await collectWithPredictedSalary()).salary_low).toBeUndefined();
+  test("raw_salary is absent rather than an empty envelope", async () => {
+    expect((await collectWithPredictedSalary()).raw_salary).toBeUndefined();
   });
 
-  test("salary_high is undefined", async () => {
-    expect((await collectWithPredictedSalary()).salary_high).toBeUndefined();
-  });
-
-  test("salary_period is undefined", async () => {
-    expect((await collectWithPredictedSalary()).salary_period).toBeUndefined();
-  });
-
-  test("salary_raw is undefined", async () => {
-    expect((await collectWithPredictedSalary()).salary_raw).toBeUndefined();
+  test("the salary columns are left unset", async () => {
+    const job = await collectWithPredictedSalary();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
 
@@ -511,19 +501,14 @@ describe("when salary_is_predicted is absent, the salary is left unset", () => {
       .then((r) => r.jobs[0]);
   }
 
-  test("salary_low is undefined", async () => {
-    expect((await collectWithoutFlag()).salary_low).toBeUndefined();
+  test("raw_salary is absent rather than an empty envelope", async () => {
+    expect((await collectWithoutFlag()).raw_salary).toBeUndefined();
   });
 
-  test("salary_high is undefined", async () => {
-    expect((await collectWithoutFlag()).salary_high).toBeUndefined();
-  });
-
-  test("salary_period is undefined", async () => {
-    expect((await collectWithoutFlag()).salary_period).toBeUndefined();
-  });
-
-  test("salary_raw is undefined", async () => {
-    expect((await collectWithoutFlag()).salary_raw).toBeUndefined();
+  test("the salary columns are left unset", async () => {
+    const job = await collectWithoutFlag();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });

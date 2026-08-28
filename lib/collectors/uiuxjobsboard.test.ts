@@ -254,7 +254,7 @@ describe("getLocation is never called — the site has no location on these path
 });
 
 describe("a card becomes a job carrying the fields a category page can supply", () => {
-  test("original_url, original_title, and a posting_date are all present", async () => {
+  test("original_url, raw_title, and a posting_date are all present", async () => {
     const card = uiuxCard({ id: 1, title: "Founding Product Designer", age: "2d" });
     stubFetch(categoryRoute(PRODUCT_DESIGNER, [card]));
 
@@ -263,7 +263,7 @@ describe("a card becomes a job carrying the fields a category page can supply", 
     expect(result.jobs).toHaveLength(1);
     const [job] = result.jobs;
     expect(job.original_url).toBe("https://uiuxjobsboard.com/job/1-some-role");
-    expect(job.original_title).toBe("Founding Product Designer");
+    expect(job.raw_title).toBe("Founding Product Designer");
     expect(job.posting_date).toBeDefined();
   });
 
@@ -300,12 +300,12 @@ describe("a card becomes a job carrying the fields a category page can supply", 
     const result = await collect({ settings: makeSettings({ searchTerms: [PRODUCT_DESIGN_LABEL] }) });
 
     const [job] = result.jobs;
-    expect(job.original_location_list ?? []).toEqual([]);
-    expect(job.original_mode_list ?? []).toEqual([]);
+    expect(job.raw_location_list ?? []).toEqual([]);
+    expect(job.raw_mode_list ?? []).toEqual([]);
+    expect(job.raw_salary).toBeUndefined();
     expect(job.salary_low).toBeUndefined();
     expect(job.salary_high).toBeUndefined();
     expect(job.salary_period).toBeUndefined();
-    expect(job.salary_raw).toBeUndefined();
   });
 });
 

@@ -153,7 +153,7 @@ describe("AC 38: postings whose title does not match the search terms are absent
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs.map((posting) => posting.original_title)).toEqual([
+    expect(result.jobs.map((posting) => posting.raw_title)).toEqual([
       "Senior Product Designer",
     ]);
   });
@@ -229,7 +229,7 @@ describe("AC 29: the company name is the board title stripped of its decoration"
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].company_name).toBe("Hinge Health");
+    expect(result.jobs[0].raw_company_name).toBe("Hinge Health");
   });
 });
 
@@ -265,7 +265,7 @@ describe("a board answering 404 records a warning and lets the other slugs run",
 });
 
 describe("a slug whose name lookup fails still yields its jobs", () => {
-  test("company_name is built from the slug rather than left empty", async () => {
+  test("raw_company_name is built from the slug rather than left empty", async () => {
     // No stub is set for the board page, so the lookup fails and the shared
     // resolver falls back to a name built from the slug.
     stubFetch({
@@ -278,7 +278,7 @@ describe("a slug whose name lookup fails still yields its jobs", () => {
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].company_name).toBe("Brightwave Labs");
+    expect(result.jobs[0].raw_company_name).toBe("Brightwave Labs");
   });
 });
 
@@ -309,29 +309,29 @@ describe("the field mapping from a Lever posting to a job list entry", () => {
     );
   });
 
-  test("original_title is the posting's text", async () => {
-    expect((await collectOneJob()).original_title).toBe("Senior Product Designer");
+  test("raw_title is the posting's text", async () => {
+    expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
   });
 
-  test("company_name is the resolved employer name", async () => {
-    expect((await collectOneJob()).company_name).toBe("HighLevel");
+  test("raw_company_name is the resolved employer name", async () => {
+    expect((await collectOneJob()).raw_company_name).toBe("HighLevel");
   });
 
   test("posting_date is createdAt", async () => {
     expect((await collectOneJob()).posting_date).toEqual(new Date(1780000000000));
   });
 
-  test("original_location_list holds the posting's location", async () => {
-    expect((await collectOneJob()).original_location_list).toEqual(["Remote - US"]);
+  test("raw_location_list holds the posting's location", async () => {
+    expect((await collectOneJob()).raw_location_list).toEqual(["Remote - US"]);
   });
 
-  test("original_mode_list holds the workplaceType", async () => {
-    expect((await collectOneJob()).original_mode_list).toEqual(["remote"]);
+  test("raw_mode_list holds the workplaceType", async () => {
+    expect((await collectOneJob()).raw_mode_list).toEqual(["remote"]);
   });
 });
 
 describe("a posting missing a location gives an empty location list", () => {
-  test("original_location_list is empty rather than holding a placeholder", async () => {
+  test("raw_location_list is empty rather than holding a placeholder", async () => {
     stubFetch({
       [postingsUrl("gohighlevel")]: () =>
         jsonResponse([
@@ -348,12 +348,12 @@ describe("a posting missing a location gives an empty location list", () => {
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_location_list).toEqual([]);
+    expect(result.jobs[0].raw_location_list).toEqual([]);
   });
 });
 
 describe("a posting missing workplaceType gives an empty mode list", () => {
-  test("original_mode_list is empty rather than holding a placeholder", async () => {
+  test("raw_mode_list is empty rather than holding a placeholder", async () => {
     stubFetch({
       [postingsUrl("gohighlevel")]: () =>
         jsonResponse([
@@ -370,7 +370,7 @@ describe("a posting missing workplaceType gives an empty mode list", () => {
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_mode_list).toEqual([]);
+    expect(result.jobs[0].raw_mode_list).toEqual([]);
   });
 });
 
@@ -449,21 +449,40 @@ describe("description is used when descriptionPlain is absent", () => {
   });
 });
 
-describe("Lever publishes no salary field, so all four stay unset", () => {
-  test("salary_low is undefined", async () => {
-    expect((await collectOneJob()).salary_low).toBeUndefined();
+describe("AC 84: Lever publishes no salary, so nothing salary-shaped is written", () => {
+  test("raw_salary is absent rather than an empty envelope", async () => {
+    expect((await collectOneJob()).raw_salary).toBeUndefined();
   });
 
-  test("salary_high is undefined", async () => {
-    expect((await collectOneJob()).salary_high).toBeUndefined();
+  test("the salary columns are left unset", async () => {
+    const job = await collectOneJob();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
+});
 
-  test("salary_period is undefined", async () => {
-    expect((await collectOneJob()).salary_period).toBeUndefined();
-  });
+describe("AC 102: a pay range in the description is left for a parser", () => {
+  test("a posting naming pay in its text still gets no raw_salary", async () => {
+    stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([
+          {
+            id: "post-salary",
+            text: "Senior Product Designer",
+            createdAt: 1780001000000,
+            categories: { location: "Remote - US" },
+            descriptionPlain: "The pay range for this role is $120,000 - $150,000 per year.",
+          },
+        ]),
+      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-  test("salary_raw is undefined", async () => {
-    expect((await collectOneJob()).salary_raw).toBeUndefined();
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].raw_salary).toBeUndefined();
+    expect(result.jobs[0].description).toContain("$120,000 - $150,000");
   });
 });
 
@@ -487,7 +506,7 @@ describe("AC 93: a published workplaceType wins over a mode named in the descrip
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_mode_list).toEqual(["remote"]);
+    expect(result.jobs[0].raw_mode_list).toEqual(["remote"]);
   });
 });
 
@@ -510,57 +529,6 @@ describe("AC 92: a posting publishing no workplaceType reads a mode out of the d
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_mode_list).toEqual(["hybrid"]);
-  });
-});
-
-describe("AC 86: Lever publishes no salary, so the description is where pay comes from", () => {
-  test("a pay range in the description fills the low, the high and the period", async () => {
-    stubFetch({
-      [postingsUrl("gohighlevel")]: () =>
-        jsonResponse([
-          {
-            id: "post-salary",
-            text: "Senior Product Designer",
-            createdAt: 1780001000000,
-            categories: { location: "Remote - US" },
-            descriptionPlain: "The pay range for this role is $120,000 - $150,000 per year.",
-          },
-        ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
-    });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
-
-    const result = await leverCollector.collect({ settings, limit: Infinity });
-
-    expect(result.jobs[0].salary_low).toBe(120000);
-    expect(result.jobs[0].salary_high).toBe(150000);
-    expect(result.jobs[0].salary_period).toBe("year");
-  });
-});
-
-describe("AC 88: a description naming no pay leaves every salary field empty", () => {
-  test("nothing is filled in and nothing is guessed", async () => {
-    stubFetch({
-      [postingsUrl("gohighlevel")]: () =>
-        jsonResponse([
-          {
-            id: "post-nopay",
-            text: "Senior Product Designer",
-            createdAt: 1780001100000,
-            categories: { location: "Remote - US" },
-            descriptionPlain: "Design beautiful products at HighLevel.",
-          },
-        ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
-    });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
-
-    const result = await leverCollector.collect({ settings, limit: Infinity });
-
-    expect(result.jobs[0].salary_low).toBeUndefined();
-    expect(result.jobs[0].salary_high).toBeUndefined();
-    expect(result.jobs[0].salary_period).toBeUndefined();
-    expect(result.jobs[0].salary_raw).toBeUndefined();
+    expect(result.jobs[0].raw_mode_list).toEqual(["hybrid"]);
   });
 });

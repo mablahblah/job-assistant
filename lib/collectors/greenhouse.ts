@@ -1,8 +1,7 @@
 // Polls Greenhouse's public boards API for postings whose title matches the
 // user's search terms, resolving each board's real employer name once per run
 // rather than once per posting.
-import type { JobListEntry } from "../job-list-entry";
-import { normalizeSalary, readSalaryFromText } from "../salary";
+import type { JobListEntry, RawSalary } from "../job-list-entry";
 import { matchesSearchTerms } from "../search-term-analyzer";
 import { readWorkModeFromText } from "../work-mode";
 import { readAtsBoards } from "./ats-boards";
@@ -46,33 +45,33 @@ function toJobListEntry(
   const url = `https://boards.greenhouse.io/${slug}/jobs/${posting.id}`;
   // A blank description is the same as none, so it is left unset.
   const description = posting.content || undefined;
-  // Greenhouse sends cents, not whole dollars. That is a Greenhouse fact, so
-  // the division happens here rather than inside the shared salary util. A
-  // board with no range at all and one with an empty range both mean no pay,
-  // and only then is a range read out of the description instead.
+  // Greenhouse sends cents, and the cents are written exactly as sent. No
+  // figure carries its unit on its face, so which unit an API sends is a fact
+  // the collector records rather than acts on. A board with no range at all
+  // and one with an empty range both mean no pay, and neither writes a salary.
   const range = posting.pay_input_ranges?.[0];
-  const publishedSalary = range
-    ? normalizeSalary({
-        low: range.min_cents / 100,
-        high: range.max_cents / 100,
-        currency: range.currency_type,
-      })
+  const raw_salary: RawSalary | undefined = range
+    ? {
+        salary_min: range.min_cents,
+        salary_max: range.max_cents,
+        salary_currency: range.currency_type,
+        salary_unit: "cents",
+      }
     : undefined;
-  const salary = publishedSalary ?? (description ? readSalaryFromText(description) : {});
   // Greenhouse publishes no work-mode field, so the mode is read out of the
   // description.
   const mode = description ? readWorkModeFromText(description) : undefined;
   return {
     original_url: url,
     resolved_url: url,
-    original_title: posting.title,
-    company_name: companyName,
+    raw_title: posting.title,
+    raw_company_name: companyName,
     posting_date: new Date(posting.first_published),
     posting_updated_date: new Date(posting.updated_at),
-    original_location_list: posting.location ? [posting.location.name] : [],
-    original_mode_list: mode ? [mode] : [],
+    raw_location_list: posting.location ? [posting.location.name] : [],
+    raw_mode_list: mode ? [mode] : [],
     description,
-    ...salary,
+    ...(raw_salary ? { raw_salary } : {}),
     is_resolved: true,
     is_parsed: false,
     is_classified: false,

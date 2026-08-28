@@ -22,8 +22,9 @@ const MULTI_CREATE_TIMEOUT_MS = 120_000;
 const EXPECTED_JOB_COLUMNS = [
   "id",
   "company_id",
-  "company_name",
-  "original_title",
+  "raw_company_name",
+  "raw_company_slug",
+  "raw_title",
   "original_url",
   "resolved_url",
   "posting_date",
@@ -34,10 +35,10 @@ const EXPECTED_JOB_COLUMNS = [
   "is_parsed",
   "is_classified",
   "status",
-  "original_location_list",
-  "original_mode_list",
+  "raw_location_list",
+  "raw_mode_list",
   "collector",
-  "salary_raw",
+  "raw_salary",
   "salary_low",
   "salary_high",
   "salary_period",
@@ -65,19 +66,21 @@ const EXPECTED_SETTING_COLUMNS = [
   "modified_at",
 ];
 
-// Columns a collector writes. A collector fills only what its source supplied,
-// so every one of these must be nullable or carry a default.
+// Columns the pipeline writes on its way to save. A collector fills only what
+// its source supplied and a later phase fills the rest, so every one of these
+// must be nullable or carry a default.
 const COLLECTOR_WRITTEN_COLUMNS = [
-  "company_name",
-  "original_title",
+  "raw_company_name",
+  "raw_company_slug",
+  "raw_title",
   "original_url",
   "resolved_url",
   "posting_date",
   "posting_updated_date",
-  "original_location_list",
-  "original_mode_list",
+  "raw_location_list",
+  "raw_mode_list",
   "collector",
-  "salary_raw",
+  "raw_salary",
   "salary_low",
   "salary_high",
   "salary_period",

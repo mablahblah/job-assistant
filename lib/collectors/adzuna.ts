@@ -2,8 +2,7 @@
 // term runs two searches — one nationwide for remote work, one anchored to the
 // user's location — because carrying a location into the remote search would
 // narrow it to the radius and defeat it.
-import type { JobListEntry } from "../job-list-entry";
-import { normalizeSalary } from "../salary";
+import type { JobListEntry, RawSalary } from "../job-list-entry";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
 import type { Collector, CollectorResult } from "./types";
 
@@ -28,27 +27,35 @@ interface AdzunaSearchResponse {
 }
 
 function toJobListEntry(job: AdzunaJob): JobListEntry {
+  // Salary is read only where salary_is_predicted is "0". Adzuna's model
+  // outputs "1" for a guess, measured at 133 of 150 results, and a guess reads
+  // as fact once stored. Adzuna states no period and no currency and sends
+  // whole dollars, so those three keys never appear.
+  const raw_salary: RawSalary = {};
+  if (job.salary_is_predicted === "0") {
+    if (job.salary_min !== undefined) raw_salary.salary_min = job.salary_min;
+    if (job.salary_max !== undefined) raw_salary.salary_max = job.salary_max;
+  }
+  // A period or a currency on its own is not a salary, so the envelope is
+  // written only where a figure is there to carry it.
+  const hasFigures = raw_salary.salary_min !== undefined || raw_salary.salary_max !== undefined;
+
   // An aggregator link is a redirect rather than the source posting, so it is
   // neither resolved nor parsed yet.
   return {
     original_url: job.redirect_url,
-    original_title: job.title,
-    company_name: job.company.display_name,
+    raw_title: job.title,
+    raw_company_name: job.company.display_name,
     // Adzuna publishes one date, so nothing fills posting_updated_date.
     posting_date: new Date(job.created),
-    original_location_list: job.location ? [job.location.display_name] : [],
+    raw_location_list: job.location ? [job.location.display_name] : [],
     // Adzuna publishes no structured work mode, and reading one out of the
     // description text is a parser's job.
-    original_mode_list: [],
+    raw_mode_list: [],
     // Adzuna truncates its descriptions to 500 characters. The collector keeps
     // whatever it was sent, and a blank one counts as none.
     description: job.description || undefined,
-    // Read salary only where salary_is_predicted is "0". Adzuna's model outputs
-    // "1" (measured 133 of 150 results as predicted); guesses read as fact once
-    // stored. Adzuna states no period and no currency, so the util decides those.
-    ...(job.salary_is_predicted === "0"
-      ? normalizeSalary({ low: job.salary_min, high: job.salary_max })
-      : {}),
+    ...(hasFigures ? { raw_salary } : {}),
     is_resolved: false,
     is_parsed: false,
     is_classified: false,

@@ -17,7 +17,7 @@ const stubSettings: SettingsService = {
 // A minimal job. Every JobListEntry field is optional, so a url and a title
 // are enough to tell one job from another.
 function makeJob(title: string): JobListEntry {
-  return { original_url: `https://example.com/${title}`, original_title: title };
+  return { original_url: `https://example.com/${title}`, raw_title: title };
 }
 
 // A stand-in collector that remembers whether it ran and what it was handed,
@@ -363,6 +363,6 @@ describe("collectors run in the order they are given", () => {
       warnings: [],
     });
     const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
-    expect(report.jobs.map((job) => job.original_title)).toEqual(["Designer", "Researcher"]);
+    expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer", "Researcher"]);
   });
 });

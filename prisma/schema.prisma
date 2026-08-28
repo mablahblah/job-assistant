@@ -12,52 +12,57 @@ datasource db {
 // A single job posting. Collection fills what its source supplied and leaves
 // the rest empty, so a later phase can tell what still needs doing.
 model Job {
-  id                     String    @id @default(cuid())
+  id                   String    @id @default(cuid())
   // Set when save matches this job to a Company row.
-  company_id             String?
+  company_id           String?
   // The employer as the collector spelled it. The normalized name lives on
   // the company record.
-  company_name           String?
+  raw_company_name     String?
+  // The board slug an ATS collector polled. A stronger identity than a name,
+  // and what company association looks up first.
+  raw_company_slug     String?
   // The title as the source published it, kept exactly.
-  original_title         String?
+  raw_title            String?
   // The link the collector found, often an aggregator redirect.
-  original_url           String?
+  original_url         String?
   // The source posting, found by following original_url.
-  resolved_url           String?
+  resolved_url         String?
   // When the source says the posting went live.
-  posting_date           DateTime?
+  posting_date         DateTime?
   // When the source says the posting last changed, where the source
   // distinguishes the two.
-  posting_updated_date   DateTime?
-  created_at             DateTime  @default(now())
-  modified_at            DateTime  @updatedAt
+  posting_updated_date DateTime?
+  created_at           DateTime  @default(now())
+  modified_at          DateTime  @updatedAt
   // Phase gates. Each phase sets its own once it has handled the job.
-  is_resolved            Boolean   @default(false)
-  is_parsed              Boolean   @default(false)
-  is_classified          Boolean   @default(false)
+  is_resolved          Boolean   @default(false)
+  is_parsed            Boolean   @default(false)
+  is_classified        Boolean   @default(false)
   // Lifecycle state: backlog, expired, too far, unresolvable, unparseable,
   // and the active states the user moves a job through.
-  status                 String    @default("backlog")
+  status               String    @default("backlog")
   // Every location collected, kept intact. Independent of the mode list,
   // not paired by position.
-  original_location_list Json?
+  raw_location_list    Json?
   // Every work mode collected, kept intact. Independent of the location
   // list, not paired by position.
-  original_mode_list     Json?
+  raw_mode_list        Json?
   // Which collector produced it.
-  collector              String?
-  // Salary as the source published it, kept so a parse can be redone.
-  salary_raw             String?
+  collector            String?
+  // Salary as the source published it, in a fixed five-key envelope whose
+  // values are untouched: salary_min, salary_max, salary_period,
+  // salary_currency, salary_unit. Normalization reshapes them.
+  raw_salary           Json?
   // The bottom of the published salary range, in whole currency units.
-  salary_low             Int?
+  salary_low           Int?
   // The top of the published salary range, in whole currency units.
-  salary_high            Int?
+  salary_high          Int?
   // What the salary figures are per: year, month, week, day, or hour.
-  salary_period          String?
+  salary_period        String?
   // The posting's own words, as the source supplied them. Scoring reads this
   // rather than reopening the posting to fetch them again.
-  description            String?
-  company                Company?  @relation(fields: [company_id], references: [id])
+  description          String?
+  company              Company?  @relation(fields: [company_id], references: [id])
 }
 
 // An employer. A collector polls the companies carrying its ats_platform and

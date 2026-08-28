@@ -2,8 +2,7 @@
 // Every term folds into one query, so a run is always two requests — one for
 // remote work and one anchored to the user's location. Each is attempted on
 // its own, so a failure in one never costs the other its jobs.
-import type { JobListEntry } from "../job-list-entry";
-import { normalizeSalary } from "../salary";
+import type { JobListEntry, RawSalary } from "../job-list-entry";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
 import type { Collector, CollectorResult } from "./types";
 
@@ -21,9 +20,9 @@ interface JSearchJob {
   job_is_remote: boolean;
   job_posted_at_datetime_utc?: string;
   job_description?: string;
-  job_min_salary?: number;
-  job_max_salary?: number;
-  job_salary_period?: string;
+  job_min_salary?: number | null;
+  job_max_salary?: number | null;
+  job_salary_period?: string | null;
 }
 
 interface JSearchResponse {
@@ -36,25 +35,37 @@ function toJobListEntry(job: JSearchJob): JobListEntry {
     (part): part is string => Boolean(part)
   );
 
+  // JSearch answers a posting with no pay by sending null rather than leaving
+  // the key off, so null and absent both mean the source said nothing.
+  const raw_salary: RawSalary = {};
+  if (job.job_min_salary !== null && job.job_min_salary !== undefined) {
+    raw_salary.salary_min = job.job_min_salary;
+  }
+  if (job.job_max_salary !== null && job.job_max_salary !== undefined) {
+    raw_salary.salary_max = job.job_max_salary;
+  }
+  if (job.job_salary_period !== null && job.job_salary_period !== undefined) {
+    raw_salary.salary_period = job.job_salary_period;
+  }
+  // A period on its own is not a salary, so the envelope is written only where
+  // a figure is there to carry it.
+  const hasFigures = raw_salary.salary_min !== undefined || raw_salary.salary_max !== undefined;
+
   // An aggregator link is a redirect rather than the source posting, so it is
   // neither resolved nor parsed yet.
   return {
     original_url: job.job_apply_link,
-    original_title: job.job_title,
-    company_name: job.employer_name,
+    raw_title: job.job_title,
+    raw_company_name: job.employer_name,
     // JSearch leaves this off some postings, and no date beats an invalid one.
     posting_date: job.job_posted_at_datetime_utc
       ? new Date(job.job_posted_at_datetime_utc)
       : undefined,
-    original_location_list: locationParts.length > 0 ? [locationParts.join(", ")] : [],
-    original_mode_list: job.job_is_remote ? ["remote"] : [],
+    raw_location_list: locationParts.length > 0 ? [locationParts.join(", ")] : [],
+    raw_mode_list: job.job_is_remote ? ["remote"] : [],
     // A blank description is the same as none, so it is left unset.
     description: job.job_description || undefined,
-    ...normalizeSalary({
-      low: job.job_min_salary,
-      high: job.job_max_salary,
-      period: job.job_salary_period,
-    }),
+    ...(hasFigures ? { raw_salary } : {}),
     is_resolved: false,
     is_parsed: false,
     is_classified: false,

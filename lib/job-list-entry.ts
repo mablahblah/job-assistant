@@ -2,21 +2,39 @@
 // anything is saved. It maps one to one onto the Job database row, so a
 // collector and the row it eventually becomes never quietly disagree.
 //
-// original_location_list and original_mode_list are real arrays here and
-// only become JSON columns at the database, so they replace Job's Json
-// typing. delete_on_save is the one field that is not a column: a later
-// phase sets it on an entry it wants removed.
+// raw_location_list, raw_mode_list, and raw_salary are typed here as a real
+// array or object, not the Json column Prisma gives them, so they replace
+// Job's Json typing. delete_on_save is the one field that is not a column: a
+// later phase sets it on an entry it wants removed.
 //
 // Every field is optional because a collector fills only what its source
 // supplied and leaves the rest empty.
 import type { Job } from "../generated/pipeline/client";
 
+// The salary a source published, exactly as it published it. A collector sets
+// only the keys its source gave it, and a key the source said nothing about is
+// left off rather than filled with a placeholder. The keys are the same five
+// whatever the source, which is what lets one normalizer read every source
+// instead of branching on which collector produced the job.
+//
+// salary_unit exists because no figure carries its unit on its face —
+// 14000000 is a plausible salary in cents and in pesos alike — and only the
+// collector knows which its own API sends.
+export interface RawSalary {
+  salary_min?: number;
+  salary_max?: number;
+  salary_period?: string;
+  salary_currency?: string;
+  salary_unit?: "cents";
+}
+
 export type JobListEntry = Omit<
   Partial<Job>,
-  "original_location_list" | "original_mode_list"
+  "raw_location_list" | "raw_mode_list" | "raw_salary"
 > & {
-  original_location_list?: string[];
-  original_mode_list?: string[];
+  raw_location_list?: string[];
+  raw_mode_list?: string[];
+  raw_salary?: RawSalary;
   delete_on_save?: boolean;
 };
 
@@ -26,8 +44,9 @@ export type JobListEntry = Omit<
 export const JOB_LIST_ENTRY_FIELDS = [
   "id",
   "company_id",
-  "company_name",
-  "original_title",
+  "raw_company_name",
+  "raw_company_slug",
+  "raw_title",
   "original_url",
   "resolved_url",
   "posting_date",
@@ -38,10 +57,10 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "is_parsed",
   "is_classified",
   "status",
-  "original_location_list",
-  "original_mode_list",
+  "raw_location_list",
+  "raw_mode_list",
   "collector",
-  "salary_raw",
+  "raw_salary",
   "salary_low",
   "salary_high",
   "salary_period",

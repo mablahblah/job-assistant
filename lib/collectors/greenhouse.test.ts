@@ -160,7 +160,7 @@ describe("AC 38: postings whose title does not match the search terms are absent
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs.map((posting) => posting.original_title)).toEqual([
+    expect(result.jobs.map((posting) => posting.raw_title)).toEqual([
       "Senior Product Designer",
     ]);
   });
@@ -200,7 +200,7 @@ describe("AC 48: the dates are written to their own fields", () => {
 });
 
 describe("AC 28: the company name comes from the posting itself", () => {
-  test("company_name is the posting's own company_name", async () => {
+  test("raw_company_name is the posting's own company_name", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () =>
         jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: "Stripe, Inc." }] }),
@@ -209,7 +209,7 @@ describe("AC 28: the company name comes from the posting itself", () => {
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].company_name).toBe("Stripe, Inc.");
+    expect(result.jobs[0].raw_company_name).toBe("Stripe, Inc.");
   });
 
   test("the name stored in settings is ignored in favour of the posting's", async () => {
@@ -223,7 +223,7 @@ describe("AC 28: the company name comes from the posting itself", () => {
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].company_name).toBe("Stripe");
+    expect(result.jobs[0].raw_company_name).toBe("Stripe");
   });
 });
 
@@ -282,8 +282,8 @@ describe("AC 31: a posting carrying no company_name falls back to the slug", () 
     return greenhouseCollector.collect({ settings, limit: Infinity });
   }
 
-  test("company_name is built from the slug rather than left empty", async () => {
-    expect((await collectFromNamelessBoard()).jobs[0].company_name).toBe("Brightwave Labs");
+  test("raw_company_name is built from the slug rather than left empty", async () => {
+    expect((await collectFromNamelessBoard()).jobs[0].raw_company_name).toBe("Brightwave Labs");
   });
 
   test("a warning names the slug", async () => {
@@ -323,27 +323,27 @@ describe("the field mapping from a Greenhouse posting to a job list entry", () =
     );
   });
 
-  test("original_title is the posting's title", async () => {
-    expect((await collectOneJob()).original_title).toBe("Senior Product Designer");
+  test("raw_title is the posting's title", async () => {
+    expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
   });
 
-  test("company_name is the resolved employer name", async () => {
-    expect((await collectOneJob()).company_name).toBe("Stripe");
+  test("raw_company_name is the resolved employer name", async () => {
+    expect((await collectOneJob()).raw_company_name).toBe("Stripe");
   });
 
-  test("original_location_list holds the posting's location", async () => {
-    expect((await collectOneJob()).original_location_list).toEqual(["Remote - US"]);
+  test("raw_location_list holds the posting's location", async () => {
+    expect((await collectOneJob()).raw_location_list).toEqual(["Remote - US"]);
   });
 
   test("AC 94: a description saying nothing about where the work happens leaves the mode empty", async () => {
     // Greenhouse publishes no work-mode field, so the description is the only
     // source, and one that names no mode leaves the field empty.
-    expect((await collectOneJob()).original_mode_list).toEqual([]);
+    expect((await collectOneJob()).raw_mode_list).toEqual([]);
   });
 });
 
 describe("a posting missing a location gives an empty location list", () => {
-  test("original_location_list is empty rather than holding a placeholder", async () => {
+  test("raw_location_list is empty rather than holding a placeholder", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () =>
         jsonResponse({
@@ -361,7 +361,7 @@ describe("a posting missing a location gives an empty location list", () => {
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_location_list).toEqual([]);
+    expect(result.jobs[0].raw_location_list).toEqual([]);
   });
 });
 
@@ -395,49 +395,41 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
   });
 });
 
-describe("AC 80: the salary fields are filled from pay_input_ranges", () => {
-  test("salary_low is filled", async () => {
-    expect((await collectOneJob()).salary_low).toBeDefined();
+describe("AC 80: raw_salary is filled from pay_input_ranges and no column is written", () => {
+  test("raw_salary holds the figures, the currency and the unit", async () => {
+    expect((await collectOneJob()).raw_salary).toEqual({
+      salary_min: 14000000,
+      salary_max: 21000000,
+      salary_currency: "USD",
+      salary_unit: "cents",
+    });
   });
 
-  test("salary_high is filled", async () => {
-    expect((await collectOneJob()).salary_high).toBeDefined();
-  });
-
-  test("salary_period is filled", async () => {
-    expect((await collectOneJob()).salary_period).toBeDefined();
-  });
-
-  test("salary_raw holds the source's figures", async () => {
-    expect((await collectOneJob()).salary_raw).toContain("140000-210000");
-  });
-
-  test("the currency reaches salary_raw", async () => {
-    expect((await collectOneJob()).salary_raw).toContain("USD");
+  test("the salary columns are left for normalization to fill", async () => {
+    const job = await collectOneJob();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
 
-describe("AC 81: the cents Greenhouse sends become dollars", () => {
-  test("a min_cents of 14000000 becomes a salary_low of 140000", async () => {
-    expect((await collectOneJob()).salary_low).toBe(140000);
+describe("AC 81: the cents Greenhouse sends are recorded as cents", () => {
+  test("a min_cents of 14000000 is written unchanged", async () => {
+    expect((await collectOneJob()).raw_salary?.salary_min).toBe(14000000);
   });
 
-  test("salary_low is not left as the raw cents figure", async () => {
-    expect((await collectOneJob()).salary_low).not.toBe(14000000);
+  test("a max_cents of 21000000 is written unchanged", async () => {
+    expect((await collectOneJob()).raw_salary?.salary_max).toBe(21000000);
   });
 
-  test("a max_cents of 21000000 becomes a salary_high of 210000", async () => {
-    expect((await collectOneJob()).salary_high).toBe(210000);
-  });
-});
-
-describe("AC 82: salary_period is year, since Greenhouse states no period", () => {
-  test("salary_period is year", async () => {
-    expect((await collectOneJob()).salary_period).toBe("year");
+  test("salary_unit records which unit the figures are in", async () => {
+    // Nothing about 14000000 says whether it is cents or a large salary in
+    // another currency, so the collector says which rather than dividing.
+    expect((await collectOneJob()).raw_salary?.salary_unit).toBe("cents");
   });
 });
 
-describe("AC 84: a posting with no pay_input_ranges leaves the salary fields unset", () => {
+describe("AC 84: a posting with no pay_input_ranges gets no raw_salary at all", () => {
   function collectWithoutSalary() {
     stubFetch({
       [jobsUrl("stripe")]: () =>
@@ -457,25 +449,20 @@ describe("AC 84: a posting with no pay_input_ranges leaves the salary fields uns
     return greenhouseCollector.collect({ settings, limit: Infinity }).then((r) => r.jobs[0]);
   }
 
-  test("salary_low is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_low).toBeUndefined();
+  test("raw_salary is absent rather than an empty envelope", async () => {
+    expect((await collectWithoutSalary()).raw_salary).toBeUndefined();
   });
 
-  test("salary_high is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_high).toBeUndefined();
-  });
-
-  test("salary_period is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_period).toBeUndefined();
-  });
-
-  test("salary_raw is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_raw).toBeUndefined();
+  test("the salary columns are left unset", async () => {
+    const job = await collectWithoutSalary();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
 
-describe("an empty pay_input_ranges array leaves the salary fields unset", () => {
-  test("salary_low is undefined", async () => {
+describe("an empty pay_input_ranges array gets no raw_salary either", () => {
+  test("raw_salary is undefined", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () =>
         jsonResponse({
@@ -495,11 +482,11 @@ describe("an empty pay_input_ranges array leaves the salary fields unset", () =>
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].salary_low).toBeUndefined();
+    expect(result.jobs[0].raw_salary).toBeUndefined();
   });
 });
 
-describe("AC 92: a description naming a mode fills original_mode_list", () => {
+describe("AC 92: a description naming a mode fills raw_mode_list", () => {
   test("content saying the role is remote gives a mode of remote", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () =>
@@ -520,21 +507,21 @@ describe("AC 92: a description naming a mode fills original_mode_list", () => {
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_mode_list).toEqual(["remote"]);
+    expect(result.jobs[0].raw_mode_list).toEqual(["remote"]);
   });
 });
 
-describe("AC 86: a board publishing no pay range reads one out of the description", () => {
-  test("a pay range in the content fills the low, the high and the period", async () => {
+describe("AC 102: a pay range in the description is left for a parser", () => {
+  test("a posting naming pay in its content still gets no raw_salary", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () =>
         jsonResponse({
           jobs: [
             {
-              id: 555123,
+              id: 555126,
               title: "Senior Product Designer",
-              first_published: "2026-06-09T00:00:00.000Z",
-              updated_at: "2026-06-28T00:00:00.000Z",
+              first_published: "2026-06-12T00:00:00.000Z",
+              updated_at: "2026-07-01T00:00:00.000Z",
               location: { name: "Remote - US" },
               content: "The pay range for this role is $120,000 - $150,000 per year.",
             },
@@ -545,36 +532,8 @@ describe("AC 86: a board publishing no pay range reads one out of the descriptio
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].salary_low).toBe(120000);
-    expect(result.jobs[0].salary_high).toBe(150000);
-    expect(result.jobs[0].salary_period).toBe("year");
-  });
-});
-
-describe("AC 87: a published pay range wins over one named in the description", () => {
-  test("the published figures land and the ones in the text are ignored", async () => {
-    stubFetch({
-      [jobsUrl("stripe")]: () =>
-        jsonResponse({
-          jobs: [
-            {
-              id: 555124,
-              title: "Senior Product Designer",
-              first_published: "2026-06-10T00:00:00.000Z",
-              updated_at: "2026-06-29T00:00:00.000Z",
-              location: { name: "Remote - US" },
-              content: "The pay range for this role is $80,000 - $95,000 per year.",
-              pay_input_ranges: [{ min_cents: 14000000, max_cents: 21000000, currency_type: "USD" }],
-            },
-          ],
-        }),
-    });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
-
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
-
-    expect(result.jobs[0].salary_low).toBe(140000);
-    expect(result.jobs[0].salary_high).toBe(210000);
+    expect(result.jobs[0].raw_salary).toBeUndefined();
+    expect(result.jobs[0].description).toContain("$120,000 - $150,000");
   });
 });
 
@@ -598,7 +557,7 @@ describe("a posting carrying no description at all", () => {
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].original_mode_list).toEqual([]);
+    expect(result.jobs[0].raw_mode_list).toEqual([]);
     expect(result.jobs[0].salary_low).toBeUndefined();
     expect(result.jobs[0].salary_period).toBeUndefined();
   });

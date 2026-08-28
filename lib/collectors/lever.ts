@@ -2,7 +2,6 @@
 // search terms, resolving each board's real employer name once per run rather
 // than once per posting.
 import type { JobListEntry } from "../job-list-entry";
-import { readSalaryFromText } from "../salary";
 import { matchesSearchTerms } from "../search-term-analyzer";
 import { readWorkModeFromText } from "../work-mode";
 import { readAtsBoards } from "./ats-boards";
@@ -49,20 +48,16 @@ function toJobListEntry(posting: LeverPosting, slug: string, companyName: string
   // falls back to reading a mode out of the description.
   const mode =
     posting.workplaceType || (description ? readWorkModeFromText(description) : undefined);
-  // Lever publishes no salary field at all, so pay is read out of the
-  // description.
-  const salary = description ? readSalaryFromText(description) : {};
   return {
     original_url: url,
     resolved_url: url,
-    original_title: posting.text,
-    company_name: companyName,
+    raw_title: posting.text,
+    raw_company_name: companyName,
     // Lever publishes one date, so nothing fills posting_updated_date.
     posting_date: new Date(posting.createdAt),
-    original_location_list: posting.categories?.location ? [posting.categories.location] : [],
-    original_mode_list: mode ? [mode] : [],
+    raw_location_list: posting.categories?.location ? [posting.categories.location] : [],
+    raw_mode_list: mode ? [mode] : [],
     description,
-    ...salary,
     is_resolved: true,
     is_parsed: false,
     is_classified: false,

@@ -45,7 +45,7 @@ function cardToJob(card: ResultCard): JobListEntry {
   const postingDate = ageToDate(card.age);
   return {
     original_url: card.url,
-    original_title: card.title,
+    raw_title: card.title,
     ...(postingDate ? { posting_date: postingDate } : {}),
     is_resolved: false,
     is_parsed: false,

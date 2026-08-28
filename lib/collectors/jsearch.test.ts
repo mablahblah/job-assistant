@@ -260,7 +260,7 @@ describe("AC 39: results come back unfiltered", () => {
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
-    expect(result.jobs.map((job) => job.original_title)).toContain("Warehouse Associate");
+    expect(result.jobs.map((job) => job.raw_title)).toContain("Warehouse Associate");
   });
 });
 
@@ -285,24 +285,24 @@ describe("the field mapping from a JSearch posting to a job list entry", () => {
     expect((await collectOneJob()).original_url).toBe("https://example.com/jobs/abc123");
   });
 
-  test("original_title is job_title", async () => {
-    expect((await collectOneJob()).original_title).toBe("Senior Product Designer");
+  test("raw_title is job_title", async () => {
+    expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
   });
 
-  test("company_name is employer_name", async () => {
-    expect((await collectOneJob()).company_name).toBe("Acme Corp");
+  test("raw_company_name is employer_name", async () => {
+    expect((await collectOneJob()).raw_company_name).toBe("Acme Corp");
   });
 
   test("posting_date is job_posted_at_datetime_utc", async () => {
     expect((await collectOneJob()).posting_date).toEqual(new Date("2026-08-20T00:00:00.000Z"));
   });
 
-  test("original_location_list joins city, state and country", async () => {
-    expect((await collectOneJob()).original_location_list).toEqual(["Austin, TX, US"]);
+  test("raw_location_list joins city, state and country", async () => {
+    expect((await collectOneJob()).raw_location_list).toEqual(["Austin, TX, US"]);
   });
 
-  test("original_mode_list holds remote when job_is_remote is true", async () => {
-    expect((await collectOneJob()).original_mode_list).toEqual(["remote"]);
+  test("raw_mode_list holds remote when job_is_remote is true", async () => {
+    expect((await collectOneJob()).raw_mode_list).toEqual(["remote"]);
   });
 
   test("is_resolved is false", async () => {
@@ -324,18 +324,18 @@ describe("the field mapping from a JSearch posting to a job list entry", () => {
 });
 
 describe("a job that is not remote gives an empty mode list", () => {
-  test("original_mode_list is empty rather than holding a placeholder", async () => {
+  test("raw_mode_list is empty rather than holding a placeholder", async () => {
     stubFetch(routesFor({ local: [{ ...seniorProductDesigner, job_is_remote: false }] }));
     const result = await jsearchCollector.collect({
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
-    expect(result.jobs[0].original_mode_list).toEqual([]);
+    expect(result.jobs[0].raw_mode_list).toEqual([]);
   });
 });
 
 describe("a job missing city, state and country gives an empty location list", () => {
-  test("original_location_list is empty rather than holding a placeholder", async () => {
+  test("raw_location_list is empty rather than holding a placeholder", async () => {
     const withoutLocation = {
       job_id: "333",
       job_title: "Senior Product Designer",
@@ -349,7 +349,7 @@ describe("a job missing city, state and country gives an empty location list", (
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
-    expect(result.jobs[0].original_location_list).toEqual([]);
+    expect(result.jobs[0].raw_location_list).toEqual([]);
   });
 });
 
@@ -436,30 +436,29 @@ describe("AC 79: a job with no description leaves the field unset", () => {
   });
 });
 
-describe("AC 80: the salary fields are filled from the job's numbers", () => {
-  test("salary_low is job_min_salary", async () => {
-    expect((await collectOneJob()).salary_low).toBe(140000);
+describe("AC 80: raw_salary holds the job's numbers and no column is written", () => {
+  test("raw_salary holds the figures and the period word", async () => {
+    expect((await collectOneJob()).raw_salary).toEqual({
+      salary_min: 140000,
+      salary_max: 210000,
+      salary_period: "YEAR",
+    });
   });
 
-  test("salary_high is job_max_salary", async () => {
-    expect((await collectOneJob()).salary_high).toBe(210000);
-  });
-
-  test("salary_period is filled", async () => {
-    expect((await collectOneJob()).salary_period).toBeDefined();
-  });
-
-  test("salary_raw holds the job's figures", async () => {
-    expect((await collectOneJob()).salary_raw).toContain("140000-210000");
+  test("the salary columns are left for normalization to fill", async () => {
+    const job = await collectOneJob();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
 
-describe("AC 83: job_salary_period decides the period", () => {
-  test("YEAR gives a salary_period of year", async () => {
-    expect((await collectOneJob()).salary_period).toBe("year");
+describe("AC 103: job_salary_period is recorded in the source's own wording", () => {
+  test("YEAR is kept as YEAR, not translated to year", async () => {
+    expect((await collectOneJob()).raw_salary?.salary_period).toBe("YEAR");
   });
 
-  test("HOUR gives a salary_period of hour", async () => {
+  test("HOUR is kept as HOUR", async () => {
     const hourly = {
       ...seniorProductDesigner,
       job_id: "777",
@@ -474,11 +473,37 @@ describe("AC 83: job_salary_period decides the period", () => {
       limit: Infinity,
     });
 
-    expect(result.jobs[0].salary_period).toBe("hour");
+    expect(result.jobs[0].raw_salary).toEqual({
+      salary_min: 40,
+      salary_max: 60,
+      salary_period: "HOUR",
+    });
   });
 });
 
-describe("AC 84: a job with no salary leaves all four fields unset", () => {
+describe("a period with no figures behind it is not a salary", () => {
+  // JSearch answers a posting with no pay by sending null, and a period on its
+  // own leaves normalization an envelope with nothing to normalize.
+  test("raw_salary is absent where only the period arrived", async () => {
+    const periodOnly = {
+      ...seniorProductDesigner,
+      job_id: "778",
+      job_min_salary: null,
+      job_max_salary: null,
+      job_salary_period: "YEAR",
+    };
+    stubFetch(routesFor({ local: [periodOnly] }));
+
+    const result = await jsearchCollector.collect({
+      settings: makeSettings(SEARCH_TERMS),
+      limit: Infinity,
+    });
+
+    expect(result.jobs[0].raw_salary).toBeUndefined();
+  });
+});
+
+describe("AC 84: a job with no salary gets no raw_salary at all", () => {
   function collectWithoutSalary() {
     const withoutSalary = {
       job_id: "666",
@@ -497,19 +522,14 @@ describe("AC 84: a job with no salary leaves all four fields unset", () => {
       .then((r) => r.jobs[0]);
   }
 
-  test("salary_low is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_low).toBeUndefined();
+  test("raw_salary is absent rather than an empty envelope", async () => {
+    expect((await collectWithoutSalary()).raw_salary).toBeUndefined();
   });
 
-  test("salary_high is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_high).toBeUndefined();
-  });
-
-  test("salary_period is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_period).toBeUndefined();
-  });
-
-  test("salary_raw is undefined", async () => {
-    expect((await collectWithoutSalary()).salary_raw).toBeUndefined();
+  test("the salary columns are left unset", async () => {
+    const job = await collectWithoutSalary();
+    expect(job.salary_low).toBeUndefined();
+    expect(job.salary_high).toBeUndefined();
+    expect(job.salary_period).toBeUndefined();
   });
 });
