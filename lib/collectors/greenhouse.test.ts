@@ -269,33 +269,6 @@ describe("a board answering 404 records a warning and lets the other slugs run",
   });
 });
 
-describe("AC 31: a posting carrying no company_name falls back to the slug", () => {
-  function collectFromNamelessBoard() {
-    const nameless = { ...seniorProductDesigner, company_name: undefined };
-    stubFetch({
-      [jobsUrl("brightwave-labs")]: () => jsonResponse({ jobs: [nameless] }),
-    });
-    const settings = makeSettings(
-      [{ name: "Ignored Settings Name", ats_slug: "brightwave-labs" }],
-      SEARCH_TERMS
-    );
-    return greenhouseCollector.collect({ settings, limit: Infinity });
-  }
-
-  test("raw_company_name is built from the slug rather than left empty", async () => {
-    expect((await collectFromNamelessBoard()).jobs[0].raw_company_name).toBe("Brightwave Labs");
-  });
-
-  test("a warning names the slug", async () => {
-    const result = await collectFromNamelessBoard();
-    expect(result.warnings.some((warning) => warning.includes("brightwave-labs"))).toBe(true);
-  });
-
-  test("the posting still comes back", async () => {
-    expect((await collectFromNamelessBoard()).jobs).toHaveLength(1);
-  });
-});
-
 describe("AC 76: no boards configured", () => {
   test("a warning names the platform", async () => {
     stubFetch({});
@@ -327,17 +300,19 @@ describe("the field mapping from a Greenhouse posting to a job list entry", () =
     expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
   });
 
-  test("raw_company_name is the resolved employer name", async () => {
+  test("raw_company_name is the posting's own company_name", async () => {
     expect((await collectOneJob()).raw_company_name).toBe("Stripe");
+  });
+
+  test("AC 100: raw_company_slug holds the board slug that was polled", async () => {
+    expect((await collectOneJob()).raw_company_slug).toBe("stripe");
   });
 
   test("raw_location_list holds the posting's location", async () => {
     expect((await collectOneJob()).raw_location_list).toEqual(["Remote - US"]);
   });
 
-  test("AC 94: a description saying nothing about where the work happens leaves the mode empty", async () => {
-    // Greenhouse publishes no work-mode field, so the description is the only
-    // source, and one that names no mode leaves the field empty.
+  test("raw_mode_list is empty, because Greenhouse publishes no work-mode field", async () => {
     expect((await collectOneJob()).raw_mode_list).toEqual([]);
   });
 });
@@ -486,8 +461,8 @@ describe("an empty pay_input_ranges array gets no raw_salary either", () => {
   });
 });
 
-describe("AC 92: a description naming a mode fills raw_mode_list", () => {
-  test("content saying the role is remote gives a mode of remote", async () => {
+describe("AC 102: a work mode named in the description is left for a parser", () => {
+  test("content saying the role is remote still gives an empty mode list", async () => {
     stubFetch({
       [jobsUrl("stripe")]: () =>
         jsonResponse({
@@ -507,7 +482,25 @@ describe("AC 92: a description naming a mode fills raw_mode_list", () => {
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].raw_mode_list).toEqual(["remote"]);
+    expect(result.jobs[0].raw_mode_list).toEqual([]);
+    expect(result.jobs[0].description).toContain("remote");
+  });
+
+  test("a posting carrying no company_name leaves the name unset rather than building one", async () => {
+    stubFetch({
+      [jobsUrl("brightwave-labs")]: () =>
+        jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: undefined }] }),
+    });
+    const settings = makeSettings(
+      [{ name: "Ignored Settings Name", ats_slug: "brightwave-labs" }],
+      SEARCH_TERMS
+    );
+
+    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].raw_company_name).toBeUndefined();
+    expect(result.jobs[0].raw_company_slug).toBe("brightwave-labs");
+    expect(result.jobs).toHaveLength(1);
   });
 });
 

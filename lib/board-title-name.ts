@@ -1,13 +1,7 @@
-// An ATS job is collected once and never parsed, so whichever name lands on
-// the job here is the name it keeps. Greenhouse, Lever, and Ashby each find
-// the real employer name their own way; the fallback and the warning they all
-// share when that lookup comes up empty live here.
-import { nameFromSlug } from "../ats-slug-name";
-
-export interface AtsCompanyName {
-  name: string;
-  warnings: string[];
-}
+// Reads an employer's name off the <title> of an ATS board page. The name a
+// board page shows is prose rather than a published field, so this is a
+// parser's tool: it is reached for when a job's source hands over a slug but
+// no name.
 
 // Decoration a board tacks onto the employer's name. Ashby appends " Jobs",
 // sometimes with a doubled space; Lever serves the name bare.
@@ -51,36 +45,4 @@ export function nameFromBoardTitle(title: string): string | null {
   }
 
   return name;
-}
-
-// Asks lookUp for the employer's real name exactly once. Whether it finds
-// nothing or throws outright, the slug-built stand-in is used instead and one
-// warning records what happened, so a name that could not be fetched never
-// costs the whole board its jobs.
-export async function resolveAtsCompanyName(
-  platform: string,
-  slug: string,
-  lookUp: () => Promise<string | null>
-): Promise<AtsCompanyName> {
-  let name: string | null;
-  let failure: string | null = null;
-
-  try {
-    name = await lookUp();
-  } catch (error) {
-    name = null;
-    failure = error instanceof Error ? error.message : String(error);
-  }
-
-  if (name !== null) {
-    return { name, warnings: [] };
-  }
-
-  const reason = failure ?? "no name was found";
-  return {
-    name: nameFromSlug(slug),
-    warnings: [
-      `Could not resolve a name for ${platform} board "${slug}" (${reason}); used the slug-built name instead.`,
-    ],
-  };
 }

@@ -1,11 +1,8 @@
 // Polls Greenhouse's public boards API for postings whose title matches the
-// user's search terms, resolving each board's real employer name once per run
-// rather than once per posting.
+// user's search terms.
 import type { JobListEntry, RawSalary } from "../job-list-entry";
 import { matchesSearchTerms } from "../search-term-analyzer";
-import { readWorkModeFromText } from "../work-mode";
 import { readAtsBoards } from "./ats-boards";
-import { resolveAtsCompanyName } from "./ats-company-name";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
 import type { Collector, CollectorResult } from "./types";
 
@@ -35,11 +32,7 @@ interface GreenhouseJobsResponse {
   jobs: GreenhousePosting[];
 }
 
-function toJobListEntry(
-  posting: GreenhousePosting,
-  slug: string,
-  companyName: string
-): JobListEntry {
+function toJobListEntry(posting: GreenhousePosting, slug: string): JobListEntry {
   // An ATS listing is already the source posting, so it needs no resolving.
   // Its description still has to be read, which is a parser's job.
   const url = `https://boards.greenhouse.io/${slug}/jobs/${posting.id}`;
@@ -58,18 +51,23 @@ function toJobListEntry(
         salary_unit: "cents",
       }
     : undefined;
-  // Greenhouse publishes no work-mode field, so the mode is read out of the
-  // description.
-  const mode = description ? readWorkModeFromText(description) : undefined;
   return {
     original_url: url,
     resolved_url: url,
     raw_title: posting.title,
-    raw_company_name: companyName,
+    // Every posting carries the employer's real name, so it is read straight
+    // off the posting and costs no request of its own. A posting without one
+    // leaves this empty rather than standing a name in for it.
+    raw_company_name: posting.company_name,
+    // Recorded beside the name because a slug is the stronger identity, and
+    // company association looks a company up by slug first.
+    raw_company_slug: slug,
     posting_date: new Date(posting.first_published),
     posting_updated_date: new Date(posting.updated_at),
     raw_location_list: posting.location ? [posting.location.name] : [],
-    raw_mode_list: mode ? [mode] : [],
+    // Greenhouse publishes no work-mode field, so there is nothing to collect.
+    // The mode is in the description, and reading it out is a parser's job.
+    raw_mode_list: [],
     description,
     ...(raw_salary ? { raw_salary } : {}),
     is_resolved: true,
@@ -106,24 +104,11 @@ export const greenhouseCollector: Collector = {
         `greenhouse board "${board.ats_slug}"`
       );
       // The board endpoint accepts no query, so the terms are applied here.
-      const matched = body.jobs.filter((posting) =>
-        matchesSearchTerms(posting.title, searchTerms)
-      );
-      if (matched.length === 0) continue;
-
-      // Every posting carries the employer's real name, so the name costs no
-      // request of its own. It matches the board endpoint's name exactly, and
-      // that endpoint is the one that intermittently times out.
-      const { name: companyName, warnings: nameWarnings } = await resolveAtsCompanyName(
-        PLATFORM,
-        board.ats_slug,
-        async () => matched[0]?.company_name ?? null
-      );
-      warnings.push(...nameWarnings);
+      const matched = body.jobs.filter((posting) => matchesSearchTerms(posting.title, searchTerms));
 
       for (const posting of matched) {
         if (jobs.length >= limit) break;
-        jobs.push(toJobListEntry(posting, board.ats_slug, companyName));
+        jobs.push(toJobListEntry(posting, board.ats_slug));
       }
     }
 

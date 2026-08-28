@@ -31,10 +31,6 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function htmlResponse(html: string): Response {
-  return new Response(html);
-}
-
 // A settings-service stand-in typed to the real interface, so a test supplies
 // only the boards and search terms it needs.
 function makeSettings(boards: AtsCompany[], searchTerms: string[]): SettingsService {
@@ -48,12 +44,8 @@ function makeSettings(boards: AtsCompany[], searchTerms: string[]): SettingsServ
 }
 
 const postingsUrl = (slug: string) => `https://api.lever.co/v0/postings/${slug}?mode=json`;
-const boardPageUrl = (slug: string) => `https://jobs.lever.co/${slug}`;
 
 const SEARCH_TERMS = ["Product Design"];
-
-const HIGHLEVEL_BOARD_HTML =
-  '<html><head><title data-rh="true">HighLevel Jobs</title></head><body></body></html>';
 
 // A title genuinely matching "Product Design" once it is stemmed.
 const seniorProductDesigner = {
@@ -78,32 +70,12 @@ const backendEngineer = {
 async function collectOneJob() {
   stubFetch({
     [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]),
-    [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
   });
   const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
   const result = await leverCollector.collect({ settings, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
 }
-
-describe("AC 27: the company name is fetched once no matter how many postings match", () => {
-  test("the board page is requested exactly once", async () => {
-    const calls = stubFetch({
-      [postingsUrl("gohighlevel")]: () =>
-        jsonResponse([
-          seniorProductDesigner,
-          { ...seniorProductDesigner, id: "post-abc125", text: "Staff Product Designer" },
-          { ...seniorProductDesigner, id: "post-abc126", text: "Lead Product Designer" },
-        ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
-    });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
-
-    await leverCollector.collect({ settings, limit: Infinity });
-
-    expect(calls.filter((url) => url === boardPageUrl("gohighlevel"))).toHaveLength(1);
-  });
-});
 
 describe("AC 32: a returned job is resolved, but not yet parsed or classified", () => {
   test("is_resolved is true", async () => {
@@ -128,7 +100,6 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
   function run() {
     stubFetch({
       [postingsUrl("gohighlevel")]: () => jsonResponse([]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
     return leverCollector.collect({ settings, limit: Infinity });
@@ -147,7 +118,6 @@ describe("AC 38: postings whose title does not match the search terms are absent
   test("only the matching posting is returned", async () => {
     stubFetch({
       [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner, backendEngineer]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -171,7 +141,6 @@ describe("AC 39: a posting is filtered on its title alone, never its team", () =
             categories: { location: "Remote - US", team: "Product Design" },
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -189,7 +158,6 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           seniorProductDesigner,
           { ...seniorProductDesigner, id: "post-abc127", text: "Staff Product Designer" },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -215,30 +183,11 @@ describe("AC 47: posting_updated_date is left unset", () => {
   });
 });
 
-describe("AC 29: the company name is the board title stripped of its decoration", () => {
-  test("a board titled 'Hinge Health Jobs' gives the name 'Hinge Health'", async () => {
-    stubFetch({
-      [postingsUrl("hinge-health")]: () => jsonResponse([seniorProductDesigner]),
-      [boardPageUrl("hinge-health")]: () =>
-        htmlResponse("<html><head><title>Hinge Health Jobs</title></head></html>"),
-    });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
-
-    const result = await leverCollector.collect({ settings, limit: Infinity });
-
-    expect(result.jobs[0].raw_company_name).toBe("Hinge Health");
-  });
-});
-
 describe("a board answering 404 records a warning and lets the other slugs run", () => {
   function run() {
     stubFetch({
       [postingsUrl("acme")]: () => new Response("Not Found", { status: 404 }),
       [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings(
       [
@@ -261,24 +210,6 @@ describe("a board answering 404 records a warning and lets the other slugs run",
 
   test("the other slug's job still comes back", async () => {
     expect((await run()).jobs).toHaveLength(1);
-  });
-});
-
-describe("a slug whose name lookup fails still yields its jobs", () => {
-  test("raw_company_name is built from the slug rather than left empty", async () => {
-    // No stub is set for the board page, so the lookup fails and the shared
-    // resolver falls back to a name built from the slug.
-    stubFetch({
-      [postingsUrl("brightwave-labs")]: () => jsonResponse([seniorProductDesigner]),
-    });
-    const settings = makeSettings(
-      [{ name: "Ignored Settings Name", ats_slug: "brightwave-labs" }],
-      SEARCH_TERMS
-    );
-
-    const result = await leverCollector.collect({ settings, limit: Infinity });
-
-    expect(result.jobs[0].raw_company_name).toBe("Brightwave Labs");
   });
 });
 
@@ -313,8 +244,12 @@ describe("the field mapping from a Lever posting to a job list entry", () => {
     expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
   });
 
-  test("raw_company_name is the resolved employer name", async () => {
-    expect((await collectOneJob()).raw_company_name).toBe("HighLevel");
+  test("raw_company_name is unset, because Lever's API carries no employer name", async () => {
+    expect((await collectOneJob()).raw_company_name).toBeUndefined();
+  });
+
+  test("AC 100: raw_company_slug holds the board slug that was polled", async () => {
+    expect((await collectOneJob()).raw_company_slug).toBe("gohighlevel");
   });
 
   test("posting_date is createdAt", async () => {
@@ -342,7 +277,6 @@ describe("a posting missing a location gives an empty location list", () => {
             categories: {},
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -364,7 +298,6 @@ describe("a posting missing workplaceType gives an empty mode list", () => {
             categories: { location: "Remote - US" },
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -392,7 +325,6 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
             categories: { location: "Remote - US" },
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -416,7 +348,6 @@ describe("descriptionPlain wins when both descriptions are present", () => {
             description: "<p>HTML version.</p>",
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -439,7 +370,6 @@ describe("description is used when descriptionPlain is absent", () => {
             description: "<p>HTML only version.</p>",
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -475,7 +405,6 @@ describe("AC 102: a pay range in the description is left for a parser", () => {
             descriptionPlain: "The pay range for this role is $120,000 - $150,000 per year.",
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -500,7 +429,6 @@ describe("AC 93: a published workplaceType wins over a mode named in the descrip
             descriptionPlain: "This is a hybrid role.",
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
@@ -510,8 +438,34 @@ describe("AC 93: a published workplaceType wins over a mode named in the descrip
   });
 });
 
-describe("AC 92: a posting publishing no workplaceType reads a mode out of the description", () => {
-  test("a description naming a hybrid role fills the mode", async () => {
+describe("AC 101: no request is made to a board page to find an employer name", () => {
+  test("the postings endpoint is the only request a board costs", async () => {
+    const calls = stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([
+          seniorProductDesigner,
+          { ...seniorProductDesigner, id: "post-abc125", text: "Staff Product Designer" },
+        ]),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(calls).toEqual([postingsUrl("gohighlevel")]);
+  });
+
+  test("the name stored in settings is not written to the job either", async () => {
+    stubFetch({ [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]) });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].raw_company_name).toBeUndefined();
+  });
+});
+
+describe("AC 102: a work mode named only in the description is left for a parser", () => {
+  test("a posting with no workplaceType gets an empty mode list, description or not", async () => {
     stubFetch({
       [postingsUrl("gohighlevel")]: () =>
         jsonResponse([
@@ -523,12 +477,24 @@ describe("AC 92: a posting publishing no workplaceType reads a mode out of the d
             descriptionPlain: "This is a hybrid role.",
           },
         ]),
-      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
     });
     const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
-    expect(result.jobs[0].raw_mode_list).toEqual(["hybrid"]);
+    expect(result.jobs[0].raw_mode_list).toEqual([]);
+    expect(result.jobs[0].description).toContain("hybrid");
+  });
+
+  test("onsite is stored as Lever published it, not mapped to another word", async () => {
+    stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([{ ...seniorProductDesigner, workplaceType: "onsite" }]),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].raw_mode_list).toEqual(["onsite"]);
   });
 });
