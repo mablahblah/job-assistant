@@ -1,4 +1,5 @@
 import { adzunaCollector } from "./adzuna";
+import { ashbyCollector } from "./ashby";
 import { dribbbleCollector } from "./dribbble";
 import { greenhouseCollector } from "./greenhouse";
 import { jsearchCollector } from "./jsearch";
@@ -13,6 +14,7 @@ export const COLLECTORS: Collector[] = [
   jsearchCollector,
   greenhouseCollector,
   leverCollector,
+  ashbyCollector,
   dribbbleCollector,
   uiuxjobsboardCollector,
 ];

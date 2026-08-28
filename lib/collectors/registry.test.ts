@@ -1,9 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { COLLECTORS } from "./registry";
 
-// The registry is empty until later tasks add collectors to it, so most of
-// these pass vacuously for now. They exist to catch a bad name the moment a
-// collector is registered.
+// Every registered collector needs a usable, unique name, because the name is
+// what ties a collected job back to the source that found it.
 describe("AC 25: every collector's name is set and canonical", () => {
   test("every collector has a non-empty name", () => {
     const unnamed = COLLECTORS.filter((collector) => collector.name.trim() === "");
