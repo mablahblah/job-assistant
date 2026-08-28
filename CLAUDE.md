@@ -7,6 +7,7 @@ A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, t
 - **Runtime:** TypeScript via tsx (no build step), Node.js
 - **Database:** SQLite via Prisma ORM (libsql adapter)
 - **Browser Automation:** Playwright (collector scrapers)
+- **HTML Reading:** linkedom — turns an HTML string into a queryable document in plain Node, so page-reading code runs without a browser and is testable offline
 - **Dashboard:** Server-rendered HTML, vanilla CSS/JS
 - **Testing:** Vitest
 - **Linting:** ESLint with @typescript-eslint

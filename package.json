@@ -21,6 +21,7 @@
     "apify-client": "^2.22.3",
     "dotenv": "^17.3.1",
     "hono": "^4.12.14",
+    "linkedom": "^0.18.13",
     "playwright": "^1.58.2",
     "prisma": "^7.5.0",
     "stemmer": "^2.0.1"
