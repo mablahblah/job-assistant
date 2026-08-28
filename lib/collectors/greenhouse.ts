@@ -2,8 +2,9 @@
 // user's search terms, resolving each board's real employer name once per run
 // rather than once per posting.
 import type { JobListEntry } from "../job-list-entry";
-import { normalizeSalary } from "../salary";
+import { normalizeSalary, readSalaryFromText } from "../salary";
 import { matchesSearchTerms } from "../search-term-analyzer";
+import { readWorkModeFromText } from "../work-mode";
 import { readAtsBoards } from "./ats-boards";
 import { resolveAtsCompanyName } from "./ats-company-name";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
@@ -40,18 +41,27 @@ function toJobListEntry(
   slug: string,
   companyName: string
 ): JobListEntry {
-  // An ATS listing is already the source posting, so it needs no resolving
-  // and no parsing.
+  // An ATS listing is already the source posting, so it needs no resolving.
+  // Its description still has to be read, which is a parser's job.
   const url = `https://boards.greenhouse.io/${slug}/jobs/${posting.id}`;
+  // A blank description is the same as none, so it is left unset.
+  const description = posting.content || undefined;
   // Greenhouse sends cents, not whole dollars. That is a Greenhouse fact, so
   // the division happens here rather than inside the shared salary util. A
-  // board with no range at all and one with an empty range both mean no pay.
+  // board with no range at all and one with an empty range both mean no pay,
+  // and only then is a range read out of the description instead.
   const range = posting.pay_input_ranges?.[0];
-  const salary = normalizeSalary({
-    low: range ? range.min_cents / 100 : undefined,
-    high: range ? range.max_cents / 100 : undefined,
-    currency: range?.currency_type,
-  });
+  const publishedSalary = range
+    ? normalizeSalary({
+        low: range.min_cents / 100,
+        high: range.max_cents / 100,
+        currency: range.currency_type,
+      })
+    : undefined;
+  const salary = publishedSalary ?? (description ? readSalaryFromText(description) : {});
+  // Greenhouse publishes no work-mode field, so the mode is read out of the
+  // description.
+  const mode = description ? readWorkModeFromText(description) : undefined;
   return {
     original_url: url,
     resolved_url: url,
@@ -60,14 +70,11 @@ function toJobListEntry(
     posting_date: new Date(posting.first_published),
     posting_updated_date: new Date(posting.updated_at),
     original_location_list: posting.location ? [posting.location.name] : [],
-    // Greenhouse has no structured work-mode field, and reading one out of
-    // the description text is a parser's job.
-    original_mode_list: [],
-    // A blank description is the same as none, so it is left unset.
-    description: posting.content || undefined,
+    original_mode_list: mode ? [mode] : [],
+    description,
     ...salary,
     is_resolved: true,
-    is_parsed: true,
+    is_parsed: false,
     is_classified: false,
   };
 }

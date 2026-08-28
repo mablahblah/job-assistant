@@ -114,13 +114,13 @@ describe("AC 27: the company name costs no request of its own", () => {
   });
 });
 
-describe("AC 32: a returned job is resolved, parsed, and not yet classified", () => {
+describe("AC 32: a returned job is resolved, but not yet parsed or classified", () => {
   test("is_resolved is true", async () => {
     expect((await collectOneJob()).is_resolved).toBe(true);
   });
 
-  test("is_parsed is true", async () => {
-    expect((await collectOneJob()).is_parsed).toBe(true);
+  test("is_parsed is false, because the description is still to be read", async () => {
+    expect((await collectOneJob()).is_parsed).toBe(false);
   });
 
   test("is_classified is false", async () => {
@@ -335,9 +335,9 @@ describe("the field mapping from a Greenhouse posting to a job list entry", () =
     expect((await collectOneJob()).original_location_list).toEqual(["Remote - US"]);
   });
 
-  test("original_mode_list is always empty", async () => {
-    // Greenhouse has no structured work-mode field, and reading one out of the
-    // description text is a parser's job.
+  test("AC 94: a description saying nothing about where the work happens leaves the mode empty", async () => {
+    // Greenhouse publishes no work-mode field, so the description is the only
+    // source, and one that names no mode leaves the field empty.
     expect((await collectOneJob()).original_mode_list).toEqual([]);
   });
 });
@@ -496,5 +496,110 @@ describe("an empty pay_input_ranges array leaves the salary fields unset", () =>
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
     expect(result.jobs[0].salary_low).toBeUndefined();
+  });
+});
+
+describe("AC 92: a description naming a mode fills original_mode_list", () => {
+  test("content saying the role is remote gives a mode of remote", async () => {
+    stubFetch({
+      [jobsUrl("stripe")]: () =>
+        jsonResponse({
+          jobs: [
+            {
+              id: 555121,
+              title: "Senior Product Designer",
+              first_published: "2026-06-07T00:00:00.000Z",
+              updated_at: "2026-06-26T00:00:00.000Z",
+              location: { name: "Remote - US" },
+              content: "This role is remote and based in the US.",
+            },
+          ],
+        }),
+    });
+    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+
+    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].original_mode_list).toEqual(["remote"]);
+  });
+});
+
+describe("AC 86: a board publishing no pay range reads one out of the description", () => {
+  test("a pay range in the content fills the low, the high and the period", async () => {
+    stubFetch({
+      [jobsUrl("stripe")]: () =>
+        jsonResponse({
+          jobs: [
+            {
+              id: 555123,
+              title: "Senior Product Designer",
+              first_published: "2026-06-09T00:00:00.000Z",
+              updated_at: "2026-06-28T00:00:00.000Z",
+              location: { name: "Remote - US" },
+              content: "The pay range for this role is $120,000 - $150,000 per year.",
+            },
+          ],
+        }),
+    });
+    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+
+    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].salary_low).toBe(120000);
+    expect(result.jobs[0].salary_high).toBe(150000);
+    expect(result.jobs[0].salary_period).toBe("year");
+  });
+});
+
+describe("AC 87: a published pay range wins over one named in the description", () => {
+  test("the published figures land and the ones in the text are ignored", async () => {
+    stubFetch({
+      [jobsUrl("stripe")]: () =>
+        jsonResponse({
+          jobs: [
+            {
+              id: 555124,
+              title: "Senior Product Designer",
+              first_published: "2026-06-10T00:00:00.000Z",
+              updated_at: "2026-06-29T00:00:00.000Z",
+              location: { name: "Remote - US" },
+              content: "The pay range for this role is $80,000 - $95,000 per year.",
+              pay_input_ranges: [{ min_cents: 14000000, max_cents: 21000000, currency_type: "USD" }],
+            },
+          ],
+        }),
+    });
+    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+
+    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].salary_low).toBe(140000);
+    expect(result.jobs[0].salary_high).toBe(210000);
+  });
+});
+
+describe("a posting carrying no description at all", () => {
+  test("the salary and the mode are left empty and nothing throws", async () => {
+    stubFetch({
+      [jobsUrl("stripe")]: () =>
+        jsonResponse({
+          jobs: [
+            {
+              id: 555125,
+              title: "Senior Product Designer",
+              first_published: "2026-06-11T00:00:00.000Z",
+              updated_at: "2026-06-30T00:00:00.000Z",
+              location: { name: "Remote - US" },
+            },
+          ],
+        }),
+    });
+    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+
+    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].original_mode_list).toEqual([]);
+    expect(result.jobs[0].salary_low).toBeUndefined();
+    expect(result.jobs[0].salary_period).toBeUndefined();
   });
 });

@@ -105,13 +105,13 @@ describe("AC 27: the company name is fetched once no matter how many postings ma
   });
 });
 
-describe("AC 32: a returned job is resolved, parsed, and not yet classified", () => {
+describe("AC 32: a returned job is resolved, but not yet parsed or classified", () => {
   test("is_resolved is true", async () => {
     expect((await collectOneJob()).is_resolved).toBe(true);
   });
 
-  test("is_parsed is true", async () => {
-    expect((await collectOneJob()).is_parsed).toBe(true);
+  test("is_parsed is false, because the description is still to be read", async () => {
+    expect((await collectOneJob()).is_parsed).toBe(false);
   });
 
   test("is_classified is false", async () => {
@@ -464,5 +464,103 @@ describe("Lever publishes no salary field, so all four stay unset", () => {
 
   test("salary_raw is undefined", async () => {
     expect((await collectOneJob()).salary_raw).toBeUndefined();
+  });
+});
+
+describe("AC 93: a published workplaceType wins over a mode named in the description", () => {
+  test("the published value lands even where the description names another", async () => {
+    stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([
+          {
+            id: "post-modewins",
+            text: "Senior Product Designer",
+            createdAt: 1780000800000,
+            categories: { location: "Remote - US" },
+            workplaceType: "remote",
+            descriptionPlain: "This is a hybrid role.",
+          },
+        ]),
+      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].original_mode_list).toEqual(["remote"]);
+  });
+});
+
+describe("AC 92: a posting publishing no workplaceType reads a mode out of the description", () => {
+  test("a description naming a hybrid role fills the mode", async () => {
+    stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([
+          {
+            id: "post-hybrid",
+            text: "Senior Product Designer",
+            createdAt: 1780000900000,
+            categories: { location: "Remote - US" },
+            descriptionPlain: "This is a hybrid role.",
+          },
+        ]),
+      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].original_mode_list).toEqual(["hybrid"]);
+  });
+});
+
+describe("AC 86: Lever publishes no salary, so the description is where pay comes from", () => {
+  test("a pay range in the description fills the low, the high and the period", async () => {
+    stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([
+          {
+            id: "post-salary",
+            text: "Senior Product Designer",
+            createdAt: 1780001000000,
+            categories: { location: "Remote - US" },
+            descriptionPlain: "The pay range for this role is $120,000 - $150,000 per year.",
+          },
+        ]),
+      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].salary_low).toBe(120000);
+    expect(result.jobs[0].salary_high).toBe(150000);
+    expect(result.jobs[0].salary_period).toBe("year");
+  });
+});
+
+describe("AC 88: a description naming no pay leaves every salary field empty", () => {
+  test("nothing is filled in and nothing is guessed", async () => {
+    stubFetch({
+      [postingsUrl("gohighlevel")]: () =>
+        jsonResponse([
+          {
+            id: "post-nopay",
+            text: "Senior Product Designer",
+            createdAt: 1780001100000,
+            categories: { location: "Remote - US" },
+            descriptionPlain: "Design beautiful products at HighLevel.",
+          },
+        ]),
+      [boardPageUrl("gohighlevel")]: () => htmlResponse(HIGHLEVEL_BOARD_HTML),
+    });
+    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+
+    const result = await leverCollector.collect({ settings, limit: Infinity });
+
+    expect(result.jobs[0].salary_low).toBeUndefined();
+    expect(result.jobs[0].salary_high).toBeUndefined();
+    expect(result.jobs[0].salary_period).toBeUndefined();
+    expect(result.jobs[0].salary_raw).toBeUndefined();
   });
 });

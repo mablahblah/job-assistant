@@ -2,7 +2,9 @@
 // search terms, resolving each board's real employer name once per run rather
 // than once per posting.
 import type { JobListEntry } from "../job-list-entry";
+import { readSalaryFromText } from "../salary";
 import { matchesSearchTerms } from "../search-term-analyzer";
+import { readWorkModeFromText } from "../work-mode";
 import { readAtsBoards } from "./ats-boards";
 import { nameFromBoardTitle, resolveAtsCompanyName, titleFromHtml } from "./ats-company-name";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
@@ -37,9 +39,19 @@ async function lookUpCompanyName(slug: string): Promise<string | null> {
 }
 
 function toJobListEntry(posting: LeverPosting, slug: string, companyName: string): JobListEntry {
-  // An ATS listing is already the source posting, so it needs no resolving
-  // and no parsing.
+  // An ATS listing is already the source posting, so it needs no resolving.
+  // Its description still has to be read, which is a parser's job.
   const url = `https://jobs.lever.co/${slug}/${posting.id}`;
+  // The plain-text field wins over the HTML one when both are present, and a
+  // blank one counts as none.
+  const description = posting.descriptionPlain || posting.description || undefined;
+  // Lever's own field wins where it publishes one. Only a posting without it
+  // falls back to reading a mode out of the description.
+  const mode =
+    posting.workplaceType || (description ? readWorkModeFromText(description) : undefined);
+  // Lever publishes no salary field at all, so pay is read out of the
+  // description.
+  const salary = description ? readSalaryFromText(description) : {};
   return {
     original_url: url,
     resolved_url: url,
@@ -48,13 +60,11 @@ function toJobListEntry(posting: LeverPosting, slug: string, companyName: string
     // Lever publishes one date, so nothing fills posting_updated_date.
     posting_date: new Date(posting.createdAt),
     original_location_list: posting.categories?.location ? [posting.categories.location] : [],
-    original_mode_list: posting.workplaceType ? [posting.workplaceType] : [],
-    // The plain-text field wins over the HTML one when both are present, and a
-    // blank one counts as none. Lever publishes no salary field, so nothing
-    // here calls the salary util.
-    description: posting.descriptionPlain || posting.description || undefined,
+    original_mode_list: mode ? [mode] : [],
+    description,
+    ...salary,
     is_resolved: true,
-    is_parsed: true,
+    is_parsed: false,
     is_classified: false,
   };
 }
