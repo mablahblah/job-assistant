@@ -7,6 +7,11 @@ import { getPipelineDatabaseUrl } from "./lib/pipeline-env";
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
 
+// The first test to touch prisma.config.ts pays a cold import of it, dotenv,
+// and the Prisma config loader — measured at 318ms alone, and longer when the
+// full suite's workers compete for the CPU. A ceiling, not a budget.
+const CONFIG_LOAD_TIMEOUT_MS = 10_000;
+
 let envSnapshot: NodeJS.ProcessEnv;
 
 beforeEach(() => {
@@ -32,13 +37,13 @@ describe("AC1: prisma.config.ts targets the new pipeline schema and env var", ()
     const config = await loadConfig();
     expect(config.schema).toBe("prisma/schema.prisma");
     expect(config.schema).not.toMatch(/legacy/);
-  });
+  }, CONFIG_LOAD_TIMEOUT_MS);
 
   test("points migrations outside legacy/", async () => {
     const config = await loadConfig();
     expect(config.migrations?.path).toBe("prisma/migrations");
     expect(config.migrations?.path).not.toMatch(/legacy/);
-  });
+  }, CONFIG_LOAD_TIMEOUT_MS);
 
   test("resolves the datasource url from PIPELINE_DATABASE_URL, not DATABASE_URL", async () => {
     // dotenv never overwrites a variable that is already set, so setting both
@@ -46,7 +51,7 @@ describe("AC1: prisma.config.ts targets the new pipeline schema and env var", ()
     process.env.DATABASE_URL = "file:./legacy-marker.db";
     const config = await loadConfig();
     expect(config.datasource?.url).toBe("file:./pipeline-marker.db");
-  });
+  }, CONFIG_LOAD_TIMEOUT_MS);
 
   test("does not reference DATABASE_URL in source", () => {
     const source = readFileSync(resolve(repoRoot, "prisma.config.ts"), "utf-8");
@@ -80,7 +85,7 @@ describe("AC2: the pipeline database url has no fallback", () => {
     await expect(import("./prisma.config")).rejects.toThrow(
       "PIPELINE_DATABASE_URL is not set."
     );
-  });
+  }, CONFIG_LOAD_TIMEOUT_MS);
 });
 
 describe("AC3: pipeline.db stays out of git", () => {
