@@ -2,6 +2,7 @@
 // collector is isolated from its neighbours: a throw, an error string, and a
 // warning string all become the same shape, so one source dropping out never
 // costs the run the others.
+import { unusableReason } from "./collectors/job-usable";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
@@ -36,6 +37,14 @@ function messageFromThrown(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
 }
 
+// A dropped job still has to be findable, so it is named by whichever of its
+// title or its link survived. `||` rather than `??`, because a blank title is
+// one of the reasons a job gets dropped and would otherwise name it "".
+function droppedJobWarning(job: JobListEntry, reason: string): string {
+  const identity = job.raw_title?.trim() || job.original_url?.trim() || "an unidentified job";
+  return `dropped "${identity}": ${reason}`;
+}
+
 export async function runCollection(options: CollectionOptions): Promise<CollectionReport> {
   // `??` rather than `||`: a limit of 0 is a real value meaning collect
   // nothing, and `0 || Infinity` would read it as no limit at all.
@@ -60,11 +69,26 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
       // reaches the next.
       const result = await collector.collect({ settings: options.settings, limit });
 
+      // Kept is counted rather than read off report.jobs, which holds every
+      // collector's jobs and not just this one's.
+      let kept = 0;
       for (const job of result.jobs) {
+        // A job that cannot travel is dropped here rather than allowed to
+        // fail somewhere later, where what went wrong is harder to read.
+        const reason = unusableReason(job);
+        if (reason !== null) {
+          report.warnings.push({
+            collector: collector.name,
+            message: droppedJobWarning(job, reason),
+          });
+          continue;
+        }
+
         // The orchestrator is the authority on which collector found a job,
         // so it stamps the name onto a copy rather than trusting the field
         // or editing what the collector handed back.
         report.jobs.push({ ...job, collector: collector.name });
+        kept += 1;
       }
       for (const message of result.errors) {
         report.errors.push({ collector: collector.name, message });
@@ -73,7 +97,12 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
         report.warnings.push({ collector: collector.name, message });
       }
 
-      log(`[collect] ${collector.name}: found=${result.jobs.length}`);
+      // Kept rather than found, and the gap named when there is one. A count
+      // of what the collector handed over would hide the jobs that did not
+      // survive, which is the whole thing this check exists to surface.
+      const dropped = result.jobs.length - kept;
+      const droppedNote = dropped > 0 ? ` dropped=${dropped}` : "";
+      log(`[collect] ${collector.name}: kept=${kept}${droppedNote}`);
     } catch (thrown) {
       const message = messageFromThrown(thrown);
       report.errors.push({ collector: collector.name, message });

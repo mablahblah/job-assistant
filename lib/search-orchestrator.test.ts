@@ -14,10 +14,16 @@ const stubSettings: SettingsService = {
   getAtsCompanies: async () => [],
 };
 
-// A minimal job. Every JobListEntry field is optional, so a url and a title
-// are enough to tell one job from another.
+// A minimal job that can still travel: a link, a title, and an employer.
+// Every JobListEntry field is optional, but a job carrying none of those three
+// is dropped at the end of collection, so the smallest useful job has all of
+// them. The title is what tells one job from another here.
 function makeJob(title: string): JobListEntry {
-  return { original_url: `https://example.com/${title}`, raw_title: title };
+  return {
+    original_url: `https://example.com/${title}`,
+    raw_title: title,
+    raw_company_name: "Example",
+  };
 }
 
 // A stand-in collector that remembers whether it ran and what it was handed,
@@ -364,5 +370,164 @@ describe("collectors run in the order they are given", () => {
     });
     const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
     expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer", "Researcher"]);
+  });
+});
+
+describe("AC 110: the check runs once in the orchestrator, over every collector", () => {
+  test("both collectors keep their good job and drop their bad one", async () => {
+    const first = makeCollector("lever", {
+      jobs: [makeJob("Designer"), { ...makeJob("Researcher"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const second = makeCollector("greenhouse", {
+      jobs: [makeJob("Writer"), { ...makeJob("Editor"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
+    expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer", "Writer"]);
+  });
+
+  test("each drop is attributed to the collector that produced it", async () => {
+    const first = makeCollector("lever", {
+      jobs: [{ ...makeJob("Researcher"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const second = makeCollector("greenhouse", {
+      jobs: [{ ...makeJob("Editor"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
+    expect(report.warnings.map((issue) => issue.collector)).toEqual(["lever", "greenhouse"]);
+  });
+});
+
+describe("AC 111: a dropped job is a warning, not an error", () => {
+  test("errors stays empty while warnings gains an entry", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Designer"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toHaveLength(1);
+  });
+});
+
+describe("a dropped job's warning names the job", () => {
+  test("a job with a title is named by its title", async () => {
+    const collector = makeCollector("lever", {
+      // A missing company drops the job and leaves the title intact to name it by.
+      jobs: [{ ...makeJob("Designer"), raw_company_name: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.warnings[0]?.message).toContain("Designer");
+  });
+
+  test("a job with no title but a URL is named by its URL", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Designer"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.warnings[0]?.message).toContain("https://example.com/Designer");
+  });
+
+  test("a job with neither title nor URL still reads cleanly", async () => {
+    // Built directly rather than from makeJob, which always supplies both.
+    const noIdentity: JobListEntry = { raw_company_name: "Example" };
+    const collector = makeCollector("lever", { jobs: [noIdentity], errors: [], warnings: [] });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.warnings[0]?.message).not.toContain("undefined");
+  });
+
+  test("the warning says why the job was dropped", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Designer"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.warnings[0]?.message).toContain("raw_title");
+  });
+});
+
+describe("a dropped job does not reach the job list", () => {
+  test("report.jobs holds only the good job", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer"), { ...makeJob("Researcher"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer"]);
+  });
+
+  test("a collector of only good jobs keeps all of them and warns about none", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer"), makeJob("Researcher")],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.jobs).toHaveLength(2);
+    expect(report.warnings).toEqual([]);
+  });
+});
+
+describe("the finish line reports what was kept and what was dropped", () => {
+  test("kept and dropped counts both appear when one job of two is dropped", async () => {
+    const lines: string[] = [];
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer"), { ...makeJob("Researcher"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({
+      settings: stubSettings,
+      collectors: [collector],
+      log: (message) => lines.push(message),
+    });
+    const finishLine = lines[lines.length - 1] ?? "";
+    expect(finishLine).toContain("kept=1");
+    expect(finishLine).toContain("dropped=1");
+  });
+
+  test("nothing dropped means the finish line says nothing about dropping", async () => {
+    const lines: string[] = [];
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({
+      settings: stubSettings,
+      collectors: [collector],
+      log: (message) => lines.push(message),
+    });
+    expect(lines[lines.length - 1] ?? "").not.toContain("dropped");
+  });
+});
+
+describe("a collector's own warnings survive alongside a dropped-job warning", () => {
+  test("one does not displace the other", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Researcher"), raw_title: undefined }],
+      errors: [],
+      warnings: ["board returned a partial page"],
+    });
+    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    expect(report.warnings).toHaveLength(2);
+    expect(report.warnings).toContainEqual({
+      collector: "lever",
+      message: "board returned a partial page",
+    });
   });
 });
