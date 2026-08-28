@@ -1,7 +1,9 @@
 import { adzunaCollector } from "./adzuna";
+import { dribbbleCollector } from "./dribbble";
 import { greenhouseCollector } from "./greenhouse";
 import { jsearchCollector } from "./jsearch";
 import { leverCollector } from "./lever";
+import { uiuxjobsboardCollector } from "./uiuxjobsboard";
 import type { Collector } from "./types";
 
 // Every collector a search runs, in the order it runs them. A collector joins
@@ -11,4 +13,6 @@ export const COLLECTORS: Collector[] = [
   jsearchCollector,
   greenhouseCollector,
   leverCollector,
+  dribbbleCollector,
+  uiuxjobsboardCollector,
 ];
