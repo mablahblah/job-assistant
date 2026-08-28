@@ -31,6 +31,10 @@ interface JSearchResponse {
 }
 
 function toJobListEntry(job: JSearchJob): JobListEntry {
+  // JSearch labels one location across three fields, so joining them assembles
+  // what the source already called a single place rather than interpreting it.
+  // Kept as one entry because the list means locations: split apart, "US"
+  // would stand as a location of its own for the radius check to measure.
   const locationParts = [job.job_city, job.job_state, job.job_country].filter(
     (part): part is string => Boolean(part)
   );
@@ -62,6 +66,9 @@ function toJobListEntry(job: JSearchJob): JobListEntry {
       ? new Date(job.job_posted_at_datetime_utc)
       : undefined,
     raw_location_list: locationParts.length > 0 ? [locationParts.join(", ")] : [],
+    // job_is_remote is a work mode published as a field of its own, and the
+    // boolean says remote in as many words. A boolean has no place in a list
+    // of strings, so the word it stands for is what gets written.
     raw_mode_list: job.job_is_remote ? ["remote"] : [],
     // A blank description is the same as none, so it is left unset.
     description: job.job_description || undefined,

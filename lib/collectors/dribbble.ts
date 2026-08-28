@@ -49,6 +49,9 @@ function buildSearches(searchTerms: string[], location: string): Search[] {
 // posting — a job that never reaches one leaves the backlog before anything
 // needs them.
 function cardToJob(card: ResultCard): JobListEntry {
+  // The card states an age rather than a date. The collector reads it either
+  // way, because an age past the expiry threshold is what stops pagination,
+  // and there is no column that holds the phrase itself.
   const postingDate = ageToDate(card.age);
   return {
     original_url: card.url,
