@@ -13,54 +13,42 @@
 
 ## Current Task
 
-Feature: **Unified Job Pipeline** — one feature, now **fourteen** phases, on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
+Feature: **Unified Job Pipeline** — fourteen phases on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is building. Tasks 1 through 10 are done; six remain, renumbered and resequenced this session.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 11, dropping Adzuna's predicted salaries**.
+**Phase 1 (Collection) is building. Tasks 1 through 11 are done; five remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 12, renaming the raw fields**.
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`. Read it with `phase-01-collection-r&d.md` beside it. Note it keeps **two parallel numbered lists** — User Stories 1–78 and Acceptance Criteria 1–102. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria survived an audit this session.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`. Read it with `phase-01-collection-r&d.md` beside it. It keeps **two parallel numbered lists** — User Stories 1–78 and Acceptance Criteria 1–102. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria once survived an audit.
 
-Working tree is clean. Everything is committed and pushed, through `df4ec10`.
+Code is committed and pushed through `0868494`. **Two doc files are modified and uncommitted:** the tick on task 11 in `docs/CURRENT-FEATURE.md`, and one new entry at the end of `docs/features/unified-pipeline/decision-log.md`.
 
 ## Completed This Session
 
-**Task 15 was built, then moved to Phase 8 before it shipped.** Three shared utils — `descriptionToText`, `readSalaryFromText`, `readWorkModeFromText` — plus a committed fixture of 178 real excerpts at `lib/description-fields.fixture.json`. Measured across all 4,661 live descriptions: 787 salaries and 1,956 work modes read, no implausible result, and no disagreement with Lever's own published field. Every guard was broken afterwards to prove a test caught it; one survived and got a test.
+**Task 11 — Adzuna's predicted salaries are no longer collected.** `salary_is_predicted` was added to the `AdzunaJob` type and the `normalizeSalary` spread is gated on it being exactly `"0"`. Ten tests were added across three describes: AC 99, AC 98, and the case where the flag is absent entirely, which neither criterion names.
 
-Greenhouse and Lever are wired to them in `db07e3d`, which is a **clean revert target** — task 13 takes that wiring back out.
-
-**The bigger work was architectural.** The line between phases was blurry, so `feature_spec.md` gained a rubric, **What Each Step Owns**, with one test settling the blurriest pair: *normalizing reshapes a value that exists, parsing produces one that does not.*
-
-**Company Association became Phase 4**, between Normalization and DB Save. Phases 4 through 12 shifted up by one; nine files were renamed and ~71 references updated.
-
-**Phase 1's criteria were audited and corrected**, then two agents audited every r&d file against the rubric. Their findings are applied.
-
-**Verified:** `npm run test` exit 0 with 776 passing across 29 files, `npx tsc --noEmit` exit 0, `npm run lint` exit 0.
+**Verified:** `npm run test` exit 0 with 786 passing across 29 files, up from 776. `npx tsc --noEmit` exit 0. `npm run lint` exit 0. The guard was then flipped to `!== "1"` to confirm the absent-flag tests fail — 4 failed, 45 passed — and restored, so the tests are load-bearing.
 
 ## Decisions & Context
 
-All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Eighteen were added or replaced this session.
+All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. One was added this session, on Adzuna's search filter.
 
-**Measured facts, all taken live on 2026-08-28:**
+**Measured facts carried forward, taken live on 2026-08-28:**
 
-- **Greenhouse entity-encodes its HTML exactly once.** One decode returns real markup; parsing that markup then resolves `&mdash;`. Handling this properly took the salary count from **302 to 787** — the naive version was mangling the markup and hiding more than half.
-- **linkedom returns an empty body for a bare fragment.** `parseHTML` must get a full `<html><body>…</body></html>`.
-- **Block tags need a space after them.** Text alone runs one block into the next, so `team</p><p>This role is remote` arrives as `teamThis` and the sentence is lost. Inline tags get none, keeping `<span>$139,200</span><span>—</span>` one figure.
 - **Adzuna predicts most of its salaries.** 133 of 150 live results carried `salary_is_predicted: "1"`. Those come from Adzuna's model, not the posting, and usually arrive with low equal to high.
-- **Every source that publishes a salary publishes numbers.** Adzuna dollars, JSearch numbers plus a period word, Greenhouse **cents**, Ashby whole dollars nested under `compensation.summaryComponents` with equity in the same array. Lever publishes none. A range as a string only ever appears in description prose.
-- **Ashby's board endpoint carries no employer name** — only `jobs` and `apiVersion`. Lever's carries none either.
-- **A thousands group holds exactly three digits.** Intercom published `$118,00`, a digit short; reading it files a $118,000 job as $11,800.
-- **The word "remote" appears in 1,649 of 4,661 descriptions**, almost always as company talk. Only a deliberate hashtag or a role-anchored phrase is read.
-- **"hybrid" often means blended duties**, not a place. `This role is a hybrid mix of program management` matches the same shape as a real mode statement.
+- **Greenhouse entity-encodes its HTML exactly once**, and handling that properly took the description salary count from 302 to 787.
+- **linkedom returns an empty body for a bare fragment.** `parseHTML` must get a full `<html><body>…</body></html>`.
+- **Every source that publishes a salary publishes numbers.** Adzuna dollars, JSearch numbers plus a period word, Greenhouse **cents**, Ashby whole dollars under `compensation.summaryComponents` with equity in the same array. Lever publishes none.
+- **Ashby's and Lever's board endpoints carry no employer name.**
+- **A thousands group holds exactly three digits.** Intercom published `$118,00`; reading it files a $118,000 job as $11,800.
 
-**Process gotchas worth not rediscovering:**
+**Constraints and gotchas:**
 
-- **`crowd-code-writer` agents have Read, Grep and Glob only — no shell.** A brief asking one to run `vitest` and iterate until green is impossible to satisfy. Two agents ground for 27 minutes on exactly that before dying on a session limit. The working pattern is the one the user named: ask for a snippet, run it yourself, send it back if it needs work. Snippet-sized briefs came back in 40–60 seconds.
-- **The Phase 1 spec has two parallel numbered lists.** Described above; it cost a real error.
-
-**Approaches tried and dropped:**
-
-- **Description-mining in Phase 3.** Placed there first, following the user's own flow, then moved to Phase 8 once the rubric made the line explicit: an empty field needs someone to go looking, and that is parsing.
-- **Deslugifying inside Normalization.** Dropped because nothing downstream can tell `gohighlevel` from a single-word employer. The slug travels as its own field instead.
-- **Folding Company Association into DB Save.** DB Save already scoped company match-or-create, so this was the zero-churn option. Rejected because burying a distinct pipeline step inside "save" hides it.
+- **An absent `salary_is_predicted` is treated as not-published.** Only an explicit `"0"` lets a salary through. This is deliberate and directly tested.
+- **AC 98–99 are written against `raw_salary`, which does not exist yet.** Task 12 does that rename. The criteria are met in substance under today's `salary_raw`.
+- **`crowd-code-writer` agents have Read, Grep and Glob only — no shell.** The working pattern is snippet-sized briefs: ask for a snippet, run it yourself, send it back if it needs work. Briefs of that size returned in 30–110 seconds.
+- **Their output arrives with HTML-escaped arrows** — `=&gt;` instead of `=>`. It came back that way from both agents on both rounds. Unescape before applying.
+- **They restate a whole fixture to change one field.** Pointing them at the file's own spread idiom fixed it in one pass.
+- **A heredoc'd Python `'''…'''` block eats backslash escapes.** `\"` inside one produced a broken `describe` title that `tsc` and vitest both caught. Use a different quoting strategy when applying test code.
+- **The commit hook flags `toJobListEntry` as untested.** It is not exported, so the graph cannot see the 49 tests reaching it through `adzunaCollector.collect`. False positive.
 
 **Open questions, all recorded in their phase r&d files:**
 
@@ -71,8 +59,8 @@ All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md`
 
 ## Next Steps
 
-1. **Task 11 — drop Adzuna's predicted salaries.** Read the salary only where `salary_is_predicted` is `"0"`. — AC 98–99
-2. **Task 12 — rename the raw fields.** `original_title` → `raw_title`, `original_location_list` → `raw_location_list`, `original_mode_list` → `raw_mode_list`, `company_name` → `raw_company_name`, `salary_raw` → `raw_salary` as a `Json` column. Add `raw_company_slug`. `description` keeps its name. Every collector writes `raw_salary` instead of a low, a high and a period. The docs already describe this target state; the schema and code are what lag. — AC 80–81, 84
+1. **Commit the two modified doc files.** The task 11 tick and the decision-log entry.
+2. **Task 12 — rename the raw fields.** `original_title` → `raw_title`, `original_location_list` → `raw_location_list`, `original_mode_list` → `raw_mode_list`, `company_name` → `raw_company_name`, `salary_raw` → `raw_salary` as a `Json` column. Add `raw_company_slug`. `description` keeps its name. Every collector writes `raw_salary` instead of a low, a high and a period. The docs already describe this target state; the schema and code are what lag. Run `npx prisma generate` after editing the schema. — AC 80–81, 84
 3. **Task 13 — take parsing and name shaping out of the collectors.** Revert the `db07e3d` wiring, stop Lever fetching its board page for a name, and stop `nameFromBoardTitle` and `nameFromSlug` running at collection. The utils and fixture stay for Phase 8. — AC 100–102
 4. **Task 14 — build the Ashby collector.** Last, deliberately, so it is built once against rules that have stopped moving. `isListed` filter, `raw_company_slug` only, and the salary is the `summaryComponents` entry whose `compensationType` is `"Salary"` — not the first entry, which is equity.
 5. **Task 15 — wire the `job-search` skill.** One step that runs the orchestrator and surfaces errors and warnings first.
