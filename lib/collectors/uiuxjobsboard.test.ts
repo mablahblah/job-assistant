@@ -38,6 +38,7 @@ const UX_DESIGN_LABEL = "UX Design";
 interface CardOptions {
   id?: number;
   title?: string;
+  company?: string;
   age?: string;
 }
 
@@ -47,9 +48,14 @@ function uiuxCard(options: CardOptions = {}): string {
   const id = options.id ?? ++nextCardId;
   const title = options.title ?? `Role ${id}`;
   const age = options.age ?? "2d";
+  const company = options.company ?? "Clera";
+  const companyHtml =
+    company === ""
+      ? ""
+      : `<span class="text-xl"><span>${company}<span class="text-base opacity-40 ml-1">is hiring</span></span></span>`;
   return `<div class="border shadow-xs rounded-xl bg-white overflow-hidden order-2">
     <div><h3><a class="inline-flex flex-col" href="/job/${id}-some-role">
-      <span class="text-xl"><span>Clera<span class="text-base opacity-40 ml-1">is hiring</span></span></span>
+      ${companyHtml}
       <span class="text-2xl text-primaryColor font-bold">${title}</span>
     </a></h3></div>
     <div class="text-sm">${age}</div>
@@ -265,6 +271,35 @@ describe("a card becomes a job carrying the fields a category page can supply", 
     expect(job.original_url).toBe("https://uiuxjobsboard.com/job/1-some-role");
     expect(job.raw_title).toBe("Founding Product Designer");
     expect(job.posting_date).toBeDefined();
+  });
+
+  test("the employer on the card becomes raw_company_name", async () => {
+    const card = uiuxCard({ id: 1, company: "Toybox Labs" });
+    stubFetch(categoryRoute(PRODUCT_DESIGNER, [card]));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [PRODUCT_DESIGN_LABEL] }) });
+
+    expect(result.jobs[0].raw_company_name).toBe("Toybox Labs");
+  });
+
+  test("a card naming no employer leaves raw_company_name off the job", async () => {
+    // The job still travels this far. Dropping it is the orchestrator's call,
+    // and it names the reason when it makes it.
+    const card = uiuxCard({ id: 1, company: "" });
+    stubFetch(categoryRoute(PRODUCT_DESIGNER, [card]));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [PRODUCT_DESIGN_LABEL] }) });
+
+    expect(result.jobs).toHaveLength(1);
+    expect(result.jobs[0].raw_company_name).toBeUndefined();
+  });
+
+  test("no card collector writes a company slug, since neither site exposes one", async () => {
+    stubFetch(categoryRoute(PRODUCT_DESIGNER, [uiuxCard({ id: 1 })]));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [PRODUCT_DESIGN_LABEL] }) });
+
+    expect(result.jobs[0].raw_company_slug).toBeUndefined();
   });
 
   test("posting_date is a Date, not the raw age text", async () => {

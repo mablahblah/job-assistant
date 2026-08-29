@@ -27,6 +27,7 @@ type SearchMode = "location" | "remote";
 interface CardOptions {
   id?: number;
   title?: string;
+  company?: string;
   age?: string;
 }
 
@@ -36,9 +37,12 @@ function dribbbleCard(options: CardOptions = {}): string {
   const id = options.id ?? ++nextCardId;
   const title = options.title ?? `Role ${id}`;
   const age = options.age ?? "Posted 2 days ago";
+  const company = options.company ?? "Vantheon";
+  const companyHtml =
+    company === "" ? "" : `<span class="job-board-job-company">${company}</span>`;
   return `<li class="job-list-item ">
     <a class="job-link" rel="nofollow" href="/jobs/${id}-Some-Role?source=index"></a>
-    <div class="job-title-company-container"><h4 class="job-title job-board-job-title">${title}</h4></div>
+    <div class="job-title-company-container">${companyHtml}<h4 class="job-title job-board-job-title">${title}</h4></div>
     <div class="job-details"><div class="posted-on hide-on-mobile">${age}</div></div>
   </li>`;
 }
@@ -281,6 +285,38 @@ describe("a card becomes a job carrying the fields an aggregator link can supply
     expect(job.original_url).toBe("https://dribbble.com/jobs/1-Some-Role");
     expect(job.raw_title).toBe("Founding Product Designer");
     expect(job.posting_date).toBeDefined();
+  });
+
+  test("the employer on the card becomes raw_company_name", async () => {
+    const term = "Product Design";
+    const card = dribbbleCard({ id: 1, company: "Toybox Labs" });
+    stubFetch(singleTermRoutes(term, [card], []));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
+
+    expect(result.jobs[0].raw_company_name).toBe("Toybox Labs");
+  });
+
+  test("a card naming no employer leaves raw_company_name off the job", async () => {
+    // The job still travels this far. Dropping it is the orchestrator's call,
+    // and it names the reason when it makes it.
+    const term = "Product Design";
+    const card = dribbbleCard({ id: 1, company: "" });
+    stubFetch(singleTermRoutes(term, [card], []));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
+
+    expect(result.jobs).toHaveLength(1);
+    expect(result.jobs[0].raw_company_name).toBeUndefined();
+  });
+
+  test("no card collector writes a company slug, since neither site exposes one", async () => {
+    const term = "Product Design";
+    stubFetch(singleTermRoutes(term, [dribbbleCard({ id: 1 })], []));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
+
+    expect(result.jobs[0].raw_company_slug).toBeUndefined();
   });
 
   test("posting_date is a Date, not the raw age text", async () => {

@@ -44,10 +44,10 @@ function buildSearches(searchTerms: string[], location: string): Search[] {
   return searches;
 }
 
-// A card only carries what an aggregator link can supply. Location, work
-// mode, salary, and company all wait for a parser to read the source
-// posting — a job that never reaches one leaves the backlog before anything
-// needs them.
+// A card only carries what an aggregator link can supply. The card gives the
+// employer its own element, so taking it is not parsing; location, work mode,
+// and salary still wait for a parser to read the source posting — a job that
+// never reaches one leaves the backlog before anything needs them.
 function cardToJob(card: ResultCard): JobListEntry {
   // The card states an age rather than a date. The collector reads it either
   // way, because an age past the expiry threshold is what stops pagination,
@@ -57,6 +57,7 @@ function cardToJob(card: ResultCard): JobListEntry {
     original_url: card.url,
     raw_title: card.title,
     ...(postingDate ? { posting_date: postingDate } : {}),
+    ...(card.company ? { raw_company_name: card.company } : {}),
     is_resolved: false,
     is_parsed: false,
     is_classified: false,

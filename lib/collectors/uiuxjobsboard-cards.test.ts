@@ -20,8 +20,8 @@ const DEFAULT_COMPANY = "Clera";
 const DEFAULT_AGE = "15h";
 
 // One job card the way UI/UX Jobs Board's results list renders it. An empty
-// string for href, title, or age leaves that element out of the markup, the
-// way a real card missing that piece would. A featured card carries a badge
+// string for href, title, company, or age leaves that element out of the
+// markup, the way a real card missing that piece would. A featured card carries a badge
 // where the age belongs, the way a paid advertisement does.
 function uiuxCard(options: CardOptions = {}): string {
   const {
@@ -33,7 +33,10 @@ function uiuxCard(options: CardOptions = {}): string {
   } = options;
   const linkOpen = href === "" ? "" : `<a class="inline-flex flex-col" href="${href}" data-discover="true">`;
   const linkClose = href === "" ? "" : "</a>";
-  const companyHtml = `<span class="text-xl flex items-center gap-2 justify-center sm:justify-start"><span>${company}<span class="text-base opacity-40 ml-1">is hiring</span></span></span>`;
+  const companyHtml =
+    company === ""
+      ? ""
+      : `<span class="text-xl flex items-center gap-2 justify-center sm:justify-start"><span>${company}<span class="text-base opacity-40 ml-1">is hiring</span></span></span>`;
   const titleHtml = title === "" ? "" : `<span class="text-2xl text-primaryColor font-bold">${title}</span>`;
   const badge =
     '<span class="font-bold text-sm text-yellow-900 bg-yellow-300 py-1 px-2 rounded-sm select-none">★ Featured</span>';
@@ -93,6 +96,63 @@ describe("the title comes from span.text-2xl, not the h3 that wraps the whole li
     expect(result.cards[0].title).toBe("Founding Product Designer");
     expect(result.cards[0].title).not.toContain("Vantheon");
     expect(result.cards[0].title).not.toContain("is hiring");
+  });
+});
+
+describe("the employer is read off the card, without the label beside it", () => {
+  test("company is the employer alone", () => {
+    const result = readUiuxCards(uiuxResultsHtml([uiuxCard({ company: "iCapital" })]));
+
+    expect(result.cards[0].company).toBe("iCapital");
+  });
+
+  test("the site's own label is left out rather than stripped off the text", () => {
+    // The words sit in a child element inside the same span, so reading the
+    // holder's text would run them onto the end of the employer's name.
+    const result = readUiuxCards(uiuxResultsHtml([uiuxCard({ company: "iCapital" })]));
+
+    expect(result.cards[0].company).not.toContain("is hiring");
+  });
+
+  test("an employer whose own name contains the label survives it", () => {
+    // Proves the label is excluded by element rather than by matching text.
+    const result = readUiuxCards(uiuxResultsHtml([uiuxCard({ company: "This is hiring co" })]));
+
+    expect(result.cards[0].company).toBe("This is hiring co");
+  });
+
+  test("a card naming no employer still yields a card", () => {
+    const result = readUiuxCards(uiuxResultsHtml([uiuxCard({ company: "" })]));
+
+    expect(result.cards).toHaveLength(1);
+  });
+
+  test("that card's company is empty rather than absent", () => {
+    const result = readUiuxCards(uiuxResultsHtml([uiuxCard({ company: "" })]));
+
+    expect(result.cards[0].company).toBe("");
+  });
+
+  test("a drifted card and an employerless card in one read are told apart", () => {
+    // The two failures look alike from outside and mean opposite things: one
+    // is a selector that stopped matching job cards, the other is a job the
+    // site published without an employer. Two elements, one yielded card.
+    const result = readUiuxCards(
+      uiuxResultsHtml([uiuxCard({ href: "" }), uiuxCard({ company: "" })])
+    );
+
+    expect(result.matched).toBe(2);
+    expect(result.cards).toHaveLength(1);
+    expect(result.cards[0].company).toBe("");
+  });
+
+  test("a card missing only its employer does not read as selector drift", () => {
+    // matched counts every element the selector reached; cards counts what
+    // yielded. A card the site simply published without an employer has to
+    // land in both, or the yield warning fires on a page that is fine.
+    const result = readUiuxCards(uiuxResultsHtml([uiuxCard({ company: "" })]));
+
+    expect(result.cards).toHaveLength(result.matched);
   });
 });
 
@@ -279,6 +339,16 @@ describe("the committed fixture", () => {
     const result = readUiuxCards(readFixture("uiuxjobsboard"));
 
     expect(result.matched).toBeGreaterThanOrEqual(result.cards.length);
+  });
+
+  test("every card names an employer", () => {
+    // Catches the site moving the company off the card, which would drop
+    // every job the collector produces.
+    const result = readUiuxCards(readFixture("uiuxjobsboard"));
+
+    for (const resultCard of result.cards) {
+      expect(resultCard.company.length).toBeGreaterThan(0);
+    }
   });
 
   test("every card's age is readable by parseAgeToDays", () => {

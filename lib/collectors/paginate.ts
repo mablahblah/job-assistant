@@ -5,11 +5,14 @@
 
 import { isPastThreshold, parseAgeToDays } from "../job-age";
 
-// One result card as a collector reads it off a page.
+// One result card as a collector reads it off a page. company is empty when
+// the card names no employer: the card is still a card, and the job it becomes
+// is dropped later by the rule that names the reason.
 export interface ResultCard {
   url: string;
   title: string;
   age: string;
+  company: string;
 }
 
 // What one page read yields: the cards that came back whole, and how many

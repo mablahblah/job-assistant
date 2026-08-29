@@ -20,10 +20,21 @@ const UIUX_ORIGIN = "https://uiuxjobsboard.com";
 type LinkedomDocument = ReturnType<typeof parseHTML>["document"];
 type CardElement = ReturnType<LinkedomDocument["querySelectorAll"]>[number];
 
+// Named the same way as CardElement, since what querySelector returns is not
+// a type this project can name directly either.
+type QueriedElement = ReturnType<CardElement["querySelector"]>;
+
 // Every read is funnelled through here to land on a trimmed string, so a
 // missing element reads the same as one whose text is blank.
 function trimmedText(value: string | null | undefined): string {
   return (value ?? "").trim();
+}
+
+// The employer is the holder's first text node. The site's "is hiring" label
+// sits in a child element right after it, so reading firstChild rather than
+// textContent leaves the label out without needing to know its wording.
+function firstChildText(element: QueriedElement): string {
+  return trimmedText(element?.firstChild?.nodeValue);
 }
 
 // A paid card shares the same markup as a real one, but puts a "Featured"
@@ -45,15 +56,19 @@ function absoluteUrl(href: string): string {
 // A job with no link, no title, or no age is not usable, whatever else the
 // card carries. The title comes from span.text-2xl rather than the h3 that
 // wraps it, because the h3's text runs the company, the words "is hiring",
-// and the title together as one string.
+// and the title together as one string. A missing employer does not return
+// null here: null is how the caller spots a drifted selector, and a card that
+// simply names no employer is not that, so it is kept with company empty and
+// dropped later.
 function cardFromElement(element: CardElement): ResultCard | null {
   const href = trimmedText(element.querySelector('a[href*="/job/"]')?.getAttribute("href"));
   const title = trimmedText(element.querySelector("span.text-2xl")?.textContent);
   const age = trimmedText(element.querySelector("div.text-sm")?.textContent);
+  const company = firstChildText(element.querySelector("h3 span.text-xl > span"));
 
   if (href === "" || title === "" || age === "") return null;
 
-  return { url: absoluteUrl(href), title, age };
+  return { url: absoluteUrl(href), title, age, company };
 }
 
 export function readUiuxCards(html: string): PageRead {

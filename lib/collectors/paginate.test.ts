@@ -10,7 +10,12 @@ import { paginate, PAGE_CEILING, type PageRead, type PaginateOptions, type Resul
 let nextCardId = 0;
 function card(age: string): ResultCard {
   nextCardId += 1;
-  return { url: `https://example.com/jobs/${nextCardId}`, title: `Job ${nextCardId}`, age };
+  return {
+    url: `https://example.com/jobs/${nextCardId}`,
+    title: `Job ${nextCardId}`,
+    age,
+    company: `Company ${nextCardId}`,
+  };
 }
 
 // One page's worth of cards. Every card counts as matched unless a test is

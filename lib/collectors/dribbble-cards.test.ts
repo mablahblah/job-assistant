@@ -9,30 +9,42 @@ import { parseAgeToDays } from "../job-age";
 interface CardOptions {
   href?: string;
   title?: string;
+  company?: string;
   age?: string;
   featured?: boolean;
 }
 
 const DEFAULT_HREF = "/jobs/309185-Founding-Product-Designer-Austin-TX?source=index";
 const DEFAULT_TITLE = "Founding Product Designer (Austin, TX)";
+const DEFAULT_COMPANY = "Vantheon";
 const DEFAULT_AGE = "Posted 15 days ago";
 
 // One job card the way Dribbble's results list renders it. An empty string
 // for href, title, or age leaves that element out of the markup entirely,
 // the way a real card missing that piece would.
 function dribbbleCard(options: CardOptions = {}): string {
-  const { href = DEFAULT_HREF, title = DEFAULT_TITLE, age = DEFAULT_AGE, featured = false } = options;
+  const {
+    href = DEFAULT_HREF,
+    title = DEFAULT_TITLE,
+    company = DEFAULT_COMPANY,
+    age = DEFAULT_AGE,
+    featured = false,
+  } = options;
   const classes = featured
     ? "job-list-item  job-list-item--boosted job-list-item--featured"
     : "job-list-item ";
   const linkHtml = href === "" ? "" : `<a class="job-link" rel="nofollow" href="${href}"></a>`;
   const titleHtml = title === "" ? "" : `<h4 class="job-title job-board-job-title">${title}</h4>`;
   const ageHtml = age === "" ? "" : `<div class="posted-on hide-on-mobile">${age}</div>`;
+  const companyHtml =
+    company === ""
+      ? ""
+      : `<div class="job-role "><span class="job-board-job-company">${company}</span></div>`;
   return `<li class="${classes}">
     ${linkHtml}
     <div class="job-details-container">
       <div class="job-title-company-container">
-        <div class="job-role "><span class="job-board-job-company">Vantheon</span></div>
+        ${companyHtml}
         ${titleHtml}
       </div>
     </div>
@@ -73,6 +85,48 @@ describe("a normal card yields a title, an age, and an absolute url", () => {
     const result = readDribbbleCards(dribbbleResultsHtml([dribbbleCard()]));
 
     expect(result.cards[0].age).toBe(DEFAULT_AGE);
+  });
+});
+
+describe("the employer is read off the card's own company element", () => {
+  test("company is the job-board-job-company text, trimmed", () => {
+    const result = readDribbbleCards(dribbbleResultsHtml([dribbbleCard({ company: "lumix" })]));
+
+    expect(result.cards[0].company).toBe("lumix");
+  });
+
+  test("a card naming no employer still yields a card", () => {
+    const result = readDribbbleCards(dribbbleResultsHtml([dribbbleCard({ company: "" })]));
+
+    expect(result.cards).toHaveLength(1);
+  });
+
+  test("that card's company is empty rather than absent", () => {
+    const result = readDribbbleCards(dribbbleResultsHtml([dribbbleCard({ company: "" })]));
+
+    expect(result.cards[0].company).toBe("");
+  });
+
+  test("a drifted card and an employerless card in one read are told apart", () => {
+    // The two failures look alike from outside and mean opposite things: one
+    // is a selector that stopped matching job cards, the other is a job the
+    // site published without an employer. Two elements, one yielded card.
+    const result = readDribbbleCards(
+      dribbbleResultsHtml([dribbbleCard({ href: "" }), dribbbleCard({ company: "" })])
+    );
+
+    expect(result.matched).toBe(2);
+    expect(result.cards).toHaveLength(1);
+    expect(result.cards[0].company).toBe("");
+  });
+
+  test("a card missing only its employer does not read as selector drift", () => {
+    // matched counts every element the selector reached; cards counts what
+    // yielded. A card the site simply published without an employer has to
+    // land in both, or the yield warning fires on a page that is fine.
+    const result = readDribbbleCards(dribbbleResultsHtml([dribbbleCard({ company: "" })]));
+
+    expect(result.cards).toHaveLength(result.matched);
   });
 });
 
@@ -305,6 +359,16 @@ describe("the committed fixture", () => {
 
     for (const resultCard of result.cards) {
       expect(resultCard.url).not.toContain("?source=");
+    }
+  });
+
+  test("every card names an employer", () => {
+    // Catches Dribbble moving the company off the card, which would drop
+    // every job the collector produces.
+    const result = readDribbbleCards(readFixture("dribbble"));
+
+    for (const resultCard of result.cards) {
+      expect(resultCard.company.length).toBeGreaterThan(0);
     }
   });
 

@@ -45,15 +45,18 @@ function absoluteUrl(href: string): string {
 }
 
 // A job with no link, no title, or no date is not usable, whatever else the
-// card carries.
+// card carries. A missing employer is different: returning null is how the
+// caller spots a drifted selector, and a card that simply names no employer is
+// not that, so it is kept with company empty and dropped later.
 function cardFromElement(element: CardElement): ResultCard | null {
   const href = trimmedText(element.querySelector("a.job-link")?.getAttribute("href"));
   const title = trimmedText(element.querySelector("h4.job-title")?.textContent);
   const age = trimmedText(element.querySelector(".posted-on")?.textContent);
+  const company = trimmedText(element.querySelector("span.job-board-job-company")?.textContent);
 
   if (href === "" || title === "" || age === "") return null;
 
-  return { url: absoluteUrl(href), title, age };
+  return { url: absoluteUrl(href), title, age, company };
 }
 
 export function readDribbbleCards(html: string): PageRead {
