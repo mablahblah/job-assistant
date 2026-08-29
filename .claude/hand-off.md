@@ -15,45 +15,58 @@
 
 Feature: **Unified Job Pipeline** — thirteen phases on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is building. Tasks 1 through 13 are done; four remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 14, giving the config tests room for a cold import**.
+**Phase 1 (Collection) is building. Tasks 1 through 16 are done; two remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 17, wiring the `job-search` skill**.
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`. Read it with `phase-01-collection-r&d.md` beside it. It keeps **two parallel numbered lists** — User Stories 1–78 and Acceptance Criteria 1–103. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria once survived an audit.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`. Read it with `phase-01-collection-r&d.md` beside it. It keeps **two parallel numbered lists** — User Stories 1–78 and Acceptance Criteria 1–111. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria once survived an audit.
 
-Code is committed and pushed through `50d0d99`. **Two doc files are modified and uncommitted:** the new task 14 in `docs/CURRENT-FEATURE.md` and the same task plus a rewritten task 15 in the phase 1 spec.
+**Committed and pushed through `fcc4bda`.** Three doc files are modified and uncommitted: this hand-off, `phase-01-collection-r&d.md`, and `phase-02-tracing-r&d.md`. The last two carry findings recorded during hand-off, described below.
 
 ## Completed This Session
 
-**Task 13 — the collectors interpret nothing.** Lever stopped fetching its board page to read an employer name out of the HTML `<title>`, so a Lever board costs one request. Greenhouse and Lever both stopped reading a work mode out of the description. Neither falls back to a name built from the board slug: Greenhouse reads `raw_company_name` off each posting's own `company_name`, and a posting carrying none leaves it empty. Both write `raw_company_slug`. Lever stores `workplaceType` as published, `onsite` included, because mapping it onto `in-person` is Phase 3's job.
+**Task 15 — the Ashby collector.** `lib/collectors/ashby.ts` with 38 tests, registered after Lever. Polls each seeded slug at `api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true`, keeps postings where `isListed` is true whose title matches the search terms, and writes the `jobUrl` Ashby supplies to both `original_url` and `resolved_url` rather than rebuilding it from slug and id. `raw_company_slug` alone, no name. `publishedAt` fills `posting_date` only. Committed as `e692d14`.
 
-**`titleFromHtml` and `nameFromBoardTitle` moved to `lib/board-title-name.ts`**, out of `collectors/`, unhooked and waiting for Phase 8. `resolveAtsCompanyName` was deleted rather than unhooked — its only job was the collection-time slug fallback that AC 31 withdrew.
+**Task 16 — a collected job that cannot travel is dropped.** `lib/collectors/job-usable.ts` with 27 tests, called from the orchestrator's per-collector loop with 13 more tests there. Committed as `fcc4bda`.
 
-**Three collector behaviours were sanctioned as exceptions** and commented where they happen: JSearch joining its three location fields, JSearch writing `remote` for its `job_is_remote` boolean, and the two card collectors turning an age phrase into `posting_date`. Tabled in the Phase 3 and Phase 8 r&d files so a later phase meets the rule and its exceptions together.
-
-**Verified:** `npx tsc --noEmit` exit 0. `npm run lint` exit 0. `npm run test` exit 0 with 755 passing across 29 files, down from 765 — the AC 27, 29, 31 and 92 collector blocks went with the behaviour they described, and five new tests replaced them. Greenhouse's description read and a hard-coded Lever company name were each restored on purpose to confirm the new tests catch them — 3 failed, 78 passed — then reverted.
+**Verified:** `npx tsc --noEmit` exit 0, `npm run lint` exit 0, `npm run test` exit 0 with **832 passing across 31 files**, up from 755. A live orchestrator run over the five seeded Ashby boards kept all 53 real jobs with 0 dropped, 0 errors, 0 warnings.
 
 ## Decisions & Context
 
-All signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — read it, it is the authority. Three were added this session, on the sanctioned exceptions, on a nameless Greenhouse posting, and on when unhooked code is kept versus deleted.
+Signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — it is the authority. Three were added this session: `isRemote` is not collected, the drop rule, and why the check lives in the orchestrator.
 
-**The rubric settles this class of question.** `docs/features/unified-pipeline/feature_spec.md` holds a "What Each Step Owns" table. A collector "collects raw jobs, and every field its source hands over for free" and never "interprets anything — a figure it had to read out of prose is not free data." When something could plausibly live in two steps, that table decides it, and the test between normalizing and parsing is that normalizing reshapes a value that exists while parsing produces one that does not.
+**Where this session's other findings already live, so they are not re-derived:**
+
+- **Phase 1 spec** — AC 104–111 state the drop rule. The task list renumbered: `job-search` is now 17, the live one-job command 18.
+- **Phase 1 r&d, Open questions** — four source assumptions that fail silently and are still unguarded.
+- **Phase 2 r&d, Carried in from Phase 1** — a source that answered but sent nothing is Tracing's to surface, not collection's.
+- **Phase 3 r&d** — normalization drops a malformed salary field rather than the job; its `isRemote` question is answered with the measurement.
+- **Phase 9 r&d** — what expiry does with a job carrying no date at all.
+
+**Measured live on 2026-08-28, all five seeded Ashby boards, 2,818 jobs:**
+
+- **Ashby has no cross-board search and no date filter.** `updatedAfter`, `publishedAfter`, `since`, and `modifiedAfter` are all ignored and return the full set; `includeCompensation` is the only parameter. An 8-day client-side filter on `publishedAt` would cut 53 matching jobs to 8 permanently, since `publishedAt` never moves. This is why the collector has no date guard — classification handles age.
+- **The salary is never the first `summaryComponents` entry.** Equity frequently is, carrying nulls. No posting carries more than one `Salary` entry, and none hides one in `compensationTiers` that `summaryComponents` omits.
+- **`interval` and `currencyCode` must not be hardcoded.** Live values are `1 YEAR` ×201, `1 MONTH` ×12, `1 HOUR` ×1; USD ×194, EUR ×17, CAD ×3.
+- **`isListed` is true on every live job**, so only a fixture exercises that filter.
+- **`bjakcareer` returns 2,338 jobs in one response** and the flat 15-second timeout handled it. A data point for backlog item 23, Large Board Payload Handling.
 
 **Constraints and gotchas:**
 
-- **`lib/ats-slug-name.ts` looks unhooked but is not.** `scripts/db-seed.ts:91` calls `nameFromSlug` to name a seeded company from its slug, which is a signed-off decision. Deleting it as dead code breaks the seed.
-- **`company_name` is Greenhouse's own API field** on `GreenhousePosting`, not only our job-list field. Phase 8 lifts `toJobListEntry` out into a field mapper shared with the parser, and a careless rename there corrupts the API type.
-- **The commit hook flags `cardToJob` and `toJobListEntry` as untested** on every commit. Neither is exported, so the graph cannot see the tests reaching them through `collect`. False positive, carried from last session.
-- **AC 92 and AC 94 are covered in `lib/work-mode.test.ts`**, against the util rather than a collector. The collector-level copies were deleted without losing coverage. AC 29 and AC 31 correctly have no tests at all now.
-- **`crowd-code` produced four near-identical files and all four missed the same thing:** comments explaining why a field is empty. Both Lever headers narrated what had been deleted, which the brief forbade, and neither Greenhouse output commented the hard-coded `raw_mode_list: []`. The one real split was `if (matched.length === 0) continue;`, which one agent per pair spotted now guards an empty loop. **Their output still arrives HTML-escaped.** Combining beat a second round, because the gaps were comments and the wording was already settled.
+- **`limit` bounds nothing in a normal run.** It defaults to `Infinity`, is set only by `--limit N` on `scripts/collect.ts`, and is per collector rather than per run. It stops jobs entering the list, not requests being made — Ashby's 2,338-job board is one fetch that completes in full before any limit is consulted.
+- **The orchestrator's finish line now reads `kept=N dropped=M`**, and omits the dropped half when nothing was dropped. `found=` is gone, because it would hide the gap this check exists to surface.
+- **`makeJob` in `search-orchestrator.test.ts` needed a company added.** It supplied only a URL and a title, so every fixture job would have been dropped. Any new orchestrator fixture needs all three.
+- **crowd-code writers returned HTML-escaped output on all ten dispatches this session** — `&quot;`, `&amp;`, `&gt;` — every agent, every round, both tiers. Unchanged from the previous session's note. Check before applying.
+- **The commit hook's test-gap warning fired this session** on five non-exported internals covered through their public callers, after reporting zero gaps last session. Intermittent, and it flags internals.
+- **`npx tsx -e` cannot run top-level await** — it fails with `"cjs" output format`. Write a real file. A scratch script outside the repo also cannot reach `lib/` by relative path; absolute paths work.
 
 **Open questions:**
 
+- The four silent source assumptions in the Phase 1 r&d. The per-job usability check does not catch them, because they produce well-formed jobs with quietly wrong data. Whether to guard them is undecided.
+- **Backlog item 4, "Ashby API Collector", is now built.** Its entry says it "stays here until it is actually built", so it should be removed.
 - The Phase 3 and Phase 4 questions carried in their r&d files: whether Association's two passes differ, whether JSearch's employer name can be trusted for a match, whether a slug match should correct a stale seeded name, and what normalizing a title does.
 
 ## Next Steps
 
-1. **Commit the two modified doc files** — the new task 14 and the rewritten task 15 in the spec.
-2. **Task 14 — give the config tests room for a cold import.** `prisma.config.test.ts` fails on time rather than behaviour under a loaded run. Its first test pays a cold `import("./prisma.config")`, measured at 322ms alone against 0–2ms for every other test in the file, and vitest's default ceiling is 5000ms. Add a `CONFIG_LOAD_TIMEOUT_MS` constant and pass it to the three `loadConfig()` tests in AC1 and to "loading prisma.config.ts throws when the lookup fails" in AC2, matching the `CREATE_TIMEOUT_MS` pattern in `prisma/schema.test.ts`. Not a global `testTimeout` — that turns a genuine hang into a long wait for all 755 tests.
-3. **Task 15 — build the Ashby collector.** Last among the collectors, deliberately, so it is built once against rules that have stopped moving. `isListed` filter, `raw_company_slug` alone since its API carries no organization name, and the salary is the `summaryComponents` entry whose `compensationType` is `"Salary"` — not the first entry, which is equity. Its envelope is `{ salary_min: minValue, salary_max: maxValue, salary_period: "1 YEAR", salary_currency: "USD" }`, with no `salary_unit` because Ashby sends whole dollars. Seeded slug casing needs verifying against the live API. — AC 30, 36–37
-4. **Task 16 — wire the `job-search` skill.** One step that runs the orchestrator and surfaces errors and warnings first. — AC 19
-5. **Task 17 — live one-job command.** Outside the default suite, no fixture written. — AC 61, 68–69
-6. Then **Plan phase 2 — Tracing**, following the phase planning procedure.
+1. **Task 17 — wire the `job-search` skill.** Emptied to one step that runs the orchestrator and surfaces errors and warnings before anything else. Its current step 1 already fails on this branch: it imports `./lib/collectors/collect-all`, and `lib/` is now `legacy/lib/`. — AC 19
+2. **Task 18 — live one-job command.** Outside the default suite, one job per page-reading collector, no fixture written. Kept out of `npm run test` because a live site would block unrelated commits. — AC 61, 68–69
+3. Commit the three modified doc files.
+4. Then **Plan phase 2 — Tracing**, following the phase planning procedure. It already carries three obligations from Phase 1: retrofitting traces into all seven collectors, tracing the search-term drop, and surfacing a source that answered but sent nothing.
