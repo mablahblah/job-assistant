@@ -104,12 +104,13 @@ model Setting {
 // traces.
 //
 // step names the pipeline stage, in order: backlog_cleanup, collection,
-// post_collection_normalization, post_collection_dedupe, post_collection_save,
-// resolution, post_resolution_dedupe, post_resolution_save, parsing,
-// post_parsing_normalization, post_parsing_dedupe, post_parsing_save,
-// classification, post_classification_save, scoring. Only collection writes
-// today; each later phase adds its own values once it exists, the way
-// Job.status grows its comment.
+// post_collection_normalization, post_collection_association,
+// post_collection_dedupe, post_collection_save, resolution,
+// post_resolution_dedupe, post_resolution_save, parsing,
+// post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
+// post_parsing_save, classification, post_classification_save, scoring. Only
+// collection writes today; each later phase adds its own values once it
+// exists, the way Job.status grows its comment.
 //
 // reason names why a dead end happened. Only collection's usability check
 // writes today, with six codes: no_original_url (no link at all),
