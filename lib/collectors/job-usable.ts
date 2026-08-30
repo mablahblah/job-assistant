@@ -18,6 +18,9 @@ export type UnusableCode =
 export interface UnusableReason {
   code: UnusableCode;
   message: string;
+  // The one value specific to this dropped job, bare and unquoted, for the
+  // trace writer to store as data. Most checks have nothing to put here.
+  detail?: string;
 }
 
 // True when a field carries real content. Sources sometimes send an empty
@@ -54,6 +57,7 @@ export function unusableReason(job: JobListEntry): UnusableReason | null {
     return {
       code: "original_url_not_a_url",
       message: `original_url is not a URL: "${job.original_url}"`,
+      detail: job.original_url,
     };
   }
 

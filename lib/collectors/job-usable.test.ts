@@ -184,3 +184,29 @@ describe("AC 109: a malformed salary, location, or work mode does not drop the j
     expect(unusableReason({ ...usableJob, raw_mode_list: ["not-a-mode"] })).toBeNull();
   });
 });
+
+// Detail carries the one value specific to a single dropped job, kept apart
+// from the code so the trace writer can use it as data without picking the
+// message apart.
+describe("a job dropped for a malformed original_url carries the offending URL as detail", () => {
+  test("the malformed original_url check sets detail to the bare, unquoted URL", () => {
+    const reason = unusableReason({ ...usableJob, original_url: "not-a-url" });
+    expect(reason?.code).toBe("original_url_not_a_url");
+    expect(reason?.detail).toBe("not-a-url");
+  });
+
+  test("every other check leaves detail unset", () => {
+    expect(unusableReason({ ...usableJob, original_url: undefined })?.detail).toBeUndefined();
+    expect(unusableReason({ ...usableJob, raw_title: undefined })?.detail).toBeUndefined();
+    expect(
+      unusableReason({ ...usableJob, raw_company_name: undefined, raw_company_slug: undefined })
+        ?.detail
+    ).toBeUndefined();
+    expect(
+      unusableReason({ ...usableJob, posting_date: new Date("nonsense") })?.detail
+    ).toBeUndefined();
+    expect(
+      unusableReason({ ...usableJob, posting_updated_date: new Date("nonsense") })?.detail
+    ).toBeUndefined();
+  });
+});

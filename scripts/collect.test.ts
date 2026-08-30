@@ -52,6 +52,9 @@ function createAndSeed(prefix: string): { dir: string; url: string } {
 interface CollectResult {
   status: number | null;
   stderr: string;
+  // The trace-failure line, when there is one, goes to stdout alongside the
+  // job list, the same place printIssues writes.
+  stdout: string;
 }
 
 // Run with spawnSync rather than execFileSync, so a non-zero exit is a result
@@ -64,7 +67,7 @@ function runCollect(url: string): CollectResult {
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     encoding: "utf8",
   });
-  return { status: result.status, stderr: result.stderr };
+  return { status: result.status, stderr: result.stderr, stdout: result.stdout };
 }
 
 async function countRows(url: string, table: string): Promise<number> {
@@ -111,6 +114,7 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
   let dir: string;
   let result: CollectResult;
   let jobCount: number;
+  let traceCount: number;
   let settingsBefore: SettingRow;
   let settingsAfter: SettingRow;
   let entriesAfter: string[];
@@ -122,6 +126,7 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
     settingsBefore = await readSetting(temp.url);
     result = runCollect(temp.url);
     jobCount = await countRows(temp.url, "Job");
+    traceCount = await countRows(temp.url, "Trace");
     settingsAfter = await readSetting(temp.url);
     entriesAfter = readdirSync(dir);
   }, SETUP_TIMEOUT_MS);
@@ -151,6 +156,20 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
     for (const entry of entriesAfter) {
       expect(entry.startsWith("pipeline.db")).toBe(true);
     }
+  });
+
+  // AC 16/37 of the Phase 2 spec: a --limit 0 run reaches no source and loses
+  // no trace writes, so it is the clean case for both criteria at once. This
+  // reuses the database above rather than spinning up a second one, since a
+  // clean run is exactly what that beforeAll already produced.
+  describe("what a clean run reports and writes about tracing", () => {
+    test("prints no trace failure line, because nothing failed", () => {
+      expect(result.stdout).not.toMatch(/Trace failures:/);
+    });
+
+    test("leaves the Trace table empty, because no source was reached", () => {
+      expect(traceCount).toBe(0);
+    });
   });
 });
 

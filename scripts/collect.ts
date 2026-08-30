@@ -3,6 +3,7 @@
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createSettingsService } from "../lib/settings-service";
 import { runCollection, type CollectionIssue } from "../lib/search-orchestrator";
+import { createTraceWriter } from "../lib/trace-writer";
 import { COLLECTORS } from "../lib/collectors/registry";
 
 // One line per issue, naming both the collector and its own message, since
@@ -36,15 +37,24 @@ async function main(): Promise<void> {
   const prisma = createPipelineDb();
   try {
     const settings = createSettingsService(prisma);
+    const trace = createTraceWriter(prisma);
     // Names this job search so every trace event it produces can be grouped
     // and compared against other searches.
     const runId = crypto.randomUUID();
-    const report = await runCollection({ settings, collectors: COLLECTORS, limit, runId });
+    const report = await runCollection({ settings, collectors: COLLECTORS, limit, runId, trace });
 
     // Errors and warnings first, so a source that dropped out is the first
     // thing read rather than something noticed weeks later.
     printIssues("Errors", report.errors);
     printIssues("Warnings", report.warnings);
+
+    // A trace write failing is invisible unless reported here, so a run where
+    // tracing silently dropped rows does not look identical to one where
+    // nothing went wrong. Silent when nothing failed, so a clean run gains no
+    // new line.
+    if (report.traceFailures > 0) {
+      console.log(`Trace failures: ${report.traceFailures}`);
+    }
 
     // The job list itself, as JSON on stdout, so an agent reading the command
     // can consume it. Collection stops at a list in memory; saving it belongs
