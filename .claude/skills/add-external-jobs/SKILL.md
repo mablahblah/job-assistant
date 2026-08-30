@@ -18,8 +18,8 @@ Follow the steps explicitly to add pasted external jobs, classify, and score the
 npx tsx -e "
 import { runPipeline } from './lib/pipeline';
 const jobs = [
-  { url: '<URL_1>', source: 'external' },
-  { url: '<URL_2>', source: 'external' },
+  { url: '{URL_1}', source: 'external' },
+  { url: '{URL_2}', source: 'external' },
 ];
 async function main() {
   const result = await runPipeline(jobs, 'external');
@@ -29,7 +29,7 @@ main().catch(e => { console.error(e); process.exit(1); });
 "
 ```
 
-Replace `<URL_1>`, `<URL_2>`, etc. with the actual pasted URLs.
+Replace `{URL_1}`, `{URL_2}`, etc. with the actual pasted URLs.
 
 ### Step 2: Post-Scrape Pipeline
 

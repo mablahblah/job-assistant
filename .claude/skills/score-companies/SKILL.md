@@ -60,7 +60,7 @@ npx tsx scripts/cli.ts add-aggregator "Company Name"
 4b. Save scores to DB:
 
 ```bash
-npx tsx scripts/cli.ts score "Company Name" <es> <cs> <wl> <pa> "Note text"
+npx tsx scripts/cli.ts score "Company Name" {es} {cs} {wl} {pa} "Note text"
 ```
 
 5b. Read `job-alignment.md` (in this skill's directory) and evaluate each job posting against the rubric.
@@ -69,6 +69,6 @@ npx tsx scripts/cli.ts score "Company Name" <es> <cs> <wl> <pa> "Note text"
 
 ```bash
 npx tsx scripts/cli.ts alignment <<'EOF'
-[{"jobId":"<id>","score":<1-5>}, ...]
+[{"jobId":"{id}","score":{1-5}}, ...]
 EOF
 ```
