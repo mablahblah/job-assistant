@@ -3,6 +3,7 @@
 // user's location — because carrying a location into the remote search would
 // narrow it to the radius and defeat it.
 import type { JobListEntry, RawSalary } from "../job-list-entry";
+import { messageFromThrown } from "../thrown-message";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
 import type { Collector, CollectorResult } from "./types";
 
@@ -63,7 +64,11 @@ function toJobListEntry(job: AdzunaJob): JobListEntry {
 }
 
 // Runs one search and adds its results to the shared list, stopping as soon as
-// the limit is reached partway through a page.
+// the limit is reached partway through a page. A thrown request or a refused
+// one becomes a warning naming that search, so every other search still gets
+// its turn and the jobs already gathered are kept. Catching this in the
+// orchestrator instead would come too late: a collector that throws hands the
+// orchestrator no jobs at all.
 async function runSearch(
   params: URLSearchParams,
   jobs: JobListEntry[],
@@ -71,15 +76,19 @@ async function runSearch(
   warnings: string[],
   label: string
 ): Promise<void> {
-  const res = await fetchWithTimeout(`${SEARCH_URL}?${params.toString()}`);
-  if (!res.ok) {
-    warnings.push(httpError(label, res.status).message);
-    return;
-  }
-  const body = await safeJson<AdzunaSearchResponse>(res, label);
-  for (const job of body.results ?? []) {
-    if (jobs.length >= limit) break;
-    jobs.push(toJobListEntry(job));
+  try {
+    const res = await fetchWithTimeout(`${SEARCH_URL}?${params.toString()}`);
+    if (!res.ok) {
+      warnings.push(httpError(label, res.status).message);
+      return;
+    }
+    const body = await safeJson<AdzunaSearchResponse>(res, label);
+    for (const job of body.results ?? []) {
+      if (jobs.length >= limit) break;
+      jobs.push(toJobListEntry(job));
+    }
+  } catch (err) {
+    warnings.push(`${label} failed: ${messageFromThrown(err)}`);
   }
 }
 

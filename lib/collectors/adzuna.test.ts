@@ -362,6 +362,69 @@ describe("an empty results list", () => {
   });
 });
 
+// AC 52 settles where a mid-run failure is caught: "The orchestrator is the
+// wrong place to catch it: a collector that throws hands the orchestrator no
+// jobs at all, so everything gathered before the throw is already lost by the
+// time it gets there." Adzuna runs two searches per term, so the same holds
+// between them.
+describe("one of the two searches failing is surfaced", () => {
+  function run() {
+    stubFetch([
+      {
+        match: matchesRemoteSearch,
+        respond: () => {
+          throw new Error("network down");
+        },
+      },
+      {
+        match: matchesAustinSearch,
+        respond: () => jsonResponse({ results: [seniorProductDesigner], count: 1 }),
+      },
+    ]);
+    return adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+  }
+
+  test("a warning names which search failed", async () => {
+    const result = await run();
+    expect(result.warnings.some((warning) => warning.toLowerCase().includes("remote"))).toBe(true);
+  });
+
+  test("the other search's jobs are still returned", async () => {
+    expect((await run()).jobs).toHaveLength(1);
+  });
+
+  test("the collector resolves rather than throwing the whole run away", async () => {
+    await expect(run()).resolves.toBeDefined();
+  });
+});
+
+describe("a failing search on one term does not cost the terms after it", () => {
+  // The searches run term by term in one loop, so a throw on the first term
+  // would otherwise take the second term's jobs with it.
+  test("the second term still produces its jobs", async () => {
+    let remoteCalls = 0;
+    stubFetch([
+      {
+        match: matchesRemoteSearch,
+        respond: () => {
+          remoteCalls += 1;
+          if (remoteCalls === 1) throw new Error("network down");
+          return jsonResponse({ results: [seniorProductDesigner], count: 1 });
+        },
+      },
+      {
+        match: matchesAustinSearch,
+        respond: () => jsonResponse({ results: [], count: 0 }),
+      },
+    ]);
+    const result = await adzunaCollector.collect({
+      settings: makeSettings(["Product Design", "UX Design"]),
+      limit: Infinity,
+    });
+    expect(result.jobs).toHaveLength(1);
+  });
+});
+
 describe("AC 78: description holds exactly what the source sent", () => {
   test("description equals the job's description", async () => {
     // Adzuna truncates its descriptions to 500 characters, and the collector
