@@ -15,59 +15,60 @@
 
 Feature: **Unified Job Pipeline** — thirteen phases on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is complete.** All 18 tasks are checked and the build item is closed. Nothing is in flight.
+**Phase 1 (Collection) is complete and closed.** **Phase 2 (Tracing) is planned and not built.** No code was written this session — every change is documentation.
 
-**The working tree is clean and pushed through `185b85a`.** No modified files.
+**The working tree is clean and pushed through `83284a1`.**
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`, read with `phase-01-collection-r&d.md` beside it. It keeps **two parallel numbered lists** — User Stories 1–80 and Acceptance Criteria 1–116. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria once survived an audit. Numbers never move: a withdrawn entry keeps its number so its neighbours keep theirs.
+The spec is `docs/features/unified-pipeline/phases/phase-02-tracing-spec.md`, read with `phase-02-tracing-r&d.md` beside it. It carries 33 stories, 56 acceptance criteria and 8 tasks. Unlike the Phase 1 spec, its stories and criteria are separate lists that do not map one to one — a reference like "AC 33" always means the criteria.
+
+Every phase now has three boxes in `CURRENT-FEATURE.md` — Plan, Build, Close — where it used to have two.
 
 ## Completed This Session
 
-**Task 17 — the employer off a result card.** A live run found the task 16 drop rule discarding every job both page-reading collectors produced, because neither wrote a company. Both sites name the employer in an element of its own, so taking it is not parsing. `ResultCard` gained `company`; both card readers fill it; both `cardToJob` functions write `raw_company_name`, omitting it when blank. Committed as `eb9db06`, planned in `036b900`.
+**Phase 2 planned end to end.** Brain dump, orientation, conflict discussion, four stress-test agents, 56 criteria, the spec, `spec-review`, and `wrap-up-planning`. Committed as `83284a1`.
 
-**Task 18 — the `job-search` skill.** Emptied to one step running `npm run collect`, reporting every error and warning before the job list. Its old step imported `./lib/collectors/collect-all` and read `save.saved`, none of which exists here. Committed as `f5ba056`.
+**Phase 1 closed.** The architecture doc still described a phase that had not started — `Services` and `Data Model` both read "_None yet._", the ported-from-legacy table was a placeholder row, and the run diagram omitted the post-parsing dedupe the feature spec requires. Both long-standing r&d smells cleared. The Ashby backlog item removed, flagged in three consecutive hand-offs. Committed as `d6198c6`.
 
-**The live one-job command moved to the backlog** as #25, Live Collector Check, with a feature r&d carrying its withdrawn stories and criteria verbatim. That closed the phase. Committed as `185b85a`.
-
-**Verified:** `npm run test` 852 passing across 31 files, up from 832. `npx tsc --noEmit` exit 0, `npm run lint` exit 0. A live run returned **373 jobs** — adzuna 119, jsearch 28, greenhouse 57, lever 12, ashby 53, dribbble 7, uiuxjobsboard 97 — with all 104 card-collected jobs carrying a company and none dropped.
+**Verified:** `npm run test` 852 passing across 31 files, `npx tsc --noEmit` exit 0, `npm run lint` exit 0.
 
 ## Decisions & Context
 
-Signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — it is the authority. Three were added: the card collectors collect the employer, the card reader's checks stay put, and the live check is deferred. One 2026-08-27 entry was **superseded** — it said a card collector reads only the title and not the company.
+The 25 signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — it is the authority. One 2026-08-26 entry was **superseded**: it said some traces describe results that never became jobs, which stopped being true when `job_id` became required.
 
-**Where this session's findings already live:**
+The full conversation is in `docs/features/unified-pipeline/meeting-notes/2026-08-30-phase-02-tracing-meeting-notes.md`.
 
-- **Phase 1 spec** — stories 79–80 and AC 112–116 cover the employer; AC 58, 69 and 106 were amended; stories 47, 65, 66 and AC 61, 68, 69 are withdrawn.
-- **Phase 1 r&d** — the live-run drop counts, both fixture measurements with their selectors, and the JSearch timeout.
-- **`docs/features/live-collector-check/feature_r&d.md`** — why the live check may never be needed, its four settled constraints, its criteria verbatim, and its two edge cases.
+**The shape of the thing, in one paragraph.** Tracing is a journey funnel and nothing else. A job enters at collection, passes through each step, and either reaches the end or hits a dead end recording when and why. Source health — a board answering empty, a timeout, a platform with no slugs — is about a source rather than a job and is deliberately excluded. Only the job search writes traces.
 
-**Measured live on 2026-08-29:**
+**Three obligations Phase 1 handed forward, all resolved:** the collector retrofit shrank to nothing, because both events live in the orchestrator; tracing the search-term drop was withdrawn; surfacing a source that answered but sent nothing was dropped outright, not deferred.
 
-- **Dribbble names the employer in `span.job-board-job-company`** — 14 of 14 non-advertisement cards in the saved fixture.
-- **uiuxjobsboard names it in `h3 span.text-xl > span`** — 100 of 100 — where the employer is that element's **first text node** and a nested `span.text-base` holds the words "is hiring". Reading `textContent` yields `"iCapitalis hiring"`. A test with an employer literally named `"This is hiring co"` is what proves the label is excluded structurally rather than string-matched.
-- **Neither site exposes a company slug**, so both write `raw_company_name` alone.
-- **JSearch's local search timed out at 15s on both runs.** A warning, not an error, and a data point for backlog item 22, Large Board Payload Handling.
+**Two things the user rejected in favour of something better.** A `collection_run_id` column to fix cross-run cohorts — replaced by requiring a collected event and a terminus event in the same run, which needs no schema. And nullable `run_id` for non-pipeline callers — replaced by narrowing to job-search-only writes.
+
+**Measured or verified this session:**
+
+- `crypto.randomUUID()` is a bare global under this tsconfig, no import. Confirmed with `tsc --noEmit`.
+- `Int @id @default(autoincrement())` already works in this repo — `prisma/schema.test.ts:276`. No spike needed.
+- A `Json` column read through raw SQL comes back as text holding JSON, not an object — `prisma/schema.test.ts:88-90`.
+- `--limit 0` returns at `search-orchestrator.ts:58` before the collector loop, so `scripts/collect.test.ts` can never reach the code the events live in.
+- 33 `runCollection` call sites: 32 in `search-orchestrator.test.ts`, one in `scripts/collect.ts`.
+- `unusableReason` has six branches; one interpolates the offending URL. About 25 assertions match its message by substring, so its wording is unguarded.
 
 **Constraints and gotchas:**
 
-- **No git hook runs the tests.** There is no `.husky/`. The suite runs when invoked; `/commit-and-push` runs it through `verification-before-completion`. The "test gaps / risk score" output on every commit is the `code-review-graph` PostToolUse hook analysing structure — it runs no tests and its gaps are non-exported internals covered through public callers.
-- **`npm run collect` rewrites both fixtures**, at `dribbble.ts:136` and `uiuxjobsboard.ts:137`. Using a real run as a health check mutates the baseline the offline tests compare against.
-- **Each site has two card builders** — one in `*-cards.test.ts` for the reader, one in the collector test. Adding a field means updating both.
-- **uiuxjobsboard's collector test stubs with `categoryRoute`, not `singleTermRoutes`**, because the site is browsed by category paths. Copying a test across from Dribbble fails with `singleTermRoutes is not defined`.
-- **`limit: 1` makes an ATS collector shallow** — `greenhouse.ts:92` breaks out of the board loop after the first job, so 1 of 13 boards is polled.
-- **crowd-code writers HTML-escape only when the output must contain angle brackets.** 2 of 10 escaped this session, both on the uiuxjobsboard piece whose CSS selector holds a `>`. Check before applying.
-- **TDD's RED cannot be observed under crowd-code**, which orders code before tests. Mutation testing substitutes: break the production line, confirm the intended tests go red, restore.
-- **`npx tsx -e` cannot run top-level await.** Write a real file; absolute paths reach `lib/`.
+- **`/commit-and-push` and `/hand-off` cannot be invoked by the Skill tool.** The user must type them; the tool refuses and forbids replicating them.
+- **Renumbering `BACKLOG.md` breaks bare-number references elsewhere.** Removing the Ashby item shifted 21 entries and broke two live references to "item 23". Both now name the item as well as numbering it.
+- **A subagent given a spike-shaped question may go and run it.** One created files under `generated/` mid-task; it was stopped, made to delete them, and the repo verified clean before its findings were used.
+- **`spec-review` forbids writing the draft before approval; the phase planning procedure writes the spec at step 6 and reviews at step 7.** The procedures conflict.
+- **`build-requirements` Phase 2 re-asks discovery questions** a phase planning conversation has already settled.
+- **A trace write must never throw.** The per-job loop sits inside the orchestrator's `try` around the collector call at `search-orchestrator.ts:67`, where a throw is read as a collector failure and costs every remaining job from that source.
 
 **Open questions:**
 
-- **The four silent source assumptions** in the Phase 1 r&d, still unguarded. The usability check does not catch them — they produce well-formed jobs with quietly wrong data.
-- **Two doc smells in the Phase 1 r&d**, surfaced and not fixed: a duplicated `## Measured during the build` heading, and a stale line saying uiuxjobsboard keeps a visible browser, which the 2026-08-27 decision removed.
-- **Backlog #4, "Ashby API Collector", is built** and its entry says it stays only until it is. Flagged last session too.
+- **The four silent source assumptions** in the Phase 1 r&d, still unguarded. They produce well-formed jobs with quietly wrong data, which the usability check does not catch.
 - The Phase 3 and Phase 4 questions in their r&d files: whether Association's two passes differ, whether JSearch's employer name can be trusted for a match, whether a slug match should correct a stale seeded name, and what normalizing a title does.
 
 ## Next Steps
 
-1. **Run `/audit` as a post-phase-1 pass.** This is the next action, before any phase 2 work.
-2. **Then plan phase 2 — Tracing**, following the phase planning procedure. It already carries three obligations from Phase 1: retrofitting traces into all seven collectors, tracing the search-term drop, and surfacing a source that answered but sent nothing.
-3. Clear the two r&d doc smells and backlog #4 when convenient — none blocks phase 2.
+1. **Run `/audit`.** Carried over from the last hand-off and still not run. Do this before any Phase 2 build work.
+2. **Build Phase 2, task 1 — the Trace table.** Add the model to `prisma/schema.prisma` with the step and reason vocabularies in its comment, run `npx prisma generate` (`db:create` alone does not regenerate the client), and make the five additions to `schema.test.ts` listed in the spec's task 1. Criteria 1–10.
+3. **Then tasks 2 through 8 in order.** The table before the writer, the writer before the events, so nothing is built against something absent.
+4. **Close Phase 2** when the build is done — the architecture doc gains the `Trace` model and the trace writer, which is what AC 52 means now that Phase 1's staleness is fixed.
