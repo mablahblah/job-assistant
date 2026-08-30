@@ -25,6 +25,10 @@ export interface CollectionReport {
 export interface CollectionOptions {
   settings: SettingsService;
   collectors: Collector[];
+  // Identifies one job search so every trace event it produces can be
+  // grouped and compared against other searches. Minted by the caller;
+  // the orchestrator never generates one itself.
+  runId: string;
   // How many jobs each collector stops after. Omitted means unlimited.
   limit?: number;
   // Where progress lines go. Defaults to stderr, so a job list printed on

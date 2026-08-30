@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createClient } from "@libsql/client";
@@ -151,5 +151,34 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
     for (const entry of entriesAfter) {
       expect(entry.startsWith("pipeline.db")).toBe(true);
     }
+  });
+});
+
+// AC 18/19 of the Phase 2 spec: a job search mints a run id, as a
+// crypto.randomUUID(), so every trace event it produces can be told apart from
+// another search's events. --limit 0 returns before any trace event exists, so
+// a minted run id leaves nothing to observe in the database or on stdout — the
+// only evidence available is the script's own text.
+describe("the collect command mints a run id", () => {
+  const source = readFileSync(join(repoRoot, "scripts", "collect.ts"), "utf-8");
+
+  test("calls crypto.randomUUID()", () => {
+    expect(source).toMatch(/crypto\.randomUUID\(\)/);
+  });
+
+  test("passes the minted run id into runCollection", () => {
+    // Finds whatever name the script gave the minted id, rather than assuming
+    // one, then checks that same name reaches the call.
+    const mintedName = source.match(
+      /\b(?:const|let)\s+(\w+)\s*=\s*crypto\.randomUUID\(\)/
+    )?.[1];
+    expect(mintedName, "expected a variable assigned from crypto.randomUUID()").toBeTruthy();
+
+    const call = source.match(/runCollection\(\{[\s\S]*?\}\)/);
+    expect(call, "expected a call to runCollection({ ... })").toBeTruthy();
+
+    // The name has to appear as its own token in the call, not as part of some
+    // other identifier.
+    expect(call?.[0]).toMatch(new RegExp(`\\b${mintedName}\\b`));
   });
 });

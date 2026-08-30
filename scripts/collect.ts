@@ -36,7 +36,10 @@ async function main(): Promise<void> {
   const prisma = createPipelineDb();
   try {
     const settings = createSettingsService(prisma);
-    const report = await runCollection({ settings, collectors: COLLECTORS, limit });
+    // Names this job search so every trace event it produces can be grouped
+    // and compared against other searches.
+    const runId = crypto.randomUUID();
+    const report = await runCollection({ settings, collectors: COLLECTORS, limit, runId });
 
     // Errors and warnings first, so a source that dropped out is the first
     // thing read rather than something noticed weeks later.

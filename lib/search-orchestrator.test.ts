@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 import { runCollection, type CollectionReport } from "./search-orchestrator";
 import type { Collector, CollectorContext, CollectorResult } from "./collectors/types";
@@ -13,6 +16,10 @@ const stubSettings: SettingsService = {
   getExpiryThreshold: async () => 0,
   getAtsCompanies: async () => [],
 };
+
+// A fixed stand-in for the UUID scripts/collect.ts mints for a real run.
+// These are unit tests, so the value is never parsed as a real UUID.
+const stubRunId = "test-run-id";
 
 // A minimal job that can still travel: a link, a title, and an employer.
 // Every JobListEntry field is optional, but a job carrying none of those three
@@ -68,21 +75,21 @@ const emptyResult: CollectorResult = { jobs: [], errors: [], warnings: [] };
 describe("AC 15: a collector that throws does not stop the run", () => {
   test("the thrown message is recorded as an error against that collector", async () => {
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
-    const report = await runCollection({ settings: stubSettings, collectors: [failing] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [failing] });
     expect(report.errors).toEqual([{ collector: "greenhouse", message: "board unreachable" }]);
   });
 
   test("a collector listed after the failing one still runs", async () => {
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
     const later = makeCollector("lever", emptyResult);
-    await runCollection({ settings: stubSettings, collectors: [failing, later] });
+    await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [failing, later] });
     expect(later.wasCalled).toBe(true);
   });
 
   test("runCollection resolves rather than rejecting", async () => {
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
     await expect(
-      runCollection({ settings: stubSettings, collectors: [failing] })
+      runCollection({ settings: stubSettings, runId: stubRunId, collectors: [failing] })
     ).resolves.toBeDefined();
   });
 
@@ -96,7 +103,7 @@ describe("AC 15: a collector that throws does not stop the run", () => {
         throw { code: "ECONNRESET" };
       },
     };
-    const report = await runCollection({ settings: stubSettings, collectors: [failing] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [failing] });
     expect(report.errors).toEqual([{ collector: "adzuna", message: '{"code":"ECONNRESET"}' }]);
   });
 });
@@ -108,7 +115,7 @@ describe("AC 16: a warning keeps the collector that produced it", () => {
       errors: [],
       warnings: ["stripe: board returned no postings"],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings[0]?.collector).toBe("greenhouse");
   });
 
@@ -117,7 +124,7 @@ describe("AC 16: a warning keeps the collector that produced it", () => {
     // must survive intact — no rewriting, no truncation.
     const message = "stripe: board returned no postings";
     const collector = makeCollector("greenhouse", { jobs: [], errors: [], warnings: [message] });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings[0]?.message).toBe(message);
   });
 });
@@ -137,6 +144,7 @@ describe("AC 18: a supplied log function reports each collector as it runs", () 
     };
     await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       log: (message) => lines.push(message),
     });
@@ -148,6 +156,7 @@ describe("AC 18: a supplied log function reports each collector as it runs", () 
     const collector = makeCollector("lever", emptyResult);
     await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       log: (message) => lines.push(message),
     });
@@ -159,6 +168,7 @@ describe("AC 18: a supplied log function reports each collector as it runs", () 
     const collector = makeCollector("lever", emptyResult);
     await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       log: (message) => lines.push(message),
     });
@@ -174,6 +184,7 @@ describe("AC 18: a supplied log function reports each collector as it runs", () 
     });
     await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       log: (message) => lines.push(message),
     });
@@ -199,6 +210,7 @@ describe("AC 20: collectors that fail in different ways travel one channel", () 
 
     report = await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [throwing, erroring, degraded, empty],
     });
   });
@@ -243,6 +255,7 @@ describe("AC 21: errors and warnings from several collectors survive together", 
 
     report = await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [failingA, warningC, failingB, warningD],
     });
   });
@@ -269,7 +282,7 @@ describe("AC 22: when every collector fails, every failure is recorded", () => {
       makeThrowingCollector("boardB", "boardB down"),
       makeThrowingCollector("boardC", "boardC down"),
     ];
-    const report = await runCollection({ settings: stubSettings, collectors });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors });
     expect(report.errors).toEqual([
       { collector: "boardA", message: "boardA down" },
       { collector: "boardB", message: "boardB down" },
@@ -288,7 +301,7 @@ describe("AC 23: a limit of 0 collects nothing and asks for nothing", () => {
       errors: [],
       warnings: [],
     });
-    await runCollection({ settings: stubSettings, collectors: [collector], limit: 0 });
+    await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector], limit: 0 });
     expect(collector.wasCalled).toBe(false);
   });
 
@@ -300,6 +313,7 @@ describe("AC 23: a limit of 0 collects nothing and asks for nothing", () => {
     });
     const report = await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       limit: 0,
     });
@@ -311,7 +325,7 @@ describe("AC 24: a limit of 1 reaches every collector", () => {
   test("each collector sees context.limit as exactly 1", async () => {
     const first = makeCollector("dribbble", emptyResult);
     const second = makeCollector("lever", emptyResult);
-    await runCollection({ settings: stubSettings, collectors: [first, second], limit: 1 });
+    await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [first, second], limit: 1 });
     expect([first.contextReceived?.limit, second.contextReceived?.limit]).toEqual([1, 1]);
   });
 });
@@ -323,7 +337,7 @@ describe("AC 25: every job carries the collector that produced it", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.jobs[0]?.collector).toBe("lever");
   });
 
@@ -333,7 +347,7 @@ describe("AC 25: every job carries the collector that produced it", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.jobs[0]?.collector).toBe("lever");
   });
 });
@@ -341,7 +355,7 @@ describe("AC 25: every job carries the collector that produced it", () => {
 describe("an omitted limit means collect everything", () => {
   test("context.limit is Infinity when no limit is supplied", async () => {
     const collector = makeCollector("dribbble", emptyResult);
-    await runCollection({ settings: stubSettings, collectors: [collector] });
+    await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(collector.contextReceived?.limit).toBe(Infinity);
   });
 });
@@ -349,7 +363,7 @@ describe("an omitted limit means collect everything", () => {
 describe("the settings service reaches every collector", () => {
   test("context.settings is the instance handed to runCollection", async () => {
     const collector = makeCollector("dribbble", emptyResult);
-    await runCollection({ settings: stubSettings, collectors: [collector] });
+    await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(collector.contextReceived?.settings).toBe(stubSettings);
   });
 });
@@ -371,7 +385,7 @@ describe("collectors run in the order they are given", () => {
         return emptyResult;
       },
     };
-    await runCollection({ settings: stubSettings, collectors: [first, second] });
+    await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [first, second] });
     expect(order).toEqual(["first", "second"]);
   });
 
@@ -382,7 +396,7 @@ describe("collectors run in the order they are given", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [first, second] });
     expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer", "Researcher"]);
   });
 });
@@ -399,7 +413,7 @@ describe("AC 110: the check runs once in the orchestrator, over every collector"
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [first, second] });
     expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer", "Writer"]);
   });
 
@@ -414,7 +428,7 @@ describe("AC 110: the check runs once in the orchestrator, over every collector"
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [first, second] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [first, second] });
     expect(report.warnings.map((issue) => issue.collector)).toEqual(["lever", "greenhouse"]);
   });
 });
@@ -426,7 +440,7 @@ describe("AC 111: a dropped job is a warning, not an error", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.errors).toEqual([]);
     expect(report.warnings).toHaveLength(1);
   });
@@ -440,7 +454,7 @@ describe("a dropped job's warning names the job", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings[0]?.message).toContain("Designer");
   });
 
@@ -450,7 +464,7 @@ describe("a dropped job's warning names the job", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings[0]?.message).toContain("https://example.com/Designer");
   });
 
@@ -458,7 +472,7 @@ describe("a dropped job's warning names the job", () => {
     // Built directly rather than from makeJob, which always supplies both.
     const noIdentity: JobListEntry = { raw_company_name: "Example" };
     const collector = makeCollector("lever", { jobs: [noIdentity], errors: [], warnings: [] });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings[0]?.message).not.toContain("undefined");
   });
 
@@ -468,7 +482,7 @@ describe("a dropped job's warning names the job", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings[0]?.message).toContain("raw_title");
   });
 });
@@ -480,7 +494,7 @@ describe("a dropped job does not reach the job list", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.jobs.map((job) => job.raw_title)).toEqual(["Designer"]);
   });
 
@@ -490,7 +504,7 @@ describe("a dropped job does not reach the job list", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.jobs).toHaveLength(2);
     expect(report.warnings).toEqual([]);
   });
@@ -506,6 +520,7 @@ describe("the finish line reports what was kept and what was dropped", () => {
     });
     await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       log: (message) => lines.push(message),
     });
@@ -523,6 +538,7 @@ describe("the finish line reports what was kept and what was dropped", () => {
     });
     await runCollection({
       settings: stubSettings,
+      runId: stubRunId,
       collectors: [collector],
       log: (message) => lines.push(message),
     });
@@ -537,11 +553,19 @@ describe("a collector's own warnings survive alongside a dropped-job warning", (
       errors: [],
       warnings: ["board returned a partial page"],
     });
-    const report = await runCollection({ settings: stubSettings, collectors: [collector] });
+    const report = await runCollection({ settings: stubSettings, runId: stubRunId, collectors: [collector] });
     expect(report.warnings).toHaveLength(2);
     expect(report.warnings).toContainEqual({
       collector: "lever",
       message: "board returned a partial page",
     });
+  });
+});
+
+describe("the orchestrator takes its run id from its caller and mints none itself", () => {
+  test("the orchestrator's source contains no randomUUID call", () => {
+    const orchestratorPath = join(dirname(fileURLToPath(import.meta.url)), "search-orchestrator.ts");
+    const source = readFileSync(orchestratorPath, "utf-8");
+    expect(source).not.toContain("randomUUID");
   });
 });
