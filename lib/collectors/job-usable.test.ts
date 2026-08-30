@@ -1,6 +1,15 @@
 import { describe, expect, test } from "vitest";
 import type { JobListEntry } from "../job-list-entry";
-import { unusableReason } from "./job-usable";
+import { unusableReason, type UnusableCode } from "./job-usable";
+
+// A code outside the union is a compile-time failure, not a runtime one, so
+// nothing here runs an assertion. A valid code type-checks; TypeScript
+// refuses the other line.
+const validUnusableCode: UnusableCode = "no_original_url";
+// @ts-expect-error - not a member of UnusableCode
+const invalidUnusableCode: UnusableCode = "not_a_real_code";
+void validUnusableCode;
+void invalidUnusableCode;
 
 // A job carrying everything a source could supply. Each test spreads it and
 // overrides the one field under test, so what a test changes is what it proves.
@@ -19,23 +28,30 @@ const usableJob: JobListEntry = {
 
 describe("AC 104: a job with no usable link is dropped", () => {
   test("a missing original_url gives a reason", () => {
-    expect(unusableReason({ ...usableJob, original_url: undefined })).toContain("original_url");
+    const reason = unusableReason({ ...usableJob, original_url: undefined });
+    // A failing check returns both a code to count by and a message to print.
+    expect(reason?.code).toBe("no_original_url");
+    expect(reason?.message).toBe("no original_url");
   });
 
   test("a null original_url gives a reason", () => {
-    expect(unusableReason({ ...usableJob, original_url: null })).toContain("original_url");
+    expect(unusableReason({ ...usableJob, original_url: null })?.code).toBe("no_original_url");
   });
 
   test("an empty original_url gives a reason", () => {
-    expect(unusableReason({ ...usableJob, original_url: "" })).toContain("original_url");
+    expect(unusableReason({ ...usableJob, original_url: "" })?.code).toBe("no_original_url");
   });
 
   test("a whitespace-only original_url gives a reason", () => {
-    expect(unusableReason({ ...usableJob, original_url: "   " })).toContain("original_url");
+    expect(unusableReason({ ...usableJob, original_url: "   " })?.code).toBe("no_original_url");
   });
 
   test("a non-URL string gives a reason", () => {
-    expect(unusableReason({ ...usableJob, original_url: "not-a-url" })).toContain("original_url");
+    const reason = unusableReason({ ...usableJob, original_url: "not-a-url" });
+    expect(reason?.code).toBe("original_url_not_a_url");
+    // The message still carries the offending value, which is what makes the
+    // code the thing worth counting by.
+    expect(reason?.message).toBe('original_url is not a URL: "not-a-url"');
   });
 
   test("a valid URL passes", () => {
@@ -45,19 +61,19 @@ describe("AC 104: a job with no usable link is dropped", () => {
 
 describe("AC 105: a job with no raw_title is dropped", () => {
   test("a missing raw_title gives a reason", () => {
-    expect(unusableReason({ ...usableJob, raw_title: undefined })).toContain("raw_title");
+    expect(unusableReason({ ...usableJob, raw_title: undefined })?.code).toBe("no_raw_title");
   });
 
   test("a null raw_title gives a reason", () => {
-    expect(unusableReason({ ...usableJob, raw_title: null })).toContain("raw_title");
+    expect(unusableReason({ ...usableJob, raw_title: null })?.code).toBe("no_raw_title");
   });
 
   test("an empty raw_title gives a reason", () => {
-    expect(unusableReason({ ...usableJob, raw_title: "" })).toContain("raw_title");
+    expect(unusableReason({ ...usableJob, raw_title: "" })?.code).toBe("no_raw_title");
   });
 
   test("a whitespace-only raw_title gives a reason", () => {
-    expect(unusableReason({ ...usableJob, raw_title: "   " })).toContain("raw_title");
+    expect(unusableReason({ ...usableJob, raw_title: "   " })?.code).toBe("no_raw_title");
   });
 });
 
@@ -83,8 +99,9 @@ describe("AC 106: a job with neither raw_company_name nor raw_company_slug is dr
       raw_company_name: undefined,
       raw_company_slug: undefined,
     });
-    expect(reason).toContain("raw_company_name");
-    expect(reason).toContain("raw_company_slug");
+    expect(reason?.code).toBe("no_company_identity");
+    expect(reason?.message).toContain("raw_company_name");
+    expect(reason?.message).toContain("raw_company_slug");
   });
 
   test("a blank raw_company_name does not count as supplied", () => {
@@ -93,20 +110,20 @@ describe("AC 106: a job with neither raw_company_name nor raw_company_slug is dr
       raw_company_name: "",
       raw_company_slug: undefined,
     });
-    expect(reason).toContain("raw_company_name");
+    expect(reason?.code).toBe("no_company_identity");
   });
 });
 
 describe("AC 107: a date that is present but does not parse is dropped", () => {
   test("an unparseable posting_date gives a reason", () => {
-    expect(unusableReason({ ...usableJob, posting_date: new Date("nonsense") })).toContain(
-      "posting_date"
+    expect(unusableReason({ ...usableJob, posting_date: new Date("nonsense") })?.code).toBe(
+      "posting_date_unparseable"
     );
   });
 
   test("an unparseable posting_updated_date gives a reason", () => {
-    expect(unusableReason({ ...usableJob, posting_updated_date: new Date("nonsense") })).toContain(
-      "posting_updated_date"
+    expect(unusableReason({ ...usableJob, posting_updated_date: new Date("nonsense") })?.code).toBe(
+      "posting_updated_date_unparseable"
     );
   });
 });

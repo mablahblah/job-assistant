@@ -74,7 +74,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
         if (reason !== null) {
           report.warnings.push({
             collector: collector.name,
-            message: droppedJobWarning(job, reason),
+            message: droppedJobWarning(job, reason.message),
           });
           continue;
         }
