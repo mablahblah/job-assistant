@@ -15,58 +15,59 @@
 
 Feature: **Unified Job Pipeline** — thirteen phases on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 1 (Collection) is building. Tasks 1 through 16 are done; two remain.** The next unchecked item in `docs/CURRENT-FEATURE.md` is **task 17, wiring the `job-search` skill**.
+**Phase 1 (Collection) is complete.** All 18 tasks are checked and the build item is closed. Nothing is in flight.
 
-The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`. Read it with `phase-01-collection-r&d.md` beside it. It keeps **two parallel numbered lists** — User Stories 1–78 and Acceptance Criteria 1–111. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria once survived an audit.
+**The working tree is clean and pushed through `185b85a`.** No modified files.
 
-**Committed and pushed through `fcc4bda`.** Three doc files are modified and uncommitted: this hand-off, `phase-01-collection-r&d.md`, and `phase-02-tracing-r&d.md`. The last two carry findings recorded during hand-off, described below.
+The spec is `docs/features/unified-pipeline/phases/phase-01-collection-spec.md`, read with `phase-01-collection-r&d.md` beside it. It keeps **two parallel numbered lists** — User Stories 1–80 and Acceptance Criteria 1–116. A reference like "AC 33" always means the criteria list. Confusing the two is how four stale criteria once survived an audit. Numbers never move: a withdrawn entry keeps its number so its neighbours keep theirs.
 
 ## Completed This Session
 
-**Task 15 — the Ashby collector.** `lib/collectors/ashby.ts` with 38 tests, registered after Lever. Polls each seeded slug at `api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true`, keeps postings where `isListed` is true whose title matches the search terms, and writes the `jobUrl` Ashby supplies to both `original_url` and `resolved_url` rather than rebuilding it from slug and id. `raw_company_slug` alone, no name. `publishedAt` fills `posting_date` only. Committed as `e692d14`.
+**Task 17 — the employer off a result card.** A live run found the task 16 drop rule discarding every job both page-reading collectors produced, because neither wrote a company. Both sites name the employer in an element of its own, so taking it is not parsing. `ResultCard` gained `company`; both card readers fill it; both `cardToJob` functions write `raw_company_name`, omitting it when blank. Committed as `eb9db06`, planned in `036b900`.
 
-**Task 16 — a collected job that cannot travel is dropped.** `lib/collectors/job-usable.ts` with 27 tests, called from the orchestrator's per-collector loop with 13 more tests there. Committed as `fcc4bda`.
+**Task 18 — the `job-search` skill.** Emptied to one step running `npm run collect`, reporting every error and warning before the job list. Its old step imported `./lib/collectors/collect-all` and read `save.saved`, none of which exists here. Committed as `f5ba056`.
 
-**Verified:** `npx tsc --noEmit` exit 0, `npm run lint` exit 0, `npm run test` exit 0 with **832 passing across 31 files**, up from 755. A live orchestrator run over the five seeded Ashby boards kept all 53 real jobs with 0 dropped, 0 errors, 0 warnings.
+**The live one-job command moved to the backlog** as #25, Live Collector Check, with a feature r&d carrying its withdrawn stories and criteria verbatim. That closed the phase. Committed as `185b85a`.
+
+**Verified:** `npm run test` 852 passing across 31 files, up from 832. `npx tsc --noEmit` exit 0, `npm run lint` exit 0. A live run returned **373 jobs** — adzuna 119, jsearch 28, greenhouse 57, lever 12, ashby 53, dribbble 7, uiuxjobsboard 97 — with all 104 card-collected jobs carrying a company and none dropped.
 
 ## Decisions & Context
 
-Signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — it is the authority. Three were added this session: `isRemote` is not collected, the drop rule, and why the check lives in the orchestrator.
+Signed-off decisions are in `docs/features/unified-pipeline/decision-log.md` — it is the authority. Three were added: the card collectors collect the employer, the card reader's checks stay put, and the live check is deferred. One 2026-08-27 entry was **superseded** — it said a card collector reads only the title and not the company.
 
-**Where this session's other findings already live, so they are not re-derived:**
+**Where this session's findings already live:**
 
-- **Phase 1 spec** — AC 104–111 state the drop rule. The task list renumbered: `job-search` is now 17, the live one-job command 18.
-- **Phase 1 r&d, Open questions** — four source assumptions that fail silently and are still unguarded.
-- **Phase 2 r&d, Carried in from Phase 1** — a source that answered but sent nothing is Tracing's to surface, not collection's.
-- **Phase 3 r&d** — normalization drops a malformed salary field rather than the job; its `isRemote` question is answered with the measurement.
-- **Phase 9 r&d** — what expiry does with a job carrying no date at all.
+- **Phase 1 spec** — stories 79–80 and AC 112–116 cover the employer; AC 58, 69 and 106 were amended; stories 47, 65, 66 and AC 61, 68, 69 are withdrawn.
+- **Phase 1 r&d** — the live-run drop counts, both fixture measurements with their selectors, and the JSearch timeout.
+- **`docs/features/live-collector-check/feature_r&d.md`** — why the live check may never be needed, its four settled constraints, its criteria verbatim, and its two edge cases.
 
-**Measured live on 2026-08-28, all five seeded Ashby boards, 2,818 jobs:**
+**Measured live on 2026-08-29:**
 
-- **Ashby has no cross-board search and no date filter.** `updatedAfter`, `publishedAfter`, `since`, and `modifiedAfter` are all ignored and return the full set; `includeCompensation` is the only parameter. An 8-day client-side filter on `publishedAt` would cut 53 matching jobs to 8 permanently, since `publishedAt` never moves. This is why the collector has no date guard — classification handles age.
-- **The salary is never the first `summaryComponents` entry.** Equity frequently is, carrying nulls. No posting carries more than one `Salary` entry, and none hides one in `compensationTiers` that `summaryComponents` omits.
-- **`interval` and `currencyCode` must not be hardcoded.** Live values are `1 YEAR` ×201, `1 MONTH` ×12, `1 HOUR` ×1; USD ×194, EUR ×17, CAD ×3.
-- **`isListed` is true on every live job**, so only a fixture exercises that filter.
-- **`bjakcareer` returns 2,338 jobs in one response** and the flat 15-second timeout handled it. A data point for backlog item 23, Large Board Payload Handling.
+- **Dribbble names the employer in `span.job-board-job-company`** — 14 of 14 non-advertisement cards in the saved fixture.
+- **uiuxjobsboard names it in `h3 span.text-xl > span`** — 100 of 100 — where the employer is that element's **first text node** and a nested `span.text-base` holds the words "is hiring". Reading `textContent` yields `"iCapitalis hiring"`. A test with an employer literally named `"This is hiring co"` is what proves the label is excluded structurally rather than string-matched.
+- **Neither site exposes a company slug**, so both write `raw_company_name` alone.
+- **JSearch's local search timed out at 15s on both runs.** A warning, not an error, and a data point for backlog item 22, Large Board Payload Handling.
 
 **Constraints and gotchas:**
 
-- **`limit` bounds nothing in a normal run.** It defaults to `Infinity`, is set only by `--limit N` on `scripts/collect.ts`, and is per collector rather than per run. It stops jobs entering the list, not requests being made — Ashby's 2,338-job board is one fetch that completes in full before any limit is consulted.
-- **The orchestrator's finish line now reads `kept=N dropped=M`**, and omits the dropped half when nothing was dropped. `found=` is gone, because it would hide the gap this check exists to surface.
-- **`makeJob` in `search-orchestrator.test.ts` needed a company added.** It supplied only a URL and a title, so every fixture job would have been dropped. Any new orchestrator fixture needs all three.
-- **crowd-code writers returned HTML-escaped output on all ten dispatches this session** — `&quot;`, `&amp;`, `&gt;` — every agent, every round, both tiers. Unchanged from the previous session's note. Check before applying.
-- **The commit hook's test-gap warning fired this session** on five non-exported internals covered through their public callers, after reporting zero gaps last session. Intermittent, and it flags internals.
-- **`npx tsx -e` cannot run top-level await** — it fails with `"cjs" output format`. Write a real file. A scratch script outside the repo also cannot reach `lib/` by relative path; absolute paths work.
+- **No git hook runs the tests.** There is no `.husky/`. The suite runs when invoked; `/commit-and-push` runs it through `verification-before-completion`. The "test gaps / risk score" output on every commit is the `code-review-graph` PostToolUse hook analysing structure — it runs no tests and its gaps are non-exported internals covered through public callers.
+- **`npm run collect` rewrites both fixtures**, at `dribbble.ts:136` and `uiuxjobsboard.ts:137`. Using a real run as a health check mutates the baseline the offline tests compare against.
+- **Each site has two card builders** — one in `*-cards.test.ts` for the reader, one in the collector test. Adding a field means updating both.
+- **uiuxjobsboard's collector test stubs with `categoryRoute`, not `singleTermRoutes`**, because the site is browsed by category paths. Copying a test across from Dribbble fails with `singleTermRoutes is not defined`.
+- **`limit: 1` makes an ATS collector shallow** — `greenhouse.ts:92` breaks out of the board loop after the first job, so 1 of 13 boards is polled.
+- **crowd-code writers HTML-escape only when the output must contain angle brackets.** 2 of 10 escaped this session, both on the uiuxjobsboard piece whose CSS selector holds a `>`. Check before applying.
+- **TDD's RED cannot be observed under crowd-code**, which orders code before tests. Mutation testing substitutes: break the production line, confirm the intended tests go red, restore.
+- **`npx tsx -e` cannot run top-level await.** Write a real file; absolute paths reach `lib/`.
 
 **Open questions:**
 
-- The four silent source assumptions in the Phase 1 r&d. The per-job usability check does not catch them, because they produce well-formed jobs with quietly wrong data. Whether to guard them is undecided.
-- **Backlog item 4, "Ashby API Collector", is now built.** Its entry says it "stays here until it is actually built", so it should be removed.
-- The Phase 3 and Phase 4 questions carried in their r&d files: whether Association's two passes differ, whether JSearch's employer name can be trusted for a match, whether a slug match should correct a stale seeded name, and what normalizing a title does.
+- **The four silent source assumptions** in the Phase 1 r&d, still unguarded. The usability check does not catch them — they produce well-formed jobs with quietly wrong data.
+- **Two doc smells in the Phase 1 r&d**, surfaced and not fixed: a duplicated `## Measured during the build` heading, and a stale line saying uiuxjobsboard keeps a visible browser, which the 2026-08-27 decision removed.
+- **Backlog #4, "Ashby API Collector", is built** and its entry says it stays only until it is. Flagged last session too.
+- The Phase 3 and Phase 4 questions in their r&d files: whether Association's two passes differ, whether JSearch's employer name can be trusted for a match, whether a slug match should correct a stale seeded name, and what normalizing a title does.
 
 ## Next Steps
 
-1. **Task 17 — wire the `job-search` skill.** Emptied to one step that runs the orchestrator and surfaces errors and warnings before anything else. Its current step 1 already fails on this branch: it imports `./lib/collectors/collect-all`, and `lib/` is now `legacy/lib/`. — AC 19
-2. **Task 18 — live one-job command.** Outside the default suite, one job per page-reading collector, no fixture written. Kept out of `npm run test` because a live site would block unrelated commits. — AC 61, 68–69
-3. Commit the three modified doc files.
-4. Then **Plan phase 2 — Tracing**, following the phase planning procedure. It already carries three obligations from Phase 1: retrofitting traces into all seven collectors, tracing the search-term drop, and surfacing a source that answered but sent nothing.
+1. **Run `/audit` as a post-phase-1 pass.** This is the next action, before any phase 2 work.
+2. **Then plan phase 2 — Tracing**, following the phase planning procedure. It already carries three obligations from Phase 1: retrofitting traces into all seven collectors, tracing the search-term drop, and surfacing a source that answered but sent nothing.
+3. Clear the two r&d doc smells and backlog #4 when convenient — none blocks phase 2.
