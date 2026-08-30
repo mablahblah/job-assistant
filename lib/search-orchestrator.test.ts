@@ -21,6 +21,10 @@ const stubSettings: SettingsService = {
 // These are unit tests, so the value is never parsed as a real UUID.
 const stubRunId = "test-run-id";
 
+// The shape crypto.randomUUID() produces: a version 4 UUID, lowercase hex,
+// with the variant nibble fixed to one of 8/9/a/b.
+const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // A minimal job that can still travel: a link, a title, and an employer.
 // Every JobListEntry field is optional, but a job carrying none of those three
 // is dropped at the end of collection, so the smallest useful job has all of
@@ -228,7 +232,11 @@ describe("AC 20: collectors that fail in different ways travel one channel", () 
   });
 
   test("the degraded collector's job is still in the report", () => {
-    expect(report.jobs).toContainEqual({ ...makeJob("Designer"), collector: "degraded" });
+    // objectContaining ignores the id the orchestrator mints; every other
+    // field, including the collector stamp, still has to match exactly.
+    expect(report.jobs).toContainEqual(
+      expect.objectContaining({ ...makeJob("Designer"), collector: "degraded" })
+    );
   });
 
   test("the empty collector contributes no job", () => {
@@ -562,10 +570,78 @@ describe("a collector's own warnings survive alongside a dropped-job warning", (
   });
 });
 
-describe("the orchestrator takes its run id from its caller and mints none itself", () => {
-  test("the orchestrator's source contains no randomUUID call", () => {
+describe("every job is assigned an id shaped like crypto.randomUUID()", () => {
+  test("a job that passes the usability check has a v4 UUID for an id", async () => {
+    const collector = makeCollector("lever", { jobs: [makeJob("Designer")], errors: [], warnings: [] });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      collectors: [collector],
+    });
+    expect(report.jobs[0]?.id).toMatch(looksLikeUuid);
+  });
+});
+
+describe("a job that passes the usability check carries the id it was assigned", () => {
+  test("a job with no id going in leaves the job list with one", async () => {
+    const job = makeJob("Designer");
+    expect(job.id).toBeUndefined();
+    const collector = makeCollector("lever", { jobs: [job], errors: [], warnings: [] });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      collectors: [collector],
+    });
+    expect(report.jobs[0]?.id).toBeDefined();
+  });
+});
+
+describe("no two jobs in a run share an id", () => {
+  test("ids stay unique across several collectors and several jobs each", async () => {
+    const first = makeCollector("lever", {
+      jobs: [makeJob("Designer"), makeJob("Researcher")],
+      errors: [],
+      warnings: [],
+    });
+    const second = makeCollector("greenhouse", {
+      jobs: [makeJob("Writer"), makeJob("Editor")],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      collectors: [first, second],
+    });
+    const ids = report.jobs.map((job) => job.id);
+    expect(new Set(ids).size).toBe(report.jobs.length);
+  });
+});
+
+describe("a collector cannot assign a job's id itself", () => {
+  test("an id a collector set on a job is overwritten with one the orchestrator mints", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Designer"), id: "set-by-the-collector" }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      collectors: [collector],
+    });
+    expect(report.jobs[0]?.id).not.toBe("set-by-the-collector");
+    expect(report.jobs[0]?.id).toMatch(looksLikeUuid);
+  });
+});
+
+describe("the orchestrator takes its run id from its caller and never mints one itself", () => {
+  test("the orchestrator never assigns a generated value to runId", () => {
+    // The orchestrator mints job ids with randomUUID, so a blanket ban on that
+    // call would be wrong. What still has to hold is that runId itself is never
+    // bound to a freshly generated value — only ever to the caller's own.
     const orchestratorPath = join(dirname(fileURLToPath(import.meta.url)), "search-orchestrator.ts");
     const source = readFileSync(orchestratorPath, "utf-8");
-    expect(source).not.toContain("randomUUID");
+    expect(source).not.toMatch(/runId\s*[:=]\s*(?:\w+\.)?randomUUID\s*\(/);
   });
 });

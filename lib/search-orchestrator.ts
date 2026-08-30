@@ -72,13 +72,18 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
       // collector's jobs and not just this one's.
       let kept = 0;
       for (const job of result.jobs) {
+        // An id is assigned the instant a job enters the loop, on a copy,
+        // because a job dropped by the usability check still needs one to
+        // name it in a dead-end trace event later.
+        const identified: JobListEntry = { ...job, id: crypto.randomUUID() };
+
         // A job that cannot travel is dropped here rather than allowed to
         // fail somewhere later, where what went wrong is harder to read.
-        const reason = unusableReason(job);
+        const reason = unusableReason(identified);
         if (reason !== null) {
           report.warnings.push({
             collector: collector.name,
-            message: droppedJobWarning(job, reason.message),
+            message: droppedJobWarning(identified, reason.message),
           });
           continue;
         }
@@ -86,7 +91,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
         // The orchestrator is the authority on which collector found a job,
         // so it stamps the name onto a copy rather than trusting the field
         // or editing what the collector handed back.
-        report.jobs.push({ ...job, collector: collector.name });
+        report.jobs.push({ ...identified, collector: collector.name });
         kept += 1;
       }
       for (const message of result.errors) {
