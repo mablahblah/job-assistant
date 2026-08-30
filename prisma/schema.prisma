@@ -96,3 +96,47 @@ model Setting {
   created_at       DateTime @default(now())
   modified_at      DateTime @updatedAt
 }
+
+// One row per event in a job's journey through the pipeline. A job enters at
+// collection, passes through each step, and either reaches the end or hits a
+// dead end recording when and why. This is a journey funnel, not validation,
+// not source-health monitoring, not run reporting. Only a job search writes
+// traces.
+//
+// step names the pipeline stage, in order: backlog_cleanup, collection,
+// post_collection_normalization, post_collection_dedupe, post_collection_save,
+// resolution, post_resolution_dedupe, post_resolution_save, parsing,
+// post_parsing_normalization, post_parsing_dedupe, post_parsing_save,
+// classification, post_classification_save, scoring. Only collection writes
+// today; each later phase adds its own values once it exists, the way
+// Job.status grows its comment.
+//
+// reason names why a dead end happened. Only collection's usability check
+// writes today, with six codes: no_original_url (no link at all),
+// original_url_not_a_url (a link that is not a URL; detail carries the
+// offending value), no_raw_title (no title), no_company_identity (neither a
+// company name nor a company slug), posting_date_unparseable (a posting date
+// that is set and does not parse), posting_updated_date_unparseable (an
+// updated date that is set and does not parse). Each later phase adds its own
+// reasons once it exists.
+model Trace {
+  // An auto-incrementing integer key, so two events landing in the same
+  // millisecond still have a reliable order.
+  id         Int      @id @default(autoincrement())
+  // The job search during which the event happened.
+  run_id     String
+  // The job the event describes. A plain column with no relation, so a trace
+  // outlives the job it describes.
+  job_id     String
+  // Where in the pipeline the event happened.
+  step       String
+  // What happened there.
+  event      String
+  // Why a dead end happened, where the event was one.
+  reason     String?
+  // Which collector produced the job.
+  collector  String
+  // What is specific to this one event. Nothing that gets counted goes here.
+  detail     Json?
+  created_at DateTime @default(now())
+}

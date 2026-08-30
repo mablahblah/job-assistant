@@ -66,6 +66,26 @@ const EXPECTED_SETTING_COLUMNS = [
   "modified_at",
 ];
 
+// One row per event in a job's journey through the pipeline. job_id names the
+// job an event describes but carries no foreign key, so a trace outlives the
+// job it was written for.
+const EXPECTED_TRACE_COLUMNS = [
+  "id",
+  "run_id",
+  "job_id",
+  "step",
+  "event",
+  "reason",
+  "collector",
+  "detail",
+  "created_at",
+];
+
+// Every trace row carries these. reason and detail are filled only by the
+// events that have something to say.
+const TRACE_REQUIRED_COLUMNS = ["run_id", "job_id", "step", "event", "collector", "created_at"];
+const TRACE_NULLABLE_COLUMNS = ["reason", "detail"];
+
 // Columns the pipeline writes on its way to save. A collector fills only what
 // its source supplied and a later phase fills the rest, so every one of these
 // must be nullable or carry a default.
@@ -99,6 +119,8 @@ interface ColumnInfo {
   name: string;
   notnull: number;
   dflt_value: unknown;
+  pk: number;
+  type: string;
 }
 
 // Runs the real create command against a scratch database. The url is passed
@@ -136,6 +158,8 @@ async function tableColumns(url: string, table: string): Promise<ColumnInfo[]> {
         name: String(record["name"]),
         notnull: Number(record["notnull"]),
         dflt_value: record["dflt_value"],
+        pk: Number(record["pk"]),
+        type: String(record["type"]),
       };
     });
   } finally {
@@ -202,6 +226,10 @@ describe("AC4: the create command builds every table collection needs", () => {
 
   test("creates the Setting table", async () => {
     expect(await columnNames(url, "Setting")).not.toEqual([]);
+  });
+
+  test("creates the Trace table", async () => {
+    expect(await columnNames(url, "Trace")).not.toEqual([]);
   });
 
   // Every other test hands the url to the command directly. Running it the way
@@ -310,6 +338,10 @@ describe("AC5: recreating after a schema change matches the new schema", () => {
     expect(await columnNames(url, "Setting")).toEqual([...EXPECTED_SETTING_COLUMNS].sort());
   });
 
+  test("Trace matches the real schema after recreating", async () => {
+    expect(await columnNames(url, "Trace")).toEqual([...EXPECTED_TRACE_COLUMNS].sort());
+  });
+
   test.skipIf(!devDbExisted)("dev.db is byte-for-byte unchanged", () => {
     expect(hashFile(devDbPath)).toBe(devDbHashBefore);
   });
@@ -380,18 +412,206 @@ describe("AC26: a job list entry maps one to one onto the Job row", () => {
     expect(await columnNames(url, "Setting")).toEqual([...EXPECTED_SETTING_COLUMNS].sort());
   });
 
+  test("Trace holds exactly the fields tracing needs", async () => {
+    expect(await columnNames(url, "Trace")).toEqual([...EXPECTED_TRACE_COLUMNS].sort());
+  });
+
   test("the schema declares no @map, so field names match column names", () => {
     expect(readFileSync(realSchemaPath, "utf-8")).not.toMatch(/@@?map\(/);
   });
 
-  test("every column across the three tables is snake_case", async () => {
+  test("every column across the four tables is snake_case", async () => {
     const names = [
       ...(await columnNames(url, "Job")),
       ...(await columnNames(url, "Company")),
       ...(await columnNames(url, "Setting")),
+      ...(await columnNames(url, "Trace")),
     ];
     for (const name of names) {
       expect(name).toMatch(/^[a-z0-9_]+$/);
+    }
+  });
+});
+
+describe("Trace: required and nullable columns match the spec", () => {
+  let dir: string;
+  let traceColumns: ColumnInfo[];
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-trace-nullability-");
+    dir = temp.dir;
+    runDbCreate(temp.url);
+    traceColumns = await tableColumns(temp.url, "Trace");
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test.each(TRACE_REQUIRED_COLUMNS)("%s is required", (name) => {
+    const column = traceColumns.find((candidate) => candidate.name === name);
+    expect(column, `Trace has no column named ${name}`).toBeDefined();
+    expect(column?.notnull).toBe(1);
+  });
+
+  test.each(TRACE_NULLABLE_COLUMNS)("%s is nullable", (name) => {
+    const column = traceColumns.find((candidate) => candidate.name === name);
+    expect(column, `Trace has no column named ${name}`).toBeDefined();
+    expect(column?.notnull).toBe(0);
+  });
+});
+
+describe("Trace: its id orders events, and it outlives the job it describes", () => {
+  let dir: string;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = makeTempDb("pipeline-schema-trace-shape-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("id is an integer primary key", async () => {
+    const columns = await tableColumns(url, "Trace");
+    const id = columns.find((column) => column.name === "id");
+    expect(id, "Trace has no id column").toBeDefined();
+    expect(id?.pk).toBe(1);
+    expect(id?.type.toUpperCase()).toBe("INTEGER");
+  });
+
+  test("a row written with no id supplied gets one anyway", async () => {
+    const client = createClient({ url });
+    try {
+      await client.execute({
+        sql:
+          "INSERT INTO Trace (run_id, job_id, step, event, collector, created_at) " +
+          "VALUES (?, ?, ?, ?, ?, ?)",
+        args: ["run-1", "job-1", "collection", "collected", "adzuna", "2026-01-01T00:00:00.000Z"],
+      });
+      const result = await client.execute("SELECT id FROM Trace");
+      const row = result.rows[0] as unknown as Record<string, unknown>;
+      expect(Number(row["id"])).toBeGreaterThan(0);
+    } finally {
+      client.close();
+    }
+  });
+
+  test("the second row written gets a higher id than the first", async () => {
+    const client = createClient({ url });
+    try {
+      // The id is read straight after each insert rather than by timestamp,
+      // because two events landing in the same millisecond is exactly the case
+      // this id exists to survive.
+      const insertAndReadId = async (): Promise<number> => {
+        await client.execute({
+          sql:
+            "INSERT INTO Trace (run_id, job_id, step, event, collector, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?)",
+          args: ["run-1", "job-1", "collection", "collected", "adzuna", "2026-01-01T00:00:00.000Z"],
+        });
+        const result = await client.execute("SELECT last_insert_rowid() as id");
+        return Number((result.rows[0] as unknown as Record<string, unknown>)["id"]);
+      };
+
+      const firstId = await insertAndReadId();
+      const secondId = await insertAndReadId();
+      expect(secondId).toBeGreaterThan(firstId);
+    } finally {
+      client.close();
+    }
+  });
+
+  test("job_id carries no foreign key to Job", async () => {
+    const client = createClient({ url });
+    try {
+      const result = await client.execute("PRAGMA foreign_key_list(Trace)");
+      expect(result.rows).toEqual([]);
+    } finally {
+      client.close();
+    }
+  });
+
+  test("deleting the job leaves its trace row in place", async () => {
+    const client = createClient({ url });
+    try {
+      const timestamp = "2026-01-01T00:00:00.000Z";
+      await client.execute({
+        sql: "INSERT INTO Job (id, created_at, modified_at) VALUES (?, ?, ?)",
+        args: ["job-to-delete", timestamp, timestamp],
+      });
+      await client.execute({
+        sql:
+          "INSERT INTO Trace (run_id, job_id, step, event, collector, created_at) " +
+          "VALUES (?, ?, ?, ?, ?, ?)",
+        args: ["run-1", "job-to-delete", "collection", "collected", "adzuna", timestamp],
+      });
+      await client.execute({ sql: "DELETE FROM Job WHERE id = ?", args: ["job-to-delete"] });
+
+      const result = await client.execute({
+        sql: "SELECT job_id FROM Trace WHERE job_id = ?",
+        args: ["job-to-delete"],
+      });
+      expect(result.rows.length).toBe(1);
+    } finally {
+      client.close();
+    }
+  });
+});
+
+describe("Trace: the model comment carries both vocabularies", () => {
+  // Only the comment sitting directly above the model counts, because the
+  // words it holds also appear elsewhere in the schema.
+  function traceComment(): string {
+    const schema = readFileSync(realSchemaPath, "utf-8");
+    const match = schema.match(/((?:\/\/[^\n]*\n)+)model Trace \{/);
+    expect(match, "Trace model not found in schema.prisma").toBeTruthy();
+    return match?.[1] ?? "";
+  }
+
+  test("the step vocabulary is listed in pipeline order", () => {
+    const steps = [
+      "backlog_cleanup",
+      "collection",
+      "post_collection_normalization",
+      "post_collection_dedupe",
+      "post_collection_save",
+      "resolution",
+      "post_resolution_dedupe",
+      "post_resolution_save",
+      "parsing",
+      "post_parsing_normalization",
+      "post_parsing_dedupe",
+      "post_parsing_save",
+      "classification",
+      "post_classification_save",
+      "scoring",
+    ];
+    const comment = traceComment();
+    let searchFrom = 0;
+    for (const step of steps) {
+      const index = comment.indexOf(step, searchFrom);
+      expect(index, `${step} is missing or out of pipeline order`).toBeGreaterThanOrEqual(0);
+      searchFrom = index + step.length;
+    }
+  });
+
+  test("the reason vocabulary is listed", () => {
+    const comment = traceComment();
+    const reasons = [
+      "no_original_url",
+      "original_url_not_a_url",
+      "no_raw_title",
+      "no_company_identity",
+      "posting_date_unparseable",
+      "posting_updated_date_unparseable",
+    ];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
     }
   });
 });

@@ -400,3 +400,23 @@ describe("the seed reads the database url from .env when it is absent from the e
     expect((await readSetting(url)).search_terms).toEqual(EXPECTED_SEARCH_TERMS);
   });
 });
+
+describe("seeding writes no rows to the Trace table", () => {
+  let dir: string;
+  let url: string;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-trace-");
+    dir = temp.dir;
+    url = temp.url;
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("the Trace table is empty after seeding", async () => {
+    const count = await countRows(url, "Trace");
+    expect(count).toBe(0);
+  });
+});
