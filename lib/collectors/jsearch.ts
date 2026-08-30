@@ -3,6 +3,7 @@
 // remote work and one anchored to the user's location. Each is attempted on
 // its own, so a failure in one never costs the other its jobs.
 import type { JobListEntry, RawSalary } from "../job-list-entry";
+import { messageFromThrown } from "../thrown-message";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
 import type { Collector, CollectorResult } from "./types";
 
@@ -104,7 +105,7 @@ async function runSearch(
       jobs.push(toJobListEntry(job));
     }
   } catch (err) {
-    warnings.push(`${label} failed: ${err instanceof Error ? err.message : String(err)}`);
+    warnings.push(`${label} failed: ${messageFromThrown(err)}`);
   }
 }
 

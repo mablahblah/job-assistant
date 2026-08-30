@@ -85,6 +85,20 @@ describe("AC 15: a collector that throws does not stop the run", () => {
       runCollection({ settings: stubSettings, collectors: [failing] })
     ).resolves.toBeDefined();
   });
+
+  // A request can reject with a plain object rather than an Error. The error
+  // recorded here is the one the user reads when a whole source falls over, so
+  // it has to name the cause instead of flattening it to "[object Object]".
+  test("a collector rejecting with a plain object still gets a readable error", async () => {
+    const failing: Collector = {
+      name: "adzuna",
+      async collect() {
+        throw { code: "ECONNRESET" };
+      },
+    };
+    const report = await runCollection({ settings: stubSettings, collectors: [failing] });
+    expect(report.errors).toEqual([{ collector: "adzuna", message: '{"code":"ECONNRESET"}' }]);
+  });
 });
 
 describe("AC 16: a warning keeps the collector that produced it", () => {

@@ -4,6 +4,7 @@
 // the search has gathered enough, run dry, or gone wrong.
 
 import { isPastThreshold, parseAgeToDays } from "../job-age";
+import { messageFromThrown } from "../thrown-message";
 
 // One result card as a collector reads it off a page. company is empty when
 // the card names no employer: the card is still a card, and the job it becomes
@@ -53,22 +54,6 @@ export const PAGE_CEILING = 6;
 // Why the loop ended. Staying null is what earns the ceiling warning, so it
 // is tracked outright rather than guessed at from the turn count.
 type StopReason = "unreadable-age" | "threshold" | "limit" | "exhausted" | "failure";
-
-// A thrown value is not guaranteed to be an Error — a browser operation can
-// reject with a plain object like { code: "ECONNRESET" }, which String()
-// flattens to the useless "[object Object]". Anything that is not an Error or
-// a string is rendered as JSON instead.
-function messageFromThrown(thrown: unknown): string {
-  if (thrown instanceof Error) return thrown.message;
-  if (typeof thrown === "string") return thrown;
-  if (thrown === undefined) return "undefined";
-  if (thrown === null) return "null";
-  try {
-    return JSON.stringify(thrown);
-  } catch {
-    return String(thrown);
-  }
-}
 
 // Every warning is built in exactly one place, so its wording can change
 // without touching the loop that decides when it fires.

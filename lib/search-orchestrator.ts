@@ -6,6 +6,7 @@ import { unusableReason } from "./collectors/job-usable";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
+import { messageFromThrown } from "./thrown-message";
 
 // An error or a warning, always carrying the collector that produced it.
 // Thirteen companies sit behind one ATS collector, so the collector's own
@@ -29,12 +30,6 @@ export interface CollectionOptions {
   // Where progress lines go. Defaults to stderr, so a job list printed on
   // stdout stays clean.
   log?: (message: string) => void;
-}
-
-// A thrown value is not guaranteed to be an Error, so this always yields
-// something readable rather than "[object Object]".
-function messageFromThrown(thrown: unknown): string {
-  return thrown instanceof Error ? thrown.message : String(thrown);
 }
 
 // A dropped job still has to be findable, so it is named by whichever of its
