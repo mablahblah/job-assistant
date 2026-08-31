@@ -23,6 +23,10 @@ model Job {
   raw_company_slug     String?
   // The title as the source published it, kept exactly.
   raw_title            String?
+  // The title reshaped into one wording, as "{level} {role} - {team}",
+  // built from raw_title. Two sources publishing the same role produce the
+  // same title here.
+  title                String?
   // The link the collector found, often an aggregator redirect.
   original_url         String?
   // The source posting, found by following original_url.
@@ -47,6 +51,10 @@ model Job {
   // Every work mode collected, kept intact. Independent of the location
   // list, not paired by position.
   raw_mode_list        Json?
+  // Every entry in raw_mode_list translated into one of remote, hybrid, or
+  // in-person, each held once. A source word outside those three is dropped
+  // rather than guessed at.
+  normalized_mode_list Json?
   // Which collector produced it.
   collector            String?
   // Salary as the source published it, in a fixed five-key envelope whose
@@ -83,18 +91,33 @@ model Company {
 // overwrites nothing; the settings service reads only and throws when a
 // setting is missing, so an empty default never reaches a collector.
 model Setting {
-  id               Int      @id @default(1)
+  id                  Int      @id @default(1)
   // The terms every collector searches for.
-  search_terms     Json?
+  search_terms        Json?
   // The location the Austin searches read.
-  location         String?
+  location            String?
   // Search radius around that location, in miles.
-  radius           Int?
+  radius              Int?
   // How many days old a posting may be before it counts as expired. The
   // browser collectors stop paginating once they reach it.
-  expiry_threshold Int?
-  created_at       DateTime @default(now())
-  modified_at      DateTime @updatedAt
+  expiry_threshold    Int?
+  // The closed list of words that name a job: designer, researcher,
+  // engineer, manager. Finding one is what tells the title rule which part
+  // of a title is the role.
+  title_head_nouns    Json?
+  // Each stored seniority spelling with the spellings that match it, held
+  // as a list of objects with a store string and a match list. senior, sr,
+  // and sr. all store as Sr.
+  title_levels        Json?
+  // Word endings that name a person doing a job, like -er, -or, and -ist.
+  // Used when no head noun matched, so a profession the list has never
+  // seen is still recognized.
+  title_suffixes      Json?
+  // Words taken out of a title's team part only, never out of the role,
+  // because each one can legitimately appear in a real role.
+  title_removal_words Json?
+  created_at          DateTime @default(now())
+  modified_at         DateTime @updatedAt
 }
 
 // One row per event in a job's journey through the pipeline. A job enters at

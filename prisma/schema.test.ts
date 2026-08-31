@@ -25,6 +25,7 @@ const EXPECTED_JOB_COLUMNS = [
   "raw_company_name",
   "raw_company_slug",
   "raw_title",
+  "title",
   "original_url",
   "resolved_url",
   "posting_date",
@@ -37,6 +38,7 @@ const EXPECTED_JOB_COLUMNS = [
   "status",
   "raw_location_list",
   "raw_mode_list",
+  "normalized_mode_list",
   "collector",
   "raw_salary",
   "salary_low",
@@ -54,14 +56,18 @@ const EXPECTED_COMPANY_COLUMNS = [
   "modified_at",
 ];
 
-// Setting is a single-row config table, not a key/value store. search_terms is
-// the only Json column, because Json is reserved for fields holding a list.
+// Setting is a single-row config table, not a key/value store. Json holds
+// lists: search_terms and the vocabulary columns the title normalizer reads.
 const EXPECTED_SETTING_COLUMNS = [
   "id",
   "search_terms",
   "location",
   "radius",
   "expiry_threshold",
+  "title_head_nouns",
+  "title_levels",
+  "title_suffixes",
+  "title_removal_words",
   "created_at",
   "modified_at",
 ];
@@ -93,12 +99,14 @@ const COLLECTOR_WRITTEN_COLUMNS = [
   "raw_company_name",
   "raw_company_slug",
   "raw_title",
+  "title",
   "original_url",
   "resolved_url",
   "posting_date",
   "posting_updated_date",
   "raw_location_list",
   "raw_mode_list",
+  "normalized_mode_list",
   "collector",
   "raw_salary",
   "salary_low",
