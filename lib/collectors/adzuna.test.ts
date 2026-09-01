@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { adzunaCollector } from "./adzuna";
 import type { SettingsService } from "../settings-service";
+import { fakeSettings } from "../settings-service.fake";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -73,13 +74,12 @@ const RADIUS = 30;
 const EXPIRY_THRESHOLD = 14;
 
 function makeSettings(searchTerms: string[], expiryThreshold = EXPIRY_THRESHOLD): SettingsService {
-  return {
+  return fakeSettings({
     getSearchTerms: async () => searchTerms,
     getLocation: async () => LOCATION,
     getRadius: async () => RADIUS,
     getExpiryThreshold: async () => expiryThreshold,
-    getAtsCompanies: async () => [],
-  };
+  });
 }
 
 const ADZUNA_SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/us/search/1";

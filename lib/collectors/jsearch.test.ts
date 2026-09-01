@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { jsearchCollector } from "./jsearch";
 import type { SettingsService } from "../settings-service";
+import { fakeSettings } from "../settings-service.fake";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -64,13 +65,12 @@ function findCall(calls: FetchCall[], match: (url: URL) => boolean): URL {
 const LOCATION = "78701";
 
 function makeSettings(searchTerms: string[]): SettingsService {
-  return {
+  return fakeSettings({
     getSearchTerms: async () => searchTerms,
     getLocation: async () => LOCATION,
     getRadius: async () => 30,
     getExpiryThreshold: async () => 8,
-    getAtsCompanies: async () => [],
-  };
+  });
 }
 
 const JSEARCH_URL = "https://jsearch.p.rapidapi.com/search";

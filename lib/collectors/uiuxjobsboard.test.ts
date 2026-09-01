@@ -19,6 +19,7 @@ vi.mock("./fixture", async (importOriginal) => ({
 import { uiuxjobsboardCollector } from "./uiuxjobsboard";
 import { fetchContainer } from "./fetch-page";
 import { writeFixture } from "./fixture";
+import { fakeSettings } from "../settings-service.fake";
 
 // The site's six fixed categories, mirrored here so a test can address one
 // by its path segment or its label without reaching into the collector's own
@@ -150,13 +151,13 @@ const DEFAULT_EXPIRY_THRESHOLD = 30;
 // A settings stand-in typed to the real interface, so a test overrides only
 // the piece it cares about. Every method is a vi.fn, so call counts hold.
 function makeSettings(overrides: SettingsOverrides = {}): SettingsService {
-  return {
+  return fakeSettings({
     getSearchTerms: vi.fn(async () => overrides.searchTerms ?? DEFAULT_SEARCH_TERMS),
     getLocation: vi.fn(async () => DEFAULT_LOCATION),
     getRadius: vi.fn(async () => 0),
     getExpiryThreshold: vi.fn(async () => overrides.expiryThreshold ?? DEFAULT_EXPIRY_THRESHOLD),
     getAtsCompanies: vi.fn(async () => []),
-  };
+  });
 }
 
 async function collect(options: { settings?: SettingsService; limit?: number } = {}) {

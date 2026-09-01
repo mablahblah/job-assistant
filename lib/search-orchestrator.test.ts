@@ -8,16 +8,11 @@ import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
 import type { UnusableCode } from "./collectors/job-usable";
 import type { TraceEvent, TraceWriter } from "./trace-writer";
+import { fakeSettings } from "./settings-service.fake";
 
 // The orchestrator only hands this to collectors, so no getter needs real
 // behaviour. It is here to prove it arrives unchanged.
-const stubSettings: SettingsService = {
-  getSearchTerms: async () => [],
-  getLocation: async () => "",
-  getRadius: async () => 0,
-  getExpiryThreshold: async () => 0,
-  getAtsCompanies: async () => [],
-};
+const stubSettings: SettingsService = fakeSettings();
 
 // A fixed stand-in for the UUID scripts/collect.ts mints for a real run.
 // These are unit tests, so the value is never parsed as a real UUID.
