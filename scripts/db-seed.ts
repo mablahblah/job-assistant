@@ -19,7 +19,11 @@ const SETTING_DEFAULTS = {
     "strategist", "technician", "technologist", "translator", "vp", "writer",
   ],
   // Each seniority spelling that gets stored, with every spelling a posting
-  // might write for it.
+  // might write for it. This is the real list — two tests restate it and move
+  // with it: EXPECTED_TITLE_LEVELS in lib/settings-service.test.ts, which has
+  // to stay an independent copy to prove the round trip through the database,
+  // and VOCABULARIES in lib/title.test.ts, which mirrors it so the title tests
+  // run against what really ships.
   title_levels: [
     { store: "Intern", match: ["intern"] },
     { store: "Entry-Level", match: ["entry level", "entry-level"] },

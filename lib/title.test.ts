@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 import fixture from "./ux-titles.fixture.json";
 import { normalizeTitle, type TitleVocabularies } from "./title";
 
-// The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS. A test
-// needing a different list spreads this and overrides the one list it cares
-// about, rather than restating the whole object.
+// The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
+// so the title tests run against what really ships. A test needing a different
+// list spreads this and overrides the one list it cares about, rather than
+// restating the whole object. It moves whenever SETTING_DEFAULTS does, as does
+// EXPECTED_TITLE_LEVELS in lib/settings-service.test.ts.
 const VOCABULARIES: TitleVocabularies = {
   headNouns: [
     "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",

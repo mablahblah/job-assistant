@@ -60,7 +60,10 @@ const EXPECTED_TITLE_HEAD_NOUNS = [
 const EXPECTED_TITLE_SUFFIXES = ["-er", "-or", "-ist", "-yst", "-ian", "-ant", "-ect"];
 
 // Each seniority spelling that gets stored, with every spelling a posting
-// might write for it.
+// might write for it. Deliberately restated rather than imported from
+// scripts/db-seed.ts: this test seeds a real database and reads the list back,
+// so importing the seed's own list would compare it to itself and prove
+// nothing. It moves whenever SETTING_DEFAULTS does.
 const EXPECTED_TITLE_LEVELS: TitleLevel[] = [
   { store: "Intern", match: ["intern"] },
   { store: "Entry-Level", match: ["entry level", "entry-level"] },
