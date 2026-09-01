@@ -4,6 +4,11 @@
 // every row the same shape.
 import type { createPipelineDb } from "./pipeline-db";
 
+// What is specific to one event. A dead end at collection names the offending
+// value on its own; a normalization carries the value before and after. The
+// column behind it is Json, so both shapes store as they are.
+export type TraceDetail = string | { from: string; to: string };
+
 export interface TraceEvent {
   run_id: string;
   job_id: string;
@@ -11,7 +16,7 @@ export interface TraceEvent {
   event: string;
   collector: string;
   reason?: string;
-  detail?: string;
+  detail?: TraceDetail;
 }
 
 export interface TraceWriter {

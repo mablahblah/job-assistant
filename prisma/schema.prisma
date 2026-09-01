@@ -133,16 +133,39 @@ model Setting {
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
 // post_parsing_save, classification, post_classification_save, scoring. Only
 // collection writes today; each later phase adds its own values once it
-// exists, the way Job.status grows its comment.
+// exists, the way Job.status grows its comment. Collection and both
+// normalization passes write today.
 //
-// reason names why a dead end happened. Only collection's usability check
-// writes today, with six codes: no_original_url (no link at all),
-// original_url_not_a_url (a link that is not a URL; detail carries the
+// event names what happened. Collection writes collected and abandoned;
+// normalization writes job_updated where a field was normalized and
+// normalization_failed where a raw value it could act on produced nothing.
+//
+// reason names why a dead end happened, and for normalization also how
+// completely a field came through.
+//
+// Collection's usability check writes six codes: no_original_url (no link at
+// all), original_url_not_a_url (a link that is not a URL; detail carries the
 // offending value), no_raw_title (no title), no_company_identity (neither a
 // company name nor a company slug), posting_date_unparseable (a posting date
 // that is set and does not parse), posting_updated_date_unparseable (an
-// updated date that is set and does not parse). Each later phase adds its own
-// reasons once it exists.
+// updated date that is set and does not parse).
+//
+// Normalization writes nine, one set per field, chosen by whether every raw
+// value that was present got normalized — all of them, some, or none:
+// title_normalized and title_not_normalized (a title has one input, so it is
+// never partial); salary_normalized, salary_partially_normalized and
+// salary_unusable; work_mode_normalized, work_mode_partially_normalized and
+// work_mode_unusable; and company_name_normalized, which has no failure
+// twin because a cosmetic tidy cannot fail. salary_unusable and
+// work_mode_unusable are the two that warn at the end of a run.
+//
+// A normalization event's detail carries from and to, each cut at 200
+// characters, so a collector bug putting a description in the wrong field
+// cannot bloat this table in the run someone needs to read. A company name's
+// from is the only surviving record of the spelling the source published,
+// since the cleaned name overwrites it in place.
+//
+// Each later phase adds its own reasons once it exists.
 model Trace {
   // An auto-incrementing integer key, so two events landing in the same
   // millisecond still have a reliable order.

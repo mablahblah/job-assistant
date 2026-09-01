@@ -36,7 +36,7 @@ const VOCABULARIES: TitleVocabularies = {
 describe("normalizeJob: title", () => {
   test("raw_title is run through normalizeTitle and the result lands on title", () => {
     const job: JobListEntry = { raw_title: "Senior UX Designer" };
-    expect(normalizeJob(job, VOCABULARIES).title).toBe("Sr. UX Designer");
+    expect(normalizeJob(job, VOCABULARIES).job.title).toBe("Sr. UX Designer");
   });
 
   test.each([
@@ -49,14 +49,14 @@ describe("normalizeJob: title", () => {
     // had already written. Going looking for a missing title is parsing, a
     // later phase.
     const job: JobListEntry = { raw_title: rawTitle, title: "Existing Title" };
-    expect(normalizeJob(job, VOCABULARIES).title).toBe("Existing Title");
+    expect(normalizeJob(job, VOCABULARIES).job.title).toBe("Existing Title");
   });
 });
 
 describe("normalizeJob: salary", () => {
   test("raw_salary is run through normalizeSalary onto the three salary columns", () => {
     const job: JobListEntry = { raw_salary: { salary_min: 85000, salary_max: 115000 } };
-    const result = normalizeJob(job, VOCABULARIES);
+    const result = normalizeJob(job, VOCABULARIES).job;
     expect(result.salary_low).toBe(85000);
     expect(result.salary_high).toBe(115000);
     expect(result.salary_period).toBe("year");
@@ -65,7 +65,7 @@ describe("normalizeJob: salary", () => {
   test("a cents envelope is divided down before it reaches salary_low", () => {
     // Proves the whole envelope is handed over, not just the two figures.
     const job: JobListEntry = { raw_salary: { salary_min: 140000, salary_unit: "cents" } };
-    expect(normalizeJob(job, VOCABULARIES).salary_low).toBe(1400);
+    expect(normalizeJob(job, VOCABULARIES).job.salary_low).toBe(1400);
   });
 
   test("a stale salary_low is replaced rather than kept when raw_salary is present", () => {
@@ -78,7 +78,7 @@ describe("normalizeJob: salary", () => {
       salary_high: 111,
       salary_period: "month",
     };
-    const result = normalizeJob(job, VOCABULARIES);
+    const result = normalizeJob(job, VOCABULARIES).job;
     expect(result.salary_low).toBe(60000);
     expect(result.salary_high).toBe(90000);
     expect(result.salary_period).toBe("year");
@@ -87,13 +87,13 @@ describe("normalizeJob: salary", () => {
   test("an envelope enriched between passes shows up on the next pass", () => {
     // Parsing can add a figure collection never had, and the pass after it
     // has to pick that up.
-    const firstPass = normalizeJob({ raw_salary: { salary_min: 70000 } }, VOCABULARIES);
+    const firstPass = normalizeJob({ raw_salary: { salary_min: 70000 } }, VOCABULARIES).job;
     expect(firstPass.salary_high).toBeUndefined();
 
     const secondPass = normalizeJob(
       { ...firstPass, raw_salary: { salary_min: 70000, salary_max: 95000 } },
       VOCABULARIES
-    );
+    ).job;
     expect(secondPass.salary_low).toBe(70000);
     expect(secondPass.salary_high).toBe(95000);
   });
@@ -111,7 +111,7 @@ describe("normalizeJob: salary", () => {
       salary_high: 950,
       salary_period: "hour",
     };
-    const result = normalizeJob(job, VOCABULARIES);
+    const result = normalizeJob(job, VOCABULARIES).job;
     expect(result.salary_low).toBe(900);
     expect(result.salary_high).toBe(950);
     expect(result.salary_period).toBe("hour");
@@ -121,7 +121,7 @@ describe("normalizeJob: salary", () => {
 describe("normalizeJob: work mode list", () => {
   test("raw_mode_list is run through normalizeModeList onto normalized_mode_list", () => {
     const job: JobListEntry = { raw_mode_list: ["Remote", "remote", "flexible"] };
-    expect(normalizeJob(job, VOCABULARIES).normalized_mode_list).toEqual(["remote"]);
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["remote"]);
   });
 
   test.each([
@@ -133,7 +133,7 @@ describe("normalizeJob: work mode list", () => {
       raw_mode_list: rawModeList,
       normalized_mode_list: ["hybrid"],
     };
-    expect(normalizeJob(job, VOCABULARIES).normalized_mode_list).toEqual(["hybrid"]);
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["hybrid"]);
   });
 });
 
@@ -142,7 +142,7 @@ describe("normalizeJob: company name", () => {
     // There is no second column — the cleaned spelling replaces the source's
     // spelling in the same field.
     const job: JobListEntry = { raw_company_name: "Meta Platforms, Inc. " };
-    expect(normalizeJob(job, VOCABULARIES).raw_company_name).toBe("Meta Platforms, Inc");
+    expect(normalizeJob(job, VOCABULARIES).job.raw_company_name).toBe("Meta Platforms, Inc");
   });
 
   test.each([
@@ -151,7 +151,7 @@ describe("normalizeJob: company name", () => {
     ["an empty string", ""],
   ])("raw_company_name that is %s changes nothing", (_label, rawCompanyName) => {
     const job: JobListEntry = { raw_company_name: rawCompanyName };
-    expect(normalizeJob(job, VOCABULARIES).raw_company_name).toBe(rawCompanyName);
+    expect(normalizeJob(job, VOCABULARIES).job.raw_company_name).toBe(rawCompanyName);
   });
 });
 
@@ -170,7 +170,7 @@ describe("normalizeJob: the job passed in is left alone", () => {
 
   test("the returned job is a different object from the one passed in", () => {
     const job: JobListEntry = { raw_title: "Senior UX Designer" };
-    expect(normalizeJob(job, VOCABULARIES)).not.toBe(job);
+    expect(normalizeJob(job, VOCABULARIES).job).not.toBe(job);
   });
 
   test("a field none of the four normalizers reads passes straight through", () => {
@@ -179,7 +179,7 @@ describe("normalizeJob: the job passed in is left alone", () => {
       status: "backlog",
       original_url: "https://example.com/job",
     };
-    const result = normalizeJob(job, VOCABULARIES);
+    const result = normalizeJob(job, VOCABULARIES).job;
     expect(result.id).toBe("job-1");
     expect(result.status).toBe("backlog");
     expect(result.original_url).toBe("https://example.com/job");
@@ -194,8 +194,8 @@ describe("normalizeJob: running it twice over unchanged raw fields", () => {
       raw_mode_list: ["Remote", "remote", "flexible"],
       raw_company_name: "Meta Platforms, Inc. ",
     };
-    const first = normalizeJob(job, VOCABULARIES);
-    const second = normalizeJob(first, VOCABULARIES);
+    const first = normalizeJob(job, VOCABULARIES).job;
+    const second = normalizeJob(first, VOCABULARIES).job;
     expect(second).toEqual(first);
   });
 });
@@ -209,6 +209,6 @@ describe("normalizeJob: vocabularies arrive as a plain object", () => {
       removalWords: [],
     };
     const job: JobListEntry = { raw_title: "Senior Designer" };
-    expect(normalizeJob(job, vocabularies).title).toBe("Sr. Designer");
+    expect(normalizeJob(job, vocabularies).job.title).toBe("Sr. Designer");
   });
 });
