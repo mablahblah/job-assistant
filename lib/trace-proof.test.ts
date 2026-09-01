@@ -218,14 +218,15 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       []
     );
     const totals = rows.map((row) => ({ run_id: row["run_id"], count: Number(row["count"]) }));
-    // Each run writes a collected event for every job its collectors
-    // produced (3 + 2 = 5) plus an abandoned event for each of the two
-    // dropped jobs: 7 rows. If any event carried the wrong run's id, these
-    // groups would split into more than two, or their counts would drift
-    // away from 7.
+    // Each run writes a collected event for every job its collectors produced
+    // (3 + 2 = 5), an abandoned event for each of the two dropped jobs, and
+    // two normalization events for each of the three that survived — one for
+    // the title, one for the company name: 5 + 2 + 6 = 13 rows. If any event
+    // carried the wrong run's id, these groups would split into more than
+    // two, or their counts would drift away from 13.
     expect(totals).toEqual([
-      { run_id: runIdAlpha, count: 7 },
-      { run_id: runIdBeta, count: 7 },
+      { run_id: runIdAlpha, count: 13 },
+      { run_id: runIdBeta, count: 13 },
     ]);
   });
 

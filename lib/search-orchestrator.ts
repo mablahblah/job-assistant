@@ -1,12 +1,15 @@
-// Runs every collector in turn and folds their results into one report. A
-// collector is isolated from its neighbours: a throw, an error string, and a
+// Runs every collector in turn and folds their results into one report, then
+// normalizes what survives. A collector is isolated from its neighbours: a throw, an error string, and a
 // warning string all become the same shape, so one source dropping out never
 // costs the run the others.
 import { unusableReason } from "./collectors/job-usable";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
+import { summarizeNormalizationWarnings, type UnusableField } from "./normalization-warnings";
+import { normalizeJob } from "./normalizer";
 import type { SettingsService } from "./settings-service";
 import { messageFromThrown } from "./thrown-message";
+import type { TitleVocabularies } from "./title";
 import type { TraceWriter } from "./trace-writer";
 
 // An error or a warning, always carrying the collector that produced it.
@@ -60,12 +63,25 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
   const log = options.log ?? console.error;
 
   const report: CollectionReport = { jobs: [], errors: [], warnings: [], traceFailures: 0 };
+  // Every normalization event this run produces, whether or not it left the
+  // job usable, folded into warnings once at the end rather than per job.
+  const unusable: UnusableField[] = [];
 
   // Asking for no jobs reaches no source. The collectors are skipped
   // outright rather than run and their results thrown away.
   if (limit <= 0) {
     return report;
   }
+
+  // Read outside every try, deliberately: a missing title vocabulary means
+  // the settings service throws, and that has to stop the whole run rather
+  // than read as one collector failing.
+  const vocabularies: TitleVocabularies = {
+    headNouns: await options.settings.getTitleHeadNouns(),
+    levels: await options.settings.getTitleLevels(),
+    suffixes: await options.settings.getTitleSuffixes(),
+    removalWords: await options.settings.getTitleRemovalWords(),
+  };
 
   // Sequential and in the given order, so a job list reads the way the run
   // happened and one collector's failure cannot cancel another's work.
@@ -120,8 +136,31 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
         // The orchestrator is the authority on which collector found a job,
         // so it stamps the name onto a copy rather than trusting the field
         // or editing what the collector handed back.
-        report.jobs.push({ ...identified, collector: collector.name });
+        const stamped: JobListEntry = { ...identified, collector: collector.name };
+        const { job: normalized, events } = normalizeJob(stamped, vocabularies);
+        report.jobs.push(normalized);
         kept += 1;
+
+        // Every normalization event is traced and remembered, not just the
+        // failures — summarizeNormalizationWarnings is the one place that
+        // decides which reasons are worth a warning, so no second filter
+        // gets added here.
+        for (const event of events) {
+          await options.trace.write({
+            run_id: options.runId,
+            job_id: id,
+            step: "post_collection_normalization",
+            event: event.event,
+            collector: collector.name,
+            reason: event.reason,
+            detail: event.detail,
+          });
+          unusable.push({
+            collector: collector.name,
+            reason: event.reason,
+            example: event.detail.from,
+          });
+        }
       }
       for (const message of result.errors) {
         report.errors.push({ collector: collector.name, message });
@@ -144,6 +183,10 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
       log(`[collect] ${collector.name} failed: ${message}`);
     }
   }
+
+  // Folded once the whole run is over, so a broken collector gets exactly
+  // one line for the whole run rather than one per job.
+  report.warnings.push(...summarizeNormalizationWarnings(unusable));
 
   // Read once the run is over, so a failure any write hit along the way is
   // reflected in the total rather than checked write by write.

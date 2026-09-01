@@ -774,7 +774,10 @@ describe("a job that passes the usability check gets a collected event and no ab
       trace,
       collectors: [collector],
     });
-    expect(trace.events.map((event) => event.event)).toEqual(["collected"]);
+    // Normalization writes its own events for this job, so the check is that
+    // no abandoned event exists rather than that collected is the only event.
+    const collectionEvents = trace.events.filter((event) => event.step === "collection");
+    expect(collectionEvents.map((event) => event.event)).toEqual(["collected"]);
   });
 });
 
@@ -932,9 +935,215 @@ describe("every trace event collection writes carries the collection step", () =
       trace,
       collectors: [collector],
     });
-    expect(trace.events.length).toBeGreaterThan(0);
-    for (const event of trace.events) {
+    // Normalization writes its own events at a different step, so the sweep
+    // is scoped to the two events collection itself is responsible for.
+    const collectionEvents = trace.events.filter(
+      (event) => event.event === "collected" || event.event === "abandoned"
+    );
+    expect(collectionEvents.length).toBeGreaterThan(0);
+    for (const event of collectionEvents) {
       expect(event.step).toBe("collection");
     }
+  });
+});
+
+// A settings stand-in carrying enough vocabulary for a title to actually
+// reshape, so a test can tell a normalized title from an untouched one.
+function settingsWithVocabularies(): SettingsService {
+  return fakeSettings({
+    getTitleHeadNouns: async () => ["designer"],
+    getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
+    getTitleSuffixes: async () => [],
+    getTitleRemovalWords: async () => [],
+  });
+}
+
+describe("a surviving job carries its normalized title, not its raw one", () => {
+  test("Senior Designer comes back as Sr. Designer", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Senior Designer")],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({
+      settings: settingsWithVocabularies(),
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [collector],
+    });
+    expect(report.jobs[0]?.title).toBe("Sr. Designer");
+  });
+});
+
+describe("normalization writes its own trace events after collection", () => {
+  test("one ordinary job writes two of them", async () => {
+    // stubSettings holds no vocabulary, so this job's title finds no job noun
+    // and its company name tidies. Two raw fields acted on, two events.
+    const trace = makeTraceWriter();
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({ settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    const normalization = trace.events.filter(
+      (event) => event.step === "post_collection_normalization"
+    );
+    expect(normalization).toHaveLength(2);
+  });
+
+  test("each one shares the job_id of that job's collected event", async () => {
+    // What lets one job's whole path be read back as a single journey.
+    const trace = makeTraceWriter();
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({ settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    const collected = trace.events.find((event) => event.event === "collected");
+    const normalization = trace.events.filter(
+      (event) => event.step === "post_collection_normalization"
+    );
+    for (const event of normalization) {
+      expect(event.job_id).toBe(collected?.job_id);
+    }
+  });
+
+  test("each one names the collector that found the job", async () => {
+    const trace = makeTraceWriter();
+    const collector = makeCollector("greenhouse", {
+      jobs: [makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({ settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    const normalization = trace.events.filter(
+      (event) => event.step === "post_collection_normalization"
+    );
+    for (const event of normalization) {
+      expect(event.collector).toBe("greenhouse");
+    }
+  });
+
+  test("a title event carries its reason and the change it made", async () => {
+    const trace = makeTraceWriter();
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Senior Designer")],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({
+      settings: settingsWithVocabularies(),
+      runId: stubRunId,
+      trace,
+      collectors: [collector],
+    });
+    const titleEvent = trace.events.find((event) => event.reason === "title_normalized");
+    expect(titleEvent?.event).toBe("job_updated");
+    expect(titleEvent?.detail).toEqual({ from: "Senior Designer", to: "Sr. Designer" });
+  });
+});
+
+describe("a job that never reaches the normalizer gets no normalization event", () => {
+  test("a job dropped by the usability check writes none", async () => {
+    const trace = makeTraceWriter();
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Researcher"), raw_title: undefined }],
+      errors: [],
+      warnings: [],
+    });
+    await runCollection({ settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
+  });
+
+  test("a collector that throws writes none", async () => {
+    const trace = makeTraceWriter();
+    const failing = makeThrowingCollector("greenhouse", "board unreachable");
+    await runCollection({ settings: stubSettings, runId: stubRunId, trace, collectors: [failing] });
+    expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
+  });
+});
+
+describe("unusable fields are reported once at the end of the run", () => {
+  test("an unusable work mode gives one folded warning naming its collector", async () => {
+    // "flexible" is not a spelling the work mode list recognises, so the
+    // whole list comes back unusable.
+    const collector = makeCollector("lever", {
+      jobs: [{ ...makeJob("Designer"), raw_mode_list: ["flexible"] }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [collector],
+    });
+    const folded = report.warnings.filter((issue) => issue.message.includes("work_mode_unusable"));
+    expect(folded).toHaveLength(1);
+    expect(folded[0]?.collector).toBe("lever");
+  });
+
+  test("two collectors with the same problem get a line each", async () => {
+    const first = makeCollector("lever", {
+      jobs: [{ ...makeJob("Designer"), raw_mode_list: ["flexible"] }],
+      errors: [],
+      warnings: [],
+    });
+    const second = makeCollector("greenhouse", {
+      jobs: [{ ...makeJob("Writer"), raw_mode_list: ["flexible"] }],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [first, second],
+    });
+    const folded = report.warnings.filter((issue) => issue.message.includes("work_mode_unusable"));
+    expect(folded.map((issue) => issue.collector).sort()).toEqual(["greenhouse", "lever"]);
+  });
+
+  test("a run with nothing unusable adds no warning at all", async () => {
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [collector],
+    });
+    expect(report.warnings.some((issue) => issue.message.includes("unusable"))).toBe(false);
+  });
+});
+
+describe("the title vocabularies come from settings rather than the code", () => {
+  test("supplying one head noun changes what the title normalizes to", async () => {
+    // A one-word title reads the same whether or not it matched, so this uses
+    // a two-part title: unmatched keeps the comma, matched turns the second
+    // part into a team.
+    const job = { ...makeJob("Growth Designer"), raw_title: "Designer, Growth" };
+    const withNoun = fakeSettings({ getTitleHeadNouns: async () => ["designer"] });
+
+    const withoutVocabulary = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
+    });
+    const withVocabulary = await runCollection({
+      settings: withNoun,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
+    });
+
+    expect(withoutVocabulary.jobs[0]?.title).toBe("Designer, Growth");
+    expect(withVocabulary.jobs[0]?.title).toBe("Designer - Growth");
   });
 });
