@@ -63,9 +63,11 @@ const EXPECTED_TITLE_SUFFIXES = ["-er", "-or", "-ist", "-yst", "-ian", "-ant", "
 // might write for it.
 const EXPECTED_TITLE_LEVELS: TitleLevel[] = [
   { store: "Intern", match: ["intern"] },
+  { store: "Entry-Level", match: ["entry level", "entry-level"] },
   { store: "Jr.", match: ["junior", "jr", "jr."] },
   { store: "Associate", match: ["associate", "assoc"] },
   { store: "Mid", match: ["mid"] },
+  { store: "Mid-Level", match: ["mid level", "mid-level"] },
   { store: "Sr.", match: ["senior", "sr", "sr."] },
   { store: "Staff", match: ["staff"] },
   { store: "Lead", match: ["lead"] },

@@ -14,9 +14,11 @@ const VOCABULARIES: TitleVocabularies = {
   ],
   levels: [
     { store: "Intern", match: ["intern"] },
+    { store: "Entry-Level", match: ["entry level", "entry-level"] },
     { store: "Jr.", match: ["junior", "jr", "jr."] },
     { store: "Associate", match: ["associate", "assoc"] },
     { store: "Mid", match: ["mid"] },
+    { store: "Mid-Level", match: ["mid level", "mid-level"] },
     { store: "Sr.", match: ["senior", "sr", "sr."] },
     { store: "Staff", match: ["staff"] },
     { store: "Lead", match: ["lead"] },
@@ -221,6 +223,26 @@ describe("normalizeTitle: levels", () => {
     const result = normalizeTitle("Senior UX/UI Design Lead", VOCABULARIES);
     expect(result.level).toBe("Sr.");
     expect(result.role).toBe("UX/UI Design Lead");
+  });
+});
+
+describe("normalizeTitle: multi-word levels", () => {
+  test("a level's match list holds phrases as well as single words", () => {
+    const result = normalizeTitle("Entry Level UX Designer", VOCABULARIES);
+    expect(result.level).toBe("Entry-Level");
+    expect(result.role).toBe("UX Designer");
+  });
+
+  test("the hyphenated spelling sits on the match list beside the two-word one", () => {
+    const result = normalizeTitle("Entry-Level UX Designer", VOCABULARIES);
+    expect(result.level).toBe("Entry-Level");
+    expect(result.role).toBe("UX Designer");
+  });
+
+  test("two words spelling one level are matched ahead of the single word that starts them", () => {
+    const result = normalizeTitle("Mid Level Product Designer", VOCABULARIES);
+    expect(result.level).toBe("Mid-Level");
+    expect(result.role).toBe("Product Designer");
   });
 });
 

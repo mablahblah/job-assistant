@@ -153,12 +153,57 @@ function hasJobNoun(vocab: CompiledVocabularies, words: string[]): boolean {
   return hasClosedNoun(vocab, words) || hasSuffixNoun(vocab, words);
 }
 
-function isPurelyLevelWords(vocab: CompiledVocabularies, words: string[]): boolean {
-  return words.length > 0 && words.every((word) => isLevelWord(vocab, word));
+// The longest run of consecutive words, starting at `index`, that spells one
+// entry in the level list. Lengths are tried from most words down to one, so
+// "mid level" wins over the "mid" that starts it whenever both are entries.
+// Where an entry sits in the vocabulary never matters, only how much of the
+// title it accounts for — the list is edited on a settings screen, where
+// nobody should have to think about ordering.
+function longestLevelMatch(
+  vocab: CompiledVocabularies,
+  words: string[],
+  index: number
+): { store: string; length: number } | null {
+  for (let length = words.length - index; length >= 1; length--) {
+    const phrase = words
+      .slice(index, index + length)
+      .join(" ")
+      .toLowerCase();
+    const store = vocab.levelStore.get(phrase);
+    if (store !== undefined) return { store, length };
+  }
+  return null;
 }
 
+function isPurelyLevelWords(vocab: CompiledVocabularies, words: string[]): boolean {
+  if (words.length === 0) return false;
+  let i = 0;
+  while (i < words.length) {
+    const match = longestLevelMatch(vocab, words, i);
+    if (!match) return false;
+    i += match.length;
+  }
+  return true;
+}
+
+// The run's stored form, one matched chunk at a time. "Senior" and "Staff"
+// each spell their own level and join as "Sr. Staff", while "Mid" and "Level"
+// together spell the single entry "mid level" and contribute its one stored
+// form. A word spelling no level passes through as it came.
 function storedLevelPhrase(vocab: CompiledVocabularies, words: string[]): string {
-  return words.map((word) => vocab.levelStore.get(word.toLowerCase()) ?? word).join(" ");
+  const parts: string[] = [];
+  let i = 0;
+  while (i < words.length) {
+    const match = longestLevelMatch(vocab, words, i);
+    if (match) {
+      parts.push(match.store);
+      i += match.length;
+    } else {
+      parts.push(words[i]);
+      i++;
+    }
+  }
+  return parts.join(" ");
 }
 
 // The role segment is the last one holding a job noun. A closed-list match
@@ -187,16 +232,23 @@ function selectRoleIndex(vocab: CompiledVocabularies, segments: Segment[]): numb
 // The first contiguous run of level words in a segment, wherever it sits. A
 // second run later in the same segment is left alone — the word there is the
 // job itself rather than its seniority, as in the "Director" of "Senior
-// Technical Director".
+// Technical Director". The run steps over a two-word entry in one hop, so
+// "entry level" is taken whole rather than leaving "level" behind.
 function findLevelRun(
   vocab: CompiledVocabularies,
   words: string[]
 ): { start: number; end: number } | null {
   let i = 0;
   while (i < words.length) {
-    if (isLevelWord(vocab, words[i])) {
+    const match = longestLevelMatch(vocab, words, i);
+    if (match) {
       const start = i;
-      while (i < words.length && isLevelWord(vocab, words[i])) i++;
+      i += match.length;
+      let next = longestLevelMatch(vocab, words, i);
+      while (next) {
+        i += next.length;
+        next = longestLevelMatch(vocab, words, i);
+      }
       return { start, end: i };
     }
     i++;
