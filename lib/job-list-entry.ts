@@ -32,10 +32,10 @@ export type JobListEntry = Omit<
   Partial<Job>,
   "raw_location_list" | "raw_mode_list" | "normalized_mode_list" | "raw_salary"
 > & {
-  raw_location_list?: string[];
-  raw_mode_list?: string[];
-  normalized_mode_list?: string[];
-  raw_salary?: RawSalary;
+  raw_location_list?: string[] | null;
+  raw_mode_list?: string[] | null;
+  normalized_mode_list?: string[] | null;
+  raw_salary?: RawSalary | null;
   delete_on_save?: boolean;
 };
 
