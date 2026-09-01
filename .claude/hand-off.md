@@ -15,69 +15,57 @@
 
 Feature: **Unified Job Pipeline** — thirteen phases on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 3 (Normalization) is planned and not built.** Every step of the phase planning procedure ran: brain dump, orient, discovery, spec, two review passes, tracking, and wrap-up.
+**Phase 3 (Normalization) is being built.** Tasks 1, 2 and 3 of 12 are done. Task 4 — the title normalizer — is next and is the first point where real before/after output exists to look at.
 
-**Nothing is committed.** The whole session is in the working tree — thirteen modified files and two new ones. No code was written; this was planning only, so the test suite is untouched at 924 passing.
+**Tasks 1 and 2 are committed and pushed.** Task 3 is complete and uncommitted: four modified files, 954 tests passing, lint clean.
 
-Modified: `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md`, and in `docs/features/unified-pipeline/` — `architecture.md`, `db-entries.md`, `decision-log.md`, `feature_spec.md`, `phase-planning-procedure.md`, and the r&d files for phases 3, 4, 8 and 13. New: `phases/phase-03-normalization-spec.md` and `meeting-notes/2026-08-31-phase-03-normalization-meeting-notes.md`.
-
-Also modified and **not part of this session**: `.claude/hand-off.md` (this file, dirty at session start) and `.claude/skills/generate-resume/SKILL.md`, which was already dirty and nothing here touched.
+Modified and uncommitted: `lib/settings-service.ts`, `lib/settings-service.test.ts`, `scripts/db-seed.ts`, `scripts/db-seed.test.ts`, plus one decision-log entry added during hand-off.
 
 ## Completed This Session
 
-**Phase 3 planned end to end.** The spec carries 57 stories, 93 acceptance criteria, confirmed edge cases, 12 build tasks, the regression net, and the approach.
+**Task 1 — Schema.** `Job` gained `title` and `normalized_mode_list`; `Setting` gained `title_head_nouns`, `title_levels`, `title_suffixes` and `title_removal_words`. `normalized_mode_list` joins the `Omit<>` union on `JobListEntry` so it types as a string list rather than Prisma's `JsonValue`. Commits `cb7f508` and `eacda7f`.
 
-What normalization will do: reshape `raw_title`, `raw_salary`, `raw_mode_list` and `raw_company_name` into `title`, the three salary columns, a normalized mode list, and a tidied company name in place. It opens no database, drops no job, and never reads a description. It runs after collection and again after parsing as one service, recomputing every field from its raw source each pass.
+**Task 2 — The company-name fixture.** `lib/company-names.fixture.json`, 1,324 distinct names read from `dev.db` through a read-only connection, hashed before and after to prove the live database was untouched. Kept as published rather than cleaned: 9 names carry untrimmed whitespace, one has an internal double space, 68 end in punctuation. Commits `19c8b85` and `fc8cf9b`.
 
-The title rule is eight general steps: tidy, cut into segments, the role segment is the last holding a job noun, take out the contiguous level run only when a job noun survives, the whole role segment is the role, every other segment is team joined alphabetically, job nouns match a closed list before agent-noun suffixes, and no job noun means the tidied string is kept.
+**Task 3 — Vocabulary settings.** Four getters on `SettingsService`, seeded defaults, and validation that throws on missing, empty, or wrong-typed rather than degrading silently. 28 new tests, 926 to 954.
 
-**Twenty-three decision-log entries**, including the `raw_` convention superseded to the user's definition — a raw field holds what a collector was handed, may be cleaned in place, and is never read by scoring or the Web UI.
-
-**A stress test across four sub-agents** over the stories, which found the `NaN` guard hole, the Prisma `null`-versus-`undefined` mismatch, `normalizeMode`'s wrong default, and the empty-list-is-not-absence problem. All are criteria now.
-
-**Two spec-review passes.** The second found four problems the first did not, including two criteria that needed opposite readings of the same phrase and a duplicate criterion giving two answers for one title. Running the second pass was the user's suggestion and it earned its keep.
-
-**Documents corrected rather than deferred:** the feature spec's company-name story plus its missing salary and work-mode stories, `db-entries.md`'s salary fields and column names, the architecture doc's planning status, and two r&d open questions this session answered.
-
-**The phase planning procedure was rewritten.** Steps 1 to 3 now say the brain dump is captured and nothing else happens to it, orientation produces no conversation of its own, and `build-requirements` is invoked immediately. This session's discovery happened in conversation before the skill was invoked, which is exactly what the rewrite prevents.
+**Three decisions logged**, all signed off in conversation: trailing punctuation on a company name is dropped including the period on `Inc.`; a type-shaped acceptance criterion is proven by a runtime test; and a vocabulary is seeded short and grows from real output.
 
 ## Decisions & Context
 
-The decision log is the authority and holds every decision from this session. What follows is only what is not written down elsewhere.
+The decision log is the authority. What follows is only what is not written down elsewhere.
 
-**Gotchas, all hit this session:**
+**Constraints that are not recorded in any spec:**
 
-- **A sub-agent's task notification can arrive with no result body.** Two of four did. `SendMessage` to the agent asking it to restate what it found recovered both without re-running the work.
-- **Verify any number a sub-agent reports before writing it down.** One agent reported "14 of 627" adjacent level words — it is 9 — and "29% of titles" for a shape I could not reproduce at all. Both reached the spec as measured facts before being checked.
-- **Renumbering stories or criteria breaks the edge-case table's cross-references.** It happened twice. Remap by matching story text; arithmetic on the old numbers is wrong because insertions shift different ranges by different amounts.
-- **A patched scratch script's numbers are not evidence.** The throwaway normalizer was silently dropping `&` from role text through its tokenizer charset, and one patch broke the segment splitter so a title fell through entirely. The 94.7% it reported afterwards was meaningless.
-- **`isPresent(NaN)` returns true and `Math.round("abc")` is `NaN`,** verified live, so the existing salary guard does not fire and `NaN` reaches an `Int` column.
-- **`Company.name` is `@unique` with no `COLLATE NOCASE`.** Verified against SQLite: `GitLab` and `Gitlab` insert as two rows.
-- **`docs/CURRENT-FEATURE.md` kept its ticks.** The previous hand-off warned it had silently lost two; re-reading after every edit is the habit that caught nothing this time.
+- **`contractor` must never join the removal list.** AC 22 requires `UX Designer, Contractor` to keep `Contractor` as its team. Adding it would break an agreed criterion.
+- **The clearance words are the biggest removal candidates and the wrong tool.** `clearance` appears 42 times in the 627-title fixture, `secret` 9. Removing them makes output worse — `TS/SCI Clearance Required` becomes `Required`. The problem is the phrase, not the word. Revisit at task 4 with real output in hand.
+- **`remote` is off the removal list,** so real titles like `Lead Product Designer, Remote` will store `Remote` as their team. ACs 6 and 7 still hold because both name `Remote` on the list as their own precondition — the normalizer takes its vocabularies as an argument, so tests supply their own.
 
-**Approaches tried and abandoned:**
+**Gotchas hit this session:**
 
-- **Cutting the title at the first comma or dash.** Dropped coverage to 93.7% because `Advanced Specialist, UX Designer` made the wrong half the role. Replaced by "the last segment holding a job noun."
-- **Stripping the first level word unconditionally.** Cost 1.8 points and broke `Director, UX`, which lost its only noun. Replaced by "only when a job noun survives without it."
-- **Splitting team on `&` and `and`.** Done before the role segment was chosen it tore `UI/UX Designer & Developer` in half; moved after, it still broke `Inspire & Motivate`. Dropped entirely — they are ordinary characters now.
-- **A stop list for the suffix net,** built from the words this corpus wrongly matched. Abandoned as overfitting: a list fitted to these 603 titles would not cover what a different corpus throws up.
-- **Seeding the head-noun list from search terms,** and requiring every search term to contain a noun. Measured against the fixture: narrowing to noun-bearing terms costs about a quarter of what is collected.
-- **Four exceptions that dissolved** once overfitting was named — bracket carve-outs for `(UX)`/`(UI)` and for `(Senior)`, an `of`-phrase rule, and a trailing-content rule. Each was absorbed by an existing general step rather than replaced.
+- **A test that passes on its first run proves nothing.** The seed's overwrite guard needed removing on purpose to prove the test could fail. It also caught an existing `modified_at` test, so an unnecessary write is caught two ways.
+- **A crowd-code prompt is not a source.** The prompt for the getter tests listed helper names that do not exist in `settings-service.test.ts`. One writer read the file instead of trusting the prompt and used the real ones.
+- **A sub-agent's expected values can be stale.** Both writers seeded nine suffixes and a four-word removal list, correct against the r&d and wrong against decisions made minutes earlier.
 
-**Open threads, none blocking:**
+**Approaches tried and abandoned,** each with its measurement now in the phase 3 r&d:
 
-- **The coverage figures in `phase-03-normalization-r&d.md` are stale.** They were measured with the abandoned stop list and before the junk rules changed. The closed-list share is unaffected because it runs first; the suffix and fallback shares need re-measuring at build. The user has said there is no coverage target, so this is a review artifact rather than a gate.
-- **The user wants a full before/after list at build time** for the title normalizer, read rather than asserted against a threshold.
-- **The four silent source assumptions** in the Phase 1 r&d, still unguarded. Carried in the last four hand-offs.
-- **Phase 2's AC 15 printing half** still has no standing test; forcing a trace write failure through the CLI is the blocker.
-- **The no-overfitting decision is rule-shaped rather than feature-shaped** and may belong in `docs/DECISIONS.md` or a rule file. Left for `clean-decision-logs` at ship time.
-- **`.claude/skills/generate-resume/SKILL.md`** is modified, untouched by this session, and was already dirty when it began.
+- **A `typecheck` script.** `tsc --noEmit` does not catch a missing `Omit<>` override — verified by removing one and typechecking clean.
+- **`expectTypeOf` type assertions.** A no-op at runtime; in an ordinary `.test.ts` it passes while proving nothing.
+- **Pointing vitest's typecheck at every `.test.ts`.** Works, but collects each file twice — `lib/salary.test.ts` alone reports 81 tests ordinarily and 128 under typecheck, so the suite's count stops meaning anything.
+- **An eighteen-word removal list** drafted from the fixture, and **nine suffixes** from the r&d. Both cut to the short lists.
+
+**Open threads:**
+
+- **`entry` is now in no vocabulary at all.** Dropped rather than mapped to `Intern`, because an entry-level role is not an internship. A title reading `Entry Level Product Designer` gets no level. Needs the user's eye.
+- **The level mapping is a reconstruction.** The r&d gives 16 spellings and 12 stored forms but never pairs them. `senior`/`sr`/`sr.` to `Sr.`, `junior`/`jr`/`jr.` to `Jr.`, `associate`/`assoc` to `Associate` are plainly spelling variants. Nothing in a document confirms them.
+- **`sr.` and `jr.` were added to their match lists by inference** from AC 18, which requires `Sr`, `Sr.` and `Senior` to store identically.
+- Carried from previous hand-offs, none blocking: the coverage figures in the phase 3 r&d are stale; the four silent source assumptions in the Phase 1 r&d are still unguarded; Phase 2's AC 15 printing half still has no standing test; the no-overfitting decision is rule-shaped and may belong in `docs/DECISIONS.md`; there is no `salary_currency` column and a non-USD figure is indistinguishable from dollars.
 
 ## Next Steps
 
-1. **Commit this session.** Nothing is committed. Two new files and thirteen modified ones, all documentation.
-2. **Build Phase 3**, following the 12 tasks under **Build phase 3** in `docs/CURRENT-FEATURE.md`, in order. Task 1 is the schema — `title` and the normalized mode list on `Job`, the title vocabularies on `Setting`. Run `npx prisma generate` after editing `schema.prisma`; `db push` does not regenerate the client.
-3. **Task 2 comes early on purpose.** The company-name fixture is pulled once from `dev.db` and committed, so the company normalizer's tests hold still while job searches keep running on `main`.
-4. **Every task is test-first.** `test-driven-development` is invoked before any implementation code, and the acceptance criteria in the phase spec are the test list.
-5. **Name the mode column at task 1.** The spec calls it a normalized mode list; `db-entries.md` currently writes it as `normalized_mode_list`, which is a suggestion rather than a decision. Three mode fields will eventually coexist — `raw_mode_list`, this one, and classification's `work_mode` — so the name should not read as a duplicate of either.
-6. **Close Phase 3** after building — architecture doc, decision log, `BACKLOG.md`.
+1. **Commit task 3.** Four modified files plus the decision-log entry. Nothing else is outstanding.
+2. **Build task 4 — the title normalizer.** A pure function taking its vocabularies as an argument, opening no database. The eight-step rule is in the phase spec; ACs 1 to 37 are the test list.
+3. **Print every title's before and after** against `lib/ux-titles.fixture.json` and read it, rather than asserting a coverage figure. AC 53, and the user asked for this explicitly at planning.
+4. **Bring three things back to the user from that output:** whether `Remote` surviving as a team item bothers them, whether the clearance phrases need handling beyond word removal, and whether `entry` should exist as a level.
+5. **Re-measure the stale coverage figures** in the phase 3 r&d once the real rule runs. They were taken with an abandoned stop list.
+6. Every task is test-first; `test-driven-development` runs before implementation, and `crowd-code` produces the code.
