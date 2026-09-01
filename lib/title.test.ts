@@ -19,8 +19,7 @@ const VOCABULARIES: TitleVocabularies = {
     { store: "Entry-Level", match: ["entry level", "entry-level"] },
     { store: "Jr.", match: ["junior", "jr", "jr."] },
     { store: "Associate", match: ["associate", "assoc"] },
-    { store: "Mid", match: ["mid"] },
-    { store: "Mid-Level", match: ["mid level", "mid-level"] },
+    { store: "Mid-Level", match: ["mid level", "mid-level", "mid"] },
     { store: "Sr.", match: ["senior", "sr", "sr."] },
     { store: "Staff", match: ["staff"] },
     { store: "Lead", match: ["lead"] },
@@ -243,6 +242,12 @@ describe("normalizeTitle: multi-word levels", () => {
 
   test("two words spelling one level are matched ahead of the single word that starts them", () => {
     const result = normalizeTitle("Mid Level Product Designer", VOCABULARIES);
+    expect(result.level).toBe("Mid-Level");
+    expect(result.role).toBe("Product Designer");
+  });
+
+  test("the bare word stores the same level as its two-word spelling", () => {
+    const result = normalizeTitle("Mid Product Designer", VOCABULARIES);
     expect(result.level).toBe("Mid-Level");
     expect(result.role).toBe("Product Designer");
   });

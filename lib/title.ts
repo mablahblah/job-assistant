@@ -155,10 +155,10 @@ function hasJobNoun(vocab: CompiledVocabularies, words: string[]): boolean {
 
 // The longest run of consecutive words, starting at `index`, that spells one
 // entry in the level list. Lengths are tried from most words down to one, so
-// "mid level" wins over the "mid" that starts it whenever both are entries.
-// Where an entry sits in the vocabulary never matters, only how much of the
-// title it accounts for — the list is edited on a settings screen, where
-// nobody should have to think about ordering.
+// "mid level" is taken whole rather than leaving "level" stranded behind the
+// "mid" that starts it. Where a spelling sits in the vocabulary never
+// matters, only how much of the title it accounts for — the list is edited on
+// a settings screen, where nobody should have to think about ordering.
 function longestLevelMatch(
   vocab: CompiledVocabularies,
   words: string[],
