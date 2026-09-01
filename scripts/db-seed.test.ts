@@ -41,6 +41,7 @@ const ALL_ATS_SLUGS = [...GREENHOUSE_SLUGS, ...LEVER_SLUGS, ...ASHBY_SLUGS];
 
 interface SettingRow {
   search_terms: string[] | null;
+  title_head_nouns: string[] | null;
   location: string | null;
   radius: number | null;
   expiry_threshold: number | null;
@@ -88,8 +89,10 @@ async function readSetting(url: string): Promise<SettingRow> {
     // search_terms is a Json column, which comes back through raw sql as a
     // text string holding json rather than as an array.
     const rawTerms = row["search_terms"];
+    const rawNouns = row["title_head_nouns"];
     return {
       search_terms: typeof rawTerms === "string" ? (JSON.parse(rawTerms) as string[]) : null,
+      title_head_nouns: typeof rawNouns === "string" ? (JSON.parse(rawNouns) as string[]) : null,
       location: row["location"] === null ? null : String(row["location"]),
       radius: row["radius"] === null ? null : Number(row["radius"]),
       expiry_threshold:
@@ -418,5 +421,39 @@ describe("seeding writes no rows to the Trace table", () => {
   test("the Trace table is empty after seeding", async () => {
     const count = await countRows(url, "Trace");
     expect(count).toBe(0);
+  });
+});
+
+// The title vocabularies are settings like any other: filled when absent,
+// never overwritten. A vocabulary the user has edited is the case that
+// matters, since an overwrite would silently undo their tuning.
+describe("the title vocabularies are seeded and then left alone", () => {
+  const myNouns = ["designer", "chef", "paralegal"];
+
+  let dir: string;
+  let seeded: SettingRow;
+  let reseeded: SettingRow;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-vocabularies-");
+    dir = temp.dir;
+    seeded = await readSetting(temp.url);
+    await runSql(temp.url, "UPDATE Setting SET title_head_nouns = ? WHERE id = 1", [
+      JSON.stringify(myNouns),
+    ]);
+    runScript("db-seed.ts", temp.url);
+    reseeded = await readSetting(temp.url);
+  }, MULTI_SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("seeding a fresh database writes the head nouns", () => {
+    expect(seeded.title_head_nouns).toContain("designer");
+  });
+
+  test("keeps the head nouns I changed", () => {
+    expect(reseeded.title_head_nouns).toEqual(myNouns);
   });
 });

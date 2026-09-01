@@ -6,7 +6,12 @@ import { execFileSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
-import { createSettingsService, type AtsCompany, type SettingsService } from "./settings-service";
+import {
+  createSettingsService,
+  type AtsCompany,
+  type SettingsService,
+  type TitleLevel,
+} from "./settings-service";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +43,50 @@ const GREENHOUSE_SLUGS = [
 ];
 const LEVER_SLUGS = ["gohighlevel", "USMobile", "bhvr"];
 const ASHBY_SLUGS = ["hinge-health", "legora", "bjakcareer", "voodoo", "scorewarrior"];
+
+// The words the seed fills each title vocabulary with. The head nouns are the
+// measured list from the UX titles fixture plus the ones carried without
+// firing in that domain; a noun the list has never seen is caught by the
+// suffixes instead.
+const EXPECTED_TITLE_HEAD_NOUNS = [
+  "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",
+  "designer", "developer", "director", "engineer", "head", "lead", "manager",
+  "owner", "producer", "programmer", "researcher", "scientist", "specialist",
+  "strategist", "technician", "technologist", "translator", "vp", "writer",
+];
+
+// Word endings that name a person doing a job. Deliberately short, because a
+// wrong match is left to become a real problem before the list grows.
+const EXPECTED_TITLE_SUFFIXES = ["-er", "-or", "-ist", "-yst", "-ian", "-ant", "-ect"];
+
+// Each seniority spelling that gets stored, with every spelling a posting
+// might write for it.
+const EXPECTED_TITLE_LEVELS: TitleLevel[] = [
+  { store: "Intern", match: ["intern"] },
+  { store: "Jr.", match: ["junior", "jr", "jr."] },
+  { store: "Associate", match: ["associate", "assoc"] },
+  { store: "Mid", match: ["mid"] },
+  { store: "Sr.", match: ["senior", "sr", "sr."] },
+  { store: "Staff", match: ["staff"] },
+  { store: "Lead", match: ["lead"] },
+  { store: "Principal", match: ["principal"] },
+  { store: "Head", match: ["head"] },
+  { store: "Director", match: ["director"] },
+  { store: "VP", match: ["vp"] },
+  { store: "Chief", match: ["chief"] },
+];
+
+// Words taken out of a title's team part only. It starts short and grows from
+// what real output shows rather than from a list fitted in advance.
+const EXPECTED_TITLE_REMOVAL_WORDS = ["w2", "c2h", "evergreen"];
+
+// Sorting a level list by its stored spelling, and each level's own spellings,
+// makes the comparison independent of the order either was written in.
+function sortedLevels(levels: TitleLevel[]): TitleLevel[] {
+  return [...levels]
+    .map((level) => ({ store: level.store, match: [...level.match].sort() }))
+    .sort((a, b) => a.store.localeCompare(b.store));
+}
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
@@ -157,9 +206,19 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the five getters", () => {
+  test("exposes exactly the nine getters", () => {
     expect(Object.keys(service).sort()).toEqual(
-      ["getAtsCompanies", "getExpiryThreshold", "getLocation", "getRadius", "getSearchTerms"].sort()
+      [
+        "getAtsCompanies",
+        "getExpiryThreshold",
+        "getLocation",
+        "getRadius",
+        "getSearchTerms",
+        "getTitleHeadNouns",
+        "getTitleLevels",
+        "getTitleRemovalWords",
+        "getTitleSuffixes",
+      ].sort()
     );
   });
 
@@ -358,5 +417,247 @@ describe("AC 75: the settings service finds the database url in .env when it is 
 
   test("reads the setting from the database named by .env", () => {
     expect(output.trim()).toBe(EXPECTED_LOCATION);
+  });
+});
+
+// The title vocabularies fail the same way every other setting does: nothing
+// configured yet must never look like a vocabulary a title can run against.
+describe("the title vocabulary getters throw on an unseeded database", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+
+  beforeAll(() => {
+    const temp = createDb("pipeline-settings-title-unseeded-");
+    dir = temp.dir;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("getTitleHeadNouns throws naming its column", async () => {
+    await expect(service.getTitleHeadNouns()).rejects.toThrow(/title_head_nouns/);
+  });
+
+  test("getTitleLevels throws naming its column", async () => {
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+
+  test("getTitleSuffixes throws naming its column", async () => {
+    await expect(service.getTitleSuffixes()).rejects.toThrow(/title_suffixes/);
+  });
+
+  test("getTitleRemovalWords throws naming its column", async () => {
+    await expect(service.getTitleRemovalWords()).rejects.toThrow(/title_removal_words/);
+  });
+
+  test("the message points at the seed as the fix", async () => {
+    await expect(service.getTitleHeadNouns()).rejects.toThrow(/seed/i);
+  });
+});
+
+// A seeded row with one vocabulary nulled stands in for a setting added after
+// the last seed ran. It is the same failure as no row at all.
+describe("a Setting row that exists but has null title vocabulary columns still throws", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-settings-title-null-columns-");
+    dir = temp.dir;
+    await runSql(
+      temp.url,
+      "UPDATE Setting SET title_head_nouns = NULL, title_levels = NULL, title_suffixes = NULL, " +
+        "title_removal_words = NULL WHERE id = 1"
+    );
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("a null title_head_nouns column throws naming it", async () => {
+    await expect(service.getTitleHeadNouns()).rejects.toThrow(/title_head_nouns/);
+  });
+
+  test("a null title_levels column throws naming it", async () => {
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+
+  test("a null title_suffixes column throws naming it", async () => {
+    await expect(service.getTitleSuffixes()).rejects.toThrow(/title_suffixes/);
+  });
+
+  test("a null title_removal_words column throws naming it", async () => {
+    await expect(service.getTitleRemovalWords()).rejects.toThrow(/title_removal_words/);
+  });
+});
+
+// An empty vocabulary differs from an empty search-term list: nothing to
+// search for is a real answer, but nothing to recognise as a job noun, level,
+// suffix or removal word degrades every title silently rather than failing.
+describe("a title vocabulary set to an empty list still throws", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-settings-title-empty-list-");
+    dir = temp.dir;
+    await runSql(
+      temp.url,
+      "UPDATE Setting SET title_head_nouns = '[]', title_levels = '[]', title_suffixes = '[]', " +
+        "title_removal_words = '[]' WHERE id = 1"
+    );
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("getTitleHeadNouns throws rather than returning an empty list", async () => {
+    await expect(service.getTitleHeadNouns()).rejects.toThrow(/title_head_nouns/);
+  });
+
+  test("getTitleLevels throws rather than returning an empty list", async () => {
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+
+  test("getTitleSuffixes throws rather than returning an empty list", async () => {
+    await expect(service.getTitleSuffixes()).rejects.toThrow(/title_suffixes/);
+  });
+
+  test("getTitleRemovalWords throws rather than returning an empty list", async () => {
+    await expect(service.getTitleRemovalWords()).rejects.toThrow(/title_removal_words/);
+  });
+});
+
+// A vocabulary is a Json column, so its static type is JsonValue rather than a
+// list of strings. A stray entry of the wrong type has to be caught at read
+// time or it reaches the normalizer trusted.
+describe("a title vocabulary holding an entry of the wrong type throws", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-settings-title-bad-entry-");
+    dir = temp.dir;
+    await runSql(
+      temp.url,
+      "UPDATE Setting SET title_head_nouns = '[\"designer\", 42]', " +
+        "title_suffixes = '[\"-er\", 7]', title_removal_words = '[\"w2\", true]', " +
+        "title_levels = '[{\"store\":123,\"match\":[\"sr\"]}]' WHERE id = 1"
+    );
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("a non-string entry in title_head_nouns throws naming it", async () => {
+    await expect(service.getTitleHeadNouns()).rejects.toThrow(/title_head_nouns/);
+  });
+
+  test("a non-string entry in title_suffixes throws naming it", async () => {
+    await expect(service.getTitleSuffixes()).rejects.toThrow(/title_suffixes/);
+  });
+
+  test("a non-string entry in title_removal_words throws naming it", async () => {
+    await expect(service.getTitleRemovalWords()).rejects.toThrow(/title_removal_words/);
+  });
+
+  test("a level whose stored spelling is not a string throws naming its column", async () => {
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+});
+
+// A level holds objects rather than plain strings, so it has malformed shapes
+// of its own that a string check would never see.
+describe("getTitleLevels rejects a malformed level", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-title-levels-shape-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("a level that is a plain string throws", async () => {
+    await runSql(url, "UPDATE Setting SET title_levels = '[\"Sr.\"]' WHERE id = 1");
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+
+  test("a level with no spellings to match throws", async () => {
+    await runSql(url, "UPDATE Setting SET title_levels = '[{\"store\":\"Sr.\"}]' WHERE id = 1");
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+
+  test("a non-string spelling inside a level throws", async () => {
+    await runSql(
+      url,
+      "UPDATE Setting SET title_levels = '[{\"store\":\"Sr.\",\"match\":[\"sr\", 5]}]' WHERE id = 1"
+    );
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+
+  // A level nothing can match is a level that will never fire, which is the
+  // same silent degradation as an empty vocabulary.
+  test("a level with an empty spelling list throws", async () => {
+    await runSql(
+      url,
+      "UPDATE Setting SET title_levels = '[{\"store\":\"Sr.\",\"match\":[]}]' WHERE id = 1"
+    );
+    await expect(service.getTitleLevels()).rejects.toThrow(/title_levels/);
+  });
+});
+
+describe("the title vocabulary getters return what the seed writes", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-title-seeded-");
+    dir = temp.dir;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("getTitleHeadNouns returns the seeded head nouns", async () => {
+    expect([...(await service.getTitleHeadNouns())].sort()).toEqual(
+      [...EXPECTED_TITLE_HEAD_NOUNS].sort()
+    );
+  });
+
+  test("getTitleSuffixes returns the seeded suffixes", async () => {
+    expect([...(await service.getTitleSuffixes())].sort()).toEqual(
+      [...EXPECTED_TITLE_SUFFIXES].sort()
+    );
+  });
+
+  test("getTitleLevels returns the seeded levels with their stored spelling", async () => {
+    expect(sortedLevels(await service.getTitleLevels())).toEqual(
+      sortedLevels(EXPECTED_TITLE_LEVELS)
+    );
+  });
+
+  test("getTitleRemovalWords returns the seeded removal words", async () => {
+    expect([...(await service.getTitleRemovalWords())].sort()).toEqual(
+      [...EXPECTED_TITLE_REMOVAL_WORDS].sort()
+    );
+  });
+
+  // Senior, Sr and Sr. are one level, which is the whole reason a level
+  // carries its spellings rather than standing as a plain word.
+  test("Senior, Sr and Sr. all store as one spelling", async () => {
+    const levels = await service.getTitleLevels();
+    const sr = levels.find((level) => level.store === "Sr.");
+    expect(sr?.match).toEqual(expect.arrayContaining(["senior", "sr", "sr."]));
   });
 });

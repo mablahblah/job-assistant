@@ -10,6 +10,37 @@ const SETTING_DEFAULTS = {
   location: "78701",
   radius: 30,
   expiry_threshold: 8,
+  // The words that name a job. Finding one is what tells the title rule which
+  // part of a title is the role.
+  title_head_nouns: [
+    "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",
+    "designer", "developer", "director", "engineer", "head", "lead", "manager",
+    "owner", "producer", "programmer", "researcher", "scientist", "specialist",
+    "strategist", "technician", "technologist", "translator", "vp", "writer",
+  ],
+  // Each seniority spelling that gets stored, with every spelling a posting
+  // might write for it.
+  title_levels: [
+    { store: "Intern", match: ["intern"] },
+    { store: "Jr.", match: ["junior", "jr", "jr."] },
+    { store: "Associate", match: ["associate", "assoc"] },
+    { store: "Mid", match: ["mid"] },
+    { store: "Sr.", match: ["senior", "sr", "sr."] },
+    { store: "Staff", match: ["staff"] },
+    { store: "Lead", match: ["lead"] },
+    { store: "Principal", match: ["principal"] },
+    { store: "Head", match: ["head"] },
+    { store: "Director", match: ["director"] },
+    { store: "VP", match: ["vp"] },
+    { store: "Chief", match: ["chief"] },
+  ],
+  // Word endings that name a person doing a job, used when no head noun
+  // matched so a profession the list has never seen is still recognised.
+  title_suffixes: ["-er", "-or", "-ist", "-yst", "-ian", "-ant", "-ect"],
+  // Words taken out of a title's team part only. Deliberately short: it grows
+  // from what real titles turn out to need rather than from a list fitted in
+  // advance.
+  title_removal_words: ["w2", "c2h", "evergreen"],
 };
 
 // The boards each ATS collector polls. A collector finds its work by asking
@@ -36,11 +67,17 @@ const SLUGS_BY_PLATFORM: Record<string, string[]> = {
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
+type TitleLevelDefault = { store: string; match: string[] };
+
 type SettingPatch = {
   search_terms?: string[];
   location?: string;
   radius?: number;
   expiry_threshold?: number;
+  title_head_nouns?: string[];
+  title_levels?: TitleLevelDefault[];
+  title_suffixes?: string[];
+  title_removal_words?: string[];
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -60,6 +97,14 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   if (existing.radius === null) patch.radius = SETTING_DEFAULTS.radius;
   if (existing.expiry_threshold === null) {
     patch.expiry_threshold = SETTING_DEFAULTS.expiry_threshold;
+  }
+  if (existing.title_head_nouns === null) {
+    patch.title_head_nouns = SETTING_DEFAULTS.title_head_nouns;
+  }
+  if (existing.title_levels === null) patch.title_levels = SETTING_DEFAULTS.title_levels;
+  if (existing.title_suffixes === null) patch.title_suffixes = SETTING_DEFAULTS.title_suffixes;
+  if (existing.title_removal_words === null) {
+    patch.title_removal_words = SETTING_DEFAULTS.title_removal_words;
   }
 
   const filled = Object.keys(patch);
