@@ -43,29 +43,34 @@ interface CompiledVocabularies {
 const DASH_VARIANTS = /[‐-―−]/g;
 const CURLY_SINGLE_QUOTES = /[‘’]/g;
 const CURLY_DOUBLE_QUOTES = /[“”]/g;
-// The nine punctuation characters that are content nowhere: the three bracket
-// pairs, the full stop, the semicolon and the colon. Nothing else is on this
-// list — a hash, an underscore, a middle dot, an ampersand and a slash are all
-// real content and none of them are touched. The comma and the pipe are absent
-// because they are segment separators, cut at in the next step rather than
-// deleted in this one.
-const DROPPED_PUNCTUATION = /[(){}[\].;:]/g;
+// The full stop is deleted outright. Inside a word it abbreviates rather than
+// separates, so spacing it would turn "U.S." into "U S", and deleting it is
+// what lets "Sr." tidy to "Sr" for the level list to match.
+const DROPPED_PUNCTUATION = /\./g;
 
-// Segments are cut at a comma, a pipe, or a dash with space on both sides —
-// a hyphen glued to its neighbours, as in "AI-Enabled", is word-internal and
+// The other eight characters that are content nowhere: the three bracket
+// pairs, the semicolon and the colon. Each leaves a space behind it, because
+// deleting one glued to a word welds two words into one — "Designer(6 months"
+// has to become "Designer 6 months". Nothing else is on either list; a hash,
+// an underscore, a middle dot, an ampersand and a slash are all real content.
+// The comma and the pipe are absent because they separate segments, cut at in
+// the next step rather than taken out in this one.
+const SPACED_PUNCTUATION = /[(){}[\];:]/g;
+
+// Segments are cut at a comma, a pipe, or a dash carrying a space on either
+// side. A dash glued on both sides, as in "AI-Enabled", is word-internal and
 // stays put.
-const SEGMENT_SEPARATOR = /\s*,\s*|\s*\|\s*|\s-\s/;
+const SEGMENT_SEPARATOR = /\s*,\s*|\s*\|\s*|\s+-\s*|\s*-\s+/;
 
-// The nine punctuation characters are deleted outright, so whatever they held
-// rejoins the ordinary run of words. "Sr." tidies to "Sr", which the level
-// list also matches, and the stored spelling is what puts the full stop back.
-// Dash and quote variants are folded onto one plain form each, and runs of
-// whitespace collapse to one space.
+// Dash and quote variants fold onto one plain form each, punctuation is taken
+// out by the two rules above, and the runs of whitespace that leaves collapse
+// to one space.
 function tidy(raw: string): string {
   return raw
     .replace(DASH_VARIANTS, "-")
     .replace(CURLY_SINGLE_QUOTES, "'")
     .replace(CURLY_DOUBLE_QUOTES, '"')
+    .replace(SPACED_PUNCTUATION, " ")
     .replace(DROPPED_PUNCTUATION, "")
     .replace(/\s+/g, " ")
     .trim();

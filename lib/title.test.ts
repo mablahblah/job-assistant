@@ -124,6 +124,43 @@ describe("normalizeTitle: punctuation", () => {
       "Concepteur·trice"
     );
   });
+
+  test("a bracket is replaced by a space rather than deleted", () => {
+    // Without the space, "Designer(6" welds into "Designer6" and the digit
+    // can no longer be dropped as a lone number token.
+    const result = normalizeTitle("UI/UX Designer(6 months Contract)", VOCABULARIES);
+    expect(result.role).toBe("UI/UX Designer months Contract");
+    expect(result.matched).toBe(true);
+  });
+
+  test("a colon is replaced by a space on the same grounds", () => {
+    const result = normalizeTitle("Product Designer:in (UX/UI)", VOCABULARIES);
+    expect(result.role).toBe("Product Designer in UX/UI");
+    expect(result.matched).toBe(true);
+  });
+
+  test("a full stop is deleted outright rather than spaced", () => {
+    // Inside a word a full stop abbreviates and never separates. Deleting it
+    // lets "U.S." collapse to "US", and is what keeps "Sr." tidying to "Sr".
+    expect(normalizeTitle("U.S. UI/UX Designer", VOCABULARIES).role).toBe("US UI/UX Designer");
+  });
+});
+
+describe("normalizeTitle: dash as a separator", () => {
+  test("a dash with a space on one side still separates the team", () => {
+    const result = normalizeTitle("UX/UI Designer- REMOTE", VOCABULARIES);
+    expect(result.role).toBe("UX/UI Designer");
+    expect(result.team).toBe("REMOTE");
+  });
+
+  test("a dash glued on both sides is word-internal and falls back", () => {
+    // Same rule that keeps "AI-Enabled" and "Front-End" whole: no space on
+    // either side of the dash means it is content, not a separator.
+    const raw = "UX Designer-Healthcare";
+    const result = normalizeTitle(raw, VOCABULARIES);
+    expect(result.matched).toBe(false);
+    expect(result.title).toBe(raw);
+  });
 });
 
 describe("normalizeTitle: levels", () => {
