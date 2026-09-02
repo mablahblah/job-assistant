@@ -3,12 +3,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 import { runCollection, type CollectionReport } from "./search-orchestrator";
-import type { Collector, CollectorContext, CollectorResult } from "./collectors/types";
-import type { JobListEntry } from "./job-list-entry";
-import type { SettingsService } from "./settings-service";
-import type { UnusableCode } from "./collectors/job-usable";
-import type { TraceEvent, TraceWriter } from "./trace-writer";
-import { fakeSettings } from "./settings-service.fake";
+import type { Collector, CollectorContext, CollectorResult } from "../collectors/types";
+import type { JobListEntry } from "../job-list-entry";
+import type { SettingsService } from "../settings-service";
+import type { UnusableCode } from "../collectors/job-usable";
+import type { TraceEvent, TraceWriter } from "../trace-writer";
+import { fakeSettings } from "../settings-service.fake";
 
 // The orchestrator only hands this to collectors, so no getter needs real
 // behaviour. It is here to prove it arrives unchanged.

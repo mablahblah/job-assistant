@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { normalizeJob, type NormalizationEvent } from "./normalizer";
-import type { JobListEntry } from "./job-list-entry";
-import type { TitleVocabularies } from "./title";
+import type { JobListEntry } from "../job-list-entry";
+import type { TitleVocabularies } from "../title";
 
 // Covers only the events array normalizeJob returns alongside the job. The
 // job itself keeps its own coverage in normalizer.test.ts and is not

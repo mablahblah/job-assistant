@@ -3,22 +3,15 @@
 // is isolated from its neighbours: a throw, an error string, and a warning
 // string all become the same shape, so one source dropping out never costs
 // the run the others.
-import { unusableReason } from "./collectors/job-usable";
-import type { Collector } from "./collectors/types";
-import type { JobListEntry } from "./job-list-entry";
+import type { CollectionIssue } from "../collection-issue";
+import { unusableReason } from "../collectors/job-usable";
+import type { Collector } from "../collectors/types";
+import type { JobListEntry } from "../job-list-entry";
 import { normalizeJobs } from "./normalizer";
-import type { SettingsService } from "./settings-service";
-import { messageFromThrown } from "./thrown-message";
-import type { TitleVocabularies } from "./title";
-import type { TraceWriter } from "./trace-writer";
-
-// An error or a warning, always carrying the collector that produced it.
-// Thirteen companies sit behind one ATS collector, so the collector's own
-// message is what names the board or search and is never rewritten.
-export interface CollectionIssue {
-  collector: string;
-  message: string;
-}
+import type { SettingsService } from "../settings-service";
+import { messageFromThrown } from "../thrown-message";
+import type { TitleVocabularies } from "../title";
+import type { TraceWriter } from "../trace-writer";
 
 export interface CollectionReport {
   jobs: JobListEntry[];

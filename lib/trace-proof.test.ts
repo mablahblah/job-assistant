@@ -12,7 +12,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
 import { createTraceWriter, type TraceWriter } from "./trace-writer";
-import { runCollection, type CollectionReport } from "./search-orchestrator";
+import { runCollection, type CollectionReport } from "./steps/search-orchestrator";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { normalizeJob, normalizeJobs } from "./normalizer";
-import type { JobListEntry } from "./job-list-entry";
-import type { TitleVocabularies } from "./title";
-import type { TraceEvent, TraceWriter } from "./trace-writer";
+import type { JobListEntry } from "../job-list-entry";
+import type { TitleVocabularies } from "../title";
+import type { TraceEvent, TraceWriter } from "../trace-writer";
 
 // Covers normalizeJobs, the step wrapper that calls normalizeJob once per
 // entry in a job list, writes its own trace rows, and folds the warnings

@@ -2,7 +2,8 @@
 // phases of the pipeline add their own step here, after this one.
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createSettingsService } from "../lib/settings-service";
-import { runCollection, type CollectionIssue } from "../lib/search-orchestrator";
+import type { CollectionIssue } from "../lib/collection-issue";
+import { runCollection } from "../lib/steps/search-orchestrator";
 import { createTraceWriter } from "../lib/trace-writer";
 import { COLLECTORS } from "../lib/collectors/registry";
 

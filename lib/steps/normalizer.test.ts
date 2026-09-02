@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { normalizeJob } from "./normalizer";
-import type { JobListEntry } from "./job-list-entry";
-import type { TitleVocabularies } from "./title";
+import type { JobListEntry } from "../job-list-entry";
+import type { TitleVocabularies } from "../title";
 
 // The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
 // so normalizeJob's title routing runs against what really ships. It moves
