@@ -131,10 +131,10 @@ model Setting {
 // post_collection_dedupe, post_collection_save, resolution,
 // post_resolution_dedupe, post_resolution_save, parsing,
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
-// post_parsing_save, classification, post_classification_save, scoring. Only
-// collection writes today; each later phase adds its own values once it
-// exists, the way Job.status grows its comment. Collection and both
-// normalization passes write today.
+// post_parsing_save, classification, post_classification_save, scoring.
+// Collection and the normalization pass after it write today; each later
+// phase adds its own values once it exists, the way Job.status grows its
+// comment.
 //
 // event names what happened. Collection writes collected and abandoned;
 // normalization writes job_updated where a field was normalized and
@@ -158,6 +158,11 @@ model Setting {
 // work_mode_unusable; and company_name_normalized, which has no failure
 // twin because a cosmetic tidy cannot fail. salary_unusable and
 // work_mode_unusable are the two that warn at the end of a run.
+//
+// normalization_failed does not mean nothing was written. A title that
+// matched no job noun still stores its cleaned fallback, so the event
+// records that the rule did not fire rather than that the field was left
+// empty.
 //
 // A normalization event's detail carries from and to, each cut at 200
 // characters, so a collector bug putting a description in the wrong field

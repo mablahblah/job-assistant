@@ -610,7 +610,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
     }
   });
 
-  test("the reason vocabulary is listed", () => {
+  test("collection's reason codes are listed", () => {
     const comment = traceComment();
     const reasons = [
       "no_original_url",
@@ -623,5 +623,50 @@ describe("Trace: the model comment carries both vocabularies", () => {
     for (const reason of reasons) {
       expect(comment).toContain(reason);
     }
+  });
+
+  test("normalization's reason codes are listed", () => {
+    // None of these nine names is a substring of another: every
+    // *_normalized name is followed by a suffix that a longer sibling
+    // spells differently right after the shared field prefix (title_
+    // then "normalized" vs. "not_normalized", salary_ and work_mode_
+    // then "normalized" vs. "partially_normalized"), so a toContain here
+    // cannot pass on the strength of the wrong reason.
+    const comment = traceComment();
+    const reasons = [
+      "title_normalized",
+      "title_not_normalized",
+      "salary_normalized",
+      "salary_partially_normalized",
+      "salary_unusable",
+      "work_mode_normalized",
+      "work_mode_partially_normalized",
+      "work_mode_unusable",
+      "company_name_normalized",
+    ];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
+    }
+  });
+
+  test("the event vocabulary is listed", () => {
+    const comment = traceComment();
+    const events = ["collected", "abandoned", "job_updated", "normalization_failed"];
+    for (const event of events) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("the comment states that normalization_failed still writes a fallback value", () => {
+    // The sentence is hard-wrapped across several "//"-prefixed lines, so a
+    // toContain on the full sentence would fail even with every word
+    // present. Stripping the "//" markers and then collapsing every run of
+    // whitespace (line breaks included) down to a single space reassembles
+    // it into one line before matching.
+    const comment = traceComment();
+    const collapsed = comment.replace(/\/\//g, " ").replace(/\s+/g, " ").trim();
+    expect(collapsed).toContain(
+      "normalization_failed does not mean nothing was written. A title that matched no job noun still stores its cleaned fallback, so the event records that the rule did not fire rather than that the field was left empty."
+    );
   });
 });
