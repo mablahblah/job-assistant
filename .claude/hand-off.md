@@ -13,71 +13,63 @@
 
 ## Current Task
 
-Feature: **Unified Job Pipeline** — thirteen phases on the long-lived branch `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
+Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 3 (Normalization) is being built.** Tasks 1 to 12 of 13 are done and closed. Task 13, the proof, is next, and closing the phase follows it.
+**Phase 3 (Normalization) is being built.** Twelve of fourteen tasks are done. Task 13 — the step contract — is next, and it is a code change. Task 14, the proof, follows it. Closing the phase comes last.
 
-**Everything is committed and pushed.** The working tree is clean at `9a54aa0`. The suite runs 1143 tests across 40 files. `npm run lint` exits 0 and now runs the type checker too.
+**Everything is committed and pushed.** The working tree is clean at `e35c5a0`. The suite runs 1,143 tests across 40 files. `npm run lint` exits 0 and runs `tsc --noEmit` after ESLint.
 
-Normalization runs for real. `runCollection` reads the four title vocabularies once, normalizes every job that survives the usability check, writes a trace row per field it acted on, and folds unusable salaries and work modes into one warning line per collector at the end of the run.
+Nothing was written to `lib/` this session. The whole session was a live proof run, a shape problem it exposed, and the paperwork settling it.
 
 ## Completed This Session
 
-**Task 7 — the work mode normalizer.** `normalizeModeList` in `lib/work-mode-list.ts` maps a source's own spellings onto `remote`, `hybrid` and `in-person`. A word it does not recognise is dropped. `lib/work-mode.ts`'s `normalizeMode`, which turns anything unrecognised into `in-person`, is not reused — that default is right for reading prose and wrong over a source's own field.
+**A live end-to-end run.** `npm run db:create`, `npm run db:seed`, then `npm run collect` with no limit. 383 jobs collected, none dropped, 805 normalization events written. Per collector: adzuna 134, uiuxjobsboard 118, greenhouse 57, ashby 53, lever 12, dribbble 9, jsearch 0. jsearch failed with `Network timeout after 15s`. Twelve titles could not be filed, six of them internships. The scratch scripts live in `data/proof/`, which git ignores.
 
-**Task 8 — the company name normalizer.** `normalizeCompanyName` trims, collapses doubled spaces, and drops a trailing run of anything that is not a letter or digit. Measured against all 1,324 committed names: 76 change, 0 drift on a second pass.
+**A shape problem found and settled.** The normalizer is called one job at a time from inside collection's per-collector loop. The feature spec says every step is handed a job list. Phase 3's spec has 105 acceptance criteria and none mentions a job list, so the build passed all of them while drifting.
 
-**Task 9 — the normalizer service.** `normalizeJob` routes four raw fields to their normalizers and returns a new job. Every present field is recomputed each call, with nothing asking whether the answer is already filled in.
+**`.claude/rules/pipeline-steps.md`.** The step contract, written down and scoped to `lib/` and `scripts/`. The rules checklist passes on seventeen of nineteen checks; the two failures are the glob's breadth, which phase 3a fixes.
 
-**Task 10 — tracing.** `normalizeJob` returns the events it produced. Nine reasons, two events, `detail` carrying before and after, cut at 200 characters.
+**`docs/features/unified-pipeline/phases/phase-03a-steps-folder-spec.md`.** Phase 3a moves the steps into `lib/steps/` and narrows the rule's glob. It carries no plan step and no meeting note.
 
-**Task 11 — warnings.** `summarizeNormalizationWarnings` folds unusable fields into one line per collector per reason, with a count and the first two examples.
+**`docs/CURRENT-FEATURE.md` cut from 105 lines to 80.** Phases 1 and 2 keep their task lists in their own specs and show one line each here. Phase 3 gained task 13 and phase 3a sits between phase 3 and phase 4, so nothing renumbered.
 
-**Task 12 — the wiring.** Normalization runs inside `runCollection`.
-
-**Two unplanned fixes, both approved in conversation.**
-
-`Mid` was a level in its own right alongside `Mid-Level`, which would have filed one rung under two stored names. It came from a draft line in the phase r&d, never a decision. `Mid-Level` now owns every spelling of that rung.
-
-Ten test files each hand-built a `SettingsService` and all ten had gone stale. `lib/settings-service.fake.ts` replaced them, and `npm run lint` now runs `tsc --noEmit` so the next one is caught.
+**Five decision log entries, one superseded.** The superseded one named a "fixed character limit" without saying what it was.
 
 ## Decisions & Context
 
 The decision log is the authority. What follows is only what is not written down elsewhere.
 
-**Three calls made without sign-off.** These are proposals, not decisions. Each has a real consequence and none was put to the user during the work.
-
-- **The trace `detail` limit is 200 characters.** Picked from measurement: longest real title 131, longest real company name 50. Named as `MAX_DETAIL_LENGTH` in `lib/normalizer.ts`.
-- **`normalizeJob` returns plain reasons, not finished trace rows.** A trace row needs a run id the function never receives, so the orchestrator adds the run id, the job id and the step. This is what lets one function serve both the pass after collection and the pass after parsing.
-- **A missing raw field leaves its target alone rather than clearing it.** No `raw_salary` means an existing `salary_low` survives. Criterion 61 reads either way; this is the reading that never destroys data.
-
 **Gotchas that will bite again:**
 
-- **`normalizeTitle("")` answers with an empty title rather than refusing.** Calling it without checking first wipes a title an earlier pass wrote.
-- **`normalizeSalary({})` answers with an empty object.** One crowd-code writer passed empty envelopes straight through, which turned a real salary of 900 into nothing. Verified by running it.
-- **Zero out of zero reads as a perfect score.** A salary envelope holding only a currency has nothing countable in it. `lib/normalizer.ts` checks "nothing came out" before "everything came out" for exactly this reason.
-- **Three existing tests asserted over every trace row.** True while collection was the only writer, false now. Any new pipeline step breaks tests the same way. They are `search-orchestrator.test.ts` twice and `trace-proof.test.ts` once.
-- **A crowd-code writer cannot run tests.** Every round this session was settled by comparing two outputs and running the code, never by trusting a writer's claim.
+- **The `Trace` comment contradicts itself.** `prisma/schema.prisma:135` says "Only collection writes today", then two lines later says both normalization passes write. The second is also wrong — parsing has no code yet.
+- **A signed decision does not match the code.** Decision log line 161 says the `Trace` comment states a fallback title still got written. The comment does not say it. That is criterion 97, and it is not met.
+- **`level`, `role` and `team` are computed and thrown away.** `normalizeTitle` returns all three, `normalizeJob` keeps only `title`, and the schema has no columns for them.
+- **A step name is plain text.** `TraceEvent.step` is typed `string`, so a typo makes a whole pass vanish from the trace table with nothing failing. A union type would catch it. Not logged in `BACKLOG.md` yet.
+- **`npm run collect` dirties the working tree.** It refreshes `lib/collectors/fixtures/dribbble.html` and `uiuxjobsboard.html` by design. Commit them or the next `git status` looks wrong.
+- **The Bash working directory persists between tool calls.** A stale `cd` wrote the rule file to `docs/.claude/rules/` before it was caught.
+- **Text landed inside `CURRENT-FEATURE.md` while it was open in the IDE.** Task 14 read "the funnel answered 1, nofrom the database". Fixed in `e35c5a0`, but it reached a pushed commit first.
 
 **Approaches abandoned:**
 
-- **Splitting a slash where one side is a known job word.** Built and measured. It flips `matched` to true but the whole string still lands in the role with no level and no team. Logged as a decision.
-- **Filtering warning reasons in the orchestrator.** The orchestrator passes every normalization event to `summarizeNormalizationWarnings` and lets it drop the seven silent ones. A second copy of that list would drift.
-- **A raw null byte as a Map key separator.** It works, but it is invisible in source. `lib/normalization-warnings.ts` writes it as a `\u0000` escape instead.
+- **Renumbering phases 4 through 13.** Measured at 105 text mentions and 10 file renames. Phase 3a costs nothing by comparison.
+- **Scoping the step rule to the two step files by name.** It would then not load when someone creates a *new* step, which is the case the rule exists for. The broad glob stays until `lib/steps/` exists.
 
 **Open threads:**
 
-- The three unsigned calls above.
-- Criteria 93 and 96 cannot be met until a parsing phase exists to call the normalizer a second time. Phase 8.
-- Carried from previous hand-offs, none blocking: the four silent source assumptions in the Phase 1 r&d are still unguarded; Phase 2's AC 15 printing half still has no standing test; the no-overfitting decision is rule-shaped and may belong in `docs/DECISIONS.md`.
-- `docs/DECISIONS.md` does not exist. The lint-runs-typecheck decision reaches past this feature and should be promoted there when `clean-decision-logs` runs.
+- **Two calls still unsigned**, carried from the previous hand-off. Where a trace row gets finished — superseded by the step contract, so it resolves itself in task 13. And a missing raw field leaving its target alone rather than clearing it, which is still nobody's decision.
+- **Criteria 93 and 96 cannot be met until phase 8** builds parsing and calls the normalizer a second time.
+- **Criterion 97 is not met.** See the gotcha above.
+- **`docs/DECISIONS.md` does not exist.** Three entries now reach past this feature and have nowhere to go: lint running the type checker, a closed phase's tasks living in its spec, and the pipeline step contract.
+- Carried and not blocking: the four silent source assumptions in the phase 1 r&d are still unguarded, and phase 2's AC 15 printing half still has no standing test.
 
 ## Next Steps
 
-1. **Build task 13 — the proof.** The funnel answered from the database in SQL, offline, with no query code in `lib/`. Criterion 98 names the question: "how many titles normalized, by collector". `lib/trace-proof.test.ts` is the pattern — it already spins up a real database, runs a collection, and reads rows back with raw SQL in the test file. Criterion 96, reading each step by its own latest event, belongs here if it can be written against one step.
+1. **Build task 13 — the step contract.** `lib/normalizer.ts` gains a list-shaped entry point that loops and writes its own trace rows; `normalizeJob` stays underneath, unchanged, as the per-job core. `lib/search-orchestrator.ts` moves the call out of its per-job loop to after collection finishes, and passes down the run id and the step name `post_collection_normalization`. Seven files reference the two. `.claude/rules/pipeline-steps.md` is the contract to build against. Test-first, and run anything a writer claims.
 
-2. **Close phase 3.** Update `docs/features/unified-pipeline/architecture.md`, the decision log, and `BACKLOG.md`. This has its own checkbox because a phase whose close lives inside its build item gets ticked with the architecture doc still stale.
+2. **Build task 14 — the proof.** The funnel answered from the database in SQL, offline, with no query code in `lib/`. `lib/trace-proof.test.ts` is the pattern: it spins up a scratch database, runs a real collection with fake collectors, and reads rows back with SQL written in the test file. Criterion 98 names the question — "how many titles normalized, by collector".
 
-3. **Then plan phase 4 — Company Association.** Its r&d already carries the open questions, including what a normalized company name match actually compares, which this phase has now answered: an exact string after a cosmetic tidy, with case and internal spacing left alone.
+3. **Close phase 3.** Four documents. `architecture.md` is stale in five places: its Status section still says phase 3 is unbuilt, its Services table has no normalizer row, its Data Model omits `title`, `normalized_mode_list` and the four title vocabularies, it says collection writes "one step and six reasons" when it is now two and fifteen, and Ported From Legacy has no phase 3 row. The feature spec turns its Vocabulary sentence about job lists into a platform story so future phases get criteria written against it. The decision log is current. `BACKLOG.md` gets its sweep, plus the union-typed step name as a new item.
 
-4. Every task is test-first. `test-driven-development` runs before implementation, and `crowd-code` writes both the tests and the code. Compare the two writers rather than taking either at its word, and run anything either one claims.
+4. **Then phase 3a.** Its spec is written and its three open questions are settled. It is a move, an import update, a glob, and one type extraction.
+
+5. Every task is test-first. `test-driven-development` runs before implementation, and `crowd-code` writes both the tests and the code. Compare the two writers rather than taking either at its word, and run anything either one claims.
