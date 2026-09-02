@@ -4,7 +4,7 @@
 // bury every other warning in the run. Grouping them down to a count and a
 // couple of examples keeps a broken source visible without drowning out
 // anything else.
-import type { CollectionIssue } from "./search-orchestrator";
+import type { CollectionIssue } from "./collection-issue";
 
 export interface UnusableField {
   collector: string;
