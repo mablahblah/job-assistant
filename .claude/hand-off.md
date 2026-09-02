@@ -15,25 +15,40 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 3 (Normalization) is being built.** Twelve of fourteen tasks are done. Task 13 — the step contract — is next, and it is a code change. Task 14, the proof, follows it. Closing the phase comes last.
+**Phase 3 (Normalization) is complete — planned, built and closed.** Nothing is in flight. The next item is Phase 3a, which moves the steps into `lib/steps/`. Its spec is written and its open questions are settled.
 
-**Everything is committed and pushed.** The working tree is clean at `e35c5a0`. The suite runs 1,143 tests across 40 files. `npm run lint` exits 0 and runs `tsc --noEmit` after ESLint.
+**Everything is committed and pushed.** The working tree is clean at `748405b`. The suite runs **1,194 tests across 41 files**. `npm run lint` exits 0 and runs `tsc --noEmit` after ESLint.
 
-Nothing was written to `lib/` this session. The whole session was a live proof run, a shape problem it exposed, and the paperwork settling it.
+No job site was reached this session. Every test uses fake collectors, and the two page-reading fixtures are untouched.
 
 ## Completed This Session
 
-**A live end-to-end run.** `npm run db:create`, `npm run db:seed`, then `npm run collect` with no limit. 383 jobs collected, none dropped, 805 normalization events written. Per collector: adzuna 134, uiuxjobsboard 118, greenhouse 57, ashby 53, lever 12, dribbble 9, jsearch 0. jsearch failed with `Network timeout after 15s`. Twelve titles could not be filed, six of them internships. The scratch scripts live in `data/proof/`, which git ignores.
+**Task 13 — the step contract.** `lib/normalizer.ts` gained `normalizeJobs`: it takes a job list, returns that list with the warnings it raised, and writes its own trace rows from the run id and step name its caller hands it. `normalizeJob` sits underneath unchanged as the per-job core. `lib/search-orchestrator.ts` lost 30 lines — its loop now only collects and stamps, and calls the normalizer once after every collector finishes. Forty new tests in `lib/normalizer-step.test.ts`, plus two in the orchestrator's own file proving the call happens once over the whole list.
 
-**A shape problem found and settled.** The normalizer is called one job at a time from inside collection's per-collector loop. The feature spec says every step is handed a job list. Phase 3's spec has 105 acceptance criteria and none mentions a job list, so the build passed all of them while drifting.
+**Task 14 — the proof.** Six tests added to `lib/trace-proof.test.ts`. A real collection runs against a throwaway SQLite file with a real title vocabulary, then raw SQL written in the test file answers "how many titles normalized, by collector". `SELECT` and `createClient` appear nowhere in `lib/` outside test files.
 
-**`.claude/rules/pipeline-steps.md`.** The step contract, written down and scoped to `lib/` and `scripts/`. The rules checklist passes on seventeen of nineteen checks; the two failures are the glob's breadth, which phase 3a fixes.
+**Phase 3 closed.** `architecture.md` fixed in all five stale places. `feature_spec.md` gained the step contract and the trace-versus-warning split as platform constraints. `docs/BACKLOG.md` gained the union-typed step name. `CURRENT-FEATURE.md` collapsed phase 3's fourteen tasks to one line linking the spec.
 
-**`docs/features/unified-pipeline/phases/phase-03a-steps-folder-spec.md`.** Phase 3a moves the steps into `lib/steps/` and narrows the rule's glob. It carries no plan step and no meeting note.
+**The `Trace` comment settled, and criterion 97 met.** The comment said only collection writes today and then said both normalization passes do. It now says collection and the one normalization pass after it. It also gained the sentence saying `normalization_failed` does not mean nothing was written. Four tests in `prisma/schema.test.ts` cover the nine normalization reasons, the four events and that sentence.
 
-**`docs/CURRENT-FEATURE.md` cut from 105 lines to 80.** Phases 1 and 2 keep their task lists in their own specs and show one line each here. Phase 3 gained task 13 and phase 3a sits between phase 3 and phase 4, so nothing renumbered.
+**`.claude/rules/pipeline-steps.md` gained a Trace and warnings section**, in the user's own words, with the older directives grouped under Shape. The rules checklist passes 17 of 19; the two failures are the broad glob that phase 3a closes.
 
-**Five decision log entries, one superseded.** The superseded one named a "fixed character limit" without saying what it was.
+**Two search issues carried over** from a `/job-search` run on `main`, brought across in a stash.
+
+Nine commits, all pushed:
+
+```
+748405b docs: add the new normalizer test to phase 3a's import list
+65f1686 docs: close phase 3
+a16fa84 docs: bring the architecture and spec up to phase 3 as built
+4b480f2 fix: settle what the Trace comment says about normalization
+edb76b3 test: answer the normalization funnel from the database in SQL
+b512f38 docs: log the trace and warning split, and close task 13
+ba4fd75 docs: carry over two search issues logged on main
+9e6c5eb feat: normalize the whole job list in one call after collection
+1e87e91 docs: correct what the phase specs say about the step contract
+937887a docs: state the difference between a trace row and a warning
+```
 
 ## Decisions & Context
 
@@ -41,35 +56,33 @@ The decision log is the authority. What follows is only what is not written down
 
 **Gotchas that will bite again:**
 
-- **The `Trace` comment contradicts itself.** `prisma/schema.prisma:135` says "Only collection writes today", then two lines later says both normalization passes write. The second is also wrong — parsing has no code yet.
-- **A signed decision does not match the code.** Decision log line 161 says the `Trace` comment states a fallback title still got written. The comment does not say it. That is criterion 97, and it is not met.
-- **`level`, `role` and `team` are computed and thrown away.** `normalizeTitle` returns all three, `normalizeJob` keeps only `title`, and the schema has no columns for them.
-- **A step name is plain text.** `TraceEvent.step` is typed `string`, so a typo makes a whole pass vanish from the trace table with nothing failing. A union type would catch it. Not logged in `BACKLOG.md` yet.
-- **`npm run collect` dirties the working tree.** It refreshes `lib/collectors/fixtures/dribbble.html` and `uiuxjobsboard.html` by design. Commit them or the next `git status` looks wrong.
-- **The Bash working directory persists between tool calls.** A stale `cd` wrote the rule file to `docs/.claude/rules/` before it was caught.
-- **Text landed inside `CURRENT-FEATURE.md` while it was open in the IDE.** Task 14 read "the funnel answered 1, nofrom the database". Fixed in `e35c5a0`, but it reached a pushed commit first.
+- **TypeScript will not narrow a trace writer from a saved boolean.** Hoisting `const canTrace = trace !== undefined && runId !== undefined && step !== undefined` out of the loop reads better but fails to compile, because `trace.write` still sees `TraceWriter | undefined`. The check stays inline. Every future step that traces hits this.
+- **`title_normalized` means a head noun matched, not that the text changed.** "Product Designer" is recorded as normalized while reading back identical. A funnel query assuming normalized means changed will be wrong.
+- **A salary envelope carrying only a period is thrown out whole.** `lib/salary.ts` returns `{}` as soon as both the minimum and maximum are missing, before it looks at the period word. So `{ salary_period: "week" }` is `salary_unusable`. Measured, not assumed.
+- **Blanking a comment block in `schema.prisma` fails the comment tests for the wrong reason.** `traceComment()` matches only unbroken `//` lines directly above the model, so deleting a block leaves a gap that truncates it and every comment test fails at once. To isolate one failure, blank the lines in place.
+- **The backlog lives at `docs/BACKLOG.md`**, not the repo root, though several docs call it `BACKLOG.md`.
+- **`normalizer.ts` imports a type from `search-orchestrator.ts`, which points backwards.** It is type-only so it erases at compile time and no runtime loop exists. Phase 3a task 1 moves that type out.
+- **`level`, `role` and `team` are still computed and thrown away.** `normalizeTitle` returns all three, `normalizeJob` keeps only `title`, and the schema has no columns for them.
 
-**Approaches abandoned:**
+**Approaches tried and abandoned:**
 
-- **Renumbering phases 4 through 13.** Measured at 105 text mentions and 10 file renames. Phase 3a costs nothing by comparison.
-- **Scoping the step rule to the two step files by name.** It would then not load when someone creates a *new* step, which is the case the rule exists for. The broad glob stays until `lib/steps/` exists.
+- **A separate proof file for task 14.** It would have copied about 90 lines of scaffolding and broken `trace-proof.test.ts`'s claim to be the only place a query is written anywhere in the project.
+- **Putting the trace-versus-warnings split only in the decision log.** It went into the rule file as well, because that is what a step author actually reads.
+- **A warnings callback, and reading warnings back out of the trace table.** Both were on the table for where a step's warnings go. Returning them won: the fake trace writer has no table to query, and a callback is harder to read in tests than a returned value.
 
 **Open threads:**
 
-- **Two calls still unsigned**, carried from the previous hand-off. Where a trace row gets finished — superseded by the step contract, so it resolves itself in task 13. And a missing raw field leaving its target alone rather than clearing it, which is still nobody's decision.
-- **Criteria 93 and 96 cannot be met until phase 8** builds parsing and calls the normalizer a second time.
-- **Criterion 97 is not met.** See the gotcha above.
-- **`docs/DECISIONS.md` does not exist.** Three entries now reach past this feature and have nowhere to go: lint running the type checker, a closed phase's tasks living in its spec, and the pipeline step contract.
+- **One call is unsigned.** `normalizeJobs` skips a job carrying no `id` or no `collector` — it still normalizes it, but writes no trace row and raises no warning, because both are keyed by those two fields. Collection always sets both, so this is a guard. It sits in a code comment and its tests, not the decision log, because it was never put to the user.
+- **Carried and still unsigned:** a missing raw field leaving its target alone rather than clearing it.
+- **`docs/DECISIONS.md` does not exist.** Four entries now reach past this feature and have nowhere to go: lint running the type checker, a closed phase's tasks living in its spec, the pipeline step contract, and the trace-versus-warning split.
+- **Criteria 93 and 96 wait on Phase 8.** Both describe the normalization pass after parsing. Recorded in the phase 3 spec under "Criteria this phase cannot meet". The normalizer already takes its step name from its caller, so Phase 8 meets them without changing anything.
+- **The two search issues now live only on this branch** and will not reach `main` until cutover at Phase 12. `/process-search-issues` turns them into backlog items, and `docs/BACKLOG.md` is on this branch too, so that works from here.
 - Carried and not blocking: the four silent source assumptions in the phase 1 r&d are still unguarded, and phase 2's AC 15 printing half still has no standing test.
 
 ## Next Steps
 
-1. **Build task 13 — the step contract.** `lib/normalizer.ts` gains a list-shaped entry point that loops and writes its own trace rows; `normalizeJob` stays underneath, unchanged, as the per-job core. `lib/search-orchestrator.ts` moves the call out of its per-job loop to after collection finishes, and passes down the run id and the step name `post_collection_normalization`. Seven files reference the two. `.claude/rules/pipeline-steps.md` is the contract to build against. Test-first, and run anything a writer claims.
+1. **Build Phase 3a — steps get their own folder.** Its [spec](../docs/features/unified-pipeline/phases/phase-03a-steps-folder-spec.md) carries five tasks, in order: move `CollectionIssue` out of `lib/search-orchestrator.ts` into `lib/collection-issue.ts`; create `lib/steps/` and move `search-orchestrator.ts` and `normalizer.ts` into it with their test files; repoint the imports in the eight files that reference them, re-running the search rather than trusting the list; replace both of the rule's `paths:` patterns with the single `lib/steps/**/*.ts` and re-run checks 1 and 2 of the rules checklist; update the architecture doc's Services table paths. `lib/collectors/` stays where it is — a collector is not a step. The only edit to any test file is its import path.
 
-2. **Build task 14 — the proof.** The funnel answered from the database in SQL, offline, with no query code in `lib/`. `lib/trace-proof.test.ts` is the pattern: it spins up a scratch database, runs a real collection with fake collectors, and reads rows back with SQL written in the test file. Criterion 98 names the question — "how many titles normalized, by collector".
+2. **Then plan Phase 4 — Company Association**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). Its r&d file holds the open questions.
 
-3. **Close phase 3.** Four documents. `architecture.md` is stale in five places: its Status section still says phase 3 is unbuilt, its Services table has no normalizer row, its Data Model omits `title`, `normalized_mode_list` and the four title vocabularies, it says collection writes "one step and six reasons" when it is now two and fifteen, and Ported From Legacy has no phase 3 row. The feature spec turns its Vocabulary sentence about job lists into a platform story so future phases get criteria written against it. The decision log is current. `BACKLOG.md` gets its sweep, plus the union-typed step name as a new item.
-
-4. **Then phase 3a.** Its spec is written and its three open questions are settled. It is a move, an import update, a glob, and one type extraction.
-
-5. Every task is test-first. `test-driven-development` runs before implementation, and `crowd-code` writes both the tests and the code. Compare the two writers rather than taking either at its word, and run anything either one claims.
+3. **Every task is test-first.** `test-driven-development` runs before implementation, and `crowd-code` writes both the tests and the code. Compare the two writers rather than taking either at its word, and run anything either one claims. Where a test is written over code that already works — as task 14's proof was — break the code on purpose and confirm the test fails, because a test that passes first time proves nothing on its own.
