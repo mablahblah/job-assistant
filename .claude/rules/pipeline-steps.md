@@ -1,5 +1,5 @@
 ---
-paths: ["lib/**/*.ts", "scripts/**/*.ts"]
+paths: ["lib/steps/**/*.ts"]
 ---
 
 # Pipeline Steps
