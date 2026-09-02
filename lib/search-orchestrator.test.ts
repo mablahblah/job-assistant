@@ -1045,6 +1045,51 @@ describe("normalization writes its own trace events after collection", () => {
   });
 });
 
+describe("normalization runs once, after collection finishes, not once per job inside the loop", () => {
+  test("every collection event precedes every normalization event", async () => {
+    // One job per collector. If normalization runs inside collection's own
+    // per-job loop, the two steps interleave: collect job 1, normalize job 1,
+    // collect job 2, normalize job 2. Running normalization once over the
+    // finished list keeps every collection event ahead of every
+    // normalization event, so index order alone proves which happened.
+    const trace = makeTraceWriter();
+    const first = makeCollector("lever", { jobs: [makeJob("Designer")], errors: [], warnings: [] });
+    const second = makeCollector("greenhouse", { jobs: [makeJob("Researcher")], errors: [], warnings: [] });
+    await runCollection({ settings: stubSettings, runId: stubRunId, trace, collectors: [first, second] });
+
+    const collectionIndexes = trace.events
+      .map((event, index) => (event.step === "collection" ? index : -1))
+      .filter((index) => index !== -1);
+    const normalizationIndexes = trace.events
+      .map((event, index) => (event.step === "post_collection_normalization" ? index : -1))
+      .filter((index) => index !== -1);
+
+    expect(Math.max(...collectionIndexes)).toBeLessThan(Math.min(...normalizationIndexes));
+
+    // The ordering check above would pass vacuously if normalization simply
+    // never ran, so this confirms both collectors' jobs actually reached it.
+    const normalizingCollectors = new Set(
+      trace.events
+        .filter((event) => event.step === "post_collection_normalization")
+        .map((event) => event.collector)
+    );
+    expect(normalizingCollectors).toEqual(new Set(["lever", "greenhouse"]));
+  });
+
+  test("report.jobs carries each collector's normalized title, in collector order", async () => {
+    const first = makeCollector("lever", { jobs: [makeJob("Senior Designer")], errors: [], warnings: [] });
+    const second = makeCollector("greenhouse", { jobs: [makeJob("Senior UX Designer")], errors: [], warnings: [] });
+    const report = await runCollection({
+      settings: settingsWithVocabularies(),
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      collectors: [first, second],
+    });
+
+    expect(report.jobs.map((job) => job.title)).toEqual(["Sr. Designer", "Sr. UX Designer"]);
+  });
+});
+
 describe("a job that never reaches the normalizer gets no normalization event", () => {
   test("a job dropped by the usability check writes none", async () => {
     const trace = makeTraceWriter();

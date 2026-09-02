@@ -1,12 +1,12 @@
 // Runs every collector in turn and folds their results into one report, then
-// normalizes what survives. A collector is isolated from its neighbours: a throw, an error string, and a
-// warning string all become the same shape, so one source dropping out never
-// costs the run the others.
+// normalizes what survives in a single pass over the whole list. A collector
+// is isolated from its neighbours: a throw, an error string, and a warning
+// string all become the same shape, so one source dropping out never costs
+// the run the others.
 import { unusableReason } from "./collectors/job-usable";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
-import { summarizeNormalizationWarnings, type UnusableField } from "./normalization-warnings";
-import { normalizeJob } from "./normalizer";
+import { normalizeJobs } from "./normalizer";
 import type { SettingsService } from "./settings-service";
 import { messageFromThrown } from "./thrown-message";
 import type { TitleVocabularies } from "./title";
@@ -63,9 +63,6 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
   const log = options.log ?? console.error;
 
   const report: CollectionReport = { jobs: [], errors: [], warnings: [], traceFailures: 0 };
-  // Every normalization event this run produces, whether or not it left the
-  // job usable, folded into warnings once at the end rather than per job.
-  const unusable: UnusableField[] = [];
 
   // Asking for no jobs reaches no source. The collectors are skipped
   // outright rather than run and their results thrown away.
@@ -137,30 +134,8 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
         // so it stamps the name onto a copy rather than trusting the field
         // or editing what the collector handed back.
         const stamped: JobListEntry = { ...identified, collector: collector.name };
-        const { job: normalized, events } = normalizeJob(stamped, vocabularies);
-        report.jobs.push(normalized);
+        report.jobs.push(stamped);
         kept += 1;
-
-        // Every normalization event is traced and remembered, not just the
-        // failures — summarizeNormalizationWarnings is the one place that
-        // decides which reasons are worth a warning, so no second filter
-        // gets added here.
-        for (const event of events) {
-          await options.trace.write({
-            run_id: options.runId,
-            job_id: id,
-            step: "post_collection_normalization",
-            event: event.event,
-            collector: collector.name,
-            reason: event.reason,
-            detail: event.detail,
-          });
-          unusable.push({
-            collector: collector.name,
-            reason: event.reason,
-            example: event.detail.from,
-          });
-        }
       }
       for (const message of result.errors) {
         report.errors.push({ collector: collector.name, message });
@@ -184,11 +159,19 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
     }
   }
 
-  // Folded once the whole run is over, so a broken collector gets exactly
-  // one line for the whole run rather than one per job.
-  report.warnings.push(...summarizeNormalizationWarnings(unusable));
+  // One call with every collector's surviving jobs, which is what a pipeline
+  // step is handed. It writes its own trace rows and hands back the warnings
+  // it raised, folded to one line per collector rather than one per job.
+  const normalized = await normalizeJobs(report.jobs, {
+    vocabularies,
+    trace: options.trace,
+    runId: options.runId,
+    step: "post_collection_normalization",
+  });
+  report.jobs = normalized.jobs;
+  report.warnings.push(...normalized.warnings);
 
-  // Read once the run is over, so a failure any write hit along the way is
+  // Read once normalization is over, so a write either step lost is
   // reflected in the total rather than checked write by write.
   report.traceFailures = options.trace.failureCount();
 

@@ -24,6 +24,9 @@ import { normalizeTitle, type TitleVocabularies } from "./title";
 import { normalizeSalary } from "./salary";
 import { normalizeModeList } from "./work-mode-list";
 import { normalizeCompanyName } from "./company-name";
+import { summarizeNormalizationWarnings, type UnusableField } from "./normalization-warnings";
+import type { CollectionIssue } from "./search-orchestrator";
+import type { TraceWriter } from "./trace-writer";
 
 export interface NormalizationEvent {
   event: "job_updated" | "normalization_failed";
@@ -150,4 +153,63 @@ export function normalizeJob(
   }
 
   return { job: result, events };
+}
+
+export interface NormalizeJobsOptions {
+  vocabularies: TitleVocabularies;
+  trace?: TraceWriter;
+  runId?: string;
+  step?: string;
+}
+
+export interface NormalizeJobsResult {
+  jobs: JobListEntry[];
+  warnings: CollectionIssue[];
+}
+
+// The step wrapper around normalizeJob: calls it once per entry in the list,
+// writes one trace row per normalization event through the trace service,
+// and folds every unusable field into the warnings its caller passes up to
+// the user. Tracing and warnings both run off the same events, but a job
+// missing the id or collector they are keyed by contributes to neither.
+export async function normalizeJobs(
+  jobs: JobListEntry[],
+  options: NormalizeJobsOptions
+): Promise<NormalizeJobsResult> {
+  const { vocabularies, trace, runId, step } = options;
+  const normalizedJobs: JobListEntry[] = [];
+  const unusable: UnusableField[] = [];
+
+  for (const job of jobs) {
+    const { job: normalizedJob, events } = normalizeJob(job, vocabularies);
+    normalizedJobs.push(normalizedJob);
+
+    // A trace row and a warning line are both keyed by job id and collector,
+    // so a job carrying neither has nothing to key its record on and is
+    // normalized without leaving any record of the fields it could not
+    // normalize.
+    if (!job.id || !job.collector) continue;
+
+    for (const event of events) {
+      unusable.push({ collector: job.collector, reason: event.reason, example: event.detail.from });
+
+      // All three of trace, runId and step are needed before a row is
+      // written. A step handed only some of them still does its work and
+      // stays silent, which is what lets the same function run outside a
+      // job search.
+      if (trace && runId !== undefined && step !== undefined) {
+        await trace.write({
+          run_id: runId,
+          job_id: job.id,
+          step,
+          event: event.event,
+          collector: job.collector,
+          reason: event.reason,
+          detail: event.detail,
+        });
+      }
+    }
+  }
+
+  return { jobs: normalizedJobs, warnings: summarizeNormalizationWarnings(unusable) };
 }
