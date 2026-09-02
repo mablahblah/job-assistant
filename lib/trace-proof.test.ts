@@ -268,3 +268,177 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     expect(JSON.parse(raw as string)).toBe("not-a-url");
   });
 });
+
+// A real vocabulary, so some titles genuinely normalize and some genuinely
+// do not. The describe above stays on stubSettings, whose four title getters
+// all return [], so nothing there ever exercises this path.
+const vocabularySettings: SettingsService = fakeSettings({
+  getTitleHeadNouns: async () => ["designer"],
+  getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
+  getTitleSuffixes: async () => [],
+  getTitleRemovalWords: async () => [],
+});
+
+// Three jobs, only one of which carries "designer" in its title, so this
+// collector's normalized and not-normalized counts land on different
+// numbers than the other collector's.
+const indeedCollector: Collector = {
+  name: "indeed",
+  async collect() {
+    return {
+      jobs: [
+        makeJob("Senior Designer"),
+        makeJob("Growth Marketer"),
+        makeJob("Support Specialist"),
+      ],
+      errors: [],
+      warnings: [],
+    };
+  },
+};
+
+// Four jobs, two carrying "designer". A different job count and a different
+// split from indeed's, so a query that ignores the collector column and
+// lumps every row together could not land on either collector's numbers.
+const linkedinCollector: Collector = {
+  name: "linkedin",
+  async collect() {
+    return {
+      jobs: [
+        makeJob("Product Designer"),
+        makeJob("Staff Designer"),
+        makeJob("UX Researcher"),
+        makeJob("Data Analyst"),
+      ],
+      errors: [],
+      warnings: [],
+    };
+  },
+};
+
+describe("with a real title vocabulary, the trace table answers how many titles normalized, by collector", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let url: string;
+  let runId: string;
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-proof-normalization-");
+    dir = temp.dir;
+    url = temp.url;
+    const built = buildWriter(url);
+    db = built.db;
+    runId = "run-gamma";
+
+    await runCollection({
+      settings: vocabularySettings,
+      runId,
+      trace: built.writer,
+      collectors: [indeedCollector, linkedinCollector],
+      log: () => {},
+    });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("the headline question: how many titles normalized, by collector", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND reason = 'title_normalized' GROUP BY collector",
+      [runId]
+    );
+    const counts = Object.fromEntries(
+      rows.map((row) => [row["collector"] as string, Number(row["count"])])
+    );
+    // indeed: only "Senior Designer" carries the head noun. linkedin:
+    // "Product Designer" and "Staff Designer" both do.
+    expect(counts).toEqual({ indeed: 1, linkedin: 2 });
+  });
+
+  test("its twin: how many titles did not normalize, by collector", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND reason = 'title_not_normalized' GROUP BY collector",
+      [runId]
+    );
+    const counts = Object.fromEntries(
+      rows.map((row) => [row["collector"] as string, Number(row["count"])])
+    );
+    // indeed: "Growth Marketer" and "Support Specialist" carry no head noun.
+    // linkedin: "UX Researcher" and "Data Analyst" carry none either.
+    expect(counts).toEqual({ indeed: 2, linkedin: 2 });
+  });
+
+  test("normalized and not-normalized together account for every job that carried a title", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND (reason = 'title_normalized' OR reason = 'title_not_normalized') GROUP BY collector",
+      [runId]
+    );
+    const counts = Object.fromEntries(
+      rows.map((row) => [row["collector"] as string, Number(row["count"])])
+    );
+    // indeed: 1 normalized + 2 not normalized = 3, its whole job count.
+    // linkedin: 2 normalized + 2 not normalized = 4, its whole job count.
+    expect(counts).toEqual({ indeed: 3, linkedin: 4 });
+  });
+
+  test("a funnel in one query: every reason, grouped by collector, at the normalization step", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT collector, reason, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' GROUP BY collector, reason ORDER BY collector, reason",
+      [runId]
+    );
+    const funnel = rows.map((row) => ({
+      collector: row["collector"],
+      reason: row["reason"],
+      count: Number(row["count"]),
+    }));
+    // Every one of the 3 + 4 = 7 surviving jobs writes a company_name_normalized
+    // row alongside its title row, so each collector's company count equals
+    // its job count.
+    expect(funnel).toEqual([
+      { collector: "indeed", reason: "company_name_normalized", count: 3 },
+      { collector: "indeed", reason: "title_normalized", count: 1 },
+      { collector: "indeed", reason: "title_not_normalized", count: 2 },
+      { collector: "linkedin", reason: "company_name_normalized", count: 4 },
+      { collector: "linkedin", reason: "title_normalized", count: 2 },
+      { collector: "linkedin", reason: "title_not_normalized", count: 2 },
+    ]);
+  });
+
+  test("the step column separates the normalization pass from the collection pass", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT step, COUNT(*) as count FROM Trace WHERE run_id = ? GROUP BY step ORDER BY step",
+      [runId]
+    );
+    const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
+    // collection writes one "collected" row per job handed over, and none of
+    // the 3 + 4 = 7 jobs here fails the usability check, so that step has no
+    // abandoned rows to add: 7. Normalization writes two rows per surviving
+    // job, one for the title and one for the company name: 7 * 2 = 14.
+    expect(totals).toEqual([
+      { step: "collection", count: 7 },
+      { step: "post_collection_normalization", count: 14 },
+    ]);
+  });
+
+  test("a title_normalized row's detail round-trips as JSON holding the raw title and the normalized one", async () => {
+    // indeed carries exactly one title_normalized row, so filtering on
+    // collector, event and reason together, with no job id needed, lands on
+    // "Senior Designer" alone.
+    const [row] = await queryTrace(
+      url,
+      "SELECT detail FROM Trace WHERE run_id = ? AND collector = ? AND event = ? AND reason = ?",
+      [runId, "indeed", "job_updated", "title_normalized"]
+    );
+    const raw = row?.["detail"];
+    expect(typeof raw).toBe("string");
+    // The reason is driven by whether a head noun matched, not by whether the
+    // text changed, so "Product Designer" is title_normalized while reading
+    // back identical. This one carries a level word too, so from and to
+    // genuinely differ.
+    expect(JSON.parse(raw as string)).toEqual({ from: "Senior Designer", to: "Sr. Designer" });
+  });
+});
