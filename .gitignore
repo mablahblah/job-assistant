@@ -58,9 +58,11 @@ resumes/
 # --- workflow-profile: rocket-ship (managed by sync-workflow, do not edit) ---
 .claude/workflow-profile.json
 .claude/skills/crowd-code
+.claude/skills/end-work-session
 .claude/skills/plan-feature
 .claude/skills/ship-feature
 .claude/skills/start-feature
+.claude/skills/start-work-session
 # --- end workflow-profile ---
 
 .serve.json
