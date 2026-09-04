@@ -5,7 +5,8 @@
 import type { createPipelineDb } from "./pipeline-db";
 
 export interface AtsCompany {
-  name: string;
+  // Nullable, because a company met only as a board slug carries no name.
+  name: string | null;
   ats_slug: string;
 }
 

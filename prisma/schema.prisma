@@ -13,7 +13,8 @@ datasource db {
 // the rest empty, so a later phase can tell what still needs doing.
 model Job {
   id                   String    @id @default(cuid())
-  // Set when save matches this job to a Company row.
+  // Which company this job belongs to. Company association decides it and
+  // save writes the column.
   company_id           String?
   // The employer as the collector spelled it. The normalized name lives on
   // the company record.
@@ -77,11 +78,20 @@ model Job {
 // an ats_slug, so the slug lists are these rows rather than a table of their own.
 model Company {
   id           String   @id @default(cuid())
-  name         String   @unique
+  // Optional, because a company met only as a board slug has no name yet and
+  // nothing invents one for it.
+  name         String?  @unique
+  // The name squashed down for matching: lowercased, stripped of everything
+  // that is not a letter or a digit, and shorn of trailing legal-entity
+  // words. Unique, so the database refuses a duplicate employer whatever the
+  // matching code does.
+  match_key    String?  @unique
   // Which applicant tracking system the company posts on, where known.
   ats_platform String?
-  // The company's board slug on that system, where known.
-  ats_slug     String?
+  // The company's board slug on that system, where known. Unique, because a
+  // job carries a slug without carrying which board it came from, so a slug
+  // held by two companies could not be resolved to one.
+  ats_slug     String?  @unique
   created_at   DateTime @default(now())
   modified_at  DateTime @updatedAt
   jobs         Job[]
@@ -132,13 +142,17 @@ model Setting {
 // post_resolution_dedupe, post_resolution_save, parsing,
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
 // post_parsing_save, classification, post_classification_save, scoring.
-// Collection and the normalization pass after it write today; each later
-// phase adds its own values once it exists, the way Job.status grows its
-// comment.
+// Collection, the normalization pass after it, and the association pass after
+// that write today; each later phase adds its own values once it exists, the
+// way Job.status grows its comment.
 //
 // event names what happened. Collection writes collected and abandoned;
 // normalization writes job_updated where a field was normalized and
-// normalization_failed where a raw value it could act on produced nothing.
+// normalization_failed where a raw value it could act on produced nothing;
+// company association writes company_associated where the job came out with a
+// company, company_updated where it filled a company's empty name,
+// association_failed where the job came out with none, and
+// company_update_failed where the name it went to write was already taken.
 //
 // reason names why a dead end happened, and for normalization also how
 // completely a field came through.
@@ -158,6 +172,17 @@ model Setting {
 // work_mode_unusable; and company_name_normalized, which has no failure
 // twin because a cosmetic tidy cannot fail. salary_unusable and
 // work_mode_unusable are the two that warn at the end of a run.
+//
+// Company association writes six. Three sit under company_associated and say
+// how the company was reached: matched_by_slug, matched_by_name, and
+// company_created where neither lookup found one. company_name_filled sits
+// under company_updated, where a company holding no name took the job's.
+// no_name_for_lookup sits under association_failed, where the job's slug
+// matched nothing and it carried no name to fall back on; it is spelled apart
+// from collection's no_company_identity so a query grouping by reason alone
+// does not merge two different populations. company_name_clash sits under
+// company_update_failed, where another company already holds that name.
+// no_name_for_lookup and company_name_clash are the two that warn.
 //
 // normalization_failed does not mean nothing was written. A title that
 // matched no job noun still stores its cleaned fallback, so the event

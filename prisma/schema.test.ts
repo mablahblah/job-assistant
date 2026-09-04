@@ -47,9 +47,12 @@ const EXPECTED_JOB_COLUMNS = [
   "description",
 ];
 
+// match_key holds the company name squashed down for matching, so two
+// spellings of one employer reach one row.
 const EXPECTED_COMPANY_COLUMNS = [
   "id",
   "name",
+  "match_key",
   "ats_platform",
   "ats_slug",
   "created_at",
@@ -649,9 +652,39 @@ describe("Trace: the model comment carries both vocabularies", () => {
     }
   });
 
-  test("the event vocabulary is listed", () => {
+  test("association's reason codes are listed", () => {
+    // None of these six is a substring of a reason already in the comment:
+    // company_name_filled and company_name_clash both diverge from
+    // company_name_normalized straight after the shared company_name_ prefix.
     const comment = traceComment();
-    const events = ["collected", "abandoned", "job_updated", "normalization_failed"];
+    const reasons = [
+      "matched_by_slug",
+      "matched_by_name",
+      "company_created",
+      "company_name_filled",
+      "no_name_for_lookup",
+      "company_name_clash",
+    ];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
+    }
+  });
+
+  test("the event vocabulary is listed", () => {
+    // company_updated is not a substring of company_update_failed, which
+    // spells an underscore where the shorter name spells its final d, so
+    // neither can pass on the strength of the other.
+    const comment = traceComment();
+    const events = [
+      "collected",
+      "abandoned",
+      "job_updated",
+      "normalization_failed",
+      "company_associated",
+      "company_updated",
+      "association_failed",
+      "company_update_failed",
+    ];
     for (const event of events) {
       expect(comment).toContain(event);
     }
@@ -668,5 +701,130 @@ describe("Trace: the model comment carries both vocabularies", () => {
     expect(collapsed).toContain(
       "normalization_failed does not mean nothing was written. A title that matched no job noun still stores its cleaned fallback, so the event records that the rule did not fire rather than that the field was left empty."
     );
+  });
+});
+
+describe("Company: name is optional and match_key and ats_slug are each unique", () => {
+  let dir: string;
+  let url: string;
+  let companyColumns: ColumnInfo[];
+  let uniqueColumns: Set<string>;
+
+  const INSERT_COMPANY =
+    "INSERT INTO Company (id, name, match_key, ats_platform, ats_slug, created_at, modified_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+  // modified_at carries no SQL default, so a raw insert has to supply it.
+  const WRITTEN_AT = "2026-01-01T00:00:00.000Z";
+
+  // Sqlite records a unique column as a unique index rather than a column
+  // flag, so finding one means walking the index list and reading which
+  // columns each index covers.
+  async function uniqueColumnNames(dbUrl: string, table: string): Promise<Set<string>> {
+    const client = createClient({ url: dbUrl });
+    try {
+      const indexList = await client.execute(`PRAGMA index_list(${table})`);
+      const names = new Set<string>();
+      for (const row of indexList.rows) {
+        const record = row as unknown as Record<string, unknown>;
+        if (Number(record["unique"]) !== 1) continue;
+        const indexInfo = await client.execute(`PRAGMA index_info(${String(record["name"])})`);
+        for (const infoRow of indexInfo.rows) {
+          const infoRecord = infoRow as unknown as Record<string, unknown>;
+          names.add(String(infoRecord["name"]));
+        }
+      }
+      return names;
+    } finally {
+      client.close();
+    }
+  }
+
+  // One scratch database serves every test here. Building one runs the prisma
+  // CLI in a child process, which is the slow part.
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-company-identity-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+    companyColumns = await tableColumns(url, "Company");
+    uniqueColumns = await uniqueColumnNames(url, "Company");
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("name is nullable", () => {
+    const name = companyColumns.find((column) => column.name === "name");
+    expect(name, "Company has no name column").toBeDefined();
+    expect(name?.notnull).toBe(0);
+  });
+
+  test("match_key is unique", () => {
+    expect(uniqueColumns.has("match_key")).toBe(true);
+  });
+
+  test("ats_slug is unique", () => {
+    expect(uniqueColumns.has("ats_slug")).toBe(true);
+  });
+
+  test("a second company carrying a match key already in use is refused", async () => {
+    const client = createClient({ url });
+    try {
+      await client.execute({
+        sql: INSERT_COMPANY,
+        args: ["company-key-1", "Acme Inc", "acme", null, null, WRITTEN_AT, WRITTEN_AT],
+      });
+      await expect(
+        client.execute({
+          sql: INSERT_COMPANY,
+          args: ["company-key-2", "Acme Incorporated", "acme", null, null, WRITTEN_AT, WRITTEN_AT],
+        })
+      ).rejects.toThrow();
+    } finally {
+      client.close();
+    }
+  });
+
+  test("a second company carrying a slug already in use is refused", async () => {
+    const client = createClient({ url });
+    try {
+      await client.execute({
+        sql: INSERT_COMPANY,
+        args: ["company-slug-1", "Beta Co", null, "greenhouse", "beta-co", WRITTEN_AT, WRITTEN_AT],
+      });
+      await expect(
+        client.execute({
+          sql: INSERT_COMPANY,
+          args: [
+            "company-slug-2",
+            "Beta Company",
+            null,
+            "greenhouse",
+            "beta-co",
+            WRITTEN_AT,
+            WRITTEN_AT,
+          ],
+        })
+      ).rejects.toThrow();
+    } finally {
+      client.close();
+    }
+  });
+});
+
+// Read straight off disk, the same way the Trace comment tests are.
+describe("Job: the company_id comment says who decides a job's company", () => {
+  test("association decides the company and save writes the column", () => {
+    const schema = readFileSync(realSchemaPath, "utf-8");
+    // The run of comment lines sitting directly above the field, whatever its
+    // indentation inside the Job model.
+    const match = schema.match(/((?:[ \t]*\/\/[^\n]*\n)+)[ \t]*company_id\b/);
+    expect(match, "company_id field not found in schema.prisma").toBeTruthy();
+    // Lowercased before matching, so a phrase that happens to open a
+    // sentence is not missed on its capital letter alone.
+    const comment = (match?.[1] ?? "").toLowerCase();
+    expect(comment).toContain("company association");
+    expect(comment).toContain("save writes the column");
   });
 });
