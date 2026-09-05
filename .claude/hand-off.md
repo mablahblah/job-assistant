@@ -15,7 +15,7 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 4, Company Association, is being built. Tasks 1, 2 and 3 of 13 are done.** Nothing is in flight. The next item is task 4, the company store.
+**Phase 4, Company Association, is being built. Tasks 1, 2 and 3 of 13 are done.** Nothing is in flight. The next item is task 4, the company service.
 
 Three commits are pushed: `401a2b3`, `aecefaf`, `e273f00`. **One file is modified and uncommitted:** `docs/features/unified-pipeline/phases/phase-04-company-association-spec.md`, holding an edge-case correction and the record of calls made while building.
 
@@ -69,10 +69,10 @@ The decision log is the authority. Nothing was added to it this session. What fo
 
 1. **Commit the one modified file** — `phase-04-company-association-spec.md` — before starting anything.
 
-2. **Build task 4, the company store.** `lib/company-store.ts` and its test: look up by slug, look up by key, create, fill an empty name, and refuse to create a record carrying neither a name nor a slug. It takes the caller's database client and hands back a small object, the way `createTraceWriter(db)` and `createSettingsService(db)` already do, so the step opens no database of its own.
+2. **Build task 4, the company service.** `lib/company-service.ts` and its test: look up by slug, look up by key, create, fill an empty name, and refuse to create a record carrying neither a name nor a slug. It takes the caller's database client and hands back a small object, the way `createTraceWriter(db)` and `createSettingsService(db)` already do, so the step opens no database of its own.
 
 3. **Then tasks 5 to 13 in order**, as listed in `docs/CURRENT-FEATURE.md`. Task 8, the seed, is where the `AtsCompany.name` question gets answered and where `lib/settings-service.test.ts` needs changing.
 
 4. **Every task is test-first.** `test-driven-development` runs before implementation, and `crowd-code` writes both the tests and the code. Where a task lists an implementation file before its test file, swap them. Run the tests against a deliberately wrong stub before implementing, because that is what exposed the equality-only weakness this session.
 
-5. **Anything new under `lib/steps/` loads the step contract** in `.claude/rules/pipeline-steps.md`. Task 7's `company-association.ts` goes in that folder; the store, the match key and the clash warning are helpers and stay in `lib/`.
+5. **Anything new under `lib/steps/` loads the step contract** in `.claude/rules/pipeline-steps.md`. Task 7's `company-association.ts` goes in that folder; the service, the match key and the clash warning are helpers and stay in `lib/`.
