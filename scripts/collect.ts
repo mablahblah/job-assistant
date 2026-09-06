@@ -1,6 +1,7 @@
 // Starts a job search: runs collection and reports what it found. Later
 // phases of the pipeline add their own step here, after this one.
 import { createPipelineDb } from "../lib/pipeline-db";
+import { createCompanyService } from "../lib/company-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
 import { runCollection } from "../lib/steps/search-orchestrator";
@@ -39,10 +40,20 @@ async function main(): Promise<void> {
   try {
     const settings = createSettingsService(prisma);
     const trace = createTraceWriter(prisma);
+    // The one way anything reaches the Company table, so association attaches
+    // each job to a company without opening a database of its own.
+    const companies = createCompanyService(prisma);
     // Names this job search so every trace event it produces can be grouped
     // and compared against other searches.
     const runId = crypto.randomUUID();
-    const report = await runCollection({ settings, collectors: COLLECTORS, limit, runId, trace });
+    const report = await runCollection({
+      settings,
+      collectors: COLLECTORS,
+      companies,
+      limit,
+      runId,
+      trace,
+    });
 
     // Errors and warnings first, so a source that dropped out is the first
     // thing read rather than something noticed weeks later.

@@ -17,6 +17,7 @@ import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
 import { fakeSettings } from "./settings-service.fake";
+import { fakeCompanyService } from "./company-service.fake";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -159,6 +160,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     // Two runs against the one scratch database, so a query grouped by run
     // id has more than one run to separate.
     reportAlpha = await runCollection({
+      companies: fakeCompanyService([]),
       settings: stubSettings,
       runId: runIdAlpha,
       trace: built.writer,
@@ -166,6 +168,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       log: () => {},
     });
     await runCollection({
+      companies: fakeCompanyService([]),
       settings: stubSettings,
       runId: runIdBeta,
       trace: built.writer,
@@ -219,14 +222,15 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     );
     const totals = rows.map((row) => ({ run_id: row["run_id"], count: Number(row["count"]) }));
     // Each run writes a collected event for every job its collectors produced
-    // (3 + 2 = 5), an abandoned event for each of the two dropped jobs, and
-    // two normalization events for each of the three that survived — one for
-    // the title, one for the company name: 5 + 2 + 6 = 13 rows. If any event
-    // carried the wrong run's id, these groups would split into more than
-    // two, or their counts would drift away from 13.
+    // (3 + 2 = 5), an abandoned event for each of the two dropped jobs, two
+    // normalization events for each of the three that survived — one for the
+    // title, one for the company name — and one association event per
+    // surviving job: 5 + 2 + 6 + 3 = 16 rows. If any event carried the wrong
+    // run's id, these groups would split into more than two, or their counts
+    // would drift away from 16.
     expect(totals).toEqual([
-      { run_id: runIdAlpha, count: 13 },
-      { run_id: runIdBeta, count: 13 },
+      { run_id: runIdAlpha, count: 16 },
+      { run_id: runIdBeta, count: 16 },
     ]);
   });
 
@@ -331,6 +335,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     runId = "run-gamma";
 
     await runCollection({
+      companies: fakeCompanyService([]),
       settings: vocabularySettings,
       runId,
       trace: built.writer,
@@ -418,8 +423,11 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // the 3 + 4 = 7 jobs here fails the usability check, so that step has no
     // abandoned rows to add: 7. Normalization writes two rows per surviving
     // job, one for the title and one for the company name: 7 * 2 = 14.
+    // Association writes one row per surviving job: 7. The steps sort
+    // alphabetically, which puts association before normalization.
     expect(totals).toEqual([
       { step: "collection", count: 7 },
+      { step: "post_collection_association", count: 7 },
       { step: "post_collection_normalization", count: 14 },
     ]);
   });

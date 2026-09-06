@@ -6,6 +6,8 @@
 import type { CollectionIssue } from "../collection-issue";
 import { unusableReason } from "../collectors/job-usable";
 import type { Collector } from "../collectors/types";
+import { associateCompanies } from "./company-association";
+import type { CompanyService } from "../company-service";
 import type { JobListEntry } from "../job-list-entry";
 import { normalizeJobs } from "./normalizer";
 import type { SettingsService } from "../settings-service";
@@ -26,6 +28,10 @@ export interface CollectionReport {
 export interface CollectionOptions {
   settings: SettingsService;
   collectors: Collector[];
+  // Required, not optional: association is what gives a job the company
+  // identity dedupe later matches on, so a caller can't forget it and have
+  // the orchestrator silently skip it.
+  companies: CompanyService;
   // Identifies one job search so every trace event it produces can be
   // grouped and compared against other searches. Minted by the caller;
   // the orchestrator never generates one itself.
@@ -164,8 +170,19 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
   report.jobs = normalized.jobs;
   report.warnings.push(...normalized.warnings);
 
-  // Read once normalization is over, so a write either step lost is
-  // reflected in the total rather than checked write by write.
+  // Association gives each surviving job the company identity dedupe later
+  // matches on, so it runs over the same list normalization produced.
+  const associated = await associateCompanies(report.jobs, {
+    companies: options.companies,
+    trace: options.trace,
+    runId: options.runId,
+    step: "post_collection_association",
+  });
+  report.jobs = associated.jobs;
+  report.warnings.push(...associated.warnings);
+
+  // Read once normalization and association are both done, so a write any
+  // step lost is reflected in the total rather than checked write by write.
   report.traceFailures = options.trace.failureCount();
 
   return report;
