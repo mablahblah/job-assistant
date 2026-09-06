@@ -73,7 +73,7 @@ async function collectOneJob() {
   stubFetch({
     [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
   });
-  const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+  const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
   const result = await greenhouseCollector.collect({ settings, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
@@ -93,7 +93,7 @@ describe("AC 27: the company name costs no request of its own", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -104,7 +104,7 @@ describe("AC 27: the company name costs no request of its own", () => {
     const calls = stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -136,7 +136,7 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
     stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [] }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
     return greenhouseCollector.collect({ settings, limit: Infinity });
   }
 
@@ -154,7 +154,7 @@ describe("AC 38: postings whose title does not match the search terms are absent
     stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner, backendEngineer] }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -175,7 +175,7 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: 1 });
 
@@ -203,26 +203,13 @@ describe("AC 28: the company name comes from the posting itself", () => {
       [jobsUrl("stripe")]: () =>
         jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: "Stripe, Inc." }] }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
     expect(result.jobs[0].raw_company_name).toBe("Stripe, Inc.");
   });
 
-  test("the name stored in settings is ignored in favour of the posting's", async () => {
-    stubFetch({
-      [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
-    });
-    const settings = makeSettings(
-      [{ name: "Whatever Settings Says", ats_slug: "stripe" }],
-      SEARCH_TERMS
-    );
-
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
-
-    expect(result.jobs[0].raw_company_name).toBe("Stripe");
-  });
 });
 
 describe("AC 46: posting_date and posting_updated_date map to separate source fields", () => {
@@ -245,8 +232,8 @@ describe("a board answering 404 records a warning and lets the other slugs run",
     });
     const settings = makeSettings(
       [
-        { name: "Acme", ats_slug: "acme" },
-        { name: "Stripe", ats_slug: "stripe" },
+        { ats_slug: "acme" },
+        { ats_slug: "stripe" },
       ],
       SEARCH_TERMS
     );
@@ -330,7 +317,7 @@ describe("a posting missing a location gives an empty location list", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -360,7 +347,7 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -418,7 +405,7 @@ describe("AC 84: a posting with no pay_input_ranges gets no raw_salary at all", 
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
     return greenhouseCollector.collect({ settings, limit: Infinity }).then((r) => r.jobs[0]);
   }
 
@@ -451,7 +438,7 @@ describe("an empty pay_input_ranges array gets no raw_salary either", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -476,7 +463,7 @@ describe("AC 102: a work mode named in the description is left for a parser", ()
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -489,10 +476,7 @@ describe("AC 102: a work mode named in the description is left for a parser", ()
       [jobsUrl("brightwave-labs")]: () =>
         jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: undefined }] }),
     });
-    const settings = makeSettings(
-      [{ name: "Ignored Settings Name", ats_slug: "brightwave-labs" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "brightwave-labs" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -519,7 +503,7 @@ describe("AC 102: a pay range in the description is left for a parser", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 
@@ -544,7 +528,7 @@ describe("a posting carrying no description at all", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ name: "Stripe", ats_slug: "stripe" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
     const result = await greenhouseCollector.collect({ settings, limit: Infinity });
 

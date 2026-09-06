@@ -69,7 +69,7 @@ async function collectOneJob() {
   stubFetch({
     [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]),
   });
-  const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+  const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
   const result = await leverCollector.collect({ settings, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
@@ -99,7 +99,7 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
     stubFetch({
       [postingsUrl("gohighlevel")]: () => jsonResponse([]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
     return leverCollector.collect({ settings, limit: Infinity });
   }
 
@@ -117,7 +117,7 @@ describe("AC 38: postings whose title does not match the search terms are absent
     stubFetch({
       [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner, backendEngineer]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -140,7 +140,7 @@ describe("AC 39: a posting is filtered on its title alone, never its team", () =
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -157,7 +157,7 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           { ...seniorProductDesigner, id: "post-abc127", text: "Staff Product Designer" },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: 1 });
 
@@ -189,8 +189,8 @@ describe("a board answering 404 records a warning and lets the other slugs run",
     });
     const settings = makeSettings(
       [
-        { name: "Acme", ats_slug: "acme" },
-        { name: "HighLevel", ats_slug: "gohighlevel" },
+        { ats_slug: "acme" },
+        { ats_slug: "gohighlevel" },
       ],
       SEARCH_TERMS
     );
@@ -276,7 +276,7 @@ describe("a posting missing a location gives an empty location list", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -297,7 +297,7 @@ describe("a posting missing workplaceType gives an empty mode list", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -324,7 +324,7 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -347,7 +347,7 @@ describe("descriptionPlain wins when both descriptions are present", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -369,7 +369,7 @@ describe("description is used when descriptionPlain is absent", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -404,7 +404,7 @@ describe("AC 102: a pay range in the description is left for a parser", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -428,7 +428,7 @@ describe("AC 93: a published workplaceType wins over a mode named in the descrip
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -445,7 +445,7 @@ describe("AC 101: no request is made to a board page to find an employer name", 
           { ...seniorProductDesigner, id: "post-abc125", text: "Staff Product Designer" },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     await leverCollector.collect({ settings, limit: Infinity });
 
@@ -454,7 +454,7 @@ describe("AC 101: no request is made to a board page to find an employer name", 
 
   test("the name stored in settings is not written to the job either", async () => {
     stubFetch({ [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]) });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -476,7 +476,7 @@ describe("AC 102: a work mode named only in the description is left for a parser
           },
         ]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
@@ -489,7 +489,7 @@ describe("AC 102: a work mode named only in the description is left for a parser
       [postingsUrl("gohighlevel")]: () =>
         jsonResponse([{ ...seniorProductDesigner, workplaceType: "onsite" }]),
     });
-    const settings = makeSettings([{ name: "HighLevel", ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
     const result = await leverCollector.collect({ settings, limit: Infinity });
 

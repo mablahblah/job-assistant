@@ -23,8 +23,8 @@ function makeSettings(companiesByPlatform: Record<string, AtsCompany[]>): FakeSe
   };
 }
 
-const stripe: AtsCompany = { name: "Stripe", ats_slug: "stripe" };
-const figma: AtsCompany = { name: "Figma", ats_slug: "figma" };
+const stripe: AtsCompany = { ats_slug: "stripe" };
+const figma: AtsCompany = { ats_slug: "figma" };
 
 describe("AC 76: a platform with companies returns exactly those boards", () => {
   test("boards are the companies the settings service holds for that platform", async () => {

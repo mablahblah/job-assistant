@@ -3,7 +3,7 @@
 // schema change adds the new setting and leaves everything else as it was.
 import "dotenv/config";
 import { createPipelineDb } from "../lib/pipeline-db";
-import { nameFromSlug } from "../lib/ats-slug-name";
+import { createCompanyService, type CompanyService } from "../lib/company-service";
 
 const SETTING_DEFAULTS = {
   search_terms: ["Product Design", "UX", "Founding Design"],
@@ -124,34 +124,61 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   console.log(`Settings: filled ${filled.join(", ")}`);
 }
 
-async function seedCompanies(prisma: PipelineDb): Promise<void> {
+async function seedCompanies(companyService: CompanyService): Promise<void> {
   let created = 0;
   let present = 0;
+  // Each clash gets a line of its own. A slug held by the wrong board is a
+  // fact about two specific rows, and a count would hide which ones.
+  const warnings: string[] = [];
 
   for (const [ats_platform, slugs] of Object.entries(SLUGS_BY_PLATFORM)) {
     for (const ats_slug of slugs) {
-      const existing = await prisma.company.findFirst({
-        where: { ats_platform, ats_slug },
-      });
+      // A slug is unique across the whole table, so the lookup goes by slug
+      // alone. A hit under a different platform means another board already
+      // claimed it, rather than that this board owns the row.
+      const existing = await companyService.findBySlug(ats_slug);
+
       if (existing) {
-        present += 1;
+        if (existing.ats_platform === ats_platform) {
+          present += 1;
+        } else {
+          warnings.push(
+            `Warning: slug "${ats_slug}" for ${ats_platform} is already ` +
+              `held by ${existing.ats_platform}. Skipped.`
+          );
+        }
         continue;
       }
-      await prisma.company.create({
-        data: { name: nameFromSlug(ats_slug), ats_platform, ats_slug },
-      });
-      created += 1;
+
+      // Seeded with no name on purpose. Nothing invents a company name from
+      // a board slug; company association fills it from the first job that
+      // supplies a real one.
+      const result = await companyService.create({ ats_platform, ats_slug });
+      if (result.created) {
+        created += 1;
+      } else {
+        // The service caught a refused write and handed back the company
+        // blocking it, rather than throwing. Only a second seed running at
+        // the same time can reach this.
+        warnings.push(
+          `Warning: could not create the company for slug "${ats_slug}" ` +
+            `because another company already holds it. Skipped.`
+        );
+      }
     }
   }
 
   console.log(`Companies: created ${created}, already present ${present}`);
+  for (const warning of warnings) {
+    console.log(warning);
+  }
 }
 
 async function main(): Promise<void> {
   const prisma = createPipelineDb();
   try {
     await seedSettings(prisma);
-    await seedCompanies(prisma);
+    await seedCompanies(createCompanyService(prisma));
   } finally {
     await prisma.$disconnect();
   }

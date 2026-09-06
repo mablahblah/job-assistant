@@ -4,9 +4,10 @@
 // "nothing configured yet" never looks like "nothing to search for."
 import type { createPipelineDb } from "./pipeline-db";
 
+// A board an ATS collector polls. The slug is the whole identity: the seed
+// creates these companies with a slug and no name, and the three ATS
+// collectors poll by slug, so a name here would have no reader.
 export interface AtsCompany {
-  // Nullable, because a company met only as a board slug carries no name.
-  name: string | null;
   ats_slug: string;
 }
 
@@ -127,13 +128,13 @@ export function createSettingsService(db: PipelineDb): SettingsService {
     async getAtsCompanies(platform: string) {
       const companies = await db.company.findMany({
         where: { ats_platform: platform, ats_slug: { not: null } },
-        select: { name: true, ats_slug: true },
+        select: { ats_slug: true },
       });
       // The where clause already excludes null slugs, but ats_slug's static
       // type stays nullable. flatMap narrows it without a cast: a company
       // that somehow still has a null slug is dropped rather than trusted.
       return companies.flatMap((company) =>
-        company.ats_slug === null ? [] : [{ name: company.name, ats_slug: company.ats_slug }]
+        company.ats_slug === null ? [] : [{ ats_slug: company.ats_slug }]
       );
     },
 

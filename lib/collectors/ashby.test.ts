@@ -83,7 +83,7 @@ async function collectOneJob() {
     [boardUrl("hinge-health")]: () =>
       jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner] }),
   });
-  const settings = makeSettings([{ name: "Hinge Health", ats_slug: "hinge-health" }], SEARCH_TERMS);
+  const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
   const result = await ashbyCollector.collect({ settings, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
@@ -95,10 +95,7 @@ describe("AC 30: an unlisted posting is absent even when its title matches", () 
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [{ ...seniorProductDesigner, isListed: false }] }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -122,10 +119,7 @@ describe("AC 101: no request is made to a board page to find an employer name", 
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner] }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -152,10 +146,7 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
     stubFetch({
       [boardUrl("hinge-health")]: () => jsonResponse({ apiVersion: "1", jobs: [] }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
     return ashbyCollector.collect({ settings, limit: Infinity });
   }
 
@@ -174,10 +165,7 @@ describe("AC 38: a posting whose title does not match the search terms is absent
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner, backendEngineer] }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -201,10 +189,7 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: 1 });
 
@@ -253,8 +238,8 @@ describe("a board answering 404 records a warning and lets the other slug's job 
     });
     const settings = makeSettings(
       [
-        { name: "Carta", ats_slug: "carta" },
-        { name: "Hinge Health", ats_slug: "hinge-health" },
+        { ats_slug: "carta" },
+        { ats_slug: "hinge-health" },
       ],
       SEARCH_TERMS
     );
@@ -315,10 +300,7 @@ describe("locations", () => {
           jobs: [{ ...seniorProductDesigner, location: "Remote - US", secondaryLocations: [] }],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -339,10 +321,7 @@ describe("locations", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -361,10 +340,7 @@ describe("locations", () => {
           jobs: [{ ...seniorProductDesigner, location: undefined, secondaryLocations: [] }],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -381,10 +357,7 @@ describe("modes", () => {
           jobs: [{ ...seniorProductDesigner, workplaceType: "OnSite" }],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -399,10 +372,7 @@ describe("modes", () => {
           jobs: [{ ...seniorProductDesigner, workplaceType: null }],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -420,10 +390,7 @@ describe("modes", () => {
           jobs: [{ ...seniorProductDesigner, workplaceType: "Hybrid", isRemote: true }],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -462,10 +429,7 @@ describe("salary", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -500,10 +464,7 @@ describe("salary", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -528,10 +489,7 @@ describe("salary", () => {
           jobs: [{ ...seniorProductDesigner, compensation: undefined }],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -556,10 +514,7 @@ describe("salary", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -586,10 +541,7 @@ describe("descriptions", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
@@ -610,10 +562,7 @@ describe("descriptions", () => {
           ],
         }),
     });
-    const settings = makeSettings(
-      [{ name: "Hinge Health", ats_slug: "hinge-health" }],
-      SEARCH_TERMS
-    );
+    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 

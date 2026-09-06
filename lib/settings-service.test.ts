@@ -280,11 +280,6 @@ describe("the getters return what the seed writes", () => {
     expect(companies.map((company) => company.ats_slug).sort()).toEqual([...ASHBY_SLUGS].sort());
   });
 
-  test("a company carries its name alongside its slug", async () => {
-    const companies = await service.getAtsCompanies("ashby");
-    const hingeHealth = companies.find((company) => company.ats_slug === "hinge-health");
-    expect(hingeHealth?.name).toBe("Hinge Health");
-  });
 });
 
 // A row that exists with a null column stands in for a setting added after
@@ -350,6 +345,36 @@ describe("AC 11: getAtsCompanies reads the live company list rather than a hardc
 
   test("returns every greenhouse board, not a fixed set", () => {
     expect(companies.length).toBe(GREENHOUSE_SLUGS.length + 1);
+  });
+});
+
+// The three ATS collectors poll a board by its slug alone. Nothing reads a
+// board's company name, and the seed no longer writes one, so the name is not
+// selected at all — a runtime check, because vitest strips types without
+// checking them and a type alone would prove nothing here.
+describe("getAtsCompanies hands back the slug and nothing else", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let companies: AtsCompany[];
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-settings-slug-only-");
+    dir = temp.dir;
+    let service: SettingsService;
+    ({ db, service } = buildService(temp.url));
+    companies = await service.getAtsCompanies("greenhouse");
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  // Without this the check below would pass over an empty list.
+  test("every seeded greenhouse board comes back", () => {
+    expect(companies).toHaveLength(GREENHOUSE_SLUGS.length);
+  });
+
+  test("each board carries its slug and no other field", () => {
+    const shapes = companies.map((company) => Object.keys(company).sort());
+    expect(shapes).toEqual(companies.map(() => ["ats_slug"]));
   });
 });
 

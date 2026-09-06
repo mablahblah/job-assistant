@@ -49,7 +49,9 @@ interface SettingRow {
 }
 
 interface CompanyRow {
-  name: string;
+  // Nullable, because a company seeded from a board slug is created without a
+  // name and nothing invents one for it.
+  name: string | null;
   ats_platform: string | null;
   ats_slug: string | null;
 }
@@ -70,6 +72,16 @@ function runScript(script: string, url: string): void {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     stdio: "pipe",
+  });
+}
+
+// The same run as runScript, but handing back everything the script printed.
+// Only the tests that check a warning need this.
+function runScriptForOutput(script: string, url: string): string {
+  return execFileSync("npx", ["tsx", `scripts/${script}`], {
+    cwd: repoRoot,
+    env: { ...process.env, PIPELINE_DATABASE_URL: url },
+    encoding: "utf8",
   });
 }
 
@@ -113,7 +125,7 @@ async function readCompanies(url: string): Promise<CompanyRow[]> {
     return result.rows.map((row) => {
       const record = row as unknown as Record<string, unknown>;
       return {
-        name: String(record["name"]),
+        name: record["name"] === null ? null : String(record["name"]),
         ats_platform:
           record["ats_platform"] === null ? null : String(record["ats_platform"]),
         ats_slug: record["ats_slug"] === null ? null : String(record["ats_slug"]),
@@ -157,14 +169,82 @@ function slugsFor(companies: CompanyRow[], platform: string): string[] {
     .sort();
 }
 
-// Separators become spaces and each word gets a capital first letter, leaving
-// the rest of the word alone so an already-mixed slug keeps its shape.
-function expectedCompanyName(slug: string): string {
-  return slug
-    .split(/[-_]/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+describe("AC17: a seeded ATS company carries its platform and slug and no name", () => {
+  let dir: string;
+  let companies: CompanyRow[];
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-ac17-");
+    dir = temp.dir;
+    companies = await readCompanies(temp.url);
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // Without this the two tests below would pass over an empty table.
+  test("one company is seeded per ATS slug", () => {
+    expect(companies).toHaveLength(ALL_ATS_SLUGS.length);
+  });
+
+  test("no seeded company carries a name", () => {
+    const named = companies.filter((company) => company.name !== null);
+    expect(named).toEqual([]);
+  });
+
+  test("every seeded company carries a platform and a slug", () => {
+    const incomplete = companies.filter(
+      (company) => company.ats_platform === null || company.ats_slug === null
+    );
+    expect(incomplete).toEqual([]);
+  });
+});
+
+describe("AC18: a slug another company already holds is warned about, not seeded again", () => {
+  let dir: string;
+  let output: string;
+  let figma: CompanyRow[];
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-seed-ac18-");
+    dir = temp.dir;
+    runScript("db-create.ts", temp.url);
+    // A company holding the "figma" slug on a different board than the seed
+    // wants to file it under. modified_at has no database default, so a raw
+    // insert has to supply it.
+    await runSql(
+      temp.url,
+      "INSERT INTO Company (id, name, match_key, ats_platform, ats_slug, created_at, modified_at) " +
+        "VALUES ('squatter', 'Figma Squatter', 'figmasquatter', 'lever', 'figma', " +
+        "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    );
+    output = runScriptForOutput("db-seed.ts", temp.url);
+    const companies = await readCompanies(temp.url);
+    figma = companies.filter((company) => company.ats_slug === "figma");
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("only one company holds the clashing slug", () => {
+    expect(figma).toHaveLength(1);
+  });
+
+  test("the company already holding it is left as it was", () => {
+    expect(figma[0]?.ats_platform).toBe("lever");
+  });
+
+  test("the seed warns, naming the slug", () => {
+    expect(output).toMatch(/figma/);
+    expect(output.toLowerCase()).toMatch(/warn/);
+  });
+
+  test("every other slug is still seeded", () => {
+    expect(output).toMatch(/created 20/);
+  });
+});
 
 describe("AC6: seeding a fresh database fills every setting collection needs", () => {
   let dir: string;
@@ -203,10 +283,6 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
     expect(slugs).toEqual([...ALL_ATS_SLUGS].sort());
   });
 
-  test.each(ALL_ATS_SLUGS)("names the company for %s from its slug", (slug) => {
-    const company = companies.find((candidate) => candidate.ats_slug === slug);
-    expect(company?.name).toBe(expectedCompanyName(slug));
-  });
 });
 
 describe("AC7: re-seeding never resets a setting that already has a value", () => {
