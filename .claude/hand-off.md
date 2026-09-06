@@ -15,69 +15,112 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 4, Company Association, is built and closed.** All thirteen tasks and the close are ticked. Four of thirteen phases are done. The next item is planning phase 5, DB Save.
+**Phase 5, DB Save, is planned and ready to build.** Four of fourteen phases are built and closed. No code was written this session — it was the back half of planning.
 
-**Nothing is in flight and nothing is uncommitted.** The working tree is clean and the branch is level with `origin/feature/unified-pipeline` at `1ecebf8`.
+**The exact resume point.** [`phase-planning-procedure.md`](../docs/features/unified-pipeline/phase-planning-procedure.md) **step 8**, hand off to build. Steps 1 through 7 are all done: brain dump, orientation, discovery, the spec, `spec-review`, tracking, and `wrap-up-planning`. Next is **Build phase 5, task 1, the schema.**
 
-The suite runs **1,300 tests across 46 files**, down from 1,303 across 47 — `lib/ats-slug-name.test.ts` and its five tests were deleted, and eight tests were added across the seed, the orchestrator and the trace proof. `npm run lint` exits 0 and runs `tsc --noEmit` after ESLint. No job site was reached.
+**Nothing is committed.** Fourteen documentation files are modified or new and the working tree is dirty. No code file was touched, so the suite is unaffected — **1,300 tests across 46 files pass**, and `npm run lint` exits 0, which runs `tsc --noEmit` after ESLint. Both were run at the close of this session.
+
+| File | What changed |
+|---|---|
+| `docs/features/unified-pipeline/phases/phase-05-db-save-spec.md` | **New.** 78 acceptance criteria, 20 tasks, the regression net, 11 edge cases |
+| `docs/features/unified-pipeline/phases/phase-11a-trace-cleanup-r&d.md` | **New.** A phase inserted this session |
+| `docs/features/unified-pipeline/meeting-notes/2026-09-06-phase-05-db-save-meeting-notes.md` | **New.** This session's record |
+| `docs/features/unified-pipeline/decision-log.md` | 20 entries added, 4 superseded |
+| `docs/features/unified-pipeline/feature_spec.md` | 15 stories added, 3 rewritten, the phases table gained 11a |
+| `docs/CURRENT-FEATURE.md` | Plan phase 5 checked off, its 20 tasks added, phase 11a added |
+| `docs/features/unified-pipeline/db-entries.md` | `collected_at` row added, three rows corrected |
+| `docs/features/unified-pipeline/architecture.md` | One line corrected — parsers no longer always beat collectors |
+| `phases/phase-05-db-save-r&d.md` | One question marked settled, one new one opened |
+| `phases/phase-08-parsers-r&d.md` | Warned that every parser it builds lands below all seven collectors |
+| `phases/phase-09-classification-r&d.md` | Carried forward from the previous session |
+| `phases/phase-11-work-log-r&d.md` | The work log entry's shape, settled here |
+| `phases/phase-12-cutover-r&d.md` | The reset script is deleted here |
 
 ## Completed This Session
 
-**Task 8 — the seed.** `scripts/db-seed.ts` creates each ATS company through `createCompanyService` with a platform and a slug and no name. It finds an existing company by slug alone, now that `ats_slug` is unique. A slug another board already claims produces a warning line rather than a crash.
+**The three questions the last session left hanging**, all closed by the user. No warning for a source missing from the priority list. `collector:user` seeded at the top of that list. And `runCollection` keeps its name, because the run is still a collection.
 
-The same task answered the `AtsCompany.name` question left open by task 1. Nothing read it — the three ATS collectors poll by slug — so it went, along with the `name` column from `getAtsCompanies`'s select. That reached five test files and 59 fixtures.
+**Six sub-agents across two rounds of stress testing.** Three hunted edge cases, three checked readiness. Sixteen findings survived being verified against the code.
 
-**Task 9 — the seed's tests.** Four added. Two prove a seeded company's `match_key` is null rather than an empty string. Two prove a second run creates nothing and prints no warning.
+**Two spikes run rather than argued**, against a scratch database at `/tmp`, since a question that a small experiment can settle should be measured.
 
-**Task 10 — the name builder deleted.** `lib/ats-slug-name.ts` and its test are gone.
+**The spec, reviewed and approved.** `spec-review` found six things — four settleable from existing sources, two that needed the user.
 
-**Task 11 — wired in.** `lib/steps/search-orchestrator.ts` calls `associateCompanies` after the normalizer with step `post_collection_association`, folds its warnings into the report, and reads `traceFailures` after it. `scripts/collect.ts` builds the service from the Prisma client it already held. Seventy call sites gained the new option.
+**An alignment check that caught six drifts**, including a status list that undercounted by two and would have carried the mistake into the schema.
 
-**Task 12 — the orchestrator's tests.** Five added: association runs after normalization, covers every collector's jobs, never sees a dropped job, never runs at a zero limit, and stamps the right step name and run id.
-
-**Task 13 — the trace proof.** Five tests against a real scratch database, with association run a second time under `post_parsing_association` to stand in for the parsing pass Phase 8 will add.
-
-**The close.** Architecture doc, decision log, backlog, and the phase's own check: `npm run db:create && npm run db:seed` produced 21 companies, none with a name, none with a match key, all with a platform and a slug, split greenhouse 13, lever 3, ashby 5. A second seed created nothing and warned about nothing.
-
-**Outside phase 4.** A new backlog item at position 1, Collector & Parser Expansion, holding the user's survey of 61 job platforms in `docs/features/collector-parser-expansion/feature_r&d.md`. And the phase-close wording in four places now gates every `BACKLOG.md` change on the user's approval.
+**A new phase, 11a — Clean up Trace events.** Inserted before cutover on the user's call.
 
 ## Decisions & Context
 
-The decision log is the authority. Two entries were added on 2026-09-05 beyond the three already there: the orchestrator taking the company service as a required option, and the backlog approval gate. Calls made while building are in the phase 4 spec's Approach section. What follows is only what is not written down elsewhere.
+**The decision log is the authority for what was settled.** Twenty entries dated 2026-09-06 cover the priority list, the merge, the dates, the active guard, the work log, the job service, and the trace names. Four older entries were replaced. What follows is only what is not written down elsewhere.
 
-**Two mistakes worth not repeating:**
+**The shape Phase 5 builds, in one paragraph.** A job service owning every create, update and delete of `Job` one row at a time, plus a save step taking the job list and calling it — the same split as Phase 4's company service and association step. Every caller goes through one `update` taking a partial entry. A named field list decides each field's fate: contested fields run the priority contest, the rest write straight through, and an absent field changes nothing.
 
-- **Task 11 was scoped wrong.** Seventy `runCollection` call sites were counted, with a one-line fix each said to make everything compile. It did for 69. It missed `lib/trace-proof.test.ts`, which asserts exact trace-row totals — association writes a real row per surviving job, so its per-run total moved 13 to 16 and its per-step query gained a row of 7. **Any future step that writes trace rows breaks that file's counts.** Check it before estimating a step's blast radius.
-- **Two backlog entries were added without asking**, at the phase 3 and phase 4 closes. Both were removed. The rule is now written into all four places that define a close.
+### Gotchas found this session
 
-**Gotchas that will bite again:**
+- **`npx tsx` cannot run a script with `await` at the top level.** It needs a `main()` wrapper, the way `scripts/db-seed.ts` does. Wasted a run before this was noticed.
+- **`npx prisma db push` prints its help text instead of a clear error** when handed a flag it does not want. Run it bare, the way `scripts/db-create.ts` does.
+- **The shell's folder position carries between Bash calls.** A `cd` in one command breaks every relative path in the next.
+- **`PIPELINE_DATABASE_URL` set in the environment beats `.env`,** because dotenv never overwrites a variable already set. That is what makes probing a scratch database safe — export it, and every Prisma command follows it rather than the real file.
+- **`prisma.config.ts` reads the url through `getPipelineDatabaseUrl()` and the schema names no database of its own.** Check that before running any Prisma command, or a push can land on the database real job searches depend on.
 
-- **Counting `company_created` rows survives a single broken guard, and that is the point.** Measured: disabling the name lookup alone still yields one company, because the unique `match_key` column refuses the second write and the service recovers it as a match. Only breaking the lookup *and* making a refused create report success moves the count, to four.
-- **Vitest swallows `console.log` here.** Write probe output to a file.
-- **`tsx` cannot run a script outside the repo root** — it throws `TransformError`. Use `sqlite3`, which is at `/usr/bin/sqlite3`, or put the script in the repo.
-- **These test files import `test`, not `it`.** Both crowd-code writers used `it` and both needed correcting.
-- **`company_created` is a reason, not an event.** The event beside it is `company_associated`. Both writers got this wrong because the prompt said "counting company_created rows" without naming the column. Name the column in future prompts.
-- **`./pipeline.db` was rebuilt for the phase check, wiping 1,188 trace rows from earlier real runs.** A copy sits in the session scratchpad as `pipeline.db.backup-before-phase4-check`, which is temporary storage and will not survive. The database now holds 21 companies, 1 setting, 0 jobs, 0 traces.
-- Carried and still true: **`lib/steps/search-orchestrator.test.ts` reads its own source file off disk** in one test. **Blanking a comment block in `schema.prisma` fails the comment tests for the wrong reason.** **`modified_at` has no database default**, so a raw SQL insert into `Company` must supply it. **A trace detail is a Json column**, so a stored string reads back with its quotes and needs `JSON.parse`. **`cat` is blocked on any file over 2048 bytes** by a hook, and a bare `sleep` is blocked too.
+### Measured this session, not guessed
 
-**Open threads:**
+- **A caller-supplied `id` on `Job.create` is honoured.** Creating with `id: "known-id-123"` returns exactly that. Omitting it returns a generated 25-character id. This is the fact the whole "the collection-time id must survive into the row" story rests on, and it now holds under the libsql driver rather than only in theory.
+- **An id collision throws `PrismaClientKnownRequestError` with code `P2002`.** `isUniqueConstraintError` at `lib/company-service.ts:57` already recognises it unchanged.
+- **The clashing column IS readable off the error**, at `meta.driverAdapterError.cause.constraint.fields`. The comment at `lib/company-service.ts:54` says it is not. That is task 20 of this phase.
+- **`runCollection` has 78 call sites** — 73 in `lib/steps/search-orchestrator.test.ts`, 4 in `lib/trace-proof.test.ts`, 1 in `scripts/collect.ts`. Phase 4's company service broke 70, so this is the same shape again.
+- **No collector sets `status` on a job.** Checked across all seven. That is what makes "save writes the status the entry carries" safe.
+- **No list of active statuses exists in the new code.** Legacy holds the same five twice, at `scripts/serve.ts:37` and `scripts/cli.ts:108`.
 
-- **Whether an ATS job id should join dedupe's identity clauses.** Raised by the collector survey, which argues the ATS id is the only stable key across a job's copies. Phase 6 decides.
-- **The collector survey's legal note.** Undocumented endpoints and scraping generally breach terms of service. It names a smaller sanctioned set — USAJOBS, the Greenhouse board API, Lever postings, SmartRecruiters postings, Personio XML, plain RSS. Worth a decision before that feature is planned.
-- **Three sources in that survey need marking if built.** Tech Ladies and Devex charge the job seeker for some listings. Bullhorn is an agency system whose postings belong to recruiters rather than employers.
-- **The backlog approval decision is project-wide, not feature-scoped.** It sits in the feature log as a promotion candidate. `docs/DECISIONS.md` does not exist yet, and the decision-log rule says entries arrive there by promotion rather than being written directly.
-- Carried: **backlog Future Ideas item 7, "Reorganize `lib/` folder structure", overlaps what phase 3a did.** **`normalizeJobs` skips a job carrying no `id` or no `collector`** silently. **`level`, `role` and `team` are computed and thrown away.** **Criteria 93 and 96 wait on Phase 8.** **The two search issues live only on this branch** until cutover at phase 12. **The four silent source assumptions in the phase 1 r&d are still unguarded.**
+### Dropped on purpose — do not re-propose
+
+- **A warning for a source missing from the priority list.** The seed adds every missing registry name on its own.
+- **Placing a new registry name by kind.** It goes to the bottom whatever it is, and the user reorders by hand.
+- **A second plain-write method on the job service.** The named field list already separates contested from uncontested, so the caller does not need to.
+- **Per-field provenance.** Would need a column per field. The row records the winning side and the roughness is accepted.
+- **Two new trace events**, for a job found active and left alone, and for a delete the guard refused. The user's words: "they dont tell us anything of value."
+- **Validation against a typo in the priority list.** The user's words: "there wouldn't be typos."
+- **A resolution path for a refused delete.** The duplicate is caught by a later run or left standing.
+
+### Calls made this session, all approved by the user
+
+The merge is a plain function over two entries with the priority list handed in. An empty list and a null both count as empty for the three list columns. The priority-list getter throws when missing, like every other setting. The seed prints what it appended. File names: `lib/job-dates.ts`, `lib/source-priority.ts`, `lib/job-merge.ts`, `lib/save-warnings.ts`, `lib/steps/save-jobs.ts`, `lib/job-service.fake.ts`. The reason code is `db_write_failed`.
+
+### Open questions
+
+1. **A renamed collector leaves an orphan in the priority list.** The seed never removes, so changing a collector's `name` appends the new spelling and leaves the old one there forever, silently. A warning would follow the slug-clash precedent but was not agreed. In the Phase 5 r&d.
+2. **Whether Phase 11a wants a database reset of its own** to prove renamed events round-trip from empty. In the Phase 11a r&d.
+
+### Carried forward, still true
+
+**`lib/trace-proof.test.ts` asserts exact trace-row totals**, so every count in it shifts once save writes a row per job, and `post_collection_save` joins its sorted step list. Task 17.
+
+**`npm run db:create` is the destructive command**, not `db:seed`. It deletes the database file and pushes the schema onto nothing. `npm run db:seed` fills what is absent, overwrites nothing, and is safe to re-run.
+
+**A job cannot be collected in one run and saved in the next.** Collection, normalization, association and save all run back to back over one in-memory list.
+
+**Save runs before dedupe exists**, so until Phase 6 two runs of `npm run collect` write two rows for one posting. Expected and short-lived.
+
+**Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **`cat` is blocked on any file over 2048 bytes** by a hook, and a bare `sleep` is blocked too. **`lib/steps/search-orchestrator.test.ts` reads its own source file off disk** in one test. **Blanking a comment block in `schema.prisma` fails the comment tests for the wrong reason.** **`modified_at` has no database default**, so a raw SQL insert into `Company` must supply it. **A trace detail is a Json column**, so a stored string reads back with its quotes and needs `JSON.parse`.
+
+**Still open from earlier phases.** Whether an ATS job id should join dedupe's identity clauses, for Phase 6. The collector survey's legal note about undocumented endpoints and terms of service. Three sources in that survey needing marking if built — Tech Ladies, Devex, Bullhorn. `docs/DECISIONS.md` does not exist yet, and the backlog approval decision sits in the feature log as a promotion candidate. `normalizeJobs` silently skips a job carrying no `id` or no `collector`. `level`, `role` and `team` are computed and thrown away. Criteria 93 and 96 wait on Phase 8. The two search issues live only on this branch until cutover.
+
+**The database right now** holds 21 companies, 1 setting, 0 jobs, 0 traces.
 
 ## Next Steps
 
-1. **Plan phase 5, DB Save.** Follow `docs/features/unified-pipeline/phase-planning-procedure.md`. Its r&d file is `docs/features/unified-pipeline/phases/phase-05-db-save-r&d.md`, holding the phase's scope, what ports from `legacy/`, and its open questions. Planning writes the spec beside it and puts that phase's tasks into `docs/CURRENT-FEATURE.md` under its build item.
+1. **Build phase 5, test-first**, working the 20 tasks in [`phase-05-db-save-spec.md`](../docs/features/unified-pipeline/phases/phase-05-db-save-spec.md#tasks) in order. They are also listed in `docs/CURRENT-FEATURE.md` under the build item.
 
-2. **Phase 5 ports the most from `legacy/` so far** — `pipeline-save`, `resolve-job-dates`, and `prisma`. Everything copied is adapted to fit this system rather than the system bending to it, and nothing is imported.
+2. **Task 1 is the schema** — `Job.collected_at` as a required date with no default, `Job.parser` as an optional string, the priority-list column on `Setting`, save's five events in the `Trace` comment, and all twelve statuses in the `Job.status` comment. **Run `npx prisma generate` after**, or the client keeps describing the old schema.
 
-3. **Phase 5 builds the merge rule Dedupe and Parsing both call.** The feature spec's sequencing notes explain why Save comes before Dedupe despite the reverse runtime order: database-compare dedupe needs rows only Save can create.
+3. **Write the tests, run them against a deliberately wrong stub**, read which pass, strengthen any a do-nothing implementation satisfies, then dispatch `crowd-code`'s two writers. Where the task *is* tests, break the real code deliberately and confirm each test catches its own break.
 
-4. **Every task is test-first.** Write the tests, run them against a deliberately wrong stub, read which pass, strengthen any a do-nothing implementation satisfies, then dispatch `crowd-code`'s two writers. Where the task *is* tests, break the real code deliberately instead and confirm each test catches its own break.
+4. **Anything new under `lib/steps/` loads the step contract** in `.claude/rules/pipeline-steps.md`.
 
-5. **Anything new under `lib/steps/` loads the step contract** in `.claude/rules/pipeline-steps.md`.
+5. **Task 15 and 16 are the big ones.** Wiring save into the orchestrator adds required options to `runCollection`, and 78 call sites follow.
 
-6. **A backlog change needs the user's approval before it is written.** Present it as a question.
+6. **A `BACKLOG.md` change needs the user's approval before it is written.** Present it as a question.
+
+7. **Close phase 5** after building — architecture doc, decision log, and any backlog change presented for approval. Then take the 20 tasks back out of `CURRENT-FEATURE.md`, leaving one line linking to the spec.
