@@ -1272,3 +1272,129 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
     expect(slugWarnings[0]?.collector).toBe("lever");
   });
 });
+
+// Normalization tidies raw_company_name before association reads it. If the
+// two steps ran in the other order, the company record would be created
+// under the raw, untrimmed name instead of the tidied one.
+describe("association runs after normalization, on the tidied company name", () => {
+  test("a job with a messy company name creates a company holding the tidied name", async () => {
+    const companies: CompanyRecord[] = [];
+    const job = {
+      ...makeJob("Product Designer"),
+      raw_company_name: "  Brightwave  Labs, Inc.  ",
+    };
+
+    await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      companies: fakeCompanyService(companies),
+      collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
+    });
+
+    expect(companies).toHaveLength(1);
+    // If association ran first, this would still be "  Brightwave  Labs, Inc.  ".
+    expect(companies[0]?.name).toBe("Brightwave Labs, Inc");
+  });
+});
+
+// Association runs once over the combined list from every collector, not
+// once per collector, so a job from the second collector must get a company
+// id too.
+describe("association covers surviving jobs from every collector", () => {
+  test("jobs from two different collectors both come back with a company id", async () => {
+    const companies: CompanyRecord[] = [];
+    const jobA = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
+    const jobB = { ...makeJob("Backend Engineer"), raw_company_name: "Acme Corp" };
+
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      companies: fakeCompanyService(companies),
+      collectors: [
+        makeCollector("lever", { jobs: [jobA], errors: [], warnings: [] }),
+        makeCollector("greenhouse", { jobs: [jobB], errors: [], warnings: [] }),
+      ],
+    });
+
+    expect(report.jobs).toHaveLength(2);
+    expect(report.jobs[0]?.company_id).toBeTruthy();
+    expect(report.jobs[1]?.company_id).toBeTruthy();
+    // Two different employers must not collapse onto the same company.
+    expect(report.jobs[0]?.company_id).not.toBe(report.jobs[1]?.company_id);
+  });
+});
+
+// A job missing a link fails the usability check and is dropped before the
+// pipeline steps run, so it must never cause a company to be created.
+describe("a job dropped for being unusable never reaches the company service", () => {
+  test("a job with no link is dropped and creates no company", async () => {
+    const companies: CompanyRecord[] = [];
+    // job-usable.ts needs a link, a title, and a company name or slug. This
+    // job has a title and a company name but no original_url, so it is
+    // dropped before normalization or association run.
+    const job: JobListEntry = { raw_title: "Product Designer", raw_company_name: "Brightwave Labs" };
+
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      companies: fakeCompanyService(companies),
+      collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
+    });
+
+    expect(report.jobs).toHaveLength(0);
+    expect(companies).toHaveLength(0);
+  });
+});
+
+// A run capped at zero jobs returns before any collector runs, so no job
+// ever reaches the company service either.
+describe("a run limited to zero jobs never touches the company service", () => {
+  test("limit: 0 skips collection entirely and creates no company", async () => {
+    const companies: CompanyRecord[] = [];
+    const collector = makeCollector("lever", {
+      jobs: [makeJob("Product Designer")],
+      errors: [],
+      warnings: [],
+    });
+
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceWriter(),
+      companies: fakeCompanyService(companies),
+      collectors: [collector],
+      limit: 0,
+    });
+
+    expect(report.jobs).toHaveLength(0);
+    expect(collector.wasCalled).toBe(false);
+    expect(companies).toHaveLength(0);
+  });
+});
+
+// Every trace row association writes must be attributable to the right step
+// and the right run, or a query grouped by step would miss the whole pass.
+describe("association's trace rows carry the right step name and run id", () => {
+  test("association events are stamped post_collection_association with the caller's run id", async () => {
+    const companies: CompanyRecord[] = [];
+    const trace = makeTraceWriter();
+    const job = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
+
+    await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace,
+      companies: fakeCompanyService(companies),
+      collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
+    });
+
+    const associationEvents = trace.events.filter(
+      (event) => event.step === "post_collection_association"
+    );
+    expect(associationEvents.length).toBeGreaterThan(0);
+    expect(associationEvents.every((event) => event.run_id === stubRunId)).toBe(true);
+  });
+});
