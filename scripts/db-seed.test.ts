@@ -54,6 +54,10 @@ interface CompanyRow {
   name: string | null;
   ats_platform: string | null;
   ats_slug: string | null;
+  // Nullable, because it is built from the name. A nameless company has to
+  // store null rather than an empty string: match_key is unique, and SQLite
+  // treats two nulls as different but two empty strings as the same.
+  match_key: string | null;
 }
 
 // An absolute url, because a relative Prisma url resolves from the directory
@@ -120,7 +124,7 @@ async function readCompanies(url: string): Promise<CompanyRow[]> {
   const client = createClient({ url });
   try {
     const result = await client.execute(
-      "SELECT name, ats_platform, ats_slug FROM Company"
+      "SELECT name, ats_platform, ats_slug, match_key FROM Company"
     );
     return result.rows.map((row) => {
       const record = row as unknown as Record<string, unknown>;
@@ -129,6 +133,7 @@ async function readCompanies(url: string): Promise<CompanyRow[]> {
         ats_platform:
           record["ats_platform"] === null ? null : String(record["ats_platform"]),
         ats_slug: record["ats_slug"] === null ? null : String(record["ats_slug"]),
+        match_key: record["match_key"] === null ? null : String(record["match_key"]),
       };
     });
   } finally {
@@ -425,16 +430,48 @@ describe("AC13: the Lever and Ashby slug lists give each collector something to 
   });
 });
 
-describe("seeding twice does not duplicate companies", () => {
+describe("a seeded company's match key is null, not an empty string", () => {
+  let dir: string;
+  let companies: CompanyRow[];
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-match-key-");
+    dir = temp.dir;
+    companies = await readCompanies(temp.url);
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // Without this the test below would pass over an empty table.
+  test("one company is seeded per ATS slug", () => {
+    expect(companies).toHaveLength(ALL_ATS_SLUGS.length);
+  });
+
+  // match_key is unique, and SQLite treats two nulls as different but two
+  // empty strings as the same. A seeded company has no name to build a key
+  // from, so writing "" would let the first company save and refuse every
+  // one after it.
+  test("every seeded company's match key is null, not an empty string", () => {
+    const keyed = companies.filter((company) => company.match_key !== null);
+    expect(keyed).toEqual([]);
+  });
+});
+
+describe("AC19: a second seed run does not duplicate companies or warn", () => {
   let dir: string;
   let first: number;
   let second: number;
+  let secondOutput: string;
 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-twice-");
     dir = temp.dir;
     first = await countRows(temp.url, "Company");
-    runScript("db-seed.ts", temp.url);
+    // The output is captured as well as the count, because a run that
+    // deleted one company and created another would leave the count alone.
+    secondOutput = runScriptForOutput("db-seed.ts", temp.url);
     second = await countRows(temp.url, "Company");
   }, MULTI_SEED_TIMEOUT_MS);
 
@@ -444,6 +481,19 @@ describe("seeding twice does not duplicate companies", () => {
 
   test("the company count is the same after a second seed", () => {
     expect(second).toBe(first);
+  });
+
+  test("the second run reports creating nothing and finding every company already present", () => {
+    expect(secondOutput).toContain(
+      `Companies: created 0, already present ${ALL_ATS_SLUGS.length}`
+    );
+  });
+
+  // Finding a company already there is the ordinary case on every run after
+  // the first. If it ever started warning, every routine run would print 21
+  // false warning lines.
+  test("the second run prints no warning", () => {
+    expect(secondOutput).not.toContain("Warning:");
   });
 });
 
