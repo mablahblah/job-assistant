@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { createPipelineDb } from "../lib/pipeline-db";
 
 // This file lives in prisma/, so the repo root is one level up.
 const prismaDir = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +46,8 @@ const EXPECTED_JOB_COLUMNS = [
   "salary_high",
   "salary_period",
   "description",
+  "collected_at",
+  "parser",
 ];
 
 // match_key holds the company name squashed down for matching, so two
@@ -71,6 +74,7 @@ const EXPECTED_SETTING_COLUMNS = [
   "title_levels",
   "title_suffixes",
   "title_removal_words",
+  "source_priority_list",
   "created_at",
   "modified_at",
 ];
@@ -111,6 +115,7 @@ const COLLECTOR_WRITTEN_COLUMNS = [
   "raw_mode_list",
   "normalized_mode_list",
   "collector",
+  "parser",
   "raw_salary",
   "salary_low",
   "salary_high",
@@ -125,6 +130,11 @@ const COLLECTOR_WRITTEN_COLUMNS = [
 // Columns the database fills itself. These are allowed to be required with no
 // SQL default: Prisma supplies id and modified_at at write time.
 const DATABASE_WRITTEN_COLUMNS = ["id", "created_at", "modified_at"];
+
+// Stamped by the orchestrator on every entry before save runs, so it is
+// required with no default: a row reaching the database without one would
+// have no honest earliest sighting, and no default could supply one.
+const ORCHESTRATOR_WRITTEN_COLUMNS = ["collected_at"];
 
 interface ColumnInfo {
   name: string;
@@ -381,10 +391,11 @@ describe("AC17: no collector-written field is required without a default", () =>
     expect(nullable || hasDefault).toBe(true);
   });
 
-  test("only the database-written columns are required without a default", async () => {
+  test("only the database-written and orchestrator-stamped columns are required without a default", async () => {
+    const allowed = [...DATABASE_WRITTEN_COLUMNS, ...ORCHESTRATOR_WRITTEN_COLUMNS];
     const offenders = jobColumns.filter(
       (column) =>
-        !DATABASE_WRITTEN_COLUMNS.includes(column.name) &&
+        !allowed.includes(column.name) &&
         column.notnull === 1 &&
         (column.dflt_value === null || column.dflt_value === undefined)
     );
@@ -551,9 +562,11 @@ describe("Trace: its id orders events, and it outlives the job it describes", ()
     const client = createClient({ url });
     try {
       const timestamp = "2026-01-01T00:00:00.000Z";
+      // collected_at carries no database default, so a raw insert has to
+      // supply it, the same way Company's modified_at does.
       await client.execute({
-        sql: "INSERT INTO Job (id, created_at, modified_at) VALUES (?, ?, ?)",
-        args: ["job-to-delete", timestamp, timestamp],
+        sql: "INSERT INTO Job (id, created_at, modified_at, collected_at) VALUES (?, ?, ?, ?)",
+        args: ["job-to-delete", timestamp, timestamp, timestamp],
       });
       await client.execute({
         sql:
@@ -688,6 +701,29 @@ describe("Trace: the model comment carries both vocabularies", () => {
     for (const event of events) {
       expect(comment).toContain(event);
     }
+  });
+
+  test("save's events are listed", () => {
+    // job_dbrow_updated is not a substring of job_dbrow_status_updated: the
+    // two diverge straight after the shared job_dbrow_ prefix, so neither can
+    // pass on the strength of the other.
+    const comment = traceComment();
+    const events = [
+      "job_dbrow_created",
+      "job_dbrow_updated",
+      "job_dbrow_status_updated",
+      "job_dbrow_deleted",
+      // Save's fifth event is collection's abandoned, reused rather than
+      // renamed, so the step and the reason are what tell the two apart.
+      "abandoned",
+    ];
+    for (const event of events) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("save's reason code is listed", () => {
+    expect(traceComment()).toContain("db_write_failed");
   });
 
   test("the comment states that normalization_failed still writes a fallback value", () => {
@@ -826,5 +862,151 @@ describe("Job: the company_id comment says who decides a job's company", () => {
     const comment = (match?.[1] ?? "").toLowerCase();
     expect(comment).toContain("company association");
     expect(comment).toContain("save writes the column");
+  });
+});
+
+describe("Job and Setting: the columns save needs", () => {
+  let dir: string;
+  let jobColumns: ColumnInfo[];
+  let settingColumns: ColumnInfo[];
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-save-columns-");
+    dir = temp.dir;
+    runDbCreate(temp.url);
+    jobColumns = await tableColumns(temp.url, "Job");
+    settingColumns = await tableColumns(temp.url, "Setting");
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function findColumn(columns: ColumnInfo[], name: string): ColumnInfo | undefined {
+    const column = columns.find((candidate) => candidate.name === name);
+    expect(column, `no column named ${name}`).toBeDefined();
+    return column;
+  }
+
+  // A new column's declared type is compared against a column of the same
+  // Prisma type already in the schema rather than against a literal, so the
+  // assertion does not hardcode how Prisma spells a type in sqlite today.
+  function typeOf(columns: ColumnInfo[], name: string): string {
+    return String(findColumn(columns, name)?.type).toUpperCase();
+  }
+
+  test("collected_at is a date", () => {
+    expect(typeOf(jobColumns, "collected_at")).toBe(typeOf(jobColumns, "posting_date"));
+  });
+
+  test("collected_at is required", () => {
+    expect(findColumn(jobColumns, "collected_at")?.notnull).toBe(1);
+  });
+
+  test("collected_at carries no default", () => {
+    expect(findColumn(jobColumns, "collected_at")?.dflt_value ?? null).toBeNull();
+  });
+
+  test("parser is a string", () => {
+    expect(typeOf(jobColumns, "parser")).toBe(typeOf(jobColumns, "collector"));
+  });
+
+  test("parser is optional", () => {
+    expect(findColumn(jobColumns, "parser")?.notnull).toBe(0);
+  });
+
+  test("source_priority_list is a Json column", () => {
+    expect(typeOf(settingColumns, "source_priority_list")).toBe(
+      typeOf(settingColumns, "search_terms")
+    );
+  });
+
+  test("source_priority_list is nullable", () => {
+    expect(findColumn(settingColumns, "source_priority_list")?.notnull).toBe(0);
+  });
+});
+
+describe("Job: a row takes the id it was created with", () => {
+  let dir: string;
+  let url: string;
+
+  const STAMPED_AT = new Date("2026-01-01T00:00:00.000Z");
+
+  beforeAll(() => {
+    const temp = makeTempDb("pipeline-schema-explicit-id-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // createPipelineDb reads the url at call time, so the environment only has
+  // to hold the scratch value for the moment of construction, and whatever
+  // was there before is put back.
+  function clientFor(dbUrl: string): ReturnType<typeof createPipelineDb> {
+    const previous = process.env["PIPELINE_DATABASE_URL"];
+    process.env["PIPELINE_DATABASE_URL"] = dbUrl;
+    const db = createPipelineDb();
+    if (previous === undefined) delete process.env["PIPELINE_DATABASE_URL"];
+    else process.env["PIPELINE_DATABASE_URL"] = previous;
+    return db;
+  }
+
+  test("a create passing an id writes that id", async () => {
+    const db = clientFor(url);
+    await db.job.create({ data: { id: "known-id-123", collected_at: STAMPED_AT } });
+    const row = await db.job.findUnique({ where: { id: "known-id-123" } });
+    expect(row?.id).toBe("known-id-123");
+  });
+
+  // Without this the test above would pass against a schema carrying no
+  // default at all, which would break every create that does not supply one.
+  test("a create omitting the id still gets one", async () => {
+    const db = clientFor(url);
+    const created = await db.job.create({ data: { collected_at: STAMPED_AT } });
+    expect(created.id).toHaveLength(25);
+  });
+});
+
+// Read straight off disk, the same way the Trace comment tests are.
+describe("Job: the status comment names every status a job can hold", () => {
+  const ALL_STATUSES = [
+    "backlog",
+    "expired",
+    "too far",
+    "won't apply",
+    "unresolvable",
+    "unparseable",
+    "rejected",
+    "app. sent",
+    "screening",
+    "interview",
+    "test",
+    "offer",
+  ];
+
+  test("all twelve statuses are named", () => {
+    const schema = readFileSync(realSchemaPath, "utf-8");
+    // The run of comment lines sitting directly above the field, whatever its
+    // indentation inside the Job model.
+    const match = schema.match(/((?:[ \t]*\/\/[^\n]*\n)+)[ \t]*status\b/);
+    expect(match, "status field not found in schema.prisma").toBeTruthy();
+    // The comment is hard-wrapped across several "//" lines, so the markers go
+    // and every run of whitespace collapses before the list is read. Splitting
+    // on the separators between items is what makes a bare word like "test"
+    // have to stand as its own item rather than being found inside another.
+    const collapsed = (match?.[1] ?? "")
+      .replace(/\/\//g, " ")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+    const named = collapsed
+      .split(/[,:]|\band\b/)
+      .map((item) => item.trim().replace(/\.$/, ""));
+    for (const status of ALL_STATUSES) {
+      expect(named, `${status} is not named as its own item`).toContain(status);
+    }
   });
 });

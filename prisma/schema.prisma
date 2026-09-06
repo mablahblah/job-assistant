@@ -43,8 +43,11 @@ model Job {
   is_resolved          Boolean   @default(false)
   is_parsed            Boolean   @default(false)
   is_classified        Boolean   @default(false)
-  // Lifecycle state: backlog, expired, too far, unresolvable, unparseable,
-  // and the active states the user moves a job through.
+  // Lifecycle state. The first seven are non-active. The last five are
+  // what active means: the user has applied and has not been rejected,
+  // and an active row stays frozen except for its status. All twelve, in
+  // order: backlog, expired, too far, won't apply, unresolvable,
+  // unparseable, rejected, app. sent, screening, interview, test, offer.
   status               String    @default("backlog")
   // Every location collected, kept intact. Independent of the mode list,
   // not paired by position.
@@ -58,6 +61,15 @@ model Job {
   normalized_mode_list Json?
   // Which collector produced it.
   collector            String?
+  // When this pipeline first saw the posting, stamped once by the
+  // orchestrator beside collector. A later sighting is not better
+  // information the way a later salary is, so nothing overwrites this
+  // and no default could supply it.
+  collected_at         DateTime
+  // Which parser read the posting, beside collector, which records which
+  // collector produced it. When two copies of a job contest a field, the
+  // winning side's collector and parser are both written onto the row.
+  parser               String?
   // Salary as the source published it, in a fixed five-key envelope whose
   // values are untouched: salary_min, salary_max, salary_period,
   // salary_currency, salary_unit. Normalization reshapes them.
@@ -101,33 +113,42 @@ model Company {
 // overwrites nothing; the settings service reads only and throws when a
 // setting is missing, so an empty default never reaches a collector.
 model Setting {
-  id                  Int      @id @default(1)
+  id                   Int      @id @default(1)
   // The terms every collector searches for.
-  search_terms        Json?
+  search_terms         Json?
   // The location the Austin searches read.
-  location            String?
+  location             String?
   // Search radius around that location, in miles.
-  radius              Int?
+  radius               Int?
   // How many days old a posting may be before it counts as expired. The
   // browser collectors stop paginating once they reach it.
-  expiry_threshold    Int?
+  expiry_threshold     Int?
   // The closed list of words that name a job: designer, researcher,
   // engineer, manager. Finding one is what tells the title rule which part
   // of a title is the role.
-  title_head_nouns    Json?
+  title_head_nouns     Json?
   // Each stored seniority spelling with the spellings that match it, held
   // as a list of objects with a store string and a match list. senior, sr,
   // and sr. all store as Sr.
-  title_levels        Json?
+  title_levels         Json?
   // Word endings that name a person doing a job, like -er, -or, and -ist.
   // Used when no head noun matched, so a profession the list has never
   // seen is still recognized.
-  title_suffixes      Json?
+  title_suffixes       Json?
   // Words taken out of a title's team part only, never out of the role,
   // because each one can legitimately appear in a real role.
-  title_removal_words Json?
-  created_at          DateTime @default(now())
-  modified_at         DateTime @updatedAt
+  title_removal_words  Json?
+  // One flat ordered list ranking every parser and collector together,
+  // each entry prefixed by its kind, so parser:greenhouse and
+  // collector:greenhouse are two separate entries. Every field except the
+  // dates and collected_at resolves by it. collector:user is seeded at
+  // the top, so a job entered by hand wins every contested field. A
+  // source absent from the list ranks below every source in it. npm run
+  // db:seed appends any missing registry name to the bottom and never
+  // reorders or removes.
+  source_priority_list Json?
+  created_at           DateTime @default(now())
+  modified_at          DateTime @updatedAt
 }
 
 // One row per event in a job's journey through the pipeline. A job enters at
@@ -142,9 +163,9 @@ model Setting {
 // post_resolution_dedupe, post_resolution_save, parsing,
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
 // post_parsing_save, classification, post_classification_save, scoring.
-// Collection, the normalization pass after it, and the association pass after
-// that write today; each later phase adds its own values once it exists, the
-// way Job.status grows its comment.
+// Collection, the normalization pass after it, the association pass after
+// that, and save write today; each later phase adds its own values once it
+// exists, the way Job.status grows its comment.
 //
 // event names what happened. Collection writes collected and abandoned;
 // normalization writes job_updated where a field was normalized and
@@ -153,6 +174,13 @@ model Setting {
 // company, company_updated where it filled a company's empty name,
 // association_failed where the job came out with none, and
 // company_update_failed where the name it went to write was already taken.
+// Save writes job_dbrow_created where a row is written for a job not already
+// on file, carrying the collection-time id; job_dbrow_updated where an
+// existing row takes merged fields; job_dbrow_status_updated where an active
+// row takes a different status and nothing else; and job_dbrow_deleted where
+// a row that dedupe marked for removal is deleted. It reuses collection's
+// abandoned for a write that throws, so the entry never lands; step and
+// reason are what tell the two abandoned populations apart.
 //
 // reason names why a dead end happened, and for normalization also how
 // completely a field came through.
@@ -183,6 +211,9 @@ model Setting {
 // does not merge two different populations. company_name_clash sits under
 // company_update_failed, where another company already holds that name.
 // no_name_for_lookup and company_name_clash are the two that warn.
+//
+// Save writes one reason: db_write_failed, sitting under abandoned, where
+// the write throws and the entry never reaches the table.
 //
 // normalization_failed does not mean nothing was written. A title that
 // matched no job noun still stores its cleaned fallback, so the event

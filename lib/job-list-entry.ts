@@ -63,6 +63,8 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "raw_mode_list",
   "normalized_mode_list",
   "collector",
+  "collected_at",
+  "parser",
   "raw_salary",
   "salary_low",
   "salary_high",
