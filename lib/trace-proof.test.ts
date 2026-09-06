@@ -13,6 +13,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
 import { createTraceWriter, type TraceWriter } from "./trace-writer";
 import { runCollection, type CollectionReport } from "./steps/search-orchestrator";
+import { associateCompanies } from "./steps/company-association";
+import { createCompanyService } from "./company-service";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
@@ -448,5 +450,174 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // back identical. This one carries a level word too, so from and to
     // genuinely differ.
     expect(JSON.parse(raw as string)).toEqual({ from: "Senior Designer", to: "Sr. Designer" });
+  });
+});
+
+// Four jobs covering the three cases worth proving: two naming one employer
+// nobody has yet, one whose slug lands on a company whose name is already
+// taken by another, and one whose slug lands on a company still waiting for
+// a name.
+const associationCollector: Collector = {
+  name: "lever",
+  async collect() {
+    return {
+      jobs: [
+        { ...makeJob("Product Designer"), raw_company_name: "Northwind Traders" },
+        { ...makeJob("UX Researcher"), raw_company_name: "Northwind Traders" },
+        { ...makeJob("Staff Writer"), raw_company_slug: "acme-boards", raw_company_name: "Acme" },
+        {
+          ...makeJob("Content Designer"),
+          raw_company_slug: "fabrikam-boards",
+          raw_company_name: "Fabrikam",
+        },
+      ],
+      errors: [],
+      warnings: [],
+    };
+  },
+};
+
+describe("the trace table answers how each job reached its company, across both passes", () => {
+  let dir: string;
+  let url: string;
+  let db: PipelineDb;
+  const runId = "run-association";
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-association-");
+    dir = temp.dir;
+    url = temp.url;
+    const built = buildWriter(url);
+    db = built.db;
+    const companies = createCompanyService(built.db);
+
+    // Three companies exist before the run. "Acme" holds the name a later
+    // job will try to write onto a different company, which is what makes
+    // the clash real rather than contrived.
+    await companies.create({ name: "Acme" });
+    await companies.create({ ats_platform: "greenhouse", ats_slug: "acme-boards" });
+    await companies.create({ ats_platform: "greenhouse", ats_slug: "fabrikam-boards" });
+
+    const report = await runCollection({
+      settings: stubSettings,
+      runId,
+      trace: built.writer,
+      companies,
+      collectors: [associationCollector],
+      log: () => {},
+    });
+
+    // The step runs again after parsing in the real pipeline. Parsing is a
+    // later phase, so the second pass is called directly here — the step
+    // takes its own step name from its caller precisely so it can.
+    await associateCompanies(report.jobs, {
+      companies,
+      trace: built.writer,
+      runId,
+      step: "post_parsing_association",
+    });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("counts the companies the run actually created, not the association attempts", async () => {
+    // Association runs twice, but a company is only ever created on the
+    // first pass — the second pass finds it already there and matches by
+    // name instead of creating a second one. company_created is a reason
+    // rather than an event, and the event beside it is company_associated.
+    const rows = await queryTrace(
+      url,
+      "SELECT step FROM Trace WHERE run_id = ? AND event = 'company_associated' AND reason = 'company_created'",
+      [runId]
+    );
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.["step"]).toBe("post_collection_association");
+  });
+
+  test("reads how each job reached its company from the newest row per job, not a flat count", async () => {
+    // A flat count across both passes double-counts: job A alone contributes
+    // a company_created row on pass one and a matched_by_name row on pass
+    // two. Only the newest row per job reflects what actually happened,
+    // since the second pass repeats association rather than reversing it.
+    const rows = await queryTrace(
+      url,
+      "SELECT reason FROM Trace WHERE run_id = ? AND event = 'company_associated' AND id IN (SELECT MAX(id) FROM Trace WHERE run_id = ? AND event = 'company_associated' GROUP BY job_id)",
+      [runId, runId]
+    );
+    expect(rows.length).toBe(4);
+    const reasons = rows.map((row) => row["reason"]).sort();
+    expect(reasons).toEqual([
+      "matched_by_name",
+      "matched_by_name",
+      "matched_by_slug",
+      "matched_by_slug",
+    ]);
+    expect(reasons).not.toContain("company_created");
+  });
+
+  test("collapses two jobs naming the same absent employer onto one company", async () => {
+    // One of the two jobs creates the company; the other, collected under
+    // the same raw name, matches the row the first one just made instead of
+    // creating a second.
+    const created = await queryTrace(
+      url,
+      "SELECT job_id FROM Trace WHERE run_id = ? AND event = 'company_associated' AND reason = 'company_created' AND detail = ?",
+      [runId, JSON.stringify("Northwind Traders")]
+    );
+    expect(created.length).toBe(1);
+
+    const associated = await queryTrace(
+      url,
+      "SELECT DISTINCT job_id FROM Trace WHERE run_id = ? AND event = 'company_associated' AND detail = ?",
+      [runId, JSON.stringify("Northwind Traders")]
+    );
+    expect(associated.length).toBe(2);
+
+    // Only one company by that name exists in the table, so the two jobs'
+    // association rows above can only both be pointing at it.
+    const company = await queryTrace(url, "SELECT id, ats_slug FROM Company WHERE name = ?", [
+      "Northwind Traders",
+    ]);
+    expect(company.length).toBe(1);
+    expect(company[0]?.["ats_slug"]).toBeNull();
+  });
+
+  test("records the name clash on both passes without ever retracting it", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT step, job_id, detail FROM Trace WHERE run_id = ? AND event = 'company_update_failed' AND reason = 'company_name_clash' ORDER BY id",
+      [runId]
+    );
+    expect(rows.length).toBe(2);
+    expect(rows[0]?.["step"]).toBe("post_collection_association");
+    expect(rows[1]?.["step"]).toBe("post_parsing_association");
+    // The clash sticks with the same job on both passes — a warning raised
+    // once is never cleared by a later pass.
+    expect(rows[0]?.["job_id"]).toBe(rows[1]?.["job_id"]);
+    for (const row of rows) {
+      const parsed = JSON.parse(String(row["detail"])) as string;
+      expect(parsed).toBe("Acme");
+    }
+  });
+
+  test("fills a company's missing name once, and never repeats the fill once it holds one", async () => {
+    const filled = await queryTrace(
+      url,
+      "SELECT step, detail FROM Trace WHERE run_id = ? AND event = 'company_updated' AND reason = 'company_name_filled'",
+      [runId]
+    );
+    expect(filled.length).toBe(1);
+    expect(filled[0]?.["step"]).toBe("post_collection_association");
+    const parsed = JSON.parse(String(filled[0]?.["detail"])) as string;
+    expect(parsed).toBe("Fabrikam");
+
+    // By the second pass the company already holds a name, so nothing is
+    // overwritten and no second fill row is written.
+    const secondPass = await queryTrace(
+      url,
+      "SELECT id FROM Trace WHERE run_id = ? AND step = 'post_parsing_association' AND event = 'company_updated'",
+      [runId]
+    );
+    expect(secondPass.length).toBe(0);
   });
 });
