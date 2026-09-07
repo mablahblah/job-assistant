@@ -8,13 +8,13 @@ import type { JobListEntry } from "../job-list-entry";
 import type { SettingsService } from "../settings-service";
 import type { UnusableCode } from "../collectors/job-usable";
 import type { TraceEvent, TraceWriter } from "../trace-writer";
-import { fakeSettings } from "../settings-service.fake";
+import { fakeSettingsService } from "../settings-service.fake";
 import { fakeCompanyService } from "../company-service.fake";
 import type { CompanyRecord } from "../company-service";
 
 // The orchestrator only hands this to collectors, so no getter needs real
 // behaviour. It is here to prove it arrives unchanged.
-const stubSettings: SettingsService = fakeSettings();
+const stubSettings: SettingsService = fakeSettingsService();
 
 // A fixed stand-in for the UUID scripts/collect.ts mints for a real run.
 // These are unit tests, so the value is never parsed as a real UUID.
@@ -979,7 +979,7 @@ describe("every trace event collection writes carries the collection step", () =
 // A settings stand-in carrying enough vocabulary for a title to actually
 // reshape, so a test can tell a normalized title from an untouched one.
 function settingsWithVocabularies(): SettingsService {
-  return fakeSettings({
+  return fakeSettingsService({
     getTitleHeadNouns: async () => ["designer"],
     getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
     getTitleSuffixes: async () => [],
@@ -1208,7 +1208,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
     // a two-part title: unmatched keeps the comma, matched turns the second
     // part into a team.
     const job = { ...makeJob("Growth Designer"), raw_title: "Designer, Growth" };
-    const withNoun = fakeSettings({ getTitleHeadNouns: async () => ["designer"] });
+    const withNoun = fakeSettingsService({ getTitleHeadNouns: async () => ["designer"] });
 
     const withoutVocabulary = await runCollection({
       companies: fakeCompanyService([]),

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { saveJobs } from "./save-jobs";
+import { saveJobs } from "./save";
 import { fakeJobService } from "../job-service.fake";
 import type { JobListEntry } from "../job-list-entry";
 

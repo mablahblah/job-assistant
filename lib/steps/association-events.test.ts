@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { associateCompanies } from "./company-association";
+import { associateCompanies } from "./association";
 import { fakeCompanyService } from "../company-service.fake";
 import { companyMatchKey } from "../company-match-key";
 import type { CompanyRecord } from "../company-service";
@@ -7,7 +7,7 @@ import type { JobListEntry } from "../job-list-entry";
 import type { TraceEvent, TraceWriter } from "../trace-writer";
 
 // Covers only the trace rows the step writes. What it decides and what it
-// warns about keep their own coverage in company-association.test.ts and are
+// warns about keep their own coverage in association.test.ts and are
 // not re-asserted here.
 
 const RUN_ID = "run-1";
@@ -165,7 +165,7 @@ describe("filling a company's empty name", () => {
 });
 
 // AC 47 and 48. The two dead ends. Both warn as well, which is covered in
-// company-association.test.ts.
+// association.test.ts.
 describe("the two failures", () => {
   test("no name to look up reads association_failed and no_name_for_lookup", async () => {
     const trace = createFakeTraceWriter();

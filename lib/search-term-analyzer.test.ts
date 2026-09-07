@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { analyze, matchesSearchTerms } from "./search-term-analyzer";
+import { analyzeText, matchesSearchTerms } from "./search-term-analyzer";
 import fixture from "./ux-titles.fixture.json";
 
 // Every distinct title from dev.db, split in two: titles where `UX` stands as
@@ -35,11 +35,11 @@ describe("AC 41: an accented word is one token, not split at the accent", () => 
     // Splitting on anything outside a-z0-9 would treat `é` as a separator and
     // break `Ingénieur` into `ing` and `nieur`. Neither word changes under the
     // stemmer, so the tokens can be asserted exactly.
-    expect(analyze("Ingénieur Produit")).toEqual(["ingénieur", "produit"]);
+    expect(analyzeText("Ingénieur Produit")).toEqual(["ingénieur", "produit"]);
   });
 
   test("no fragment from before the accent appears on its own", () => {
-    expect(analyze("Ingénieur Produit")).not.toContain("ing");
+    expect(analyzeText("Ingénieur Produit")).not.toContain("ing");
   });
 
   test("a term holding an accented word matches a title holding it", () => {
@@ -65,13 +65,13 @@ describe("AC 43: a token of three characters or fewer is not stemmed", () => {
     // stemmed, every real `UxS ...` title would collapse onto the search term
     // `UX` and match it wrongly, which is the group AC 40 guards. So the
     // exemption reaches three characters, not only one and two.
-    expect(analyze("UxS")).toEqual(["uxs"]);
+    expect(analyzeText("UxS")).toEqual(["uxs"]);
   });
 
   test("a four-character token is still stemmed", () => {
     // The guard exempts short tokens without switching stemming off, so the
     // first length the stemmer sees is four.
-    expect(analyze("Designs")).toEqual(["design"]);
+    expect(analyzeText("Designs")).toEqual(["design"]);
   });
 });
 

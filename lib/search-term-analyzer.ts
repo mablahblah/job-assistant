@@ -16,7 +16,7 @@ function stemToken(token: string): string {
 // Splits on any run of characters that are neither letters nor numbers. The
 // match is Unicode-aware so an accent counts as part of its letter: a plain
 // [^a-zA-Z0-9]+ split would break "Ingénieur" into two fragments.
-export function analyze(text: string): string[] {
+export function analyzeText(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
@@ -28,10 +28,10 @@ export function analyze(text: string): string[] {
 // word it holds is present in the title. The title is analyzed once and
 // reused across the terms rather than re-analyzed for each one.
 export function matchesSearchTerms(title: string, searchTerms: string[]): boolean {
-  const titleTokens = new Set(analyze(title));
+  const titleTokens = new Set(analyzeText(title));
 
   return searchTerms.some((term) => {
-    const termTokens = analyze(term);
+    const termTokens = analyzeText(term);
     // A blank term analyzes to no words, and "every word present" is
     // vacuously true of no words, so one stray blank term in settings would
     // otherwise match every job collected.

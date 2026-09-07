@@ -13,12 +13,12 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
 import { createTraceWriter, type TraceWriter } from "./trace-writer";
 import { runCollection, type CollectionReport } from "./steps/search-orchestrator";
-import { associateCompanies } from "./steps/company-association";
+import { associateCompanies } from "./steps/association";
 import { createCompanyService } from "./company-service";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
-import { fakeSettings } from "./settings-service.fake";
+import { fakeSettingsService } from "./settings-service.fake";
 import { fakeCompanyService } from "./company-service.fake";
 
 // This file lives in lib/, so the repo root is one level up.
@@ -94,7 +94,7 @@ async function cleanup(dir: string, db: PipelineDb): Promise<void> {
 
 // The orchestrator only reads settings through this interface; nothing under
 // test here exercises any of these getters.
-const stubSettings: SettingsService = fakeSettings();
+const stubSettings: SettingsService = fakeSettingsService();
 
 // The smallest job that survives the usability check: a link, a title, and
 // an employer.
@@ -278,7 +278,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
 // A real vocabulary, so some titles genuinely normalize and some genuinely
 // do not. The describe above stays on stubSettings, whose four title getters
 // all return [], so nothing there ever exercises this path.
-const vocabularySettings: SettingsService = fakeSettings({
+const vocabularySettings: SettingsService = fakeSettingsService({
   getTitleHeadNouns: async () => ["designer"],
   getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
   getTitleSuffixes: async () => [],

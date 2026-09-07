@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { ashbyCollector } from "./ashby";
 import type { AtsCompany, SettingsService } from "../settings-service";
-import { fakeSettings } from "../settings-service.fake";
+import { fakeSettingsService } from "../settings-service.fake";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -35,7 +35,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 // A settings-service stand-in typed to the real interface, so a test supplies
 // only the boards and search terms it needs.
 function makeSettings(boards: AtsCompany[], searchTerms: string[]): SettingsService {
-  return fakeSettings({
+  return fakeSettingsService({
     getSearchTerms: async () => searchTerms,
     getAtsCompanies: async () => boards,
   });

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { associateCompanies } from "./company-association";
+import { associateCompanies } from "./association";
 import { fakeCompanyService } from "../company-service.fake";
 import { companyMatchKey } from "../company-match-key";
 import type { CompanyRecord } from "../company-service";
 import type { JobListEntry } from "../job-list-entry";
 
 // Covers what the step decides and what it warns about. The trace rows it
-// writes are covered in company-association-events.test.ts and are not
+// writes are covered in association-events.test.ts and are not
 // re-asserted here.
 
 function baseJob(overrides: Partial<JobListEntry> = {}): JobListEntry {

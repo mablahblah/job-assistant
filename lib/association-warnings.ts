@@ -1,4 +1,4 @@
-// Turns warnings from the company-association pipeline step into printable
+// Turns warnings from the company association pipeline step into printable
 // warning lines.
 //
 // This deliberately does not fold, unlike its sibling

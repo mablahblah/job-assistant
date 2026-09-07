@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { saveJobs } from "./save-jobs";
+import { saveJobs } from "./save";
 import { fakeJobService } from "../job-service.fake";
 import type { JobListEntry } from "../job-list-entry";
 import type { TraceEvent, TraceWriter } from "../trace-writer";
 
 // Covers only the trace rows the step writes. What it saves and what it
-// warns about keep their own coverage in save-jobs.test.ts and are not
+// warns about keep their own coverage in save.test.ts and are not
 // re-asserted here.
 
 const RUN_ID = "run-1";

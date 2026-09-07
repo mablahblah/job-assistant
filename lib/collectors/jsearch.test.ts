@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { jsearchCollector } from "./jsearch";
 import type { SettingsService } from "../settings-service";
-import { fakeSettings } from "../settings-service.fake";
+import { fakeSettingsService } from "../settings-service.fake";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -65,7 +65,7 @@ function findCall(calls: FetchCall[], match: (url: URL) => boolean): URL {
 const LOCATION = "78701";
 
 function makeSettings(searchTerms: string[]): SettingsService {
-  return fakeSettings({
+  return fakeSettingsService({
     getSearchTerms: async () => searchTerms,
     getLocation: async () => LOCATION,
     getRadius: async () => 30,

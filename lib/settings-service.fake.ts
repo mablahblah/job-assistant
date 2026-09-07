@@ -4,7 +4,7 @@
 // stale the way a hand-written stub would.
 import type { SettingsService } from "./settings-service";
 
-export function fakeSettings(overrides: Partial<SettingsService> = {}): SettingsService {
+export function fakeSettingsService(overrides: Partial<SettingsService> = {}): SettingsService {
   return {
     getSearchTerms: async () => [],
     getLocation: async () => "",

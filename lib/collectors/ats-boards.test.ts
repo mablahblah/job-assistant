@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { readAtsBoards } from "./ats-boards";
 import type { AtsCompany, SettingsService } from "../settings-service";
-import { fakeSettings } from "../settings-service.fake";
+import { fakeSettingsService } from "../settings-service.fake";
 
 // A settings-service stand-in. getAtsCompanies answers with whatever a test
 // set up for a platform and remembers every platform it was asked about, so a
@@ -13,7 +13,7 @@ interface FakeSettings extends SettingsService {
 function makeSettings(companiesByPlatform: Record<string, AtsCompany[]>): FakeSettings {
   const platformsAsked: string[] = [];
   return {
-    ...fakeSettings({
+    ...fakeSettingsService({
       async getAtsCompanies(platform: string) {
         platformsAsked.push(platform);
         return companiesByPlatform[platform] ?? [];

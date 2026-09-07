@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { normalizeJob } from "./normalizer";
+import { normalizeJob } from "./normalization";
 import type { JobListEntry } from "../job-list-entry";
 import type { TitleVocabularies } from "../title";
 

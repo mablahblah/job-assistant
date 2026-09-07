@@ -6,10 +6,10 @@
 import type { CollectionIssue } from "../collection-issue";
 import { unusableReason } from "../collectors/job-usable";
 import type { Collector } from "../collectors/types";
-import { associateCompanies } from "./company-association";
+import { associateCompanies } from "./association";
 import type { CompanyService } from "../company-service";
 import type { JobListEntry } from "../job-list-entry";
-import { normalizeJobs } from "./normalizer";
+import { normalizeJobs } from "./normalization";
 import type { SettingsService } from "../settings-service";
 import { messageFromThrown } from "../thrown-message";
 import type { TitleVocabularies } from "../title";
