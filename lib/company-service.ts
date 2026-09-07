@@ -50,12 +50,34 @@ const SELECT = {
   ats_slug: true,
 } as const;
 
-// Under this project's libsql driver adapter, a unique-constraint violation
-// arrives without meta.target — there is no reliable way to read which
-// column collided off the error itself. So we only use the error to learn
-// *that* something collided, then go find out *what* by looking the row up.
-function isUniqueConstraintError(error: unknown): boolean {
+// True for a write the database refused because a unique column already
+// holds the value — narrows the error type so its meta and constraint
+// details are readable without a cast.
+function isUniqueConstraintError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+// Reads the column name a driver-level unique-constraint refusal blames. Any
+// hop that isn't the shape we expect comes back as null rather than
+// throwing, so a driver whose error shape changes falls back safely instead
+// of crashing the caller.
+function columnFromRefusal(error: Prisma.PrismaClientKnownRequestError): string | null {
+  const meta = error.meta;
+  if (!isRecord(meta)) return null;
+  const driverAdapterError = meta.driverAdapterError;
+  if (!isRecord(driverAdapterError)) return null;
+  const cause = driverAdapterError.cause;
+  if (!isRecord(cause)) return null;
+  const constraint = cause.constraint;
+  if (!isRecord(constraint)) return null;
+  const fields = constraint.fields;
+  if (!Array.isArray(fields)) return null;
+  const [column] = fields;
+  return typeof column === "string" ? column : null;
 }
 
 export function createCompanyService(db: PipelineDb): CompanyService {
@@ -71,9 +93,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
     return db.company.findUnique({ where: { name }, select: SELECT });
   }
 
-  // After a P2002 we don't know which of the three unique columns was the
-  // one already taken, so we check every value we tried to write — whichever
-  // one is occupied is the blocker.
+  // Used once a refusal names no column, or names one we wrote no value
+  // for: check every value we tried to write in turn — whichever one is
+  // already occupied is the blocker.
   async function findConflict(
     name: string | null,
     matchKey: string | null,
@@ -89,6 +111,22 @@ export function createCompanyService(db: PipelineDb): CompanyService {
     }
     if (slug) return findBySlug(slug);
     return null;
+  }
+
+  // The column a refusal names is looked up directly, using the value we
+  // tried to write there. Where it names none, or names a column we wrote no
+  // value for — a slug on an update, for instance — every value we tried is
+  // checked in turn instead.
+  async function findBlocker(
+    column: string | null,
+    name: string | null,
+    matchKey: string | null,
+    slug: string | null
+  ): Promise<CompanyRecord | null> {
+    if (column === "name" && name) return findByName(name);
+    if (column === "match_key" && matchKey) return findByMatchKey(matchKey);
+    if (column === "ats_slug" && slug) return findBySlug(slug);
+    return findConflict(name, matchKey, slug);
   }
 
   return {
@@ -122,7 +160,7 @@ export function createCompanyService(db: PipelineDb): CompanyService {
         if (!isUniqueConstraintError(error)) throw error;
         // Another company already holds this name, this match key, or this
         // slug — two job postings for the same employer, not a real failure.
-        const blocker = await findConflict(name, match_key, ats_slug);
+        const blocker = await findBlocker(columnFromRefusal(error), name, match_key, ats_slug);
         if (!blocker) throw error;
         return { company: blocker, created: false };
       }
@@ -142,9 +180,10 @@ export function createCompanyService(db: PipelineDb): CompanyService {
         // Someone else already has this name — two spellings of one
         // employer. Leave the target company as it was and hand back
         // whoever is already holding the name, instead of writing over it.
+        // An update never writes a slug, so a slug is never its blocker.
         const [company, heldBy] = await Promise.all([
           db.company.findUniqueOrThrow({ where: { id }, select: SELECT }),
-          findConflict(name, match_key, null),
+          findBlocker(columnFromRefusal(error), name, match_key, null),
         ]);
         return { company, filled: false, heldBy };
       }

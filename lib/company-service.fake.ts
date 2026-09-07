@@ -37,10 +37,10 @@ export function fakeCompanyService(
     return companies.find((company) => company.name === name) ?? null;
   }
 
-  // Mirrors the real service: once a write would collide, we don't know in
-  // advance which of the three unique columns is the blocker, so each
-  // candidate value is checked in turn and whichever one is already held
-  // wins.
+  // There is no database here to refuse a write, so nothing names the
+  // clashing column the way a real refusal does. Each candidate value is
+  // checked before the write instead, and whichever one is already held is
+  // the blocker.
   async function findConflict(
     name: string | null,
     matchKey: string | null,

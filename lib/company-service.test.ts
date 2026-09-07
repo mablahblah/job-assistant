@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { Prisma } from "../generated/pipeline/client";
 import { createPipelineDb } from "./pipeline-db";
 import { companyMatchKey } from "./company-match-key";
 import { createCompanyService, type CompanyService } from "./company-service";
@@ -49,6 +50,58 @@ function buildService(url: string): { db: PipelineDb; service: CompanyService } 
   if (previous === undefined) delete process.env["PIPELINE_DATABASE_URL"];
   else process.env["PIPELINE_DATABASE_URL"] = previous;
   return { db, service: createCompanyService(db) };
+}
+
+// Swaps a stand-in company delegate into a real client and leaves the rest of
+// it alone, so a test can watch one table while everything else still reaches
+// the scratch database.
+function withCompany(real: PipelineDb, company: PipelineDb["company"]): PipelineDb {
+  return new Proxy(real, {
+    get(target, property) {
+      if (property === "company") return company;
+      return Reflect.get(target, property, target);
+    },
+  });
+}
+
+// Records the `where` of every company lookup the service runs. One lookup on
+// the column a refusal named reads differently from three tried in turn, and
+// the count is the only thing that tells them apart.
+function recordingDb(real: PipelineDb, lookups: unknown[]): PipelineDb {
+  const company = new Proxy(real.company, {
+    get(target, property) {
+      if (property !== "findUnique") return Reflect.get(target, property, target);
+      // A proxy trap hands back a plain function, so the delegate's own
+      // overloads are not available to type it.
+      const findUnique = target.findUnique as (...args: unknown[]) => unknown;
+      return (...args: unknown[]) => {
+        lookups.push((args[0] as { where?: unknown } | undefined)?.where);
+        return findUnique(...args);
+      };
+    },
+  });
+  return withCompany(real, company);
+}
+
+// Hands back the refusal the database really produced with the column name
+// taken off it, which is what a driver that stops carrying the name looks
+// like from the service's side.
+function columnlessRefusalDb(real: PipelineDb): PipelineDb {
+  const company = new Proxy(real.company, {
+    get(target, property) {
+      if (property !== "create") return Reflect.get(target, property, target);
+      const create = target.create as (...args: unknown[]) => Promise<unknown>;
+      return async (...args: unknown[]) => {
+        try {
+          return await create(...args);
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError) error.meta = undefined;
+          throw error;
+        }
+      };
+    },
+  });
+  return withCompany(real, company);
 }
 
 // One scratch database serves the whole file. Every test uses names and slugs
@@ -197,6 +250,73 @@ describe("a create the database refuses", () => {
 
     expect(second.created).toBe(false);
     expect(second.company.id).toBe(first.company.id);
+  });
+});
+
+// AC 76 and 77. A refusal names the column that blocked the write, so recovery
+// looks that one column up. Where it names none, every value the service tried
+// to write is checked in turn instead.
+describe("recovering from a refused write", () => {
+  test("looks up only the column a refused create names", async () => {
+    const first = await service.create({ name: "One Lookup Holdings" });
+    const lookups: unknown[] = [];
+    const watched = createCompanyService(recordingDb(db, lookups));
+
+    // A second spelling keys to the same string, so the name is free and the
+    // match key is the column that blocks the write.
+    const second = await watched.create({ name: "One Lookup, Holdings." });
+
+    expect(second.created).toBe(false);
+    expect(second.company.id).toBe(first.company.id);
+    expect(lookups).toEqual([{ match_key: companyMatchKey("One Lookup Holdings") }]);
+  });
+
+  test("looks up only the slug where the slug is the column named", async () => {
+    const first = await service.create({
+      ats_platform: "greenhouse",
+      ats_slug: "one-lookup-slug",
+    });
+    const lookups: unknown[] = [];
+    const watched = createCompanyService(recordingDb(db, lookups));
+
+    const second = await watched.create({
+      name: "One Lookup Slug Newcomer",
+      ats_slug: "one-lookup-slug",
+    });
+
+    expect(second.created).toBe(false);
+    expect(second.company.id).toBe(first.company.id);
+    expect(lookups).toEqual([{ ats_slug: "one-lookup-slug" }]);
+  });
+
+  test("looks up only the column a refused name fill names", async () => {
+    const holder = await service.create({ name: "Fill One Lookup Group" });
+    const target = await db.company.create({
+      data: { ats_platform: "lever", ats_slug: "fill-one-lookup" },
+    });
+    const lookups: unknown[] = [];
+    const watched = createCompanyService(recordingDb(db, lookups));
+
+    const result = await watched.fillName(target.id, "Fill One Lookup, Group.");
+
+    expect(result.filled).toBe(false);
+    expect(result.heldBy?.id).toBe(holder.company.id);
+    expect(lookups).toEqual([{ match_key: companyMatchKey("Fill One Lookup Group") }]);
+  });
+
+  test("tries each column in turn where the refusal names none", async () => {
+    const first = await service.create({ name: "No Column Named Holdings" });
+    const lookups: unknown[] = [];
+    const blind = createCompanyService(columnlessRefusalDb(recordingDb(db, lookups)));
+
+    const second = await blind.create({ name: "No Column Named, Holdings." });
+
+    expect(second.created).toBe(false);
+    expect(second.company.id).toBe(first.company.id);
+    expect(lookups).toEqual([
+      { name: "No Column Named, Holdings." },
+      { match_key: companyMatchKey("No Column Named Holdings") },
+    ]);
   });
 });
 
