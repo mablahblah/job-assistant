@@ -42,6 +42,7 @@ const ALL_ATS_SLUGS = [...GREENHOUSE_SLUGS, ...LEVER_SLUGS, ...ASHBY_SLUGS];
 interface SettingRow {
   search_terms: string[] | null;
   title_head_nouns: string[] | null;
+  source_priority_list: string[] | null;
   location: string | null;
   radius: number | null;
   expiry_threshold: number | null;
@@ -106,9 +107,12 @@ async function readSetting(url: string): Promise<SettingRow> {
     // text string holding json rather than as an array.
     const rawTerms = row["search_terms"];
     const rawNouns = row["title_head_nouns"];
+    const rawPriority = row["source_priority_list"];
     return {
       search_terms: typeof rawTerms === "string" ? (JSON.parse(rawTerms) as string[]) : null,
       title_head_nouns: typeof rawNouns === "string" ? (JSON.parse(rawNouns) as string[]) : null,
+      source_priority_list:
+        typeof rawPriority === "string" ? (JSON.parse(rawPriority) as string[]) : null,
       location: row["location"] === null ? null : String(row["location"]),
       radius: row["radius"] === null ? null : Number(row["radius"]),
       expiry_threshold:
@@ -581,5 +585,151 @@ describe("the title vocabularies are seeded and then left alone", () => {
 
   test("keeps the head nouns I changed", () => {
     expect(reseeded.title_head_nouns).toEqual(myNouns);
+  });
+});
+
+// The source priority list is the one setting the fill-when-null pattern does
+// not fit: it has to be read while it holds values and appended to. These
+// blocks cover AC26 to AC30.
+//
+// EXPECTED_PRIORITY_LIST restates lib/collectors/registry.ts rather than
+// importing it, the same way EXPECTED_TITLE_LEVELS restates the vocabularies.
+// An independent copy is what proves the round trip through the database.
+const EXPECTED_PRIORITY_LIST = [
+  "collector:user",
+  "collector:adzuna",
+  "collector:jsearch",
+  "collector:greenhouse",
+  "collector:lever",
+  "collector:ashby",
+  "collector:dribbble",
+  "collector:uiuxjobsboard",
+];
+
+describe("AC26: seeding a fresh database builds the source priority list", () => {
+  let dir: string;
+  let setting: SettingRow;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-ac26-");
+    dir = temp.dir;
+    setting = await readSetting(temp.url);
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // Decision of 2026-09-06: a job the user entered by hand wins every
+  // contested field, which is what putting it at the top buys.
+  test("collector:user sits first", () => {
+    expect(setting.source_priority_list?.[0]).toBe("collector:user");
+  });
+
+  test("every collector in the registry follows it, in registry order", () => {
+    expect(setting.source_priority_list).toEqual(EXPECTED_PRIORITY_LIST);
+  });
+});
+
+describe("AC27, AC28 and AC29: a second seed appends what is missing and moves nothing", () => {
+  let dir: string;
+  let output: string;
+  let setting: SettingRow;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-ac27-");
+    dir = temp.dir;
+    // A hand-reordered list missing two collectors, so the run has something
+    // to append and an order it must leave alone.
+    await runSql(temp.url, "UPDATE Setting SET source_priority_list = ? WHERE id = 1", [
+      JSON.stringify(["collector:greenhouse", "collector:user", "collector:adzuna"]),
+    ]);
+    output = runScriptForOutput("db-seed.ts", temp.url);
+    setting = await readSetting(temp.url);
+  }, MULTI_SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // AC27. The user reorders this list by hand, so a seed that sorted it would
+  // undo their ranking on every run.
+  test("the order the stored list already had is untouched", () => {
+    expect(setting.source_priority_list?.slice(0, 3)).toEqual([
+      "collector:greenhouse",
+      "collector:user",
+      "collector:adzuna",
+    ]);
+  });
+
+  test("nothing that was stored is removed", () => {
+    expect(setting.source_priority_list).toContain("collector:greenhouse");
+    expect(setting.source_priority_list).toContain("collector:user");
+    expect(setting.source_priority_list).toContain("collector:adzuna");
+  });
+
+  // AC28. Appending is what keeps a new collector ranked below every source
+  // the user has already placed.
+  test("every missing registry name is added below what was there", () => {
+    expect(setting.source_priority_list).toEqual([
+      "collector:greenhouse",
+      "collector:user",
+      "collector:adzuna",
+      "collector:jsearch",
+      "collector:lever",
+      "collector:ashby",
+      "collector:dribbble",
+      "collector:uiuxjobsboard",
+    ]);
+  });
+
+  test("no name is added twice", () => {
+    const list = setting.source_priority_list ?? [];
+    expect(new Set(list).size).toBe(list.length);
+  });
+
+  // AC29. A source silently joining the ranking is a change to how every
+  // contested field resolves, so the run says what it did.
+  test("the run names each entry it added", () => {
+    expect(output).toContain("collector:jsearch");
+    expect(output).toContain("collector:uiuxjobsboard");
+  });
+
+  test("the run says where the entries went", () => {
+    expect(output.toLowerCase()).toContain("bottom");
+  });
+});
+
+describe("AC30: a list already holding every registry name is not written to", () => {
+  let dir: string;
+  let before: SettingRow;
+  let after: SettingRow;
+  let output: string;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-ac30-");
+    dir = temp.dir;
+    before = await readSetting(temp.url);
+    output = runScriptForOutput("db-seed.ts", temp.url);
+    after = await readSetting(temp.url);
+  }, MULTI_SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // modified_at moves on any update, so a run that changed nothing must not
+  // look like it did.
+  test("the settings row is left untouched", () => {
+    expect(after.modified_at).toBe(before.modified_at);
+  });
+
+  test("the list still reads exactly as it did", () => {
+    expect(after.source_priority_list).toEqual(before.source_priority_list);
+  });
+
+  test("the run says it added nothing", () => {
+    expect(output).toMatch(/priority/i);
+    expect(output).not.toMatch(/added collector:/i);
   });
 });

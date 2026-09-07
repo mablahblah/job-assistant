@@ -4,6 +4,7 @@
 import "dotenv/config";
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createCompanyService, type CompanyService } from "../lib/company-service";
+import { COLLECTORS } from "../lib/collectors/registry";
 
 const SETTING_DEFAULTS = {
   search_terms: ["Product Design", "UX", "Founding Design"],
@@ -70,6 +71,18 @@ const SLUGS_BY_PLATFORM: Record<string, string[]> = {
   ashby: ["hinge-health", "legora", "bjakcareer", "voodoo", "scorewarrior"],
 };
 
+// The full ranking a database should end up holding. It sits apart from
+// SETTING_DEFAULTS because it is not filled when null and left alone after:
+// this list is read while it holds the user's own ordering and appended to.
+//
+// collector:user is not in the registry. It is a fixed entry standing for a
+// job the user typed in by hand, and it leads so such a job outranks every
+// collected copy of the same posting.
+const SOURCE_PRIORITY_DEFAULTS: string[] = [
+  "collector:user",
+  ...COLLECTORS.map((collector) => `collector:${collector.name}`),
+];
+
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
 type TitleLevelDefault = { store: string; match: string[] };
@@ -122,6 +135,42 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
 
   await prisma.setting.update({ where: { id: 1 }, data: patch });
   console.log(`Settings: filled ${filled.join(", ")}`);
+}
+
+// Appends any source missing from the stored ranking and moves nothing that
+// is already there. The user reorders this list by hand, so a seed that
+// sorted it would undo their ranking on every run.
+async function seedSourcePriority(prisma: PipelineDb): Promise<void> {
+  const existing = await prisma.setting.findUnique({ where: { id: 1 } });
+  // seedSettings runs first and creates this row, so a missing one means the
+  // seed is already failing elsewhere. Skip rather than fail a second time.
+  if (existing === null) return;
+
+  // The column is Json, so Prisma hands it back as a value of any shape.
+  // Anything that is not a list of strings ranks nothing, which is what an
+  // empty list already means, so it is read as one rather than crashing.
+  const raw = existing.source_priority_list;
+  const stored: string[] =
+    Array.isArray(raw) && raw.every((entry) => typeof entry === "string")
+      ? (raw as string[])
+      : [];
+
+  const missing = SOURCE_PRIORITY_DEFAULTS.filter((name) => !stored.includes(name));
+
+  if (missing.length === 0) {
+    // Skipped rather than written unchanged, because modified_at moves on any
+    // update and a run that changed nothing should not look like it did.
+    console.log("Source priority list: nothing absent, nothing written");
+    return;
+  }
+
+  // A new source joins at the bottom, ranked below everything the user has
+  // already placed, rather than being slotted in on its behalf.
+  await prisma.setting.update({
+    where: { id: 1 },
+    data: { source_priority_list: [...stored, ...missing] },
+  });
+  console.log(`Source priority list: added ${missing.join(", ")} to the bottom`);
 }
 
 async function seedCompanies(companyService: CompanyService): Promise<void> {
@@ -178,6 +227,8 @@ async function main(): Promise<void> {
   const prisma = createPipelineDb();
   try {
     await seedSettings(prisma);
+    // After seedSettings, which is what creates the row when it is absent.
+    await seedSourcePriority(prisma);
     await seedCompanies(createCompanyService(prisma));
   } finally {
     await prisma.$disconnect();
