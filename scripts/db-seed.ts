@@ -1,7 +1,6 @@
 // Seeds the pipeline database with the settings and ATS companies collection
 // needs. It fills what is absent and overwrites nothing, so running it after a
 // schema change adds the new setting and leaves everything else as it was.
-import "dotenv/config";
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createCompanyService, type CompanyService } from "../lib/company-service";
 import { COLLECTORS } from "../lib/collectors/registry";
