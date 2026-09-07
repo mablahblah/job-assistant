@@ -2,6 +2,7 @@
 // phases of the pipeline add their own step here, after this one.
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createCompanyService } from "../lib/company-service";
+import { createJobService } from "../lib/job-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
 import { runCollection } from "../lib/steps/search-orchestrator";
@@ -43,13 +44,21 @@ async function main(): Promise<void> {
     // The one way anything reaches the Company table, so association attaches
     // each job to a company without opening a database of its own.
     const companies = createCompanyService(prisma);
+    // The one way anything reaches the Job table, so saving stays in one
+    // place instead of leaking into collectors and parsers.
+    const jobService = createJobService(prisma);
     // Names this job search so every trace event it produces can be grouped
     // and compared against other searches.
     const runId = crypto.randomUUID();
+    // The date stamped into every job's collected_at, so one run's jobs share
+    // a single timestamp even when collection takes minutes.
+    const collectedAt = new Date();
     const report = await runCollection({
       settings,
       collectors: COLLECTORS,
       companies,
+      jobService,
+      collectedAt,
       limit,
       runId,
       trace,
@@ -69,8 +78,7 @@ async function main(): Promise<void> {
     }
 
     // The job list itself, as JSON on stdout, so an agent reading the command
-    // can consume it. Collection stops at a list in memory; saving it belongs
-    // to a later phase.
+    // can consume it. Collection saves to the database as its last step.
     console.log(JSON.stringify(report.jobs));
   } finally {
     await prisma.$disconnect();

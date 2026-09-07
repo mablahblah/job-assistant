@@ -14,12 +14,15 @@ import { createPipelineDb } from "./pipeline-db";
 import { createTraceService, type TraceService } from "./trace-service";
 import { runCollection, type CollectionReport } from "./steps/search-orchestrator";
 import { associateCompanies } from "./steps/association";
+import { saveJobs } from "./steps/save";
 import { createCompanyService } from "./company-service";
+import { createJobService } from "./job-service";
 import type { Collector } from "./collectors/types";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
 import { fakeSettingsService } from "./settings-service.fake";
 import { fakeCompanyService } from "./company-service.fake";
+import { fakeJobService } from "./job-service.fake";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -28,6 +31,10 @@ const repoRoot = resolve(libDir, "..");
 // Creating a scratch database measured well under two seconds. This is a
 // ceiling rather than a budget.
 const CREATE_TIMEOUT_MS = 45_000;
+
+// The date every run here stamps into collected_at. Fixed, so a row written
+// by one of these runs never depends on when the suite happened to run.
+const COLLECTED_AT = new Date("2026-09-01T10:00:00.000Z");
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
@@ -162,6 +169,8 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     // Two runs against the one scratch database, so a query grouped by run
     // id has more than one run to separate.
     reportAlpha = await runCollection({
+      jobService: fakeJobService([]),
+      collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: stubSettings,
       runId: runIdAlpha,
@@ -170,6 +179,8 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       log: () => {},
     });
     await runCollection({
+      jobService: fakeJobService([]),
+      collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: stubSettings,
       runId: runIdBeta,
@@ -226,13 +237,13 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     // Each run writes a collected event for every job its collectors produced
     // (3 + 2 = 5), an abandoned event for each of the two dropped jobs, two
     // normalization events for each of the three that survived — one for the
-    // title, one for the company name — and one association event per
-    // surviving job: 5 + 2 + 6 + 3 = 16 rows. If any event carried the wrong
-    // run's id, these groups would split into more than two, or their counts
-    // would drift away from 16.
+    // title, one for the company name — one association event per surviving
+    // job, and one save event per surviving job: 5 + 2 + 6 + 3 + 3 = 19 rows.
+    // If any event carried the wrong run's id, these groups would split into
+    // more than two, or their counts would drift away from 19.
     expect(totals).toEqual([
-      { run_id: runIdAlpha, count: 16 },
-      { run_id: runIdBeta, count: 16 },
+      { run_id: runIdAlpha, count: 19 },
+      { run_id: runIdBeta, count: 19 },
     ]);
   });
 
@@ -337,6 +348,8 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     runId = "run-gamma";
 
     await runCollection({
+      jobService: fakeJobService([]),
+      collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: vocabularySettings,
       runId,
@@ -414,7 +427,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     ]);
   });
 
-  test("the step column separates the normalization pass from the collection pass", async () => {
+  test("the step column separates every pass of the run from the others", async () => {
     const rows = await queryTrace(
       url,
       "SELECT step, COUNT(*) as count FROM Trace WHERE run_id = ? GROUP BY step ORDER BY step",
@@ -425,12 +438,14 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // the 3 + 4 = 7 jobs here fails the usability check, so that step has no
     // abandoned rows to add: 7. Normalization writes two rows per surviving
     // job, one for the title and one for the company name: 7 * 2 = 14.
-    // Association writes one row per surviving job: 7. The steps sort
-    // alphabetically, which puts association before normalization.
+    // Association writes one row per surviving job: 7. Save writes one row
+    // per surviving job too: 7. The steps sort alphabetically, which puts
+    // association first and save last.
     expect(totals).toEqual([
       { step: "collection", count: 7 },
       { step: "post_collection_association", count: 7 },
       { step: "post_collection_normalization", count: 14 },
+      { step: "post_collection_save", count: 7 },
     ]);
   });
 
@@ -499,6 +514,8 @@ describe("the trace table answers how each job reached its company, across both 
     await companies.create({ ats_platform: "greenhouse", ats_slug: "fabrikam-boards" });
 
     const report = await runCollection({
+      jobService: createJobService(built.db),
+      collectedAt: COLLECTED_AT,
       settings: stubSettings,
       runId,
       trace: built.writer,
@@ -619,5 +636,135 @@ describe("the trace table answers how each job reached its company, across both 
       [runId]
     );
     expect(secondPass.length).toBe(0);
+  });
+});
+
+// Three jobs from one collector, each naming an employer nobody holds yet, so
+// the run creates its companies and every job reaches a row.
+const saveCollector: Collector = {
+  name: "ashby",
+  async collect() {
+    return {
+      jobs: [
+        { ...makeJob("Product Designer"), raw_company_name: "Contoso" },
+        { ...makeJob("UX Researcher"), raw_company_name: "Contoso" },
+        { ...makeJob("Staff Designer"), raw_company_name: "Litware" },
+      ],
+      errors: [],
+      warnings: [],
+    };
+  },
+};
+
+describe("the trace table answers what save did to each job, across both passes", () => {
+  let dir: string;
+  let url: string;
+  let db: PipelineDb;
+  const runId = "run-save";
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-save-");
+    dir = temp.dir;
+    url = temp.url;
+    const built = buildWriter(url);
+    db = built.db;
+    // Real services throughout, so the rows this asserts on sit behind real
+    // Job and Company rows rather than objects in an array.
+    const jobService = createJobService(built.db);
+
+    const report = await runCollection({
+      jobService,
+      collectedAt: COLLECTED_AT,
+      settings: stubSettings,
+      runId,
+      trace: built.writer,
+      companies: createCompanyService(built.db),
+      collectors: [saveCollector],
+      log: () => {},
+    });
+
+    // Save runs again after parsing in the real pipeline. Parsing is a later
+    // phase, so the second pass is called directly here, the way the second
+    // association pass is. The same rows are met again, so this pass updates
+    // where the first created.
+    await saveJobs(report.jobs, {
+      jobService,
+      priorityList: [],
+      trace: built.writer,
+      runId,
+      step: "post_parsing_save",
+    });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("counts the rows the run created, separately from the ones it updated", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT event, COUNT(*) as count FROM Trace WHERE run_id = ? AND event LIKE 'job_dbrow%' GROUP BY event ORDER BY event",
+      [runId]
+    );
+    const counts = rows.map((row) => ({ event: row["event"], count: Number(row["count"]) }));
+    // The first pass writes three rows and creates each one. The second pass
+    // meets the same three and merges over them.
+    expect(counts).toEqual([
+      { event: "job_dbrow_created", count: 3 },
+      { event: "job_dbrow_updated", count: 3 },
+    ]);
+  });
+
+  test("the step column tells the two save passes apart", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT step, COUNT(*) as count FROM Trace WHERE run_id = ? AND event LIKE 'job_dbrow%' GROUP BY step ORDER BY step",
+      [runId]
+    );
+    const counts = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
+    expect(counts).toEqual([
+      { step: "post_collection_save", count: 3 },
+      { step: "post_parsing_save", count: 3 },
+    ]);
+  });
+
+  test("every job the run collected reached a row", async () => {
+    // Every job that entered at collection has a save row naming it, which is
+    // what makes the funnel add up: nothing entered and quietly vanished.
+    const collected = await queryTrace(
+      url,
+      "SELECT DISTINCT job_id FROM Trace WHERE run_id = ? AND event = 'collected'",
+      [runId]
+    );
+    const saved = await queryTrace(
+      url,
+      "SELECT DISTINCT job_id FROM Trace WHERE run_id = ? AND event = 'job_dbrow_created'",
+      [runId]
+    );
+
+    expect(saved.length).toBe(collected.length);
+    expect(saved.map((row) => row["job_id"]).sort()).toEqual(
+      collected.map((row) => row["job_id"]).sort()
+    );
+  });
+
+  test("a save row's job id names a job row that really exists", async () => {
+    // The proof that a caller-supplied id survives the write: the id the
+    // trace names is the id the Job table holds, so a job's history and its
+    // row can be joined.
+    const rows = await queryTrace(
+      url,
+      "SELECT COUNT(*) as count FROM Trace WHERE run_id = ? AND event = 'job_dbrow_created' AND job_id NOT IN (SELECT id FROM Job)",
+      [runId]
+    );
+
+    expect(Number(rows[0]?.["count"])).toBe(0);
+  });
+
+  test("every saved row carries the collection date the caller stamped", async () => {
+    const rows = await queryTrace(url, "SELECT DISTINCT collected_at FROM Job", []);
+
+    expect(rows.length).toBe(1);
+    expect(new Date(String(rows[0]?.["collected_at"])).toISOString()).toBe(
+      COLLECTED_AT.toISOString()
+    );
   });
 });

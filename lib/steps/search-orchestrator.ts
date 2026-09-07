@@ -9,7 +9,9 @@ import type { Collector } from "../collectors/types";
 import { associateCompanies } from "./association";
 import type { CompanyService } from "../company-service";
 import type { JobListEntry } from "../job-list-entry";
+import type { JobService } from "../job-service";
 import { normalizeJobs } from "./normalization";
+import { saveJobs } from "./save";
 import type { SettingsService } from "../settings-service";
 import { messageFromThrown } from "../thrown-message";
 import type { TitleVocabularies } from "../title";
@@ -32,6 +34,14 @@ export interface CollectionOptions {
   // identity dedupe later matches on, so a caller can't forget it and have
   // the orchestrator silently skip it.
   companies: CompanyService;
+  // Required, not optional, for the same reason: a caller that omitted it
+  // would have the run end without writing a row, which is what a run that
+  // found nothing also looks like.
+  jobService: JobService;
+  // The date stamped into every job's collected_at. It arrives as an
+  // argument so the orchestrator reads no clock, which is what lets one run
+  // share a single stamp and a test pin it to a fixed date.
+  collectedAt: Date;
   // Identifies one job search so every trace event it produces can be
   // grouped and compared against other searches. Minted by the caller;
   // the orchestrator never generates one itself.
@@ -78,6 +88,11 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
     suffixes: await options.settings.getTitleSuffixes(),
     removalWords: await options.settings.getTitleRemovalWords(),
   };
+
+  // Read here for the same reason, and read once for the whole run. It ranks
+  // the sources a contested field resolves by, and save is handed it rather
+  // than opening settings of its own.
+  const priorityList = await options.settings.getSourcePriorityList();
 
   // Sequential and in the given order, so a job list reads the way the run
   // happened and one collector's failure cannot cancel another's work.
@@ -131,8 +146,14 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
 
         // The orchestrator is the authority on which collector found a job,
         // so it stamps the name onto a copy rather than trusting the field
-        // or editing what the collector handed back.
-        const stamped: JobListEntry = { ...identified, collector: collector.name };
+        // or editing what the collector handed back. The date this pipeline
+        // first saw the job is stamped on the same line, because no later
+        // sighting improves on it and no collector can supply it.
+        const stamped: JobListEntry = {
+          ...identified,
+          collector: collector.name,
+          collected_at: options.collectedAt,
+        };
         report.jobs.push(stamped);
         kept += 1;
       }
@@ -181,8 +202,20 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
   report.jobs = associated.jobs;
   report.warnings.push(...associated.warnings);
 
-  // Read once normalization and association are both done, so a write any
-  // step lost is reflected in the total rather than checked write by write.
+  // The last step: the surviving list becomes rows, so a run ends in the
+  // database rather than in a list nothing outlives.
+  const saved = await saveJobs(report.jobs, {
+    jobService: options.jobService,
+    priorityList,
+    trace: options.trace,
+    runId: options.runId,
+    step: "post_collection_save",
+  });
+  report.jobs = saved.jobs;
+  report.warnings.push(...saved.warnings);
+
+  // Read once every step is done, so a write any of them lost is reflected
+  // in the total rather than checked write by write.
   report.traceFailures = options.trace.failureCount();
 
   return report;
