@@ -15,76 +15,60 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 5, DB Save, is six of sixteen tasks built.** Four of fourteen phases are closed. Tasks 1 through 6 are done, green, and pushed.
+**Phase 5, DB Save, is eight of sixteen tasks built.** Four of fourteen phases are closed. Tasks 1 through 8 are done, green, and pushed.
 
-**The exact resume point: Phase 5 task 7, the job service** — `lib/job-service.ts` and its test. Create with an explicit id, update, delete, the active guard, and a refused create reported back. It follows `lib/company-service.ts`: takes the caller's database client, hands back a small object, and reports a refused write by handing back a small answer rather than throwing.
+**The exact resume point: Phase 5 task 9, the delete warning** — `lib/save-warnings.ts` and its test. Criteria 53 and 54: a delete the guard refused produces one warning line naming both rows, never a count. It follows `lib/association-warnings.ts`, which deliberately does not fold, rather than `lib/normalization-warnings.ts`, which does.
 
-**Phase 5's task numbers changed this session.** A task is now one unit of code together with its tests, so three build/test pairs merged and the merge's completeness check folded into the merge's own task. Twenty tasks became sixteen. **Every number after 1 has shifted.** The previous hand-off's "task 15 and 16 are the big ones" is now **task 12**. Its "task 20, the company service" is now **task 16**.
+**Four commits pushed, ending at `a344787`.** Two documentation files are modified and uncommitted: `docs/features/unified-pipeline/decision-log.md` and `docs/features/unified-pipeline/phases/phase-05-db-save-spec.md`. Both are this session's close-out writing. No code file is uncommitted.
 
-**Eight commits pushed, ending at `08f7f5f`.** Two documentation files are modified and uncommitted: `docs/features/unified-pipeline/decision-log.md` and `docs/features/unified-pipeline/phases/phase-05-db-save-spec.md`. Both are this session's close-out writing. No code file is uncommitted.
-
-**Verified at close, run fresh.** `npm run test` exits 0 with **1,419 tests across 50 files**. `npm run lint` exits 0, which runs ESLint then `tsc --noEmit`.
+**Verified at close, run fresh.** `npm run test` exits 0 with **1,447 tests across 52 files**. `npm run lint` exits 0 with no warnings, which runs ESLint then `tsc --noEmit`.
 
 ## Completed This Session
 
-Eight commits, oldest first:
+Four commits, oldest first:
 
 | Commit | What |
 |---|---|
-| `e8205c1` | The previous session's Phase 5 planning docs, committed |
-| `3aceadb` | The rule that a task is code plus the tests covering it |
-| `0bd2721` | Task 1 — the schema columns and trace vocabulary |
-| `8549698` | Task 2 — the active job statuses |
-| `941f22a` | Task 3 — pooling a job's posting dates |
-| `ea3f5b9` | Task 4 — ranking a job's sources |
-| `0655e7b` | Task 5 — reading the priority list through settings |
-| `08f7f5f` | Task 6 — the merge |
+| `2735c55` | The previous session's close-out docs, committed |
+| `a327a63` | Task 7 — the job service |
+| `51c64d8` | Task 8 — the service's fake |
+| `a344787` | Ticking tasks 7 and 8, and naming the fake's test in both task lists |
 
-**What each task produced.**
+**Task 7 produced `lib/job-service.ts` and `lib/job-service.test.ts`**, 141 lines and 13 tests. Its shape:
 
-1. `prisma/schema.prisma` + `prisma/schema.test.ts` — `Job.collected_at` as a required date with no default, `Job.parser` as an optional string, `Setting.source_priority_list` as a nullable Json column, save's four new trace events plus the reason `db_write_failed` in the `Trace` comment, and all twelve statuses in the `Job.status` comment. `lib/job-list-entry.ts` gained the two field names.
-2. `lib/job-status.ts` — `ACTIVE_STATUSES` and `isActiveStatus(status: string): boolean`.
-3. `lib/job-dates.ts` — `poolJobDates(one, two, collectedAt)` returning `{ posting_date, posting_updated_date }`.
-4. `lib/source-priority.ts` — `parsePriorityEntry(entry)` and `sideRank(list, side): number | null`.
-5. `lib/settings-service.ts` — `getSourcePriorityList()`, a tenth getter, with `isSourcePriorityList` reusing `parsePriorityEntry`. The fake gained it too.
-6. `lib/job-merge.ts` — `mergeJobs(existing, arriving, priorityList, collectedAt)` plus six exported field-group constants: `CONTESTED_FIELDS`, `WRITTEN_THROUGH_FIELDS`, `WINNER_STAMP_FIELDS`, `WRITE_ONCE_FIELDS`, `POOLED_DATE_FIELDS`, `NEVER_WRITTEN_FIELDS`.
+```ts
+export type JobWriteOutcome = "created" | "updated" | "status_updated" | "unchanged";
+export interface UpdateResult { job: JobListEntry; outcome: JobWriteOutcome }
+export interface DeleteResult { deleted: boolean; blockedBy: JobListEntry | null }
+export interface JobService {
+  update(entry: JobListEntry, priorityList: readonly string[]): Promise<UpdateResult>;
+  delete(id: string): Promise<DeleteResult>;
+}
+export function createJobService(db: PipelineDb): JobService
+```
 
-**Documentation.** The Phase 5 spec gained a "Calls made while building" section under Approach, 24 bullets, following Phase 4's precedent. Acceptance criteria 31 and 39 were superseded in place, dated, per the feature-specs rule.
+**Task 8 produced `lib/job-service.fake.ts` and `lib/job-service.fake.test.ts`**, 74 lines and 15 tests. `fakeJobService(jobs, overrides)` mutates the caller's array, like `fakeCompanyService`.
 
 ## Decisions & Context
 
-**The decision log is the authority for what was settled.** Two entries were appended, both dated 2026-09-06. What follows is only what is not written down elsewhere.
+**The decision log is the authority for what was settled.** One entry was appended, dated 2026-09-06. Eleven calls went into the Phase 5 spec under "Calls made while building", which now runs to 35 bullets. What follows is only what is not written down elsewhere.
 
-### Decisions the user made
+### The decision the user made
 
-- **A task is one unit of code together with the tests covering it**, never a build task followed by a test task. `crowd-code` writes the failing test and the code answering it in one invocation, so a split leaves the build task with no test to go red. The rule went into `phase-planning-procedure.md` step 4.
-- **The merge settles the dates as well as the ranked fields**, taking the collection date as a fourth argument. Dedupe collapses two in-list entries through the same merge, so leaving the dates to save would put a second copy of the pooling rule where the merge exists to prevent one.
-
-### Calls made while building
-
-All 24 are written into the Phase 5 spec under "Calls made while building". The ones most likely to matter next:
-
-- The priority list column is `source_priority_list`. Nothing had named it.
-- `sideRank` returns `number | null`, not a sentinel. A side absent from the list must be told apart from one ranking last.
-- The settings service throws on an empty priority list, following the title vocabularies rather than `search_terms`.
-- The merge treats an empty string as empty, alongside null and an empty list.
-- `collected_at` has its own allowance in the schema tests, `ORCHESTRATOR_WRITTEN_COLUMNS`, because it fits neither the database-written nor the collector-written group.
+- **The job service takes the priority list as an argument to `update`**, not from construction. Every service is built from the database client alone, and reading settings needs an `await` the constructors do not have.
 
 ### Gotchas found this session
 
-- **The commit hook reports false test gaps.** It printed "untested: fakeSettings, isSourcePriorityList, createSettingsService, getSourcePriorityList". The knowledge graph wants a test file named per function; those are covered by `lib/settings-service.test.ts`.
-- **An `Edit` to a `CURRENT-FEATURE.md` checkbox silently did not reach disk once**, at task 3, despite reporting success. Re-applied with `perl` and confirmed in the commit diff. Re-check a checkbox that looks wrong.
-- **Zero of the 23 modules in `lib/` use JSDoc comment blocks** — all use `//`. Both `crowd-code` writers reach for JSDoc every time and it has to be converted.
-- **`npx prisma format` changed nothing** against the finished schema, so the layout already matches Prisma's own.
-- **`prisma/schema.test.ts` already uses Phase 1's numbering** for `AC4`, `AC5`, `AC17` and `AC26`, so new blocks there are named for behavior instead.
-- **A raw SQL insert into `Job` must supply `collected_at`**, the same way `Company` needs `modified_at`.
-- **Vitest's `toEqual` ignores `undefined`-valued keys**, so a merged `raw_salary` carrying `salary_max: undefined` still passes — but `result.raw_salary ?? null` does not read as null for `{}`, so an all-empty salary must come out `undefined`.
-- **Assigning `undefined` to a key still creates the property.** That is why the merge builds its result key by key rather than spreading either entry.
+- **Prisma quotes your own source lines inside its error messages.** A test asserting `rejects.toThrow(/requires entry\.id/)` passed with the guard deleted, because the `throw` line itself sat in Prisma's quoted context. Both guard tests now check `error.name` as well. **Every test in this project asserting only on an error message has the same hole.**
+- **A fake's override test must return an answer the fake could never produce.** Mine returned "nothing was deleted" against an empty array, which is what the fake's own `delete` returns anyway, so removing override support left it green.
+- **Both `crowd-code` writers used `if (entry.status)` where the real service uses `!== undefined`.** Expect it again on the next fake.
+- **`@typescript-eslint/no-unused-vars` only ignores `_`-prefixed function arguments here, not destructured ones.** `const { id: _id, ...rest }` warns. Use `delete` on a copy instead.
+- **The commit hook still reports false test gaps** — it named `createJobService`, `toJobListEntry`, `toColumnData`, `fakeJobService` and others as untested. All are covered.
 
 ### Open questions
 
-1. **A merged row can name a parser that never parsed it.** The row records the winning side by stamping its collector and parser. Where the winner has no parser and the loser does, the merged entry carries none, and a database update leaves the stored parser standing. Under-writing beats over-writing, and it cannot arise with the list as seeded because every parser outranks the collector beside it. **Settle in Phase 8**, where parsers exist. Recorded in the Phase 5 spec.
-2. **Whether to rebuild the live pipeline database.** It still has the old schema and holds 21 companies, 1 setting, 0 jobs, 0 traces. Rebuilding is `npm run db:create` then `npm run db:seed`. Nothing needs it until a task writes a job. **The user was asked twice and has not answered.**
+1. **A merged row can name a parser that never parsed it.** Settle in Phase 8. Recorded in the Phase 5 spec.
+2. **Whether to rebuild the live pipeline database.** Still the old schema, 21 companies, 1 setting, 0 jobs, 0 traces. Rebuilding is `npm run db:create` then `npm run db:seed`. Nothing needs it until a task writes a job — which task 12 is. **The user has been asked three times and has not answered.**
 3. **A renamed collector leaves an orphan entry in the priority list.** The seed never removes. In the Phase 5 r&d, unagreed.
 4. **Whether Phase 11a wants a database reset of its own.** In the Phase 11a r&d.
 
@@ -92,32 +76,36 @@ All 24 are written into the Phase 5 spec under "Calls made while building". The 
 
 **The seed does not yet write `source_priority_list`** — that is task 11. So the settings service's happy-path tests write the value with raw SQL, and nothing yet proves the seed fills it.
 
+**In the create race, if the row cannot be read back the merge runs against an empty stored side.** The arriving entry's fields win and the rest are absent from the write, which Prisma leaves alone. Commented in place. Nothing in normal running reaches it.
+
 **`npx tsx` cannot run a script with top-level `await`.** It needs a `main()` wrapper, the way `scripts/db-seed.ts` does. **`npx prisma db push` prints help text** instead of a clear error when handed a flag it does not want; run it bare. **The shell's folder position carries between Bash calls**, so a `cd` breaks the next call's relative paths. **`PIPELINE_DATABASE_URL` set in the environment beats `.env`**, because dotenv never overwrites an already-set variable — that is what makes probing a scratch database safe. **`npm run db:create` is the destructive command**, not `db:seed`.
 
 **`lib/trace-proof.test.ts` asserts exact trace-row totals**, so every count shifts once save writes a row per job, and `post_collection_save` joins its sorted step list. That is **task 13**.
 
-**Task 12 is the big one.** Wiring save into the orchestrator adds required options to `runCollection`, and 78 call sites follow.
+**Task 12 is the big one.** Wiring save into the orchestrator adds required options to `runCollection`, and 73 call sites follow.
 
 **Anything new under `lib/steps/` loads the step contract** in `.claude/rules/pipeline-steps.md`. **A `BACKLOG.md` change needs the user's approval before it is written.**
 
 **Save runs before dedupe exists**, so until Phase 6 two runs of `npm run collect` write two rows for one posting. Expected and short-lived.
 
-**Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **`cat` is blocked on any file over 2048 bytes** by a hook. **A trace detail is a Json column**, so a stored string reads back with its quotes.
+**Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **`cat` is blocked on any file over 2048 bytes** by a hook. **A trace detail is a Json column**, so a stored string reads back with its quotes. **Vitest output carries ANSI codes** — strip them with `sed -e 's/\x1b\[[0-9;]*m//g'` before grepping it.
+
+**Zero of the modules in `lib/` use JSDoc comment blocks** — all use `//`. Both `crowd-code` writers reach for JSDoc every time and it has to be converted.
 
 ### How the build loop ran
 
-Every task: write the test file first, run it red, dispatch two `crowd-code-writer` sub-agents in parallel, pick or combine, apply, go green, then break the code deliberately several ways and confirm every test catches its own break.
+Every task: write the test file first, run it red, dispatch two `crowd-code-writer` sub-agents in parallel at Sonnet tier, pick or combine, apply, go green, then break the code deliberately several ways and confirm every test catches its own break.
 
-Break counts: 3 for `job-status` covering all 14 tests, 7 for `job-dates` covering all 16, 12 for `source-priority` covering all 22, 6 for the settings service covering all 12 new tests, and 18 for `job-merge` covering all 43. Sonnet tier for tasks 1 to 5, Opus for task 6, because the merge rules are intricate enough that a wrong answer would pass review.
+Break counts: 13 for `job-service` covering all 13 tests, 13 for `job-service.fake` covering all 15. Two of those breaks found weak tests rather than weak code, and both tests were rewritten.
 
 ## Next Steps
 
-1. **Commit the two uncommitted documentation files** if the previous session did not — `decision-log.md` and `phase-05-db-save-spec.md`.
+1. **Commit the two uncommitted documentation files** if this session did not — `decision-log.md` and `phase-05-db-save-spec.md`.
 
-2. **Build task 7, the job service.** `lib/job-service.ts` and its test. Criteria 45 to 50 in the spec: an entry carrying an id no row holds creates that row with that id; a partial entry naming only an id and one field changes only that field; a create the database refuses because a row took that id between the check and the write updates that row instead; the service takes the caller's database client the way `createCompanyService` does; a row holding an active status takes a new status and nothing else.
+2. **Build task 9, the delete warning.** `lib/save-warnings.ts` and its test. Criteria 53 and 54: a delete refused by the active guard warns with one line per pair, never a count. Follow `lib/association-warnings.ts` — a tagged union of warning kinds, an exhaustiveness check in the `switch`, and a `labelCompany`-style helper for naming a row the user has to go and look at. The job service already hands back the blocking row as `blockedBy`, so the warning has both rows to name.
 
-3. **Then task 8, the service's fake**, following `lib/company-service.fake.ts`.
+3. **Then task 10, the step.** `lib/steps/save-jobs.ts` and its test. Load `.claude/rules/pipeline-steps.md` first.
 
-4. **Work the remaining tasks in order**, 7 through 16, from [`phase-05-db-save-spec.md`](../docs/features/unified-pipeline/phases/phase-05-db-save-spec.md#tasks). They are also in `docs/CURRENT-FEATURE.md` under the build item.
+4. **Work the remaining tasks in order**, 9 through 16, from [`phase-05-db-save-spec.md`](../docs/features/unified-pipeline/phases/phase-05-db-save-spec.md#tasks). They are also in `docs/CURRENT-FEATURE.md` under the build item.
 
 5. **Close phase 5** after building — architecture doc, decision log, and any backlog change presented for approval. Then take the 16 tasks back out of `CURRENT-FEATURE.md`, leaving one line linking to the spec.
