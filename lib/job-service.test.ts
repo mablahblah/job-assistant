@@ -1,0 +1,283 @@
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { createPipelineDb } from "./pipeline-db";
+import { createJobService, type JobService } from "./job-service";
+
+// This file lives in lib/, so the repo root is one level up.
+const libDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(libDir, "..");
+
+// Creating the scratch database runs the prisma CLI in a child process, which
+// is the slow part. A ceiling rather than a budget.
+const CREATE_TIMEOUT_MS = 45_000;
+
+type PipelineDb = ReturnType<typeof createPipelineDb>;
+
+// Greenhouse outranks adzuna, so a contested field these two both fill goes
+// greenhouse's way whichever side it arrived on.
+const PRIORITY_LIST = ["collector:greenhouse", "collector:adzuna"];
+
+// A fixed date, so nothing in these tests depends on when they run.
+const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
+
+// An absolute url, because a relative Prisma url resolves from the directory
+// holding prisma.config.ts rather than from the working directory.
+function makeTempDb(prefix: string): { dir: string; url: string } {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  return { dir, url: `file:${join(dir, "pipeline.db")}` };
+}
+
+// Pushes the real schema onto a scratch database. The url travels in the
+// environment because dotenv never overwrites a variable that is already set,
+// so this value wins over the repo's .env and the real pipeline.db is never
+// touched.
+function createDb(prefix: string): { dir: string; url: string } {
+  const temp = makeTempDb(prefix);
+  execFileSync("npx", ["tsx", "scripts/db-create.ts"], {
+    cwd: repoRoot,
+    env: { ...process.env, PIPELINE_DATABASE_URL: temp.url },
+    stdio: "pipe",
+  });
+  return temp;
+}
+
+// Points a real client at the scratch database. createPipelineDb reads the url
+// at call time, so the environment only has to hold the scratch value for the
+// moment of construction, and whatever was there before is put back.
+function buildService(url: string): { db: PipelineDb; service: JobService } {
+  const previous = process.env["PIPELINE_DATABASE_URL"];
+  process.env["PIPELINE_DATABASE_URL"] = url;
+  const db = createPipelineDb();
+  if (previous === undefined) delete process.env["PIPELINE_DATABASE_URL"];
+  else process.env["PIPELINE_DATABASE_URL"] = previous;
+  return { db, service: createJobService(db) };
+}
+
+// One scratch database serves the whole file. Every test uses ids of its own,
+// so nothing collides and the prisma CLI runs once.
+let dir: string;
+let db: PipelineDb;
+let service: JobService;
+
+beforeAll(() => {
+  const temp = createDb("pipeline-job-service-");
+  dir = temp.dir;
+  ({ db, service } = buildService(temp.url));
+}, CREATE_TIMEOUT_MS);
+
+afterAll(async () => {
+  await db.$disconnect();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// Puts a row straight into the table, bypassing the service, so a test can set
+// up the state it wants to act on. collected_at is supplied because the column
+// carries no database default.
+async function seedRow(
+  id: string,
+  fields: Record<string, unknown> = {}
+): Promise<void> {
+  await db.job.create({
+    data: { id, collected_at: COLLECTED_AT, ...fields },
+  });
+}
+
+// Hands back whatever a call threw. Prisma quotes the surrounding source
+// lines inside its own error messages, so a guard's wording can appear in an
+// error the service never raised — the tests below check the error's name as
+// well, which is "Error" for the service's own and something Prisma-specific
+// for one raised on the way past.
+async function thrownBy(work: Promise<unknown>): Promise<Error> {
+  try {
+    await work;
+  } catch (error) {
+    return error as Error;
+  }
+  throw new Error("expected the call to throw, but it resolved");
+}
+
+// AC 45. A job is given its id at collection so a dead end can name it, so the
+// row has to take that id rather than minting one of its own.
+describe("creating a row", () => {
+  test("keeps the id the entry brought", async () => {
+    const result = await service.update(
+      { id: "create-keeps-id", collected_at: COLLECTED_AT, raw_title: "Product Designer" },
+      PRIORITY_LIST
+    );
+
+    expect(result.outcome).toBe("created");
+    const row = await db.job.findUnique({ where: { id: "create-keeps-id" } });
+    expect(row?.raw_title).toBe("Product Designer");
+  });
+
+  // AC 44. No collector sets a status, so the schema's own default is what a
+  // freshly collected job lands in.
+  test("takes backlog where the entry carries no status", async () => {
+    await service.update({ id: "create-default-status", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+
+    const row = await db.job.findUnique({ where: { id: "create-default-status" } });
+    expect(row?.status).toBe("backlog");
+  });
+
+  test("refuses an entry carrying no id", async () => {
+    const error = await thrownBy(service.update({ collected_at: COLLECTED_AT }, PRIORITY_LIST));
+
+    expect(error.name).toBe("Error");
+    expect(error.message).toMatch(/requires entry\.id/i);
+  });
+
+  // collected_at is required with no default, so a create missing it fails
+  // deep inside Prisma unless the service says so plainly first.
+  test("refuses to create a row with no collection date", async () => {
+    const error = await thrownBy(service.update({ id: "create-no-date" }, PRIORITY_LIST));
+
+    expect(error.name).toBe("Error");
+    expect(error.message).toMatch(/without collected_at/i);
+  });
+});
+
+// AC 46. Scoring hands over an id and a score and nothing else, so every other
+// column has to survive the write untouched.
+describe("updating a row", () => {
+  test("changes only the field the entry named", async () => {
+    await seedRow("update-one-field", { raw_title: "Kept Title", is_parsed: false });
+
+    const result = await service.update({ id: "update-one-field", is_parsed: true }, PRIORITY_LIST);
+
+    expect(result.outcome).toBe("updated");
+    const row = await db.job.findUnique({ where: { id: "update-one-field" } });
+    expect(row?.is_parsed).toBe(true);
+    expect(row?.raw_title).toBe("Kept Title");
+  });
+
+  // The service runs the priority contest rather than leaving it to callers,
+  // so the better-ranked source wins a field both sides filled.
+  test("gives a contested field to the better-ranked source", async () => {
+    await seedRow("update-contest", { collector: "adzuna", title: "Adzuna Title" });
+
+    await service.update(
+      { id: "update-contest", collector: "greenhouse", title: "Greenhouse Title" },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "update-contest" } });
+    expect(row?.title).toBe("Greenhouse Title");
+    expect(row?.collector).toBe("greenhouse");
+  });
+
+  // AC 43. rejected is not an active status, so the row is freely updatable,
+  // and a freshly collected entry carries no status to reset it with.
+  test("leaves a rejected row's status alone where the entry carries none", async () => {
+    await seedRow("update-rejected", { status: "rejected", raw_title: "Old" });
+
+    await service.update(
+      { id: "update-rejected", collector: "greenhouse", raw_title: "New" },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "update-rejected" } });
+    expect(row?.status).toBe("rejected");
+    expect(row?.raw_title).toBe("New");
+  });
+});
+
+// AC 47. Reachable when two saves run at once: the lookup missed, then the
+// write was refused. The row that took the id is the row the caller wanted.
+describe("a create the database refuses", () => {
+  // Only the lookup lies. The create underneath is the real Prisma write, so
+  // the refusal it hits is a genuine unique-constraint error.
+  function racingService(): JobService {
+    const blind = {
+      job: {
+        findUnique: async () => null,
+        create: (args: unknown) => db.job.create(args as never),
+        update: (args: unknown) => db.job.update(args as never),
+        delete: (args: unknown) => db.job.delete(args as never),
+      },
+    } as unknown as PipelineDb;
+    return createJobService(blind);
+  }
+
+  test("updates the row that took the id instead of failing", async () => {
+    await seedRow("racing-create", { raw_title: "Already Here" });
+
+    const result = await racingService().update(
+      { id: "racing-create", collected_at: COLLECTED_AT, description: "arrived second" },
+      PRIORITY_LIST
+    );
+
+    expect(result.outcome).toBe("updated");
+    const row = await db.job.findUnique({ where: { id: "racing-create" } });
+    expect(row?.description).toBe("arrived second");
+    expect(row?.raw_title).toBe("Already Here");
+  });
+});
+
+// AC 49 and 50. The user is acting on an active job, so nothing a later
+// collection reports about it changes what they do next.
+describe("a row the user has applied to", () => {
+  test("takes a new status and nothing else", async () => {
+    await seedRow("active-status-change", { status: "interview", raw_title: "Old Title" });
+
+    const result = await service.update(
+      { id: "active-status-change", status: "offer", raw_title: "New Title" },
+      PRIORITY_LIST
+    );
+
+    expect(result.outcome).toBe("status_updated");
+    const row = await db.job.findUnique({ where: { id: "active-status-change" } });
+    expect(row?.status).toBe("offer");
+    expect(row?.raw_title).toBe("Old Title");
+  });
+
+  test("is left untouched where the entry carries no status", async () => {
+    await seedRow("active-no-status", { status: "screening", raw_title: "Frozen Title" });
+
+    const result = await service.update(
+      { id: "active-no-status", raw_title: "Ignored Title" },
+      PRIORITY_LIST
+    );
+
+    expect(result.outcome).toBe("unchanged");
+    const row = await db.job.findUnique({ where: { id: "active-no-status" } });
+    expect(row?.status).toBe("screening");
+    expect(row?.raw_title).toBe("Frozen Title");
+  });
+});
+
+// AC 51, 51a and 52. Deleting is how dedupe's merges land, and the guard is
+// what stops one destroying an application the user is in the middle of.
+describe("deleting a row", () => {
+  test("removes a row in a non-active status", async () => {
+    await seedRow("delete-plain", { status: "backlog" });
+
+    const result = await service.delete("delete-plain");
+
+    expect(result.deleted).toBe(true);
+    expect(result.blockedBy).toBeNull();
+    expect(await db.job.findUnique({ where: { id: "delete-plain" } })).toBeNull();
+  });
+
+  test("writes nothing where no row holds that id", async () => {
+    const result = await service.delete("delete-nobody-holds");
+
+    expect(result.deleted).toBe(false);
+    expect(result.blockedBy).toBeNull();
+    expect(await db.job.findUnique({ where: { id: "delete-nobody-holds" } })).toBeNull();
+  });
+
+  test("refuses a row the user has applied to and hands it back", async () => {
+    await seedRow("delete-active", { status: "app. sent", raw_title: "Applied Job" });
+
+    const result = await service.delete("delete-active");
+
+    expect(result.deleted).toBe(false);
+    expect(result.blockedBy?.id).toBe("delete-active");
+    expect(result.blockedBy?.raw_title).toBe("Applied Job");
+    expect(await db.job.findUnique({ where: { id: "delete-active" } })).not.toBeNull();
+  });
+});
