@@ -190,6 +190,10 @@ describe("AC 9: an unseeded database throws instead of returning something empty
     await expect(service.getExpiryThreshold()).rejects.toThrow(/expiry_threshold/);
   });
 
+  test("getSourcePriorityList throws rather than returning an empty list", async () => {
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
   test("getAtsCompanies returns an empty list, because no boards is a real answer", async () => {
     expect(await service.getAtsCompanies("greenhouse")).toEqual([]);
   });
@@ -210,7 +214,7 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the nine getters", () => {
+  test("exposes exactly the ten getters", () => {
     expect(Object.keys(service).sort()).toEqual(
       [
         "getAtsCompanies",
@@ -218,6 +222,7 @@ describe("AC 10: the settings service exposes reads only", () => {
         "getLocation",
         "getRadius",
         "getSearchTerms",
+        "getSourcePriorityList",
         "getTitleHeadNouns",
         "getTitleLevels",
         "getTitleRemovalWords",
@@ -688,5 +693,104 @@ describe("the title vocabulary getters return what the seed writes", () => {
     const levels = await service.getTitleLevels();
     const sr = levels.find((level) => level.store === "Sr.");
     expect(sr?.match).toEqual(expect.arrayContaining(["senior", "sr", "sr."]));
+  });
+});
+
+// The list ranks every collector and parser in one order, so a malformed
+// entry is not a line that simply never matches — it is a source whose rank
+// has quietly gone missing, and the contest it should have won goes the
+// other way with nothing said.
+describe("getSourcePriorityList rejects a malformed list", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-priority-shape-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("a value that is not a list throws", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = '\"collector:user\"' WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  test("a list holding something that is not a string throws", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = '[\"collector:user\", 5]' WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  test("an entry with no kind prefix throws", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = '[\"greenhouse\"]' WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  test("an entry of a kind that is neither a collector nor a parser throws", async () => {
+    await runSql(
+      url,
+      "UPDATE Setting SET source_priority_list = '[\"widget:greenhouse\"]' WHERE id = 1"
+    );
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  test("an entry naming no source throws", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = '[\"collector:\"]' WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  // An empty list ranks nothing, so every contest between two sources would
+  // leave the stored value standing and say nothing about it. That is the
+  // same silent degradation an empty title vocabulary causes.
+  test("an empty list throws", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = '[]' WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  test("a null column throws naming it", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = NULL WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
+  });
+
+  test("the message points at the seed as the fix", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = NULL WHERE id = 1");
+    await expect(service.getSourcePriorityList()).rejects.toThrow(/db:seed/);
+  });
+});
+
+describe("getSourcePriorityList returns the stored list", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+  let url: string;
+
+  const STORED = ["collector:user", "parser:greenhouse", "collector:greenhouse"];
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-priority-read-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  // Order is the whole content of this setting, so it comes back exactly as
+  // written rather than sorted or tidied.
+  test("the entries come back in the order they were stored", async () => {
+    await runSql(
+      url,
+      `UPDATE Setting SET source_priority_list = '${JSON.stringify(STORED)}' WHERE id = 1`
+    );
+    expect(await service.getSourcePriorityList()).toEqual(STORED);
+  });
+
+  test("a list of one entry is a real answer", async () => {
+    await runSql(url, "UPDATE Setting SET source_priority_list = '[\"collector:user\"]' WHERE id = 1");
+    expect(await service.getSourcePriorityList()).toEqual(["collector:user"]);
   });
 });

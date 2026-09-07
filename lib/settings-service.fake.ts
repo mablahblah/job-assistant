@@ -15,6 +15,7 @@ export function fakeSettings(overrides: Partial<SettingsService> = {}): Settings
     getTitleLevels: async () => [],
     getTitleSuffixes: async () => [],
     getTitleRemovalWords: async () => [],
+    getSourcePriorityList: async () => [],
     ...overrides,
   };
 }

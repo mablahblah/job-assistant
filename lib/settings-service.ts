@@ -3,6 +3,7 @@
 // Setting and Company tables directly. A missing setting throws, so
 // "nothing configured yet" never looks like "nothing to search for."
 import type { createPipelineDb } from "./pipeline-db";
+import { parsePriorityEntry } from "./source-priority";
 
 // A board an ATS collector polls. The slug is the whole identity: the seed
 // creates these companies with a slug and no name, and the three ATS
@@ -28,6 +29,7 @@ export interface SettingsService {
   getTitleLevels(): Promise<TitleLevel[]>;
   getTitleSuffixes(): Promise<string[]>;
   getTitleRemovalWords(): Promise<string[]>;
+  getSourcePriorityList(): Promise<string[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -73,6 +75,15 @@ function isTitleLevel(value: unknown): value is TitleLevel {
 
 function isTitleLevelArray(value: unknown): value is TitleLevel[] {
   return Array.isArray(value) && value.length > 0 && value.every(isTitleLevel);
+}
+
+// A priority list ranks every parser and collector in one flat order, so an
+// empty list would rank nothing and leave every contest between two sources
+// silently unresolved. Every entry has to parse as a real "kind:name"
+// ranking, which parsePriorityEntry decides rather than a second copy of the
+// rule here.
+function isSourcePriorityList(value: unknown): value is string[] {
+  return isNonEmptyStringArray(value) && value.every((entry) => parsePriorityEntry(entry) !== null);
 }
 
 export function createSettingsService(db: PipelineDb): SettingsService {
@@ -157,6 +168,15 @@ export function createSettingsService(db: PipelineDb): SettingsService {
 
     async getTitleRemovalWords() {
       return getWordVocabulary("title_removal_words");
+    },
+
+    async getSourcePriorityList() {
+      const row = await getSettingsRow(db);
+      const value = row === null ? null : row.source_priority_list;
+      if (!isSourcePriorityList(value)) {
+        throw missingSettingError("source_priority_list");
+      }
+      return value;
     },
   };
 }
