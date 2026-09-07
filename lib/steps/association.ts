@@ -8,7 +8,7 @@
 // every pass and never skips a job that already carries a company, which is
 // what lets a later parsing pass correct a company the first pass got wrong.
 import type { CompanyRecord, CompanyService } from "../company-service";
-import type { TraceWriter } from "../trace-writer";
+import type { TraceService } from "../trace-service";
 import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 import { companyMatchKey } from "../company-match-key";
@@ -16,7 +16,7 @@ import { associationWarnings, type AssociationWarning } from "../association-war
 
 export interface AssociateCompaniesOptions {
   companies: CompanyService;
-  trace?: TraceWriter;
+  trace?: TraceService;
   runId?: string;
   step?: string;
 }

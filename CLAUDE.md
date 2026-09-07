@@ -55,7 +55,7 @@ Path-scoped rules describing the old architecture moved to `legacy/rules/`, so t
 - **Dedupe:** Three-stage system that removes duplicate jobs at different pipeline points (by URL ×2, then by content with parser priority)
 - **Resolver/Resolution:** Following job posting links and redirects, especially from aggregators, in an attempt to find the source posting with the most accurate information.
 - **Parser:** Tool that takes the best job posting url and extracts key information.
-- **Service:** A reusable piece built from the database connection. It is handed that connection and hands back a small object holding a few functions, owning one table or one row — `createSettingsService(db)`, `createTraceWriter(db)`. Never called a store, a repository, or a DAO, whatever the function it returns is named.
+- **Service:** A reusable piece built from the database connection. It is handed that connection and hands back a small object holding a few functions, owning one table or one row — `createSettingsService(db)`, `createTraceService(db)`. Never called a store, a repository, or a DAO, whatever the function it returns is named.
 - **Util:** A plain function taking values and returning values, reaching no database — `companyMatchKey(name)`, `normalizeCompanyName(raw)`.
 - **User:** Me, the person who built this app.
 - **Web View**: A simple, semi-static web representation of our data

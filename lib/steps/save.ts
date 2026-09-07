@@ -9,7 +9,7 @@
 // write does — the merge, the active-status freeze, the delete guard — lives
 // in that service. This step is the loop that asks it and records the answer.
 import type { JobService, JobWriteOutcome } from "../job-service";
-import type { TraceDetail, TraceWriter } from "../trace-writer";
+import type { TraceDetail, TraceService } from "../trace-service";
 import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 import { saveWarnings, type SaveWarning } from "../save-warnings";
@@ -18,7 +18,7 @@ import { messageFromThrown } from "../thrown-message";
 export interface SaveJobsOptions {
   jobService: JobService;
   priorityList: readonly string[];
-  trace?: TraceWriter;
+  trace?: TraceService;
   runId?: string;
   step?: string;
 }

@@ -26,7 +26,7 @@ import { normalizeModeList } from "../work-mode-list";
 import { normalizeCompanyName } from "../company-name";
 import { summarizeNormalizationWarnings, type UnusableField } from "../normalization-warnings";
 import type { CollectionIssue } from "../collection-issue";
-import type { TraceWriter } from "../trace-writer";
+import type { TraceService } from "../trace-service";
 
 export interface NormalizationEvent {
   event: "job_updated" | "normalization_failed";
@@ -157,7 +157,7 @@ export function normalizeJob(
 
 export interface NormalizeJobsOptions {
   vocabularies: TitleVocabularies;
-  trace?: TraceWriter;
+  trace?: TraceService;
   runId?: string;
   step?: string;
 }

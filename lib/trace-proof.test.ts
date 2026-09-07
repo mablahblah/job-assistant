@@ -1,4 +1,4 @@
-// Runs a real collection through the real trace writer against a scratch
+// Runs a real collection through the real trace service against a scratch
 // SQLite file, then answers the funnel questions with raw SQL read back
 // through a separate connection. Every other trace test uses a fake writer;
 // this is the proof that events written during a real run land in the
@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
-import { createTraceWriter, type TraceWriter } from "./trace-writer";
+import { createTraceService, type TraceService } from "./trace-service";
 import { runCollection, type CollectionReport } from "./steps/search-orchestrator";
 import { associateCompanies } from "./steps/association";
 import { createCompanyService } from "./company-service";
@@ -78,13 +78,13 @@ async function queryTrace(
 // Points a real client at the scratch database. createPipelineDb reads the
 // url at call time, so the environment only has to hold the scratch value for
 // the moment of construction, and whatever was there before is put back.
-function buildWriter(url: string): { db: PipelineDb; writer: TraceWriter } {
+function buildWriter(url: string): { db: PipelineDb; writer: TraceService } {
   const previous = process.env["PIPELINE_DATABASE_URL"];
   process.env["PIPELINE_DATABASE_URL"] = url;
   const db = createPipelineDb();
   if (previous === undefined) delete process.env["PIPELINE_DATABASE_URL"];
   else process.env["PIPELINE_DATABASE_URL"] = previous;
-  return { db, writer: createTraceWriter(db) };
+  return { db, writer: createTraceService(db) };
 }
 
 async function cleanup(dir: string, db: PipelineDb): Promise<void> {

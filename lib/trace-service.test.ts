@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
-import { createTraceWriter, type TraceEvent, type TraceWriter } from "./trace-writer";
+import { createTraceService, type TraceEvent, type TraceService } from "./trace-service";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -74,13 +74,13 @@ async function queryTrace(
 // Points a real client at the scratch database. createPipelineDb reads the
 // url at call time, so the environment only has to hold the scratch value for
 // the moment of construction, and whatever was there before is put back.
-function buildWriter(url: string): { db: PipelineDb; writer: TraceWriter } {
+function buildWriter(url: string): { db: PipelineDb; writer: TraceService } {
   const previous = process.env["PIPELINE_DATABASE_URL"];
   process.env["PIPELINE_DATABASE_URL"] = url;
   const db = createPipelineDb();
   if (previous === undefined) delete process.env["PIPELINE_DATABASE_URL"];
   else process.env["PIPELINE_DATABASE_URL"] = previous;
-  return { db, writer: createTraceWriter(db) };
+  return { db, writer: createTraceService(db) };
 }
 
 async function cleanup(dir: string, db: PipelineDb): Promise<void> {
@@ -105,7 +105,7 @@ describe("the writer takes its database client from its caller", () => {
   let dbB: PipelineDb;
   let urlA: string;
   let urlB: string;
-  let writerA: TraceWriter;
+  let writerA: TraceService;
 
   beforeAll(() => {
     const tempA = createDb("pipeline-trace-caller-a-");
@@ -152,7 +152,7 @@ describe("a write records exactly what the caller passed", () => {
   let dir: string;
   let db: PipelineDb;
   let url: string;
-  let writer: TraceWriter;
+  let writer: TraceService;
 
   beforeAll(() => {
     const temp = createDb("pipeline-trace-columns-");
@@ -211,7 +211,7 @@ describe("a failing write is swallowed and counted", () => {
   let dir: string;
   let db: PipelineDb;
   let url: string;
-  let writer: TraceWriter;
+  let writer: TraceService;
 
   beforeAll(() => {
     const temp = createDb("pipeline-trace-failures-");
@@ -248,7 +248,7 @@ describe("writes made one after another land in that order", () => {
   let dir: string;
   let db: PipelineDb;
   let url: string;
-  let writer: TraceWriter;
+  let writer: TraceService;
 
   beforeAll(() => {
     const temp = createDb("pipeline-trace-order-");

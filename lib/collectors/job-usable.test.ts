@@ -186,7 +186,7 @@ describe("AC 109: a malformed salary, location, or work mode does not drop the j
 });
 
 // Detail carries the one value specific to a single dropped job, kept apart
-// from the code so the trace writer can use it as data without picking the
+// from the code so the trace service can use it as data without picking the
 // message apart.
 describe("a job dropped for a malformed original_url carries the offending URL as detail", () => {
   test("the malformed original_url check sets detail to the bare, unquoted URL", () => {

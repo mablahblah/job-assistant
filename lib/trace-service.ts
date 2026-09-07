@@ -19,14 +19,14 @@ export interface TraceEvent {
   detail?: TraceDetail;
 }
 
-export interface TraceWriter {
+export interface TraceService {
   write(event: TraceEvent): Promise<void>;
   failureCount(): number;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
-export function createTraceWriter(db: PipelineDb): TraceWriter {
+export function createTraceService(db: PipelineDb): TraceService {
   let failures = 0;
 
   return {

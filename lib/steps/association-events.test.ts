@@ -4,7 +4,7 @@ import { fakeCompanyService } from "../company-service.fake";
 import { companyMatchKey } from "../company-match-key";
 import type { CompanyRecord } from "../company-service";
 import type { JobListEntry } from "../job-list-entry";
-import type { TraceEvent, TraceWriter } from "../trace-writer";
+import type { TraceEvent, TraceService } from "../trace-service";
 
 // Covers only the trace rows the step writes. What it decides and what it
 // warns about keep their own coverage in association.test.ts and are
@@ -27,7 +27,7 @@ function slugCompany(id: string, slug: string): CompanyRecord {
 
 // Records every event handed to it instead of writing to a database, so a
 // test asserts on exactly what the step wrote without spinning up Prisma.
-function createFakeTraceWriter(): TraceWriter & { events: TraceEvent[] } {
+function createFakeTraceService(): TraceService & { events: TraceEvent[] } {
   const events: TraceEvent[] = [];
   return {
     events,
@@ -44,7 +44,7 @@ function createFakeTraceWriter(): TraceWriter & { events: TraceEvent[] } {
 // company_associated row for that pass, and its reason says how it got there.
 describe("a job that came out with a company", () => {
   test("writes exactly one company_associated row", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "one-row-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "one-row-board" })], {
@@ -59,7 +59,7 @@ describe("a job that came out with a company", () => {
   });
 
   test("a slug match reads matched_by_slug", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "slug-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "slug-board" })], {
@@ -73,7 +73,7 @@ describe("a job that came out with a company", () => {
   });
 
   test("a name match reads matched_by_name", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([namedCompany("c1", "Named Co")]);
 
     await associateCompanies([baseJob({ raw_company_name: "Named, Inc." })], {
@@ -87,7 +87,7 @@ describe("a job that came out with a company", () => {
   });
 
   test("a company created for the job reads company_created", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
 
     await associateCompanies([baseJob({ raw_company_name: "Fresh Co" })], {
       companies: fakeCompanyService(),
@@ -102,7 +102,7 @@ describe("a job that came out with a company", () => {
   // AC 45. Counting company_created rows is how a run reports the companies
   // it added, so a create that was refused must not inflate that figure.
   test("a create the service refused reads as a match, not company_created", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([], {
       create: async () => ({ company: namedCompany("blocker", "Blocked Co"), created: false }),
     });
@@ -122,7 +122,7 @@ describe("a job that came out with a company", () => {
 // name arrived, so the row has to carry it.
 describe("filling a company's empty name", () => {
   test("writes a company_updated row reading company_name_filled", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "fill-board")]);
 
     await associateCompanies(
@@ -135,7 +135,7 @@ describe("filling a company's empty name", () => {
   });
 
   test("its detail carries the name the company was given", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "detail-board")]);
 
     await associateCompanies(
@@ -150,7 +150,7 @@ describe("filling a company's empty name", () => {
   // AC 41 again, from the other side: a fill is its own event and does not
   // replace or duplicate the association row beside it.
   test("the association row is written alongside it, not replaced", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "both-rows-board")]);
 
     await associateCompanies(
@@ -168,7 +168,7 @@ describe("filling a company's empty name", () => {
 // association.test.ts.
 describe("the two failures", () => {
   test("no name to look up reads association_failed and no_name_for_lookup", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
 
     await associateCompanies([baseJob({ raw_company_slug: "dead-end-board" })], {
       companies: fakeCompanyService(),
@@ -182,7 +182,7 @@ describe("the two failures", () => {
   });
 
   test("a name clash reads company_update_failed and company_name_clash", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([
       namedCompany("holder", "Contested Name"),
       slugCompany("target", "contested-board"),
@@ -202,7 +202,7 @@ describe("the two failures", () => {
 describe("the step contract", () => {
   // A step handed no trace context still does its work and stays silent,
   // which is what lets association run outside a job search.
-  test("no trace writer means no rows and the jobs are still associated", async () => {
+  test("no trace service means no rows and the jobs are still associated", async () => {
     const companies = fakeCompanyService([slugCompany("c1", "silent-board")]);
 
     const result = await associateCompanies([baseJob({ raw_company_slug: "silent-board" })], {
@@ -213,7 +213,7 @@ describe("the step contract", () => {
   });
 
   test("no run id means no rows are written", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "no-run-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "no-run-board" })], {
@@ -226,7 +226,7 @@ describe("the step contract", () => {
   });
 
   test("no step name means no rows are written", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "no-step-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "no-step-board" })], {
@@ -239,7 +239,7 @@ describe("the step contract", () => {
   });
 
   test("every row carries the run, the step and the collector its caller set", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "stamped-board")]);
 
     await associateCompanies(
@@ -256,7 +256,7 @@ describe("the step contract", () => {
   // AC 50. A trace row and a warning are both keyed by job id and collector,
   // so a job carrying neither has nothing to key its record on.
   test("a job with no id writes no row and raises no warning, and is still associated", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "no-id-board")]);
     const jobs: JobListEntry[] = [{ collector: "adzuna", raw_company_slug: "no-id-board" }];
 
@@ -273,7 +273,7 @@ describe("the step contract", () => {
   });
 
   test("a job with no collector writes no row and raises no warning", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([slugCompany("c1", "no-collector-board")]);
     const jobs: JobListEntry[] = [{ id: "job-9", raw_company_slug: "no-collector-board" }];
 
@@ -293,7 +293,7 @@ describe("the step contract", () => {
   // company name 50, so 200 clears every genuine value while still cutting a
   // description a collector bug put in the wrong field.
   test("a detail value longer than 200 characters is cut at 200", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const longName = "L".repeat(300);
 
     await associateCompanies([baseJob({ raw_company_name: longName })], {
@@ -315,7 +315,7 @@ describe("the step contract", () => {
 // AC 51 and 52. The funnel questions this phase owes the trace table.
 describe("what the rows answer on their own", () => {
   test("company_created rows count the companies a run added", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([namedCompany("c1", "Already Here")]);
     const jobs = [
       baseJob({ id: "1", raw_company_name: "Already Here" }),
@@ -330,7 +330,7 @@ describe("what the rows answer on their own", () => {
   });
 
   test("each job's association row says how that job reached its company", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const companies = fakeCompanyService([
       slugCompany("c1", "by-slug-board"),
       namedCompany("c2", "By Name Co"),

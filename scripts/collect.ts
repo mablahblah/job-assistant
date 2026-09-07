@@ -5,7 +5,7 @@ import { createCompanyService } from "../lib/company-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
 import { runCollection } from "../lib/steps/search-orchestrator";
-import { createTraceWriter } from "../lib/trace-writer";
+import { createTraceService } from "../lib/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 
 // One line per issue, naming both the collector and its own message, since
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   const prisma = createPipelineDb();
   try {
     const settings = createSettingsService(prisma);
-    const trace = createTraceWriter(prisma);
+    const trace = createTraceService(prisma);
     // The one way anything reaches the Company table, so association attaches
     // each job to a company without opening a database of its own.
     const companies = createCompanyService(prisma);

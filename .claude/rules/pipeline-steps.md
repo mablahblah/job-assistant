@@ -22,7 +22,7 @@ A warning is validation. Something is wrong that the user needs to know, so the 
 
 One event produces both where it is both. A salary that could not be read writes a trace row and returns a warning.
 
-A step writes its own trace rows through the trace service in `lib/trace-writer.ts`. Its caller hands it the run id and the step name, because the same step runs at more than one point in the pipeline. A step handed neither writes no trace and still does its work.
+A step writes its own trace rows through the trace service in `lib/trace-service.ts`. Its caller hands it the run id and the step name, because the same step runs at more than one point in the pipeline. A step handed neither writes no trace and still does its work.
 
 A step returns no trace events for its caller to write.
 

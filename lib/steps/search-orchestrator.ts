@@ -13,7 +13,7 @@ import { normalizeJobs } from "./normalization";
 import type { SettingsService } from "../settings-service";
 import { messageFromThrown } from "../thrown-message";
 import type { TitleVocabularies } from "../title";
-import type { TraceWriter } from "../trace-writer";
+import type { TraceService } from "../trace-service";
 
 export interface CollectionReport {
   jobs: JobListEntry[];
@@ -39,7 +39,7 @@ export interface CollectionOptions {
   // Records each job's path through collection. Never throws: a failed write
   // is swallowed and counted rather than allowed to cancel a run over a row
   // of diagnostics.
-  trace: TraceWriter;
+  trace: TraceService;
   // How many jobs each collector stops after. Omitted means unlimited.
   limit?: number;
   // Where progress lines go. Defaults to stderr, so a job list printed on

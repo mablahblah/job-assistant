@@ -19,7 +19,7 @@ export interface UnusableReason {
   code: UnusableCode;
   message: string;
   // The one value specific to this dropped job, bare and unquoted, for the
-  // trace writer to store as data. Most checks have nothing to put here.
+  // trace service to store as data. Most checks have nothing to put here.
   detail?: string;
 }
 

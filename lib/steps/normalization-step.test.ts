@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { normalizeJob, normalizeJobs } from "./normalization";
 import type { JobListEntry } from "../job-list-entry";
 import type { TitleVocabularies } from "../title";
-import type { TraceEvent, TraceWriter } from "../trace-writer";
+import type { TraceEvent, TraceService } from "../trace-service";
 
 // Covers normalizeJobs, the step wrapper that calls normalizeJob once per
 // entry in a job list, writes its own trace rows, and folds the warnings
@@ -53,10 +53,10 @@ function baseJob(overrides: Partial<JobListEntry> = {}): JobListEntry {
   return { id: "job-1", collector: "lever", ...overrides };
 }
 
-// A local fake TraceWriter that records every event handed to it instead of
+// A local fake TraceService that records every event handed to it instead of
 // writing to a database, so a test can assert on exactly what normalizeJobs
 // wrote without spinning up Prisma.
-function createFakeTraceWriter(): TraceWriter & { events: TraceEvent[] } {
+function createFakeTraceService(): TraceService & { events: TraceEvent[] } {
   const events: TraceEvent[] = [];
   return {
     events,
@@ -104,7 +104,7 @@ describe("normalizeJobs: an empty job list", () => {
   });
 
   test("writes no trace", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     expect(trace.events).toEqual([]);
   });
@@ -120,38 +120,38 @@ describe("normalizeJobs: the trace rows it writes", () => {
   });
 
   test("writes one trace row per normalization event normalizeJob produced", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     const expectedEvents = normalizeJob(job, VOCABULARIES).events;
     expect(trace.events).toHaveLength(expectedEvents.length);
   });
 
   test("a trace row's job_id is the job's own id", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     expect(trace.events.every((event) => event.job_id === job.id)).toBe(true);
   });
 
   test("a trace row's collector is the job's own collector", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     expect(trace.events.every((event) => event.collector === job.collector)).toBe(true);
   });
 
   test("a trace row's run_id is options.runId", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-42", step: STEP });
     expect(trace.events.every((event) => event.run_id === "run-42")).toBe(true);
   });
 
   test("a trace row's step is options.step", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     expect(trace.events.every((event) => event.step === STEP)).toBe(true);
   });
 
   test("a trace row's event, reason and detail match the normalization event it came from", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     const expectedEvents = normalizeJob(job, VOCABULARIES).events;
     for (const expectedEvent of expectedEvents) {
@@ -162,7 +162,7 @@ describe("normalizeJobs: the trace rows it writes", () => {
   });
 });
 
-describe("normalizeJobs: handed no trace writer", () => {
+describe("normalizeJobs: handed no trace service", () => {
   // No min or max in this envelope, only a period, so normalizeSalary comes
   // back empty and salary_unusable fires — one of the two reasons that warn.
   const job = baseJob({
@@ -187,20 +187,20 @@ describe("normalizeJobs: handed no run id", () => {
     raw_salary: { salary_period: "week" },
   });
 
-  test("writes no trace rows even though a trace writer and a step are present", async () => {
-    const trace = createFakeTraceWriter();
+  test("writes no trace rows even though a trace service and a step are present", async () => {
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, step: STEP });
     expect(trace.events).toEqual([]);
   });
 
   test("still normalizes the jobs", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const result = await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, step: STEP });
     expect(result.jobs[0].title).toBe("Sr. UX Designer");
   });
 
   test("still returns the warnings normalization raised", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const result = await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, step: STEP });
     expect(result.warnings).toHaveLength(1);
   });
@@ -212,20 +212,20 @@ describe("normalizeJobs: handed no step", () => {
     raw_salary: { salary_period: "week" },
   });
 
-  test("writes no trace rows even though a trace writer and a run id are present", async () => {
-    const trace = createFakeTraceWriter();
+  test("writes no trace rows even though a trace service and a run id are present", async () => {
+    const trace = createFakeTraceService();
     await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1" });
     expect(trace.events).toEqual([]);
   });
 
   test("still normalizes the jobs", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const result = await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1" });
     expect(result.jobs[0].title).toBe("Sr. UX Designer");
   });
 
   test("still returns the warnings normalization raised", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     const result = await normalizeJobs([job], { vocabularies: VOCABULARIES, trace, runId: "run-1" });
     expect(result.warnings).toHaveLength(1);
   });
@@ -250,7 +250,7 @@ describe("normalizeJobs: a job missing the fields a trace row and a warning are 
   });
 
   test("a job with no id produces no trace row", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([jobMissingId], { vocabularies: VOCABULARIES, trace, runId: "run-1", step: STEP });
     expect(trace.events).toEqual([]);
   });
@@ -267,7 +267,7 @@ describe("normalizeJobs: a job missing the fields a trace row and a warning are 
   });
 
   test("a job with no collector produces no trace row", async () => {
-    const trace = createFakeTraceWriter();
+    const trace = createFakeTraceService();
     await normalizeJobs([jobMissingCollector], {
       vocabularies: VOCABULARIES,
       trace,
