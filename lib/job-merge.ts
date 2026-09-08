@@ -170,8 +170,10 @@ export function mergeJobs(
   merged.collected_at = mergedCollectedAt;
 
   // Dates are pooled, not contested: the earliest posting stands and the latest
-  // becomes the update, so two collectors disagreeing by hours do not look like
-  // a repost.
+  // becomes the update, so no real date is thrown away. Two collectors
+  // disagreeing by hours still leave two distinct dates, so the row does read
+  // as updated; judging whether that gap is a real repost belongs to
+  // classification, not here.
   const pooled = poolJobDates(
     { posting_date: existing.posting_date, posting_updated_date: existing.posting_updated_date },
     { posting_date: arriving.posting_date, posting_updated_date: arriving.posting_updated_date },
