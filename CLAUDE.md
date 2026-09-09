@@ -2,6 +2,10 @@
 
 A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, tracking job applications, and managing an unemployment ‘Work Log.’
 
+## RULE #1
+
+No shorthand. Laymans terms. Saying "write threw" instead of "the save failed" does not save any time or tokens if the user is asking what you mean, or to explain again more clearly.
+
 ## Tech Stack
 
 - **Runtime:** TypeScript via tsx (no build step), Node.js
@@ -40,12 +44,12 @@ Nothing is built yet. The target shape is a single pipeline whose only different
 
 Planning lives in [`docs/features/unified-pipeline/`](docs/features/unified-pipeline/):
 
-| File | What it is |
-|------|-----------|
-| `decision-log.md` | Signed-off decisions — read this first |
-| `feature_r&d.md` | Brain dump, measured database facts, title-normalization research |
-| `db-entries.md` | Field-by-field shape of the current Job and Company records |
-| `location-research/` | Proposed `location_match` rule, tested against all 1,853 jobs |
+| File                 | What it is                                                        |
+| -------------------- | ----------------------------------------------------------------- |
+| `decision-log.md`    | Signed-off decisions — read this first                            |
+| `feature_r&d.md`     | Brain dump, measured database facts, title-normalization research |
+| `db-entries.md`      | Field-by-field shape of the current Job and Company records       |
+| `location-research/` | Proposed `location_match` rule, tested against all 1,853 jobs     |
 
 Path-scoped rules describing the old architecture moved to `legacy/rules/`, so they no longer apply. New rules get written as the new pipeline takes shape.
 
@@ -61,6 +65,7 @@ Path-scoped rules describing the old architecture moved to `legacy/rules/`, so t
 - **Web View**: A simple, semi-static web representation of our data
 
 <!-- code-review-graph MCP tools -->
+
 ## MCP Tools: code-review-graph
 
 **IMPORTANT: This project has a knowledge graph. ALWAYS use the code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore the codebase.** The graph is faster, cheaper (fewer tokens), and gives you structural context (callers, dependents, test coverage) that file scanning cannot.
@@ -77,13 +82,13 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
 ### Key Tools
 
-| Tool | Use when |
-|------|----------|
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
+| Tool                        | Use when                                               |
+| --------------------------- | ------------------------------------------------------ |
+| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
+| `get_review_context`        | Need source snippets for review — token-efficient      |
+| `get_impact_radius`         | Understanding blast radius of a change                 |
+| `get_affected_flows`        | Finding which execution paths are impacted             |
+| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
+| `get_architecture_overview` | Understanding high-level codebase structure            |
+| `refactor_tool`             | Planning renames, finding dead code                    |
