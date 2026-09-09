@@ -9,6 +9,7 @@ import type { Job } from "../generated/pipeline/client";
 import type { JobListEntry } from "./job-list-entry";
 import { isActiveStatus } from "./job-status";
 import { mergeJobs, WRITE_ONCE_FIELDS } from "./job-merge";
+import { urlMatchKey } from "./url-match-key";
 
 // What the write turned out to be, so a caller can trace it without working
 // it out again from the row it got back.
@@ -46,11 +47,29 @@ function toJobListEntry(row: Job): JobListEntry {
   return row as unknown as JobListEntry;
 }
 
+// A link's match key travels with it: a string link gets a freshly computed
+// key, a null link clears its key too, and a link this write never mentions
+// leaves the stored key standing — setting it would wipe a good key on a
+// write that says nothing about that link.
+function stampLinkMatchKey(
+  columns: Record<string, unknown>,
+  keyField: string,
+  link: string | null | undefined
+): void {
+  if (link === undefined) return;
+  columns[keyField] = link === null ? null : urlMatchKey(link);
+}
+
 // delete_on_save is a JobListEntry-only flag, not a Job column, so it is
-// stripped before the rest of the entry reaches Prisma.
+// stripped before the rest of the entry reaches Prisma. created_at is stripped
+// too: a merged job carries the surviving row's created_at while it travels in
+// memory, and writing it back would overwrite the birthday the database set.
 function toColumnData(entry: JobListEntry): Record<string, unknown> {
   const columns: Record<string, unknown> = { ...entry };
   delete columns["delete_on_save"];
+  delete columns["created_at"];
+  stampLinkMatchKey(columns, "original_url_match_key", entry.original_url);
+  stampLinkMatchKey(columns, "resolved_url_match_key", entry.resolved_url);
   return columns;
 }
 
@@ -107,7 +126,7 @@ export function createJobService(db: PipelineDb): JobService {
 
     // mergeJobs always hands back the write-once fields, so they are dropped
     // here rather than named again — the merge is where that group is defined.
-    const data: Record<string, unknown> = { ...merged };
+    const data = toColumnData(merged);
     for (const field of WRITE_ONCE_FIELDS) delete data[field];
     const updated = await db.job.update({ where: { id }, data: data as Prisma.JobUpdateInput });
     return { job: toJobListEntry(updated), outcome: "updated" };

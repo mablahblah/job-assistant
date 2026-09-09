@@ -281,3 +281,127 @@ describe("deleting a row", () => {
     expect(await db.job.findUnique({ where: { id: "delete-active" } })).not.toBeNull();
   });
 });
+
+// Every write to Job shapes its data through toColumnData, which builds each
+// link's match key from the link standing beside it. Dedupe looks jobs up by
+// those keys, so a link and its key must never drift apart.
+describe("stamping the link match keys", () => {
+  // AC 15.
+  test("a created row's original_url_match_key holds that link's key", async () => {
+    await service.update(
+      {
+        id: "keys-create-original",
+        collected_at: COLLECTED_AT,
+        original_url: "https://www.adzuna.com/land/ad/5872600391?se=8lLTgnii8BroTBApR2iJSA",
+      },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-create-original" } });
+    expect(row?.original_url_match_key).toBe("https://www.adzuna.com/land/ad/5872600391");
+  });
+
+  // AC 16.
+  test("a created row's resolved_url_match_key holds that link's key", async () => {
+    await service.update(
+      {
+        id: "keys-create-resolved",
+        collected_at: COLLECTED_AT,
+        resolved_url: "https://boards.greenhouse.io/acme/jobs/456?gh_src=abc",
+      },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-create-resolved" } });
+    expect(row?.resolved_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/456");
+  });
+
+  // AC 17. Resolution fills resolved_url long after the row was created, so
+  // the update path has to stamp the key the create path never could.
+  test("an update writing resolved_url for the first time stamps its key", async () => {
+    await seedRow("keys-update-resolved", { collector: "greenhouse" });
+
+    await service.update(
+      {
+        id: "keys-update-resolved",
+        resolved_url: "https://jobs.lever.co/acme/9f2c1b?lever-source=x",
+      },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-update-resolved" } });
+    expect(row?.resolved_url_match_key).toBe("https://jobs.lever.co/acme/9f2c1b");
+  });
+
+  // AC 18. greenhouse outranks adzuna, so the arriving link wins the contest
+  // and the stored key has to move with it.
+  test("an update changing original_url through a merge stamps the new link's key", async () => {
+    await seedRow("keys-update-original", {
+      collector: "adzuna",
+      original_url: "https://www.adzuna.com/land/ad/111?se=old",
+      original_url_match_key: "https://www.adzuna.com/land/ad/111",
+    });
+
+    await service.update(
+      {
+        id: "keys-update-original",
+        collector: "greenhouse",
+        original_url: "https://boards.greenhouse.io/acme/jobs/999",
+      },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-update-original" } });
+    expect(row?.original_url).toBe("https://boards.greenhouse.io/acme/jobs/999");
+    expect(row?.original_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/999");
+  });
+
+  // AC 19. An active row is frozen except for its status, so the entry's own
+  // link never reaches the write and neither key moves.
+  test("a status-only write to an active row leaves both keys unchanged", async () => {
+    await seedRow("keys-active", {
+      status: "app. sent",
+      original_url: "https://example.com/jobs/1",
+      original_url_match_key: "https://example.com/jobs/1",
+      resolved_url: "https://example.com/jobs/1/apply",
+      resolved_url_match_key: "https://example.com/jobs/1/apply",
+    });
+
+    await service.update(
+      {
+        id: "keys-active",
+        status: "interview",
+        original_url: "https://elsewhere.com/somewhere-else",
+      },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-active" } });
+    expect(row?.status).toBe("interview");
+    expect(row?.original_url_match_key).toBe("https://example.com/jobs/1");
+    expect(row?.resolved_url_match_key).toBe("https://example.com/jobs/1/apply");
+  });
+
+  // AC 20.
+  test("a created row carrying no links has both keys empty", async () => {
+    await service.update({ id: "keys-create-none", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+
+    const row = await db.job.findUnique({ where: { id: "keys-create-none" } });
+    expect(row?.original_url_match_key).toBeNull();
+    expect(row?.resolved_url_match_key).toBeNull();
+  });
+
+  // AC 49. A merged job carries the surviving id's created_at while it travels
+  // in memory. toColumnData strips it, so the database's own birthday stands.
+  test("an entry carrying a created_at never writes it to the row", async () => {
+    const stale = new Date("2020-01-01T00:00:00.000Z");
+
+    await service.update(
+      { id: "keys-created-at", collected_at: COLLECTED_AT, created_at: stale },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-created-at" } });
+    expect(row?.created_at.getTime()).not.toBe(stale.getTime());
+  });
+});
