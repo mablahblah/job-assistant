@@ -2,10 +2,6 @@
 
 A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, tracking job applications, and managing an unemployment ‘Work Log.’
 
-## RULE #1
-
-No shorthand. Laymans terms. Saying "write threw" instead of "the save failed" does not save any time or tokens if the user is asking what you mean, or to explain again more clearly.
-
 ## Tech Stack
 
 - **Runtime:** TypeScript via tsx (no build step), Node.js
