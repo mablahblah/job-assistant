@@ -1120,6 +1120,51 @@ describe("Job: the two link match-key columns and their indexes", () => {
   });
 });
 
+describe("Job: the company-and-title index dedupe looks a match up on", () => {
+  let dir: string;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = makeTempDb("pipeline-schema-company-title-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("one index covers company_id and title together, in that order", async () => {
+    // Dedupe's third clause searches on both at once, so one combined index
+    // serves it. Two separate indexes would leave the database picking one
+    // and scanning for the other. company_id comes first because it narrows
+    // hardest — a title is shared across employers.
+    const indexes = await tableIndexes(url, "Job");
+    const combined = indexes.filter(
+      (index) => index.columns.length === 2 && index.columns[0] === "company_id"
+    );
+    expect(combined.length, "no index covers company_id and a second column").toBeGreaterThan(0);
+    for (const index of combined) {
+      expect(index.columns[1]).toBe("title");
+    }
+  });
+
+  test("that index is not unique", async () => {
+    // One employer legitimately holds several rows with one title until a
+    // pass collapses them, and a refused merge leaves such a pair standing
+    // for good.
+    const indexes = await tableIndexes(url, "Job");
+    const combined = indexes.filter(
+      (index) => index.columns.length === 2 && index.columns[0] === "company_id"
+    );
+    expect(combined.length, "no index covers company_id and a second column").toBeGreaterThan(0);
+    for (const index of combined) {
+      expect(index.unique, `${index.name} is unique`).toBe(false);
+    }
+  });
+});
+
 // Read straight off disk, the same way the Trace comment tests are.
 describe("Job: the status comment names every status a job can hold", () => {
   const ALL_STATUSES = [

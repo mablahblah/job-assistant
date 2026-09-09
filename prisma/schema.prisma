@@ -100,6 +100,11 @@ model Job {
   // standing for good.
   @@index([original_url_match_key])
   @@index([resolved_url_match_key])
+  // Dedupe's third clause searches on company and title together, so one
+  // combined index serves it rather than two the database would have to pick
+  // between. company_id leads because it narrows hardest: a title is shared
+  // across employers. Not unique, for the same reason the two above are not.
+  @@index([company_id, title])
 }
 
 // An employer. A collector polls the companies carrying its ats_platform and
