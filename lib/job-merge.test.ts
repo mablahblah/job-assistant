@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { JOB_LIST_ENTRY_FIELDS, type JobListEntry } from "./job-list-entry";
 import {
   CONTESTED_FIELDS,
+  DERIVED_AT_WRITE_FIELDS,
   NEVER_WRITTEN_FIELDS,
   POOLED_DATE_FIELDS,
   WINNER_STAMP_FIELDS,
@@ -42,6 +43,7 @@ describe("the field list names every Job column exactly once", () => {
     ...WRITE_ONCE_FIELDS,
     ...POOLED_DATE_FIELDS,
     ...NEVER_WRITTEN_FIELDS,
+    ...DERIVED_AT_WRITE_FIELDS,
   ] as string[];
 
   // delete_on_save is the one job list field that is not a column, so it is

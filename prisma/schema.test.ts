@@ -28,7 +28,9 @@ const EXPECTED_JOB_COLUMNS = [
   "raw_title",
   "title",
   "original_url",
+  "original_url_match_key",
   "resolved_url",
+  "resolved_url_match_key",
   "posting_date",
   "posting_updated_date",
   "created_at",
@@ -191,6 +193,45 @@ async function tableColumns(url: string, table: string): Promise<ColumnInfo[]> {
 async function columnNames(url: string, table: string): Promise<string[]> {
   const columns = await tableColumns(url, table);
   return columns.map((column) => column.name).sort();
+}
+
+interface IndexInfo {
+  name: string;
+  unique: boolean;
+  columns: string[];
+}
+
+// Asks sqlite which indexes a table carries and which columns each one covers,
+// so an assertion checks what actually landed rather than the name Prisma
+// happened to give it.
+async function tableIndexes(url: string, table: string): Promise<IndexInfo[]> {
+  const client = createClient({ url });
+  try {
+    const list = await client.execute(`PRAGMA index_list(${table})`);
+    const indexes: IndexInfo[] = [];
+    for (const row of list.rows) {
+      const record = row as unknown as Record<string, unknown>;
+      const name = String(record["name"]);
+      const info = await client.execute(`PRAGMA index_info("${name}")`);
+      indexes.push({
+        name,
+        unique: Number(record["unique"]) === 1,
+        columns: info.rows.map((each) =>
+          String((each as unknown as Record<string, unknown>)["name"])
+        ),
+      });
+    }
+    return indexes;
+  } finally {
+    client.close();
+  }
+}
+
+// Every index covering exactly the one named column, which is the shape both
+// match-key indexes take.
+async function indexesCovering(url: string, table: string, column: string): Promise<IndexInfo[]> {
+  const indexes = await tableIndexes(url, table);
+  return indexes.filter((index) => index.columns.length === 1 && index.columns[0] === column);
 }
 
 async function countRows(url: string, table: string): Promise<number> {
@@ -726,6 +767,43 @@ describe("Trace: the model comment carries both vocabularies", () => {
     expect(traceComment()).toContain("db_write_failed");
   });
 
+  test("dedupe's events are listed", () => {
+    // job_dbrow_delete_refused is not a substring of job_dbrow_deleted and
+    // job_dbrow_deleted is not a substring of it: the two diverge straight
+    // after the shared job_dbrow_delete prefix, so neither can pass on the
+    // strength of the other.
+    const comment = traceComment();
+    const events = [
+      "added_to_job_list",
+      "job_dbrow_delete_refused",
+      // Dedupe's other three rows reuse names already in the comment, so the
+      // reasons below are what tell its populations from save's and
+      // collection's.
+      "abandoned",
+      "job_dbrow_deleted",
+    ];
+    for (const event of events) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("dedupe's reason codes are listed", () => {
+    // None of these four is a substring of another or of a reason already in
+    // the comment: hard_match_in_list and repost_match_in_list differ from
+    // their first character, and matched_db_row and matched_list_entry
+    // diverge straight after the shared matched_ prefix.
+    const comment = traceComment();
+    const reasons = [
+      "hard_match_in_list",
+      "repost_match_in_list",
+      "matched_db_row",
+      "matched_list_entry",
+    ];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
+    }
+  });
+
   test("the comment states that normalization_failed still writes a fallback value", () => {
     // The sentence is hard-wrapped across several "//"-prefixed lines, so a
     // toContain on the full sentence would fail even with every word
@@ -968,6 +1046,77 @@ describe("Job: a row takes the id it was created with", () => {
     const db = clientFor(url);
     const created = await db.job.create({ data: { collected_at: STAMPED_AT } });
     expect(created.id).toHaveLength(25);
+  });
+});
+
+// Dedupe's two link clauses match on these keys rather than on the raw links,
+// so each needs an index to look a match up instead of reading every row.
+// Neither may be unique: two rows for one posting hold the same key from the
+// moment both are saved until the pass that collapses them, and a merge the
+// active guard refuses leaves that pair standing for good.
+describe("Job: the two link match-key columns and their indexes", () => {
+  let dir: string;
+  let url: string;
+
+  const STAMPED_AT = new Date("2026-01-01T00:00:00.000Z");
+  const MATCH_KEY_COLUMNS = ["original_url_match_key", "resolved_url_match_key"];
+
+  beforeAll(() => {
+    const temp = makeTempDb("pipeline-schema-match-keys-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test.each(MATCH_KEY_COLUMNS)("%s is an optional string", async (name) => {
+    const column = (await tableColumns(url, "Job")).find((each) => each.name === name);
+    expect(column, `${name} is not a Job column`).toBeTruthy();
+    expect(column?.type).toBe("TEXT");
+    expect(column?.notnull).toBe(0);
+  });
+
+  test.each(MATCH_KEY_COLUMNS)("an index covers %s", async (name) => {
+    const covering = await indexesCovering(url, "Job", name);
+    expect(covering.length, `no index covers ${name} alone`).toBeGreaterThan(0);
+  });
+
+  test.each(MATCH_KEY_COLUMNS)("no index on %s is unique", async (name) => {
+    const covering = await indexesCovering(url, "Job", name);
+    // Without this the assertion below would pass over an empty list, which
+    // is a schema carrying no index at all rather than a non-unique one.
+    expect(covering.length, `no index covers ${name} alone`).toBeGreaterThan(0);
+    for (const index of covering) {
+      expect(index.unique, `${index.name} is unique`).toBe(false);
+    }
+  });
+
+  test("two rows carrying one original_url_match_key both save", async () => {
+    // Written as raw SQL rather than through the generated client, because
+    // what is under test is the database refusing nothing. id and modified_at
+    // are supplied because Prisma fills both at write time rather than
+    // through a SQL default.
+    const key = "https://example.com/jobs/1";
+    const client = createClient({ url });
+    try {
+      for (const id of ["match-key-row-a", "match-key-row-b"]) {
+        await client.execute({
+          sql: "INSERT INTO Job (id, collected_at, modified_at, original_url_match_key) VALUES (?, ?, ?, ?)",
+          args: [id, STAMPED_AT.getTime(), STAMPED_AT.getTime(), key],
+        });
+      }
+      const result = await client.execute({
+        sql: "SELECT count(*) as count FROM Job WHERE original_url_match_key = ?",
+        args: [key],
+      });
+      const record = result.rows[0] as unknown as Record<string, unknown>;
+      expect(Number(record["count"])).toBe(2);
+    } finally {
+      client.close();
+    }
   });
 });
 

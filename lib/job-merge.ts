@@ -42,6 +42,14 @@ export const POOLED_DATE_FIELDS = ["posting_date", "posting_updated_date"] as co
 // The database owns these, so the merge never puts them on the entry.
 export const NEVER_WRITTEN_FIELDS = ["created_at", "modified_at"] as const;
 
+// The job service builds these from the links at write time, so the merge
+// never puts them on the entry either. A key settled here could disagree with
+// the link the contest above picked.
+export const DERIVED_AT_WRITE_FIELDS = [
+  "original_url_match_key",
+  "resolved_url_match_key",
+] as const;
+
 // The five keys a raw salary can carry, each contested on its own.
 const RAW_SALARY_KEYS = [
   "salary_min",
