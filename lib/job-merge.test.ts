@@ -342,7 +342,7 @@ describe("what the merge never writes", () => {
   });
 
   test("delete_on_save is not carried onto the merged entry", () => {
-    const result = merge({ ...GREENHOUSE }, { ...ADZUNA, delete_on_save: true });
+    const result = merge({ ...GREENHOUSE }, { ...ADZUNA, delete_on_save: "hard_match_in_list" });
     expect(result).not.toHaveProperty("delete_on_save");
   });
 });

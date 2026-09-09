@@ -84,7 +84,7 @@ describe("the event each kind of write produces", () => {
   test("a deleted row reads job_dbrow_deleted", async () => {
     const trace = createFakeTraceService();
 
-    await saveJobs([entry("dupe", { delete_on_save: true })], {
+    await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("dupe")]),
       priorityList: PRIORITY_LIST,
       trace,
@@ -132,7 +132,7 @@ describe("what writes no row at all", () => {
   test("a delete the guard refused writes nothing", async () => {
     const trace = createFakeTraceService();
 
-    await saveJobs([entry("applied", { delete_on_save: true })], {
+    await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,
       trace,
@@ -146,7 +146,7 @@ describe("what writes no row at all", () => {
   test("an entry marked for deletion that no row holds writes nothing", async () => {
     const trace = createFakeTraceService();
 
-    await saveJobs([entry("ghost", { delete_on_save: true })], {
+    await saveJobs([entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
       trace,

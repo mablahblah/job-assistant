@@ -28,6 +28,22 @@ export interface RawSalary {
   salary_unit?: "cents";
 }
 
+// The reasons dedupe can mark an entry away for. The trace row written when
+// the entry goes carries the same word, so the match that removed a job is
+// named rather than merely counted.
+//
+// Dedupe's fourth reason, matched_list_entry, is deliberately absent: it sits
+// on a stored row that joined the list rather than on an entry leaving it, so
+// it never marks anything for deletion. The Trace model's comment in
+// prisma/schema.prisma is the source of truth for all four.
+export const DEDUPE_REASONS = [
+  "hard_match_in_list",
+  "repost_match_in_list",
+  "matched_db_row",
+] as const;
+
+export type DedupeReason = (typeof DEDUPE_REASONS)[number];
+
 export type JobListEntry = Omit<
   Partial<Job>,
   "raw_location_list" | "raw_mode_list" | "normalized_mode_list" | "raw_salary"
@@ -36,7 +52,7 @@ export type JobListEntry = Omit<
   raw_mode_list?: string[] | null;
   normalized_mode_list?: string[] | null;
   raw_salary?: RawSalary | null;
-  delete_on_save?: boolean;
+  delete_on_save?: DedupeReason;
 };
 
 // Every Job column in schema order, plus delete_on_save last. The

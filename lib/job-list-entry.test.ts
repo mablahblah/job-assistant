@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { JOB_LIST_ENTRY_FIELDS } from "./job-list-entry";
+import { DEDUPE_REASONS, JOB_LIST_ENTRY_FIELDS, type JobListEntry } from "./job-list-entry";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -95,5 +95,36 @@ describe("AC 26: a job list entry's fields map one to one onto the Job row", () 
 
   test("no field is named twice", () => {
     expect(new Set(JOB_LIST_ENTRY_FIELDS).size).toBe(JOB_LIST_ENTRY_FIELDS.length);
+  });
+});
+
+describe("AC 55: an entry marked away carries the reason it lost", () => {
+  test("the three reasons that mark an entry away are the ones dedupe can set", () => {
+    // matched_list_entry is dedupe's fourth reason and is deliberately absent:
+    // it sits on a stored row joining the list, never on an entry leaving it.
+    expect([...DEDUPE_REASONS]).toEqual([
+      "hard_match_in_list",
+      "repost_match_in_list",
+      "matched_db_row",
+    ]);
+  });
+
+  test("a marked entry reads back the reason rather than a plain true", () => {
+    for (const reason of DEDUPE_REASONS) {
+      const entry: JobListEntry = { id: "job-1", delete_on_save: reason };
+
+      expect(entry.delete_on_save).toBe(reason);
+      // A boolean here would leave save deleting a row while the trace row it
+      // writes has no reason to name.
+      expect(typeof entry.delete_on_save).toBe("string");
+    }
+  });
+
+  test("every reason is truthy, so save still sees a marked entry as marked", () => {
+    // lib/steps/save.ts reads `if (entry.delete_on_save)`, so a reason that
+    // was ever an empty string would silently keep the row.
+    for (const reason of DEDUPE_REASONS) {
+      expect(Boolean(reason)).toBe(true);
+    }
   });
 });

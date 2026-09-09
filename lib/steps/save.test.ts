@@ -31,7 +31,7 @@ describe("an entry marked for deletion", () => {
   test("whose row is not active has that row deleted", async () => {
     const rows = [saved("dupe")];
 
-    await saveJobs([entry("dupe", { delete_on_save: true })], {
+    await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
     });
@@ -42,7 +42,7 @@ describe("an entry marked for deletion", () => {
   test("whose id no row holds writes nothing and creates nothing", async () => {
     const rows: JobListEntry[] = [];
 
-    await saveJobs([entry("ghost", { delete_on_save: true })], {
+    await saveJobs([entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
     });
@@ -53,7 +53,7 @@ describe("an entry marked for deletion", () => {
   test("whose row is active leaves both rows standing", async () => {
     const rows = [saved("applied", { status: "interview" })];
 
-    await saveJobs([entry("applied", { delete_on_save: true })], {
+    await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
     });
@@ -72,7 +72,7 @@ describe("an entry marked for deletion", () => {
       },
     });
 
-    await saveJobs([entry("dupe", { delete_on_save: true })], {
+    await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: service,
       priorityList: PRIORITY_LIST,
     });
@@ -88,7 +88,7 @@ describe("warning about a delete the guard refused", () => {
     const rows = [saved("applied", { status: "offer", title: "Staff Designer" })];
 
     const result = await saveJobs(
-      [entry("applied", { delete_on_save: true, title: "Staff Product Designer" })],
+      [entry("applied", { delete_on_save: "hard_match_in_list", title: "Staff Product Designer" })],
       { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST }
     );
 
@@ -101,7 +101,7 @@ describe("warning about a delete the guard refused", () => {
     const rows = [saved("applied", { status: "offer" })];
 
     const result = await saveJobs(
-      [entry("applied", { delete_on_save: true, collector: "adzuna" })],
+      [entry("applied", { delete_on_save: "hard_match_in_list", collector: "adzuna" })],
       { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST }
     );
 
@@ -117,9 +117,9 @@ describe("warning about a delete the guard refused", () => {
 
     const result = await saveJobs(
       [
-        entry("a1", { delete_on_save: true }),
-        entry("a2", { delete_on_save: true }),
-        entry("a3", { delete_on_save: true }),
+        entry("a1", { delete_on_save: "hard_match_in_list" }),
+        entry("a2", { delete_on_save: "hard_match_in_list" }),
+        entry("a3", { delete_on_save: "hard_match_in_list" }),
       ],
       { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST }
     );
@@ -128,7 +128,7 @@ describe("warning about a delete the guard refused", () => {
   });
 
   test("a delete that went through raises no warning", async () => {
-    const result = await saveJobs([entry("dupe", { delete_on_save: true })], {
+    const result = await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("dupe")]),
       priorityList: PRIORITY_LIST,
     });
@@ -137,7 +137,7 @@ describe("warning about a delete the guard refused", () => {
   });
 
   test("an entry marked for deletion that no row holds raises no warning", async () => {
-    const result = await saveJobs([entry("ghost", { delete_on_save: true })], {
+    const result = await saveJobs([entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
     });
@@ -202,7 +202,7 @@ describe("warning about a write that threw", () => {
       },
     });
 
-    const result = await saveJobs([entry("dupe", { delete_on_save: true })], {
+    const result = await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: service,
       priorityList: PRIORITY_LIST,
     });
@@ -312,7 +312,7 @@ describe("the list the step returns", () => {
 
   test("leaves out an entry whose row was deleted", async () => {
     const result = await saveJobs(
-      [entry("keep"), entry("dupe", { delete_on_save: true })],
+      [entry("keep"), entry("dupe", { delete_on_save: "hard_match_in_list" })],
       { jobService: fakeJobService([saved("dupe")]), priorityList: PRIORITY_LIST }
     );
 
@@ -320,7 +320,7 @@ describe("the list the step returns", () => {
   });
 
   test("leaves out an entry marked for deletion that no row held", async () => {
-    const result = await saveJobs([entry("keep"), entry("ghost", { delete_on_save: true })], {
+    const result = await saveJobs([entry("keep"), entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
     });
@@ -329,7 +329,7 @@ describe("the list the step returns", () => {
   });
 
   test("keeps an entry whose delete the guard refused", async () => {
-    const result = await saveJobs([entry("applied", { delete_on_save: true })], {
+    const result = await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,
     });
