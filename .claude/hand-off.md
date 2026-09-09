@@ -4,7 +4,7 @@
 
 > You are resuming work on this project mid-task. Read this document fully before doing anything.
 >
-> 1. Read `CLAUDE.md` for project context and conventions.
+> 1. Read `CLAUDE.md` and `docs/APP.md` for project context and conventions.
 > 2. Read the **Current Task** section below to understand what's in progress.
 > 3. Read the **Decisions & Context** section for reasoning that isn't captured elsewhere.
 > 4. Read the **Next Steps** section and confirm your understanding before proceeding.
@@ -15,81 +15,79 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 6, Dedupe, is planned and ready to build.** Five of fourteen phases are closed. All seven steps of the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md) are done.
+**Phase 6, Dedupe, is in build. Task 1 of 15 is done.** Five of fourteen phases are closed.
 
-**The spec is [`phase-06-dedupe-spec.md`](../docs/features/unified-pipeline/phases/phase-06-dedupe-spec.md)** — 18 stories, 90 acceptance criteria, 15 tasks. Its task list is mirrored under the build item in `docs/CURRENT-FEATURE.md`.
+**The spec is [`phase-06-dedupe-spec.md`](../docs/features/unified-pipeline/phases/phase-06-dedupe-spec.md)** — 18 stories, 90 acceptance criteria, 15 tasks. Its task list is mirrored under the build item in `docs/CURRENT-FEATURE.md`, where task 1 is now ticked.
 
-**Nothing is uncommitted.** Working tree clean at `f3e8f8f`, pushed to `origin/feature/unified-pipeline`.
+**Nothing is uncommitted.** Working tree clean at `1ab0cb9`, pushed to `origin/feature/unified-pipeline`.
 
-**Verified fresh before committing.** `npm run lint` exits 0. `npm run test` exits 0 with 1,545 tests across 56 files.
+**Verified fresh before committing.** `npm run test` exits 0 with 1,554 tests across 56 files. `npm run lint` exits 0.
+
+**`pipeline.db` is on the new schema.** Rebuilt with `npm run db:create`, reseeded with `npm run db:seed`. It holds 0 jobs, 0 traces, 21 seeded ATS companies and 1 settings row. `dev.db` is untouched at 2,191,360 bytes.
 
 ## Completed This Session
 
-**The nine loose decisions the last hand-off listed are settled.** Four of them turned out to be already answered by the decision log or the existing code, found by auditing rather than by asking.
+**Task 1 is built, tested, committed and pushed**, in two commits:
 
-**Eighteen user stories approved**, replacing fourteen drafts. Eight further candidates were dropped after being found already present in the feature-level dedupe list.
+- `24f72e3` — feat: add the two link match-key columns and their indexes
+- `1ab0cb9` — docs: correct phase 6 task 1's file list
 
-**The phase 6 spec written and reviewed.** `spec-review` raised six findings and all six were settled with the user. The first was a real hole: a merged job dropped its `created_at`, so folding three saved rows left the second fold blind and could orphan a real row.
+**Five files carried task 1, not the two the spec named.** `prisma/schema.prisma` gained `original_url_match_key` and `resolved_url_match_key`, each an optional string with a non-unique `@@index`, and its `Trace` comment gained dedupe's four reasons and the phase's two new events. `prisma/schema.test.ts` gained a `tableIndexes` helper and seven tests. `lib/job-list-entry.ts` gained the two names in `JOB_LIST_ENTRY_FIELDS`. `lib/job-merge.ts` gained a group, `DERIVED_AT_WRITE_FIELDS`, and `lib/job-merge.test.ts` gained it in the completeness check.
 
-**Nine decisions logged, two superseded.** The 2026-09-06 entry saying a refused delete writes no trace event was replaced, keeping only its still-true half. The 2026-09-09 `pickWinner` entry was replaced to name `created_at` as the has-a-row signal.
+**The spec's own file lists were wrong and are fixed.** Task 1 now names all five files and says why the two extra guards fire. The regression net no longer claims `lib/job-list-entry.test.ts` gains the columns, and its `lib/job-merge.test.ts` row now names the new group.
 
-**Meeting notes written** at `meeting-notes/2026-09-09-phase-06-dedupe-meeting-notes.md`, and the index backfilled with four sessions it had been missing.
-
-**A cross-check sub-agent found four contradictions, all real.** Two documents still said Phase 6 ports matching helpers from `legacy/lib/dedupe.ts`, reversed on 2026-09-08. Two placed add-external-job in Phase 12 rather than the backlog. All fixed.
+**Two decisions logged**, both dated 2026-09-09. Neither supersedes anything.
 
 ## Decisions & Context
 
-### The through-line, and why four questions dissolved
+### The two decisions are in the feature decision log dated 2026-09-09
 
-**Dedupe shares its merge with save, so anything save settled, dedupe inherits.** That is the user's own framing and it is why four of nine supposed open questions were already answered. Before treating a phase 6 question as open, check the decision log and the code — the answer is usually already there.
-
-### The nine decisions are in the feature decision log dated 2026-09-09
-
-Not repeated here. Read [`decision-log.md`](../docs/features/unified-pipeline/decision-log.md).
+Not repeated in full here. Read [`decision-log.md`](../docs/features/unified-pipeline/decision-log.md). In short: the match keys take a merge group of their own, and a `crowd-code` change whose code is declarative skips the two writer sub-agents while still writing its failing test.
 
 ### Calls made while building, not put to the user
 
-- **The new module names**, all following `.claude/rules/naming.md`: `lib/url-match-key.ts`, `lib/job-identity.ts`, `lib/job-match-label.ts`, `lib/job-dedupe.ts`, `lib/dedupe-warnings.ts`, `lib/steps/dedupe.ts`.
-- **Splitting the step into two tasks**, one for its logic and one for its trace rows.
-- **Which acceptance criteria belong to which task.**
-- **Dropping five decision candidates as work-documentation**, routed to the spec: the 24-hour test reading pooled dates, the `added_to_job_list` collector, proving an index with `PRAGMA`, the split between how the two compares use the clauses, and building for three passes while wiring one.
-
-### Approaches refused, so they do not come back
-
-- **Comparing two job ids as text to break a tie.** A job id is `crypto.randomUUID()`, which is random and carries no age, so the winner would change every run.
-- **Time-ordered ids so "older id wins" would be literally true.** Not needed once `created_at` was chosen.
-- **Reconstructing the 2026-09-07 and 2026-09-08 meeting notes.** Notes archive what was said; writing them from the decision log and the r&d would invent a conversation from its own output.
-- **A guard against a source putting its job id in the query string.** The user never agreed to one and does not want a guard against a problem that has not appeared.
-- **Logging the protocol-relative link bug** in `lib/collectors/dribbble-cards.ts:43` and `lib/collectors/uiuxjobsboard-cards.ts:52`. Measured as possible, not known: 325 of 326 fixture links start with a single slash, one with `https://`, none with `//`.
+- **Ran `npx prisma format` after editing the schema.** It realigned every `Job` field by two characters, because the new names are longer than the previous longest. That is why the diff shows 101 changed lines rather than about 20.
+- **Each column sits beside the link it keys**, `original_url_match_key` after `original_url` and `resolved_url_match_key` after `resolved_url`.
+- **Both `@@index` lines sit at the foot of the `Job` model** under one shared comment rather than a comment each.
+- **The two-rows-one-key test is raw SQL** through `@libsql/client`, not the generated Prisma client. What is under test is the database refusing nothing, and raw SQL does not depend on the client having been regenerated.
+- **`tableIndexes` reads `PRAGMA index_list` then `PRAGMA index_info` per index**, so a test matches on the column an index covers rather than the name Prisma gave it.
+- **"An index exists" and "no index is unique" are separate tests**, one per criterion, and the uniqueness one also asserts the index exists. Otherwise it passes over an empty list, which is a schema carrying no index at all.
 
 ### Gotchas found this session
 
-- **`sqlite3 dev.db "SELECT ..."` reads the live database directly.** That is how the 63 active jobs and their collectors were measured.
-- **Renumbering acceptance criteria by hand goes wrong.** Renumber the whole criteria block sequentially with a script, then recompute each task's range from the group headings.
-- **`dev.db` holds 63 active jobs, not the 57 the decision log measured in August.** It keeps growing on `main`.
+- **Adding a `Job` column trips two completeness guards.** `JOB_LIST_ENTRY_FIELDS` in `lib/job-list-entry.ts` needs the name, and `lib/job-merge.ts` needs it in one of its groups. Both are deliberate, and every future column-adding task hits both.
+- **`lib/job-list-entry.test.ts` needs no edit when a column is added.** It reads the live `Job` columns out of a scratch database. The hand-written constant beside it is what changes.
+- **`npx prisma format` reflows a whole model's alignment** when a new field name is longer than the previous longest.
+- **The commit hook reports a test gap for any new helper, test-only ones included.** It flagged `tableIndexes`.
+
+### Approaches refused, so they do not come back
+
+- **Widening `NEVER_WRITTEN_FIELDS` to cover the match keys.** It would file two different reasons under one name, and task 8 empties half that group anyway when `created_at` moves out.
+- **Dispatching the two `crowd-code` writers** for the schema and for the two-string array edit. Neither gives two competing writers anything to compete over.
+- **Writing the two-rows-one-key test through the generated Prisma client.** Raw SQL tests the database itself and does not depend on `npx prisma generate` having run first.
 
 ### Carried forward, still true
 
-**`cat` is blocked on any file over 2048 bytes** by a hook — use `sed -n 'START,ENDp'` or the Read tool. **The commit hook prints a graph analysis block** on every commit; harmless. **`grep -r --include=*.ts` fails in this shell** — quote it as `--include="*.ts"`. **Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`.** **`PIPESTATUS` does not survive** — use `cmd > file 2>&1; echo $?`. **`npm run lint` runs ESLint and then `npx tsc --noEmit`.**
+**`cat` is blocked on any file over 2048 bytes** by a hook — use `sed -n 'START,ENDp'` or the Read tool. **The commit hook prints a graph analysis block** on every commit; harmless. **`grep -r --include=*.ts` fails in this shell** — quote it as `--include="*.ts"`. **Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`.** **`PIPESTATUS` does not survive** — use `cmd > file 2>&1; echo $?`. **`npm run lint` runs ESLint and then `npx tsc --noEmit`.** **`sqlite3 pipeline.db "SELECT ..."` reads the database directly**, which is how its row counts were taken.
 
 **Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`, and requires `npm run db:seed` in the same change. **Editing any file under `.claude/rules/` goes through the `writing-rules` skill.** **A `BACKLOG.md` change needs the user's approval before it is written.**
 
-**`pipeline.db` holds 0 jobs.**
+**`npm run db:create` can only delete `pipeline.db`.** Verified again this session: `scripts/db-create.ts` reads only `PIPELINE_DATABASE_URL`, `.env` points that at `pipeline.db`, and it throws rather than falling back to `DATABASE_URL`.
 
 ### Open threads
 
-1. **The database rebuild question is closed.** The user's position: rebuild freely so long as the live database is protected. Verified that it is — `scripts/db-create.ts` reads only `PIPELINE_DATABASE_URL`, which `.env` points at `pipeline.db`, and it throws rather than falling back to `DATABASE_URL`, which points at `dev.db`. So `npm run db:create` can only delete `pipeline.db`. Phase 6's task 1 adds two columns, so a rebuild is needed before its code runs.
-2. **Whether Phase 11a wants a database reset of its own.** In the phase 11a r&d.
-3. **Phase 6 planning ran across several sessions and only the last has meeting notes.** The 2026-09-07 and 2026-09-08 conversations live in the decision log and the phase r&d instead. The index says so.
+1. **`tableIndexes` in `prisma/schema.test.ts` has no test of its own.** Four tests call it. The user was offered one and did not answer either way.
+2. **Task 8 adds a third "the merge does not settle this" group.** `NEVER_WRITTEN_FIELDS` for what the database owns, `DERIVED_AT_WRITE_FIELDS` for what the job service derives, and task 8's group for what is carried in memory and stripped at the write. Whether three is right, or two would do, is a question nobody has asked. This is an observation, not a decision.
+3. **The writer-skipping decision is rule-shaped.** It belongs as an edit to `crowd-code`'s SKILL.md, which today says only "if it is not code, make it directly and stop" and leaves a Prisma schema unclassified. The skill is untouched. Raise it at the phase close.
+4. **Whether Phase 11a wants a database reset of its own.** In the phase 11a r&d.
+5. **Phase 6 planning ran across several sessions and only the last has meeting notes.** The 2026-09-07 and 2026-09-08 conversations live in the decision log and the phase r&d instead. The index says so.
 
 ## Next Steps
 
-1. **Start the build loop** through `start-work-session`, which invokes `crowd-code` once per change. The fifteen tasks are in the [phase 6 spec](../docs/features/unified-pipeline/phases/phase-06-dedupe-spec.md#tasks), each naming its files and its acceptance criteria.
+1. **Task 2 is the link match key.** `lib/url-match-key.ts` and its test — scheme, lowercased host, path with any trailing slash dropped, query and fragment removed, and nothing returned for a string that is not a URL. Criteria 6 to 14. It lives beside `companyMatchKey(name)` and follows the same shape.
 
-2. **Task 1 is the schema.** `prisma/schema.prisma` and `prisma/schema.test.ts` — add `original_url_match_key` and `resolved_url_match_key` with an index on each, and add dedupe's reasons and its two new events to the `Trace` comment. Criteria 1 to 5. **Run `npx prisma generate` after**, or the client keeps describing the old schema.
+2. **Then tasks 3 through 15 in order.** Task 3 changes `delete_on_save` from a boolean to a reason, so it comes before task 9 marks losers with one. Task 8 rewrites `pickWinner` before task 9 and task 11 call it.
 
-3. **Then `npm run db:create` and `npm run db:seed`** to bring `pipeline.db` onto the new schema. Safe: it can only touch `pipeline.db`.
+3. **The build loop runs through `start-work-session`**, which invokes `crowd-code` once per change. Every task after task 1 is ordinary TypeScript, so the writer sub-agents run normally.
 
-4. **Work tasks 2 through 15 in order.** Task 3 changes `delete_on_save` from a boolean to a reason, so it comes before task 9 marks losers with one. Task 8 rewrites `pickWinner` before task 9 and task 11 call it.
-
-5. **Close phase 6 when the build is done** — architecture doc, decision log, and any `BACKLOG.md` change presented for approval. That is its own checkbox in `docs/CURRENT-FEATURE.md`.
+4. **Close phase 6 when the build is done** — architecture doc, decision log, and any `BACKLOG.md` change presented for approval. That is its own checkbox in `docs/CURRENT-FEATURE.md`.
