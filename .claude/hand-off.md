@@ -17,111 +17,94 @@ Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipe
 
 **Phase 6, Dedupe, is mid-planning.** Five of fourteen phases are closed. Phase 6 is at step 3 of the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md), inside `build-requirements`.
 
-**What is finished.** Discovery is complete — every question the phase raised is answered and written into `phase-06-dedupe-r&d.md`, whose "Still to settle" section is now empty. Fifteen user stories are drafted. A four-agent stress test has run and returned.
+**All eight stress-test problems are settled.** So is the first of the nine loose decisions, apart from one half of it.
 
-**The exact resume point: walking the stress-test findings with the user, one at a time.** Problem 1 of 8 is settled and recorded. Seven remain, plus nine loose decisions and six items to log.
+**The exact resume point: the open half of loose decision 1.** A job's link lookup names one stored job and its company-and-title lookup names a different one, and those two do not match each other. Either fold all three into one, or stop at the link because it is the one there was proof for. Claude leaned towards stopping at the link, on the grounds that folding lets an inference destroy a job the proof said nothing about.
 
-**The working tree is clean.** Three commits pushed this session: `b35f9f5`, `6ec5ed5`, `d5859d3`.
+**Three files are uncommitted**, all documentation: the previous hand-off, one decision log entry, and the fourteen draft stories the user restored into the phase 6 r&d.
 
-**Verified at close, run fresh.** `npm run lint` exits 0. `npm run test` exits 0 with 1,545 tests across 56 files.
+**Four commits pushed this session:** `07420ce`, `3d54109`, `c96e2bb`, `277a228`.
+
+**Verified fresh before committing.** `npm run lint` exits 0. `npm run test` exits 0 with 1,545 tests across 56 files.
 
 ## Completed This Session
 
-**Phase 6 discovery, finished.** All five open questions answered, plus everything the stress test opened. Ten decisions logged, one superseded.
+**Stress-test problems 2 through 8, all settled and recorded**, each verified against the code rather than taken on the agent's word. Problem 5 turned out to be a logged decision from 2026-09-06 whose ground had moved, and it was revisited rather than fixed. Problem 8 was settled alongside it, both being the same gap: save is asked to delete a row and two of its four outcomes write nothing.
 
-**Live measurements taken**, all recorded in the phase 6 r&d:
+**A negative match rule, the user's own idea.** The company-and-title clause does not fire where both jobs carry a resolved link, those links share a host, and their keys differ. Two posting ids on one board are two openings at that company.
 
-- JSearch lists one posting under several links — 13 groups across 60 jobs, 22 redundant, 14 with different links. This refuted a cross-collector guard.
-- JSearch's `employer_name` held a real employer 60 times out of 60. The r&d's earlier "4 of 10 job boards" reading does not reproduce; the board is published separately as `job_publisher`.
-- Adzuna's company object holds only `display_name` and a type label. No slug, no website, no id.
-- Adzuna's link is minted fresh every call — ten jobs compared across two calls, zero stable. The `se` parameter changes; the path does not.
-- Stripping the query breaks an Adzuna link: 200 with it, 400 without.
-- Link match keys collide nowhere — 210 Adzuna and JSearch jobs, 15 Dribbble links, 177 UI/UX links, all distinct.
-- `dev.db` stores dates at midnight, 2,198 of 2,208, so it never recorded a sub-day gap.
+**Thirteen decisions logged, one superseded.** The 2026-09-07 entry claiming which id rides along changes no data is gone, replaced by two entries split by whether a row exists.
 
-**A four-agent stress test**, one per story group, which found eight serious problems.
+**`docs/features/unified-pipeline/trace-events.md` created** — the whole trace vocabulary as tables, one per step, with what happened to the job in plain words. It is a reference. The schema comment stays authoritative.
 
-**One code fix:** the date-pooling comment in `lib/job-merge.ts` claimed the opposite of what the code does.
+**`CLAUDE.md` gained RULE #1**, written by the user: no shorthand, layman's terms.
 
 ## Decisions & Context
 
-**Ten decisions are in the feature decision log dated 2026-09-08.** They are not repeated here.
+**Thirteen decisions are in the feature decision log dated 2026-09-09.** They are not repeated here.
 
-### The eight problems the stress test found
+### The user's model, which settled several of the problems
 
-Problem 1 is settled. Seven remain, and each was verified against the code rather than taken on the agent's word.
+A job list entry is a reference to its database row, not a second copy of the job. The work done on it tells that row how to update. So deduping an entry against its own row compares a job with itself.
 
-1. **SETTLED — dedupe would wipe application history.** A job list entry carried a `backlog` status and the three work-done flags into a merge, overwriting an `interview` status and resetting work already done. Fixed at the source: the job list query selects data only. Recorded in the r&d under "Found by the stress test".
-2. **A job would delete itself.** On passes two and three every entry is already a saved row, so its own database lookup returns its own row. Nothing says to skip its own id, and the copy-and-delete mechanic then destroys it.
-3. **The link match key would go stale.** `lib/job-service.ts` writes rows two ways. `create()` at line 72 goes through `toColumnData`; `writeToExistingRow()` at line 111 does not. A key computed only in `toColumnData` is never refreshed.
-4. **An over-merge cannot be audited.** The losing job's values vanish and only the id and matched clause survive. The spec names over-merging as the worst outcome, so the worst outcome is the one that cannot be checked.
-5. **A refused delete leaves no trace row.** `lib/steps/save.ts:90` returns `traceRow: null`. **This is a logged decision from 2026-09-06, not an oversight** — it was made when nothing set `delete_on_save`. Dedupe is now the thing that sets it, so the decision wants revisiting rather than fixing.
-6. **A failed resolution could merge two different jobs.** `resolved_url_match_key` is deliberately non-unique because several jobs can share one generic careers page — and the same fact means the resolved-link clause, which the spec calls "proof", can fire on that shared page. The fix likely belongs to Phase 7: resolution must not write a URL it never reached a posting at.
-7. **Which job survives is not what the decision says.** The 2026-09-07 entry says the source-priority winner keeps its id and that `pickWinner` already computes it. `lib/job-merge.ts:165` reads `existing.id ?? arriving.id` and never consults the winner, so survivorship follows argument order.
-8. **A never-saved entry marked for deletion vanishes untraced.** `lib/steps/save.ts:96` returns no trace row, no warning and nothing reported when no row holds the id. The feature spec says such an entry is marked `delete_on_save`; the r&d says it is abandoned. The two disagree.
+### Approaches tried and refused, so they do not come back
 
-### Nine decisions the stress test left open
+- **Fixing the self-delete by skipping only the entry's own id.** One entry could still claim another entry's row.
+- **Computing the two link keys at each write site**, the way `company-service.ts` does. Two places that drift. The company service only splits them because its two paths write different shapes.
+- **Storing the whole losing job in a trace `detail`.** More than would ever be read; four identifying fields cover it.
+- **Picking the oldest match and warning when a lookup finds several.** It walks away from duplicates the run had just proved exist.
+- **Asking the database before comparing the list.** Every duplicate would pay for its own lookup, then be whittled down anyway.
+- **`db_delete_failed` as an event name.** Nothing failed, and it breaks the `job_dbrow_*` pattern its four siblings follow.
 
-1. What happens when a database lookup returns more than one row, or when two clauses name different rows.
-2. Which field decides "older survives" — `created_at`, `collected_at`, or list order.
-3. Whether two list entries that both already carry a row fold into one or produce a delete.
-4. Which collector goes on the `added_to_job_list` row: the one that first found the stored job, or the one that matched it today.
-5. In a chain of three or more, whether a losing job names its immediate partner or the final survivor.
-6. What happens when dedupe's own database read throws. Save has a pattern at `save.ts:120`; dedupe has none.
-7. How to prove an index exists in a test. This would be the schema's first non-unique index.
-8. Which dates feed the 24-hour test when a job already carries both a posted and an updated date.
-9. How a three-or-more-way merge breaks a tie, since "the arriving side wins" only settles two.
+### Gotchas found this session
+
+- **`grep -r --include=*.ts` fails in this shell.** The pattern needs quoting: `--include="*.ts"`.
+- **The r&d did not say who writes the trace row for a job leaving the list.** Line 161 reads as dedupe's, line 169 says save's. Only save's works, because save has no other way to know why it is deleting. That ambiguity made this whole area slippery.
+- **`cat` is still blocked on any file over 2048 bytes** by a hook. **The commit hook prints a graph analysis block** on every commit; harmless.
+
+### Carried forward, still true
+
+**Dedupe does not exist yet**, so two runs write two rows for one posting. **`pipeline.db` holds 0 jobs.**
+
+**Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`. **A `BACKLOG.md` change needs the user's approval before it is written.**
+
+**Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`.** **`PIPESTATUS` does not survive** — use `cmd > file 2>&1; echo $?`.
+
+### The eight decisions still loose
+
+1. Which field decides "older survives" — `created_at`, `collected_at`, or list order.
+2. Whether two list entries that both already carry a row fold into one or produce a delete. Today's decision to keep the list compare first sharpens this: a job pulled in from the database is compared only against the entry that found it, so two entries reaching one row through different clauses can both claim it.
+3. Which collector goes on the `added_to_job_list` row — the one that first found the stored job, or the one that matched it today.
+4. In a chain of three or more, whether a losing job names its immediate partner or the final survivor.
+5. What happens when dedupe's own database read throws. Save has a pattern at `save.ts:120`; dedupe has none.
+6. How to prove an index exists in a test. This would be the schema's first non-unique index.
+7. Which dates feed the 24-hour test when a job already carries both a posted and an updated date.
+8. How a three-or-more-way merge breaks a tie, since "the later side wins" only settles two. Now live, because a lookup returning several rows folds them all.
 
 ### Six to log rather than solve
 
 1. A job that finishes parsing never enters a dedupe list again, so a duplicate that slips through is permanent.
-2. A job that rejoins mid-pass is never compared against the rest of the list.
+2. A job pulled in from the database is never compared against the rest of the list.
 3. Chaining pools dates before the database pass runs, widening the range that pass sees.
 4. The collector checklist line the r&d promises does not exist in `.claude/rules/source-registry.md`.
 5. `absoluteUrl` in `lib/collectors/dribbble-cards.ts` mishandles a `//host/path` link. Unrelated to dedupe.
 6. The metric says jobs "deleted" for hard-matching, while most first-pass losers are "abandoned" instead.
 
-### Approaches tried and refused
-
-- **A cross-collector guard on the company-and-title clause.** Refuted by measurement: JSearch lists one posting under 14 different links in 60 jobs, so the guard would keep the duplicates the clause exists to catch.
-- **Gating that clause on whether both sides are parsed.** Same 14 duplicates, deferred to resolution instead, so every run pays to follow links it did not need.
-- **A named list of junk URL parameters.** Refused as overfitting, per the 2026-08-31 decision against rules fitted to the examples in front of us.
-- **Stripping only universal tracking parameters.** Safe but leaves Adzuna's link matching dead.
-- **Patching dedupe to drop the status.** Superseded by the better fix at the query.
-
-### Gotchas found this session
-
-- **An async agent's report does not always arrive with its completion notice.** Two of four came through empty. Message the agent and ask it to output the report again.
-- **`PIPESTATUS` still does not survive.** Use `cmd > file 2>&1; echo $?`.
-- **`.claude/skills/crowd-code`, `start-work-session` and `end-work-session` are symlinks** managed by `sync-workflow`. `git check-ignore` refuses them with "beyond a symbolic link". They are not missing from the commit.
-- **The commit hook still prints a false `mergeJobs` test gap.** Known, living with it.
-- **`pipeline.db` holds 0 jobs.** The new database has never been run against.
-- **The card reader page samples exist** at `lib/collectors/fixtures/`. An earlier r&d line saying otherwise was wrong and is corrected.
-- **Live probes cost quota.** Five JSearch calls went out this session. Keys for Adzuna, JSearch, Google Places, Apify and Geocode are all set in `.env`.
-
-### Carried forward, still true
-
-**Dedupe does not exist yet**, so two runs write two rows for one posting.
-
-**Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`. **A `BACKLOG.md` change needs the user's approval before it is written.**
-
-**Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **`cat` is blocked on any file over 2048 bytes** by a hook. **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`** — probe scripts need a `main()` wrapper.
-
 ### Open questions
 
-1. **The live pipeline database is still on the old schema.** Rebuilding is `npm run db:create` then `npm run db:seed`. **The user has been asked five times across sessions and has not answered.**
+1. **The live pipeline database is still on the old schema.** Rebuilding is `npm run db:create` then `npm run db:seed`. **The user has been asked six times across sessions and has not answered.**
 2. **Whether Phase 11a wants a database reset of its own.** In the phase 11a r&d.
 3. **Two backlog candidates await approval** — the Dribbble protocol-relative link bug, and the collector checklist line.
 
 ## Next Steps
 
-1. **Walk stress-test problems 2 through 8 with the user, one at a time.** They asked for exactly that pace. Each is written up above with the file and line that proves it. Problem 5 needs framing as revisiting a logged decision rather than fixing a bug.
+1. **Settle the open half of loose decision 1**, described at the top of this document.
 
-2. **Settle the nine open decisions.** Most are one line each and can go quickly once the eight problems are agreed.
+2. **Settle the eight remaining loose decisions**, listed above. Most are one line each.
 
 3. **Put the six log-and-move-on items and the two backlog candidates to the user**, then invoke `add-to-backlog` for whatever they approve. `BACKLOG.md` is never written without their say-so.
 
-4. **Get the fifteen user stories approved.** They are drafted in the conversation and not yet written anywhere. The Links group of six was rewritten after the match-key decision; the Identity, Scope and Tracing groups stand as first drafted. Expect new stories out of steps 1 and 2.
+4. **Rework the fourteen draft stories and get them approved.** They are in the phase 6 r&d under "Draft user stories". Two jobs there. Story 5's stated reason is dead — it says the key columns are non-unique so jobs sharing a careers page can be saved, and resolution no longer writes a careers page. The live reason is that two rows for one posting share a key until the pass that collapses them, and a blocked merge leaves that pair standing for good. And roughly nine stories are missing, one per decision settled on 2026-09-09.
 
 5. **Write acceptance criteria** — `build-requirements` Phase 5, which has not started. The `feature-specs` rule sets their shape and loads once the spec file exists.
 
