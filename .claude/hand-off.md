@@ -15,101 +15,81 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 6, Dedupe, is mid-planning.** Five of fourteen phases are closed. Phase 6 is at step 3 of the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md), inside `build-requirements`.
+**Phase 6, Dedupe, is planned and ready to build.** Five of fourteen phases are closed. All seven steps of the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md) are done.
 
-**All eight stress-test problems are settled.** So is the first of the nine loose decisions, apart from one half of it.
+**The spec is [`phase-06-dedupe-spec.md`](../docs/features/unified-pipeline/phases/phase-06-dedupe-spec.md)** — 18 stories, 90 acceptance criteria, 15 tasks. Its task list is mirrored under the build item in `docs/CURRENT-FEATURE.md`.
 
-**The exact resume point: the open half of loose decision 1.** A job's link lookup names one stored job and its company-and-title lookup names a different one, and those two do not match each other. Either fold all three into one, or stop at the link because it is the one there was proof for. Claude leaned towards stopping at the link, on the grounds that folding lets an inference destroy a job the proof said nothing about.
-
-**Three files are uncommitted**, all documentation: the previous hand-off, one decision log entry, and the fourteen draft stories the user restored into the phase 6 r&d.
-
-**Four commits pushed this session:** `07420ce`, `3d54109`, `c96e2bb`, `277a228`.
+**Nothing is uncommitted.** Working tree clean at `f3e8f8f`, pushed to `origin/feature/unified-pipeline`.
 
 **Verified fresh before committing.** `npm run lint` exits 0. `npm run test` exits 0 with 1,545 tests across 56 files.
 
 ## Completed This Session
 
-**Stress-test problems 2 through 8, all settled and recorded**, each verified against the code rather than taken on the agent's word. Problem 5 turned out to be a logged decision from 2026-09-06 whose ground had moved, and it was revisited rather than fixed. Problem 8 was settled alongside it, both being the same gap: save is asked to delete a row and two of its four outcomes write nothing.
+**The nine loose decisions the last hand-off listed are settled.** Four of them turned out to be already answered by the decision log or the existing code, found by auditing rather than by asking.
 
-**A negative match rule, the user's own idea.** The company-and-title clause does not fire where both jobs carry a resolved link, those links share a host, and their keys differ. Two posting ids on one board are two openings at that company.
+**Eighteen user stories approved**, replacing fourteen drafts. Eight further candidates were dropped after being found already present in the feature-level dedupe list.
 
-**Thirteen decisions logged, one superseded.** The 2026-09-07 entry claiming which id rides along changes no data is gone, replaced by two entries split by whether a row exists.
+**The phase 6 spec written and reviewed.** `spec-review` raised six findings and all six were settled with the user. The first was a real hole: a merged job dropped its `created_at`, so folding three saved rows left the second fold blind and could orphan a real row.
 
-**`docs/features/unified-pipeline/trace-events.md` created** — the whole trace vocabulary as tables, one per step, with what happened to the job in plain words. It is a reference. The schema comment stays authoritative.
+**Nine decisions logged, two superseded.** The 2026-09-06 entry saying a refused delete writes no trace event was replaced, keeping only its still-true half. The 2026-09-09 `pickWinner` entry was replaced to name `created_at` as the has-a-row signal.
 
-**`CLAUDE.md` gained RULE #1**, written by the user: no shorthand, layman's terms.
+**Meeting notes written** at `meeting-notes/2026-09-09-phase-06-dedupe-meeting-notes.md`, and the index backfilled with four sessions it had been missing.
+
+**A cross-check sub-agent found four contradictions, all real.** Two documents still said Phase 6 ports matching helpers from `legacy/lib/dedupe.ts`, reversed on 2026-09-08. Two placed add-external-job in Phase 12 rather than the backlog. All fixed.
 
 ## Decisions & Context
 
-**Thirteen decisions are in the feature decision log dated 2026-09-09.** They are not repeated here.
+### The through-line, and why four questions dissolved
 
-### The user's model, which settled several of the problems
+**Dedupe shares its merge with save, so anything save settled, dedupe inherits.** That is the user's own framing and it is why four of nine supposed open questions were already answered. Before treating a phase 6 question as open, check the decision log and the code — the answer is usually already there.
 
-A job list entry is a reference to its database row, not a second copy of the job. The work done on it tells that row how to update. So deduping an entry against its own row compares a job with itself.
+### The nine decisions are in the feature decision log dated 2026-09-09
 
-### Approaches tried and refused, so they do not come back
+Not repeated here. Read [`decision-log.md`](../docs/features/unified-pipeline/decision-log.md).
 
-- **Fixing the self-delete by skipping only the entry's own id.** One entry could still claim another entry's row.
-- **Computing the two link keys at each write site**, the way `company-service.ts` does. Two places that drift. The company service only splits them because its two paths write different shapes.
-- **Storing the whole losing job in a trace `detail`.** More than would ever be read; four identifying fields cover it.
-- **Picking the oldest match and warning when a lookup finds several.** It walks away from duplicates the run had just proved exist.
-- **Asking the database before comparing the list.** Every duplicate would pay for its own lookup, then be whittled down anyway.
-- **`db_delete_failed` as an event name.** Nothing failed, and it breaks the `job_dbrow_*` pattern its four siblings follow.
+### Calls made while building, not put to the user
+
+- **The new module names**, all following `.claude/rules/naming.md`: `lib/url-match-key.ts`, `lib/job-identity.ts`, `lib/job-match-label.ts`, `lib/job-dedupe.ts`, `lib/dedupe-warnings.ts`, `lib/steps/dedupe.ts`.
+- **Splitting the step into two tasks**, one for its logic and one for its trace rows.
+- **Which acceptance criteria belong to which task.**
+- **Dropping five decision candidates as work-documentation**, routed to the spec: the 24-hour test reading pooled dates, the `added_to_job_list` collector, proving an index with `PRAGMA`, the split between how the two compares use the clauses, and building for three passes while wiring one.
+
+### Approaches refused, so they do not come back
+
+- **Comparing two job ids as text to break a tie.** A job id is `crypto.randomUUID()`, which is random and carries no age, so the winner would change every run.
+- **Time-ordered ids so "older id wins" would be literally true.** Not needed once `created_at` was chosen.
+- **Reconstructing the 2026-09-07 and 2026-09-08 meeting notes.** Notes archive what was said; writing them from the decision log and the r&d would invent a conversation from its own output.
+- **A guard against a source putting its job id in the query string.** The user never agreed to one and does not want a guard against a problem that has not appeared.
+- **Logging the protocol-relative link bug** in `lib/collectors/dribbble-cards.ts:43` and `lib/collectors/uiuxjobsboard-cards.ts:52`. Measured as possible, not known: 325 of 326 fixture links start with a single slash, one with `https://`, none with `//`.
 
 ### Gotchas found this session
 
-- **`grep -r --include=*.ts` fails in this shell.** The pattern needs quoting: `--include="*.ts"`.
-- **The r&d did not say who writes the trace row for a job leaving the list.** Line 161 reads as dedupe's, line 169 says save's. Only save's works, because save has no other way to know why it is deleting. That ambiguity made this whole area slippery.
-- **`cat` is still blocked on any file over 2048 bytes** by a hook. **The commit hook prints a graph analysis block** on every commit; harmless.
+- **`sqlite3 dev.db "SELECT ..."` reads the live database directly.** That is how the 63 active jobs and their collectors were measured.
+- **Renumbering acceptance criteria by hand goes wrong.** Renumber the whole criteria block sequentially with a script, then recompute each task's range from the group headings.
+- **`dev.db` holds 63 active jobs, not the 57 the decision log measured in August.** It keeps growing on `main`.
 
 ### Carried forward, still true
 
-**Dedupe does not exist yet**, so two runs write two rows for one posting. **`pipeline.db` holds 0 jobs.**
+**`cat` is blocked on any file over 2048 bytes** by a hook — use `sed -n 'START,ENDp'` or the Read tool. **The commit hook prints a graph analysis block** on every commit; harmless. **`grep -r --include=*.ts` fails in this shell** — quote it as `--include="*.ts"`. **Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`.** **`PIPESTATUS` does not survive** — use `cmd > file 2>&1; echo $?`. **`npm run lint` runs ESLint and then `npx tsc --noEmit`.**
 
-**Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`. **A `BACKLOG.md` change needs the user's approval before it is written.**
+**Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`, and requires `npm run db:seed` in the same change. **Editing any file under `.claude/rules/` goes through the `writing-rules` skill.** **A `BACKLOG.md` change needs the user's approval before it is written.**
 
-**Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`.** **`PIPESTATUS` does not survive** — use `cmd > file 2>&1; echo $?`.
+**`pipeline.db` holds 0 jobs.**
 
-### The eight decisions still loose
+### Open threads
 
-1. Which field decides "older survives" — `created_at`, `collected_at`, or list order.
-2. Whether two list entries that both already carry a row fold into one or produce a delete. Today's decision to keep the list compare first sharpens this: a job pulled in from the database is compared only against the entry that found it, so two entries reaching one row through different clauses can both claim it.
-3. Which collector goes on the `added_to_job_list` row — the one that first found the stored job, or the one that matched it today.
-4. In a chain of three or more, whether a losing job names its immediate partner or the final survivor.
-5. What happens when dedupe's own database read throws. Save has a pattern at `save.ts:120`; dedupe has none.
-6. How to prove an index exists in a test. This would be the schema's first non-unique index.
-7. Which dates feed the 24-hour test when a job already carries both a posted and an updated date.
-8. How a three-or-more-way merge breaks a tie, since "the later side wins" only settles two. Now live, because a lookup returning several rows folds them all.
-
-### Six to log rather than solve
-
-1. A job that finishes parsing never enters a dedupe list again, so a duplicate that slips through is permanent.
-2. A job pulled in from the database is never compared against the rest of the list.
-3. Chaining pools dates before the database pass runs, widening the range that pass sees.
-4. The collector checklist line the r&d promises does not exist in `.claude/rules/source-registry.md`.
-5. `absoluteUrl` in `lib/collectors/dribbble-cards.ts` mishandles a `//host/path` link. Unrelated to dedupe.
-6. The metric says jobs "deleted" for hard-matching, while most first-pass losers are "abandoned" instead.
-
-### Open questions
-
-1. **The live pipeline database is still on the old schema.** Rebuilding is `npm run db:create` then `npm run db:seed`. **The user has been asked six times across sessions and has not answered.**
+1. **The database rebuild question is closed.** The user's position: rebuild freely so long as the live database is protected. Verified that it is — `scripts/db-create.ts` reads only `PIPELINE_DATABASE_URL`, which `.env` points at `pipeline.db`, and it throws rather than falling back to `DATABASE_URL`, which points at `dev.db`. So `npm run db:create` can only delete `pipeline.db`. Phase 6's task 1 adds two columns, so a rebuild is needed before its code runs.
 2. **Whether Phase 11a wants a database reset of its own.** In the phase 11a r&d.
-3. **Two backlog candidates await approval** — the Dribbble protocol-relative link bug, and the collector checklist line.
+3. **Phase 6 planning ran across several sessions and only the last has meeting notes.** The 2026-09-07 and 2026-09-08 conversations live in the decision log and the phase r&d instead. The index says so.
 
 ## Next Steps
 
-1. **Settle the open half of loose decision 1**, described at the top of this document.
+1. **Start the build loop** through `start-work-session`, which invokes `crowd-code` once per change. The fifteen tasks are in the [phase 6 spec](../docs/features/unified-pipeline/phases/phase-06-dedupe-spec.md#tasks), each naming its files and its acceptance criteria.
 
-2. **Settle the eight remaining loose decisions**, listed above. Most are one line each.
+2. **Task 1 is the schema.** `prisma/schema.prisma` and `prisma/schema.test.ts` — add `original_url_match_key` and `resolved_url_match_key` with an index on each, and add dedupe's reasons and its two new events to the `Trace` comment. Criteria 1 to 5. **Run `npx prisma generate` after**, or the client keeps describing the old schema.
 
-3. **Put the six log-and-move-on items and the two backlog candidates to the user**, then invoke `add-to-backlog` for whatever they approve. `BACKLOG.md` is never written without their say-so.
+3. **Then `npm run db:create` and `npm run db:seed`** to bring `pipeline.db` onto the new schema. Safe: it can only touch `pipeline.db`.
 
-4. **Rework the fourteen draft stories and get them approved.** They are in the phase 6 r&d under "Draft user stories". Two jobs there. Story 5's stated reason is dead — it says the key columns are non-unique so jobs sharing a careers page can be saved, and resolution no longer writes a careers page. The live reason is that two rows for one posting share a key until the pass that collapses them, and a blocked merge leaves that pair standing for good. And roughly nine stories are missing, one per decision settled on 2026-09-09.
+4. **Work tasks 2 through 15 in order.** Task 3 changes `delete_on_save` from a boolean to a reason, so it comes before task 9 marks losers with one. Task 8 rewrites `pickWinner` before task 9 and task 11 call it.
 
-5. **Write acceptance criteria** — `build-requirements` Phase 5, which has not started. The `feature-specs` rule sets their shape and loads once the spec file exists.
-
-6. **Write `phase-06-dedupe-spec.md`** beside the r&d: What We're Building, User Stories, Edge Cases, Acceptance Criteria, Tasks, Approach. Phase 5's spec is the closest model. Then run `spec-review` on it.
-
-7. **Tick "Plan phase 6" in `docs/CURRENT-FEATURE.md`** and put the phase's task list under its build item.
-
-8. **Invoke `wrap-up-planning`**, scoped to Phase 6.
+5. **Close phase 6 when the build is done** — architecture doc, decision log, and any `BACKLOG.md` change presented for approval. That is its own checkbox in `docs/CURRENT-FEATURE.md`.
