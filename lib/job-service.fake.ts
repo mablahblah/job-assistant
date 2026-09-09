@@ -7,6 +7,23 @@ import { mergeJobs } from "./job-merge";
 import type { JobListEntry } from "./job-list-entry";
 import type { DeleteResult, JobService, UpdateResult } from "./job-service";
 import { isActiveStatus } from "./job-status";
+import { urlMatchKey } from "./url-match-key";
+
+// A link's match key travels with the link: a string link gets a freshly
+// computed key, a null link clears its key too, and a link this write never
+// mentions leaves the held key standing — setting it would wipe a good key on
+// a write that says nothing about that link. "Mentioned" is judged against the
+// arriving entry, but the key is built from the link that won, so a link that
+// lost the merge never stamps its key over the winner's.
+function stampLinkMatchKey(
+  target: JobListEntry,
+  keyField: "original_url_match_key" | "resolved_url_match_key",
+  mentioned: string | null | undefined,
+  winner: string | null | undefined
+): void {
+  if (mentioned === undefined) return;
+  target[keyField] = typeof winner === "string" ? urlMatchKey(winner) : null;
+}
 
 export function fakeJobService(
   jobs: JobListEntry[] = [],
@@ -22,18 +39,29 @@ export function fakeJobService(
 
     const held = jobs.find((job) => job.id === entry.id);
 
+    // A caller can be holding a stale copy of a job, so its created_at is
+    // dropped before the entry is used — only the database sets a birthday.
+    const incoming: JobListEntry = { ...entry };
+    delete incoming.created_at;
+
     if (!held) {
       if (!entry.collected_at) {
         throw new Error(
           "Job.update cannot create a row without collected_at — the column has no database default."
         );
       }
-      const job: JobListEntry = { ...entry };
+      const job: JobListEntry = { ...incoming };
       // delete_on_save is not a column and must never land on a held job.
       delete job.delete_on_save;
       // The schema defaults status to backlog on a real insert, so a fake
       // holding plain objects has to supply that default itself.
       if (job.status === undefined) job.status = "backlog";
+      stampLinkMatchKey(job, "original_url_match_key", entry.original_url, job.original_url);
+      stampLinkMatchKey(job, "resolved_url_match_key", entry.resolved_url, job.resolved_url);
+      // The database stamps both timestamps on an insert.
+      const now = new Date();
+      job.created_at = now;
+      job.modified_at = now;
       jobs.push(job);
       return { job, outcome: "created" };
     }
@@ -43,14 +71,23 @@ export function fakeJobService(
       // status. Absent rather than falsy, the way the real service reads it.
       if (entry.status !== undefined) {
         held.status = entry.status;
+        // A status-only write is still a write, so the row's clock moves.
+        held.modified_at = new Date();
         return { job: held, outcome: "status_updated" };
       }
+      // Nothing was written, so nothing moves.
       return { job: held, outcome: "unchanged" };
     }
 
-    const merged = mergeJobs(held, entry, priorityList, held.collected_at as Date);
+    const merged = mergeJobs(held, incoming, priorityList, held.collected_at as Date);
     // Mutate the record in place so the caller's array reflects the write.
     Object.assign(held, merged);
+    // Read the links off the merged record, so each key follows the link that
+    // won the source-priority contest rather than the one the entry carried.
+    stampLinkMatchKey(held, "original_url_match_key", entry.original_url, held.original_url);
+    stampLinkMatchKey(held, "resolved_url_match_key", entry.resolved_url, held.resolved_url);
+    // The database moves modified_at on every write and leaves the birthday be.
+    held.modified_at = new Date();
     return { job: held, outcome: "updated" };
   }
 

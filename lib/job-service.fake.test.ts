@@ -210,3 +210,160 @@ describe("overrides", () => {
     expect(await service.delete("nothing-is-held")).toEqual({ deleted: true, blockedBy: null });
   });
 });
+
+// The fake stands in for the real service wherever a test does not want a
+// database, so anything the real service derives at write time the fake has to
+// derive the same way. Where the two disagree, every test trusting the fake is
+// worthless.
+describe("stamping the link match keys", () => {
+  // AC 21.
+  test("a created job carries both keys built from its links", async () => {
+    const jobs: JobListEntry[] = [];
+    const service = fakeJobService(jobs);
+
+    await service.update(
+      {
+        id: "fake-keys-create",
+        collected_at: COLLECTED_AT,
+        original_url: "https://www.adzuna.com/land/ad/5872600391?se=abc",
+        resolved_url: "https://boards.greenhouse.io/acme/jobs/456?gh_src=x",
+      },
+      PRIORITY_LIST
+    );
+
+    const held = jobs[0];
+    expect(held?.original_url_match_key).toBe("https://www.adzuna.com/land/ad/5872600391");
+    expect(held?.resolved_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/456");
+  });
+
+  // AC 21. Resolution fills resolved_url long after the job first appeared.
+  test("an update writing a link for the first time stamps its key", async () => {
+    const jobs: JobListEntry[] = [storedJob("fake-keys-update", { collector: "greenhouse" })];
+    const service = fakeJobService(jobs);
+
+    await service.update(
+      { id: "fake-keys-update", resolved_url: "https://jobs.lever.co/acme/9f2c1b?lever-source=x" },
+      PRIORITY_LIST
+    );
+
+    expect(jobs[0]?.resolved_url_match_key).toBe("https://jobs.lever.co/acme/9f2c1b");
+  });
+
+  // AC 21. A write that never mentions a link must not wipe the key held for
+  // it, which is the same rule toColumnData follows in the real service.
+  test("a write that mentions no link leaves the held keys standing", async () => {
+    const jobs: JobListEntry[] = [
+      storedJob("fake-keys-untouched", {
+        original_url: "https://example.com/jobs/1",
+        original_url_match_key: "https://example.com/jobs/1",
+      }),
+    ];
+    const service = fakeJobService(jobs);
+
+    await service.update({ id: "fake-keys-untouched", is_parsed: true }, PRIORITY_LIST);
+
+    expect(jobs[0]?.original_url_match_key).toBe("https://example.com/jobs/1");
+  });
+});
+
+describe("the timestamps the database would set", () => {
+  // AC 22. created_at is what tells a job holding a row from one never saved,
+  // so a fake that leaves it empty makes every held job read as unsaved.
+  test("a created job carries a created_at and a modified_at", async () => {
+    const jobs: JobListEntry[] = [];
+    const service = fakeJobService(jobs);
+
+    await service.update({ id: "fake-stamps", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+
+    expect(jobs[0]?.created_at).toBeInstanceOf(Date);
+    expect(jobs[0]?.modified_at).toBeInstanceOf(Date);
+  });
+
+  // AC 23. modified_at is set back to a known past date first, because two
+  // writes can land inside the same millisecond.
+  test("an update moves modified_at forward and leaves created_at alone", async () => {
+    const jobs: JobListEntry[] = [];
+    const service = fakeJobService(jobs);
+    await service.update({ id: "fake-moves", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+
+    const born = jobs[0]?.created_at as Date;
+    const longAgo = new Date("2020-01-01T00:00:00.000Z");
+    (jobs[0] as JobListEntry).modified_at = longAgo;
+
+    await service.update({ id: "fake-moves", raw_title: "Product Designer" }, PRIORITY_LIST);
+
+    expect(jobs[0]?.created_at?.getTime()).toBe(born.getTime());
+    expect(jobs[0]?.modified_at?.getTime()).toBeGreaterThan(longAgo.getTime());
+  });
+
+  // AC 23. An entry carrying its own created_at must never overwrite the one
+  // the record was born with, the way toColumnData strips it in the real
+  // service.
+  test("an entry carrying a created_at never overwrites the held one", async () => {
+    const jobs: JobListEntry[] = [];
+    const service = fakeJobService(jobs);
+    await service.update({ id: "fake-birthday", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    const born = jobs[0]?.created_at as Date;
+
+    await service.update(
+      { id: "fake-birthday", created_at: new Date("2020-01-01T00:00:00.000Z") },
+      PRIORITY_LIST
+    );
+
+    expect(jobs[0]?.created_at?.getTime()).toBe(born.getTime());
+  });
+
+  // AC 23. A status-only write to an active row is still a write.
+  test("a status-only write to an active row moves modified_at", async () => {
+    const jobs: JobListEntry[] = [storedJob("fake-active", { status: "app. sent" })];
+    const longAgo = new Date("2020-01-01T00:00:00.000Z");
+    (jobs[0] as JobListEntry).modified_at = longAgo;
+    const service = fakeJobService(jobs);
+
+    await service.update({ id: "fake-active", status: "interview" }, PRIORITY_LIST);
+
+    expect(jobs[0]?.status).toBe("interview");
+    expect(jobs[0]?.modified_at?.getTime()).toBeGreaterThan(longAgo.getTime());
+  });
+
+  // AC 23. Nothing was written, so nothing moves.
+  test("an unchanged result leaves modified_at where it was", async () => {
+    const jobs: JobListEntry[] = [storedJob("fake-unchanged", { status: "app. sent" })];
+    const longAgo = new Date("2020-01-01T00:00:00.000Z");
+    (jobs[0] as JobListEntry).modified_at = longAgo;
+    const service = fakeJobService(jobs);
+
+    const result = await service.update({ id: "fake-unchanged" }, PRIORITY_LIST);
+
+    expect(result.outcome).toBe("unchanged");
+    expect(jobs[0]?.modified_at?.getTime()).toBe(longAgo.getTime());
+  });
+});
+
+describe("a key follows the link that won the merge", () => {
+  // AC 21. greenhouse outranks adzuna, so the held link stands and its key
+  // has to stand with it. Stamping from the arriving link instead would leave
+  // the winning link sitting beside the losing link's key.
+  test("a losing link does not stamp its key over the winning link's", async () => {
+    const jobs: JobListEntry[] = [
+      storedJob("fake-keys-contest", {
+        collector: "greenhouse",
+        original_url: "https://boards.greenhouse.io/acme/jobs/999",
+        original_url_match_key: "https://boards.greenhouse.io/acme/jobs/999",
+      }),
+    ];
+    const service = fakeJobService(jobs);
+
+    await service.update(
+      {
+        id: "fake-keys-contest",
+        collector: "adzuna",
+        original_url: "https://www.adzuna.com/land/ad/111?se=x",
+      },
+      PRIORITY_LIST
+    );
+
+    expect(jobs[0]?.original_url).toBe("https://boards.greenhouse.io/acme/jobs/999");
+    expect(jobs[0]?.original_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/999");
+  });
+});
