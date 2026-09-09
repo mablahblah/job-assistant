@@ -4,7 +4,7 @@
 
 > You are resuming work on this project mid-task. Read this document fully before doing anything.
 >
-> 1. Read `CLAUDE.md` and `docs/APP.md` for project context and conventions.
+> 1. Read `CLAUDE.md` for project context and conventions.
 > 2. Read the **Current Task** section below to understand what's in progress.
 > 3. Read the **Decisions & Context** section for reasoning that isn't captured elsewhere.
 > 4. Read the **Next Steps** section and confirm your understanding before proceeding.
@@ -15,66 +15,93 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
 
-**Phase 5, DB Save, is built and closed.** Five of fourteen phases are now closed.
+**Phase 6, Dedupe, is mid-planning.** Five of fourteen phases are closed. Phase 6 is at step 3 of the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md), inside `build-requirements`.
 
-**Phase 6, Dedupe, is mid-planning.** The brain dump is captured, orientation is done, and the discovery conversation settled the identity rules and the date handling. It stopped on one open question.
+**What is finished.** Discovery is complete — every question the phase raised is answered and written into `phase-06-dedupe-r&d.md`, whose "Still to settle" section is now empty. Fifteen user stories are drafted. A four-agent stress test has run and returned.
 
-**The exact resume point: whether the company-and-title clause should fire only between two different collectors.** It is written up in full in the phase 6 r&d under the Phase 4 carry-in, as "the live open question". Answer it, then work the four remaining items in that file's "Still to settle" list, then write the phase 6 spec.
+**The exact resume point: walking the stress-test findings with the user, one at a time.** Problem 1 of 8 is settled and recorded. Seven remain, plus nine loose decisions and six items to log.
 
-**Four files are uncommitted**, all documentation, all from the phase 6 planning conversation:
+**The working tree is clean.** Three commits pushed this session: `b35f9f5`, `6ec5ed5`, `d5859d3`.
 
-| File | What changed |
-|---|---|
-| `docs/features/unified-pipeline/decision-log.md` | Six new entries dated 2026-09-07 |
-| `docs/features/unified-pipeline/feature_spec.md` | The dedupe match table and four new stories |
-| `docs/features/unified-pipeline/architecture.md` | The Identity line in the vocabulary |
-| `docs/features/unified-pipeline/phases/phase-06-dedupe-r&d.md` | Brain dump, FigJam flow, settled questions, measurements, what is still open |
-
-**Five commits pushed this session.**
-
-| Commit | What |
-|---|---|
-| `b711b9a` | Phase 5 build notes, carried over from the previous session |
-| `62037cd` | The previous session's hand-off |
-| `cbd7843` | Task 16 — the company service's conflict lookup |
-| `5289748` | Future Idea 16, the orphan priority-list entry |
-| `e66020f` | The phase 5 close |
-
-**Verified at close, run fresh.** `npm run test` exits 0 with **1,545 tests across 56 files**. `npm run lint` exits 0, which runs ESLint then `tsc --noEmit`.
+**Verified at close, run fresh.** `npm run lint` exits 0. `npm run test` exits 0 with 1,545 tests across 56 files.
 
 ## Completed This Session
 
-**Phase 5 task 16, the company service's conflict lookup.** A refused create names the clashing column at `meta.driverAdapterError.cause.constraint.fields`, measured on all three of `Company`'s unique columns. The service reads it and looks up that one column, keeping the try-each-in-turn path for a refusal naming none. `isUniqueConstraintError` became a type guard, which is what lets the error be read with no casts. Four tests added; three count the lookups so the code cannot silently return to guessing.
+**Phase 6 discovery, finished.** All five open questions answered, plus everything the stress test opened. Ten decisions logged, one superseded.
 
-**Phase 5 closed.** The architecture doc gained eight parts — the job service, the save step, the merge, the date pooler, the source priority reader, the active statuses, the save warnings — and three were corrected. The three database commands are described there now. Four build notes went into the phase 5 spec. `CURRENT-FEATURE.md` traded its sixteen task lines for one link.
+**Live measurements taken**, all recorded in the phase 6 r&d:
 
-**Phase 6 planning, up to the open question.** Six decisions logged. The feature spec's dedupe rules rewritten to match them.
+- JSearch lists one posting under several links — 13 groups across 60 jobs, 22 redundant, 14 with different links. This refuted a cross-collector guard.
+- JSearch's `employer_name` held a real employer 60 times out of 60. The r&d's earlier "4 of 10 job boards" reading does not reproduce; the board is published separately as `job_publisher`.
+- Adzuna's company object holds only `display_name` and a type label. No slug, no website, no id.
+- Adzuna's link is minted fresh every call — ten jobs compared across two calls, zero stable. The `se` parameter changes; the path does not.
+- Stripping the query breaks an Adzuna link: 200 with it, 400 without.
+- Link match keys collide nowhere — 210 Adzuna and JSearch jobs, 15 Dribbble links, 177 UI/UX links, all distinct.
+- `dev.db` stores dates at midnight, 2,198 of 2,208, so it never recorded a sub-day gap.
+
+**A four-agent stress test**, one per story group, which found eight serious problems.
+
+**One code fix:** the date-pooling comment in `lib/job-merge.ts` claimed the opposite of what the code does.
 
 ## Decisions & Context
 
-**Six decisions are in the feature decision log dated 2026-09-07**, covering the three identity clauses, the 30-day window, chaining, dedupe writing no dates, the merge survivor, and collector credit. They are not repeated here.
+**Ten decisions are in the feature decision log dated 2026-09-08.** They are not repeated here.
 
-**Nothing was logged for the phase 5 work.** All four calls made while building task 16 are in the phase 5 spec under "Calls made while building".
+### The eight problems the stress test found
+
+Problem 1 is settled. Seven remain, and each was verified against the code rather than taken on the agent's word.
+
+1. **SETTLED — dedupe would wipe application history.** A job list entry carried a `backlog` status and the three work-done flags into a merge, overwriting an `interview` status and resetting work already done. Fixed at the source: the job list query selects data only. Recorded in the r&d under "Found by the stress test".
+2. **A job would delete itself.** On passes two and three every entry is already a saved row, so its own database lookup returns its own row. Nothing says to skip its own id, and the copy-and-delete mechanic then destroys it.
+3. **The link match key would go stale.** `lib/job-service.ts` writes rows two ways. `create()` at line 72 goes through `toColumnData`; `writeToExistingRow()` at line 111 does not. A key computed only in `toColumnData` is never refreshed.
+4. **An over-merge cannot be audited.** The losing job's values vanish and only the id and matched clause survive. The spec names over-merging as the worst outcome, so the worst outcome is the one that cannot be checked.
+5. **A refused delete leaves no trace row.** `lib/steps/save.ts:90` returns `traceRow: null`. **This is a logged decision from 2026-09-06, not an oversight** — it was made when nothing set `delete_on_save`. Dedupe is now the thing that sets it, so the decision wants revisiting rather than fixing.
+6. **A failed resolution could merge two different jobs.** `resolved_url_match_key` is deliberately non-unique because several jobs can share one generic careers page — and the same fact means the resolved-link clause, which the spec calls "proof", can fire on that shared page. The fix likely belongs to Phase 7: resolution must not write a URL it never reached a posting at.
+7. **Which job survives is not what the decision says.** The 2026-09-07 entry says the source-priority winner keeps its id and that `pickWinner` already computes it. `lib/job-merge.ts:165` reads `existing.id ?? arriving.id` and never consults the winner, so survivorship follows argument order.
+8. **A never-saved entry marked for deletion vanishes untraced.** `lib/steps/save.ts:96` returns no trace row, no warning and nothing reported when no row holds the id. The feature spec says such an entry is marked `delete_on_save`; the r&d says it is abandoned. The two disagree.
+
+### Nine decisions the stress test left open
+
+1. What happens when a database lookup returns more than one row, or when two clauses name different rows.
+2. Which field decides "older survives" — `created_at`, `collected_at`, or list order.
+3. Whether two list entries that both already carry a row fold into one or produce a delete.
+4. Which collector goes on the `added_to_job_list` row: the one that first found the stored job, or the one that matched it today.
+5. In a chain of three or more, whether a losing job names its immediate partner or the final survivor.
+6. What happens when dedupe's own database read throws. Save has a pattern at `save.ts:120`; dedupe has none.
+7. How to prove an index exists in a test. This would be the schema's first non-unique index.
+8. Which dates feed the 24-hour test when a job already carries both a posted and an updated date.
+9. How a three-or-more-way merge breaks a tie, since "the arriving side wins" only settles two.
+
+### Six to log rather than solve
+
+1. A job that finishes parsing never enters a dedupe list again, so a duplicate that slips through is permanent.
+2. A job that rejoins mid-pass is never compared against the rest of the list.
+3. Chaining pools dates before the database pass runs, widening the range that pass sees.
+4. The collector checklist line the r&d promises does not exist in `.claude/rules/source-registry.md`.
+5. `absoluteUrl` in `lib/collectors/dribbble-cards.ts` mishandles a `//host/path` link. Unrelated to dedupe.
+6. The metric says jobs "deleted" for hard-matching, while most first-pass losers are "abandoned" instead.
+
+### Approaches tried and refused
+
+- **A cross-collector guard on the company-and-title clause.** Refuted by measurement: JSearch lists one posting under 14 different links in 60 jobs, so the guard would keep the duplicates the clause exists to catch.
+- **Gating that clause on whether both sides are parsed.** Same 14 duplicates, deferred to resolution instead, so every run pays to follow links it did not need.
+- **A named list of junk URL parameters.** Refused as overfitting, per the 2026-08-31 decision against rules fitted to the examples in front of us.
+- **Stripping only universal tracking parameters.** Safe but leaves Adzuna's link matching dead.
+- **Patching dedupe to drop the status.** Superseded by the better fix at the query.
 
 ### Gotchas found this session
 
-- **The false test-gap report comes from `.git/hooks/pre-commit`**, installed by `code-review-graph`, which runs `detect-changes --brief`. Its options cannot print the risk summary without the gap line, so the only fix is deleting that file. **The user chose to live with it.** Do not investigate it again.
-- **It cannot see two shapes**: a test that runs code as a separate program, and a function only another function calls. This session it wrongly named `fakeCompanyService`, `withCompany`, `get`, `isUniqueConstraintError` and `isRecord`.
-- **`dev.db` at the repo root is the old pipeline's database** and `sqlite3` reads it directly. 2,193 jobs. Its `firstPublished` and `repostedAt` columns produced the repost-gap measurement. Remember the old `dedupeByContent` already collapsed company and title, so that key's uniqueness there means nothing.
-- **`PIPESTATUS` still does not survive in the shell tool.** Capture an exit code with `$?` after a redirect.
-- **Both r&d files for phases 5 and 6 still say `createTraceWriter(db)`.** It is `createTraceService(db)` since 2026-09-07. Left alone deliberately — they are planning records, not live code.
-
-### A test pattern worth reusing
-
-Task 16's tests wrap a real Prisma client in a `Proxy` to record every `findUnique` the service runs, and a second `Proxy` strips the column name off a real refusal to prove the fallback still works. Nothing else in the codebase does this. It is what makes a test able to tell one targeted lookup from three tried in turn — the three pre-existing refusal tests pass under either implementation.
-
-### How the build loop ran
-
-Task 16: write the failing tests first, run them red, dispatch two `crowd-code-writer` sub-agents in parallel at Sonnet, pick a winner, apply, go green. Both writers returned near-identical structure. B won for making `isUniqueConstraintError` a type guard, which removed every cast from the error walk. **Telling the writers outright that this codebase has zero JSDoc blocks stopped them writing any, for the second session running. Keep that line.**
+- **An async agent's report does not always arrive with its completion notice.** Two of four came through empty. Message the agent and ask it to output the report again.
+- **`PIPESTATUS` still does not survive.** Use `cmd > file 2>&1; echo $?`.
+- **`.claude/skills/crowd-code`, `start-work-session` and `end-work-session` are symlinks** managed by `sync-workflow`. `git check-ignore` refuses them with "beyond a symbolic link". They are not missing from the commit.
+- **The commit hook still prints a false `mergeJobs` test gap.** Known, living with it.
+- **`pipeline.db` holds 0 jobs.** The new database has never been run against.
+- **The card reader page samples exist** at `lib/collectors/fixtures/`. An earlier r&d line saying otherwise was wrong and is corrected.
+- **Live probes cost quota.** Five JSearch calls went out this session. Keys for Adzuna, JSearch, Google Places, Apify and Geocode are all set in `.env`.
 
 ### Carried forward, still true
 
-**Dedupe does not exist yet**, so two runs of `npm run collect` write two rows for one posting. Expected until phase 6 ships.
+**Dedupe does not exist yet**, so two runs write two rows for one posting.
 
 **Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`. **A `BACKLOG.md` change needs the user's approval before it is written.**
 
@@ -82,20 +109,24 @@ Task 16: write the failing tests first, run them red, dispatch two `crowd-code-w
 
 ### Open questions
 
-1. **The live pipeline database is still on the old schema.** Rebuilding is `npm run db:create` then `npm run db:seed`. **The user has been asked four times across previous sessions and has not answered.** Not asked this session.
-2. **The five phase 6 items** in that file's "Still to settle" list. Item 1 is the resume point.
-3. **A merged row can name a parser that never parsed it.** Settle in Phase 8. Recorded in the phase 5 spec.
-4. **A renamed collector leaves an orphan in the priority list.** Now Future Idea 16 in `BACKLOG.md`.
-5. **Whether Phase 11a wants a database reset of its own.** `npm run db:reset` now exists. In the phase 11a r&d.
+1. **The live pipeline database is still on the old schema.** Rebuilding is `npm run db:create` then `npm run db:seed`. **The user has been asked five times across sessions and has not answered.**
+2. **Whether Phase 11a wants a database reset of its own.** In the phase 11a r&d.
+3. **Two backlog candidates await approval** — the Dribbble protocol-relative link bug, and the collector checklist line.
 
 ## Next Steps
 
-1. **Commit the four uncommitted documentation files.** They are the phase 6 planning record and nothing else is outstanding.
+1. **Walk stress-test problems 2 through 8 with the user, one at a time.** They asked for exactly that pace. Each is written up above with the file and line that proves it. Problem 5 needs framing as revisiting a logged decision rather than fixing a bug.
 
-2. **Answer the resume question: should the company-and-title clause fire only between two different collectors?** The full case is in the phase 6 r&d. In short: JSearch writes a job board's name where the employer goes, measured at 4 of 10 on a live search, so several unrelated jobs end up under a company called `Indeed`. Two of them sharing a normalized title match on company and title, pass the 30-day window because both were collected today, and merge — destroying a real posting. Chaining collapses a whole cluster of them. The proposal is that one source never lists a posting twice under two links, so the clause fires only across different collectors.
+2. **Settle the nine open decisions.** Most are one line each and can go quickly once the eight problems are agreed.
 
-3. **Work the other four items in "Still to settle"** — the minimum repost gap, what dedupe writes to the trace, whether two matching database rows are ever reconciled, and what ports from `legacy/lib/dedupe.ts`.
+3. **Put the six log-and-move-on items and the two backlog candidates to the user**, then invoke `add-to-backlog` for whatever they approve. `BACKLOG.md` is never written without their say-so.
 
-4. **Finish `build-requirements`** — its phases 3 to 5, being user stories, the sub-agent stress test, and acceptance criteria.
+4. **Get the fifteen user stories approved.** They are drafted in the conversation and not yet written anywhere. The Links group of six was rewritten after the match-key decision; the Identity, Scope and Tracing groups stand as first drafted. Expect new stories out of steps 1 and 2.
 
-5. **Write `phase-06-dedupe-spec.md`**, run `spec-review` on it, tick **Plan phase 6** in `CURRENT-FEATURE.md` with its task list under the build item, then run `wrap-up-planning`.
+5. **Write acceptance criteria** — `build-requirements` Phase 5, which has not started. The `feature-specs` rule sets their shape and loads once the spec file exists.
+
+6. **Write `phase-06-dedupe-spec.md`** beside the r&d: What We're Building, User Stories, Edge Cases, Acceptance Criteria, Tasks, Approach. Phase 5's spec is the closest model. Then run `spec-review` on it.
+
+7. **Tick "Plan phase 6" in `docs/CURRENT-FEATURE.md`** and put the phase's task list under its build item.
+
+8. **Invoke `wrap-up-planning`**, scoped to Phase 6.
