@@ -13,6 +13,7 @@ import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 import { companyMatchKey } from "../company-match-key";
 import { associationWarnings, type AssociationWarning } from "../association-warnings";
+import { truncateDetail } from "../trace-detail";
 
 export interface AssociateCompaniesOptions {
   companies: CompanyService;
@@ -24,15 +25,6 @@ export interface AssociateCompaniesOptions {
 export interface AssociateCompaniesResult {
   jobs: JobListEntry[];
   warnings: CollectionIssue[];
-}
-
-// The longest real job title measured is 131 characters and the longest real
-// company name is 50, so 200 fits every genuine value while still cutting a
-// description a collector bug put in the wrong field.
-const MAX_DETAIL_LENGTH = 200;
-
-function truncate(value: string): string {
-  return value.length > MAX_DETAIL_LENGTH ? value.slice(0, MAX_DETAIL_LENGTH) : value;
 }
 
 // A usable name is one companyMatchKey can turn into a real key. A name that
@@ -123,7 +115,7 @@ async function associateJob(
     traceRows.push({
       event: "association_failed",
       reason: "no_name_for_lookup",
-      detail: truncate(failedSlug),
+      detail: truncateDetail(failedSlug),
     });
     return {
       job: { ...job },
@@ -139,7 +131,7 @@ async function associateJob(
   traceRows.push({
     event: "company_associated",
     reason: match.reason,
-    detail: truncate(detailValue),
+    detail: truncateDetail(detailValue),
   });
 
   let warning: WarningInput | undefined;
@@ -153,7 +145,7 @@ async function associateJob(
       traceRows.push({
         event: "company_updated",
         reason: "company_name_filled",
-        detail: truncate(usable.name),
+        detail: truncateDetail(usable.name),
       });
     } else if (fillResult.heldBy) {
       // Another company already holds this name. Leave the job on the
@@ -162,7 +154,7 @@ async function associateJob(
       traceRows.push({
         event: "company_update_failed",
         reason: "company_name_clash",
-        detail: truncate(usable.name),
+        detail: truncateDetail(usable.name),
       });
       warning = {
         kind: "company_name_clash",

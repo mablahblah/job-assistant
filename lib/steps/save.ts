@@ -14,6 +14,7 @@ import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 import { saveWarnings, type SaveWarning } from "../save-warnings";
 import { messageFromThrown } from "../thrown-message";
+import { truncateDetail } from "../trace-detail";
 
 export interface SaveJobsOptions {
   jobService: JobService;
@@ -26,16 +27,6 @@ export interface SaveJobsOptions {
 export interface SaveJobsResult {
   jobs: JobListEntry[];
   warnings: CollectionIssue[];
-}
-
-// A trace detail is cut at 200 characters. The only unbounded one this step
-// writes is a thrown message, which has no length a driver promises to
-// respect; a refused delete's detail is an id and a status, both already
-// short.
-const MAX_DETAIL_LENGTH = 200;
-
-function truncate(value: string): string {
-  return value.length > MAX_DETAIL_LENGTH ? value.slice(0, MAX_DETAIL_LENGTH) : value;
 }
 
 // One trace row this step wants written, without the fields the loop fills
@@ -139,7 +130,7 @@ async function saveEntry(
       traceRow: {
         event: "abandoned",
         reason: "db_write_failed",
-        detail: truncate(messageFromThrown(thrown)),
+        detail: truncateDetail(messageFromThrown(thrown)),
       },
       warning: { kind: "db_write_failed", entry, thrown },
     };

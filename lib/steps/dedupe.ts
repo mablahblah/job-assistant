@@ -19,19 +19,11 @@ import type { JobService } from "../job-service";
 import type { DedupeTraceDetail, TraceService } from "../trace-service";
 import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
+import { truncateDetail } from "../trace-detail";
 
 // The mark a job carries when it lost to a stored row, and the reason the
 // trace row gives for that departure.
 const MATCHED_DB_ROW = "matched_db_row";
-
-// The longest real job title measured is 131 characters and the longest real
-// company name is 50, so 200 fits every genuine value while still cutting a
-// description a collector bug put in the wrong field.
-const MAX_DETAIL_LENGTH = 200;
-
-function truncate(value: string): string {
-  return value.length > MAX_DETAIL_LENGTH ? value.slice(0, MAX_DETAIL_LENGTH) : value;
-}
 
 export interface DedupeJobsOptions {
   jobService: JobService;
@@ -318,11 +310,11 @@ function dedupeDetail(
   clause: JobIdentityClause
 ): DedupeTraceDetail {
   return {
-    became: truncate(becameId ?? ""),
-    clause: truncate(clause),
-    company: truncate(loser.raw_company_name ?? ""),
-    title: truncate(loser.title ?? loser.raw_title ?? ""),
-    original_url: truncate(loser.original_url ?? ""),
-    posting_date: truncate(loser.posting_date ? loser.posting_date.toISOString() : ""),
+    became: truncateDetail(becameId ?? ""),
+    clause: truncateDetail(clause),
+    company: truncateDetail(loser.raw_company_name ?? ""),
+    title: truncateDetail(loser.title ?? loser.raw_title ?? ""),
+    original_url: truncateDetail(loser.original_url ?? ""),
+    posting_date: truncateDetail(loser.posting_date ? loser.posting_date.toISOString() : ""),
   };
 }

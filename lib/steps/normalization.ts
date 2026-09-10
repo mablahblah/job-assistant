@@ -23,6 +23,7 @@ import type { JobListEntry, RawSalary } from "../job-list-entry";
 import { normalizeTitle, type TitleVocabularies } from "../title";
 import { normalizeSalary } from "../salary";
 import { normalizeModeList } from "../work-mode-list";
+import { truncateDetail } from "../trace-detail";
 import { normalizeCompanyName } from "../company-name";
 import { summarizeNormalizationWarnings, type UnusableField } from "../normalization-warnings";
 import type { CollectionIssue } from "../collection-issue";
@@ -32,15 +33,6 @@ export interface NormalizationEvent {
   event: "job_updated" | "normalization_failed";
   reason: string;
   detail: { from: string; to: string };
-}
-
-// The longest real job title measured is 131 characters and the longest real
-// company name is 50, so 200 fits every genuine value while still cutting a
-// description a collector bug put in the wrong field.
-const MAX_DETAIL_LENGTH = 200;
-
-function truncate(value: string): string {
-  return value.length > MAX_DETAIL_LENGTH ? value.slice(0, MAX_DETAIL_LENGTH) : value;
 }
 
 export function normalizeJob(
@@ -61,7 +53,7 @@ export function normalizeJob(
 
     // One input, one outcome: normalizeTitle either found a job noun to build
     // a title around or it did not, so there is no partial case here.
-    const detail = { from: truncate(job.raw_title), to: truncate(normalized.title) };
+    const detail = { from: truncateDetail(job.raw_title), to: truncateDetail(normalized.title) };
     events.push(
       normalized.matched
         ? { event: "job_updated", reason: "title_normalized", detail }
@@ -97,7 +89,7 @@ export function normalizeJob(
       salary_high: salary.salary_high,
       salary_period: salary.salary_period,
     });
-    const detail = { from: truncate(JSON.stringify(raw)), to: truncate(to) };
+    const detail = { from: truncateDetail(JSON.stringify(raw)), to: truncateDetail(to) };
 
     // Nothing normalized is checked first, so an envelope holding only a
     // currency — nothing countable at all — reads as unusable rather than
@@ -126,8 +118,8 @@ export function normalizeJob(
     ).length;
 
     const detail = {
-      from: truncate(JSON.stringify(job.raw_mode_list)),
-      to: truncate(JSON.stringify(normalized)),
+      from: truncateDetail(JSON.stringify(job.raw_mode_list)),
+      to: truncateDetail(JSON.stringify(normalized)),
     };
 
     if (recognizedCount === 0) {
@@ -148,7 +140,7 @@ export function normalizeJob(
     events.push({
       event: "job_updated",
       reason: "company_name_normalized",
-      detail: { from: truncate(job.raw_company_name), to: truncate(normalized) },
+      detail: { from: truncateDetail(job.raw_company_name), to: truncateDetail(normalized) },
     });
   }
 
