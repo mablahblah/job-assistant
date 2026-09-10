@@ -1,3 +1,6 @@
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { JOB_LIST_ENTRY_FIELDS, type JobListEntry } from "./job-list-entry";
 import {
@@ -5,11 +8,15 @@ import {
   DERIVED_AT_WRITE_FIELDS,
   NEVER_WRITTEN_FIELDS,
   POOLED_DATE_FIELDS,
+  STRIPPED_AT_WRITE_FIELDS,
   WINNER_STAMP_FIELDS,
   WRITE_ONCE_FIELDS,
   WRITTEN_THROUGH_FIELDS,
   mergeJobs,
+  pickWinner,
 } from "./job-merge";
+
+const libDir = dirname(fileURLToPath(import.meta.url));
 
 // greenhouse outranks adzuna, and the hand-entered source outranks both.
 const LIST = [
@@ -44,6 +51,7 @@ describe("the field list names every Job column exactly once", () => {
     ...POOLED_DATE_FIELDS,
     ...NEVER_WRITTEN_FIELDS,
     ...DERIVED_AT_WRITE_FIELDS,
+    ...STRIPPED_AT_WRITE_FIELDS,
   ] as string[];
 
   // delete_on_save is the one job list field that is not a column, so it is
@@ -332,12 +340,11 @@ describe("the dates are pooled rather than contested", () => {
 });
 
 describe("what the merge never writes", () => {
-  test("the row timestamps are left off entirely, so Prisma keeps them", () => {
+  test("modified_at is left off entirely, so Prisma keeps setting it", () => {
     const result = merge(
       { ...GREENHOUSE, created_at: JAN_05, modified_at: JAN_05 },
       { ...ADZUNA, created_at: JAN_10, modified_at: JAN_10 }
     );
-    expect(result).not.toHaveProperty("created_at");
     expect(result).not.toHaveProperty("modified_at");
   });
 
@@ -385,4 +392,129 @@ describe("the merge reaches no database", () => {
     );
     expect(result.title).toBe("Stored Title");
   });
+});
+
+// A saved job carries a created_at the database filled; an entry the pipeline
+// built this run does not. That is the only field telling the two apart.
+const CREATED_EARLY = new Date("2024-06-01T00:00:00.000Z");
+const CREATED_LATE = new Date("2025-06-01T00:00:00.000Z");
+
+describe("AC 42: the older row's id survives where both sides hold one", () => {
+  test("the side with the earlier created_at keeps its id", () => {
+    const older = { ...ADZUNA, id: "job-older", created_at: CREATED_EARLY };
+    const newer = { ...GREENHOUSE, id: "job-newer", created_at: CREATED_LATE };
+
+    expect(pickWinner(older, newer, LIST).idSurvivor.id).toBe("job-older");
+  });
+
+  test("which argument it arrived as does not decide it", () => {
+    const older = { ...ADZUNA, id: "job-older", created_at: CREATED_EARLY };
+    const newer = { ...GREENHOUSE, id: "job-newer", created_at: CREATED_LATE };
+
+    expect(pickWinner(newer, older, LIST).idSurvivor.id).toBe("job-older");
+  });
+});
+
+describe("AC 43: a side holding a row keeps its id over one that never was", () => {
+  test("the saved side wins the id even though the fresh side ranks better", () => {
+    const saved = { ...ADZUNA, id: "job-saved", created_at: CREATED_EARLY };
+    const fresh = { ...GREENHOUSE, id: "job-fresh" };
+
+    expect(pickWinner(saved, fresh, LIST).idSurvivor.id).toBe("job-saved");
+    expect(pickWinner(fresh, saved, LIST).idSurvivor.id).toBe("job-saved");
+  });
+});
+
+describe("AC 44: with no row on either side the priority winner's id survives", () => {
+  test("the better-ranked side keeps its id", () => {
+    const worse = { ...ADZUNA, id: "job-worse" };
+    const better = { ...GREENHOUSE, id: "job-better" };
+
+    expect(pickWinner(worse, better, LIST).idSurvivor.id).toBe("job-better");
+    expect(pickWinner(better, worse, LIST).idSurvivor.id).toBe("job-better");
+  });
+});
+
+describe("AC 45: two unsaved sides ranking equal give up either id", () => {
+  test("one of the two ids survives", () => {
+    const one = { ...ADZUNA, id: "job-one" };
+    const two = { ...ADZUNA, id: "job-two" };
+
+    expect(["job-one", "job-two"]).toContain(pickWinner(one, two, LIST).idSurvivor.id);
+  });
+});
+
+describe("AC 46: whose data wins is reported apart from whose id survives", () => {
+  test("the two answers come back as separate sides", () => {
+    const saved = { ...ADZUNA, id: "job-saved", created_at: CREATED_EARLY, title: "Adzuna Title" };
+    const fresh = { ...GREENHOUSE, id: "job-fresh", title: "Greenhouse Title" };
+
+    const picked = pickWinner(saved, fresh, LIST);
+
+    expect(picked.dataWinner.title).toBe("Greenhouse Title");
+    expect(picked.idSurvivor.id).toBe("job-saved");
+  });
+});
+
+describe("AC 47: the merged entry carries a created_at where either side had one", () => {
+  test("a created_at on one side is carried onto the merged entry", () => {
+    const result = merge({ ...ADZUNA, id: "job-saved", created_at: CREATED_EARLY }, { ...GREENHOUSE });
+
+    expect(result.created_at).toEqual(CREATED_EARLY);
+  });
+
+  test("neither side carrying one leaves the merged entry without it", () => {
+    const result = merge({ ...GREENHOUSE }, { ...ADZUNA });
+
+    expect(result).not.toHaveProperty("created_at");
+  });
+
+  test("a modified_at is never carried, whichever side holds it", () => {
+    const result = merge(
+      { ...ADZUNA, created_at: CREATED_EARLY, modified_at: JAN_05 },
+      { ...GREENHOUSE, modified_at: JAN_10 }
+    );
+
+    expect(result).not.toHaveProperty("modified_at");
+  });
+});
+
+describe("AC 48: the carried created_at belongs to the side whose id survived", () => {
+  test("the older row supplies both the id and the birthday, the better source the data", () => {
+    const older = {
+      ...ADZUNA,
+      id: "job-older",
+      created_at: CREATED_EARLY,
+      title: "Adzuna Title",
+    };
+    const newer = {
+      ...GREENHOUSE,
+      id: "job-newer",
+      created_at: CREATED_LATE,
+      title: "Greenhouse Title",
+    };
+
+    const result = merge(older, newer);
+
+    expect(result.id).toBe("job-older");
+    expect(result.created_at).toEqual(CREATED_EARLY);
+    expect(result.title).toBe("Greenhouse Title");
+  });
+});
+
+describe("AC 50: the merge names its two sides earlier and later", () => {
+  const source = readFileSync(join(libDir, "job-merge.ts"), "utf-8");
+
+  // Argument order decides only the tie-break and which side supplies the
+  // collection date, so the names say position rather than database state.
+  for (const name of ["mergeJobs", "pickWinner", "contest"]) {
+    test(`${name} takes an earlier side and a later side`, () => {
+      const signature = source.slice(source.indexOf(`function ${name}(`));
+      const parameters = signature.slice(0, signature.indexOf(")"));
+
+      expect(parameters).toMatch(/\bearlier/);
+      expect(parameters).toMatch(/\blater/);
+      expect(parameters).not.toMatch(/\bexisting|\barriving/);
+    });
+  }
 });
