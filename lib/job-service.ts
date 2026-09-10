@@ -29,6 +29,13 @@ export interface DeleteResult {
 export interface JobService {
   update(entry: JobListEntry, priorityList: readonly string[]): Promise<UpdateResult>;
   delete(id: string): Promise<DeleteResult>;
+  // The three lookups dedupe's database compare runs. Each asks the table a
+  // different question on an indexed column, so dedupe runs all three every
+  // time and any of them can name a row the other two missed. They live here
+  // because the step itself reaches no database of its own.
+  findByOriginalUrlMatchKey(matchKey: string): Promise<JobListEntry[]>;
+  findByResolvedUrlMatchKey(matchKey: string): Promise<JobListEntry[]>;
+  findByCompanyAndTitle(companyId: string, title: string): Promise<JobListEntry[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -132,6 +139,13 @@ export function createJobService(db: PipelineDb): JobService {
     return { job: toJobListEntry(updated), outcome: "updated" };
   }
 
+  // Shared by the three lookups below: run one findMany against the clause it
+  // is handed and give every row back through the usual conversion.
+  async function findManyAsEntries(where: Prisma.JobWhereInput): Promise<JobListEntry[]> {
+    const rows = await db.job.findMany({ where });
+    return rows.map(toJobListEntry);
+  }
+
   return {
     async update(entry, priorityList) {
       if (!entry.id) {
@@ -155,6 +169,23 @@ export function createJobService(db: PipelineDb): JobService {
 
       await db.job.delete({ where: { id } });
       return { deleted: true, blockedBy: null };
+    },
+
+    // Both match-key columns are indexed and neither is unique, so several
+    // rows can hold one key — every match comes back, not just the first.
+    findByOriginalUrlMatchKey(matchKey) {
+      return findManyAsEntries({ original_url_match_key: matchKey });
+    },
+
+    findByResolvedUrlMatchKey(matchKey) {
+      return findManyAsEntries({ resolved_url_match_key: matchKey });
+    },
+
+    // The third clause reaches a stored row that shares neither link with the
+    // entry looking for it. Whether the two sides' dates are close enough to
+    // count as one job is the identity rules' question, not this one's.
+    findByCompanyAndTitle(companyId, title) {
+      return findManyAsEntries({ company_id: companyId, title });
     },
   };
 }

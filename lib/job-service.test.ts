@@ -86,6 +86,12 @@ async function seedRow(
   });
 }
 
+// Job.company_id is a real foreign key, so a row pointing at a company needs
+// that company on file first.
+async function seedCompany(id: string): Promise<void> {
+  await db.company.create({ data: { id } });
+}
+
 // Hands back whatever a call threw. Prisma quotes the surrounding source
 // lines inside its own error messages, so a guard's wording can appear in an
 // error the service never raised — the tests below check the error's name as
@@ -403,5 +409,56 @@ describe("stamping the link match keys", () => {
 
     const row = await db.job.findUnique({ where: { id: "keys-created-at" } });
     expect(row?.created_at.getTime()).not.toBe(stale.getTime());
+  });
+});
+
+// The three lookups dedupe's database compare runs against a surviving entry.
+// Each one asks a different question of the table, so all three run every
+// time and any of them can name a row the others did not. The step reaches no
+// database of its own, so they live here on the service that owns Job.
+describe("the dedupe lookups", () => {
+  test("finds every row holding an original-url match key", async () => {
+    await seedRow("lookup-orig-a", { original_url_match_key: "https://example.com/jobs/7" });
+    await seedRow("lookup-orig-b", { original_url_match_key: "https://example.com/jobs/7" });
+    await seedRow("lookup-orig-c", { original_url_match_key: "https://example.com/jobs/8" });
+
+    const found = await service.findByOriginalUrlMatchKey("https://example.com/jobs/7");
+
+    expect(found.map((job) => job.id).sort()).toEqual(["lookup-orig-a", "lookup-orig-b"]);
+  });
+
+  test("finds nothing where no row holds the original-url key", async () => {
+    const found = await service.findByOriginalUrlMatchKey("https://example.com/nobody-here");
+
+    expect(found).toEqual([]);
+  });
+
+  test("finds every row holding a resolved-url match key", async () => {
+    await seedRow("lookup-res-a", { resolved_url_match_key: "https://boards.example.com/9" });
+    await seedRow("lookup-res-b", { resolved_url_match_key: "https://boards.example.com/10" });
+
+    const found = await service.findByResolvedUrlMatchKey("https://boards.example.com/9");
+
+    expect(found.map((job) => job.id)).toEqual(["lookup-res-a"]);
+  });
+
+  test("finds every row sharing a company and a title", async () => {
+    await seedCompany("company-77");
+    await seedRow("lookup-ct-a", { company_id: "company-77", title: "Senior Product Designer" });
+    await seedRow("lookup-ct-b", { company_id: "company-77", title: "Senior Product Designer" });
+
+    const found = await service.findByCompanyAndTitle("company-77", "Senior Product Designer");
+
+    expect(found.map((job) => job.id).sort()).toEqual(["lookup-ct-a", "lookup-ct-b"]);
+  });
+
+  test("ignores a row matching the company but not the title", async () => {
+    await seedCompany("company-78");
+    await seedRow("lookup-ct-c", { company_id: "company-78", title: "Product Designer" });
+    await seedRow("lookup-ct-d", { company_id: "company-78", title: "Design Engineer" });
+
+    const found = await service.findByCompanyAndTitle("company-78", "Product Designer");
+
+    expect(found.map((job) => job.id)).toEqual(["lookup-ct-c"]);
   });
 });

@@ -108,9 +108,28 @@ export function fakeJobService(
     return { deleted: true, blockedBy: null };
   }
 
+  // The three lookups dedupe's database compare runs, read off the held array
+  // rather than a table. An equality test never matches an absent field, so a
+  // held job carrying no key, no company or no title matches nothing — the
+  // same answer the real column gives.
+  async function findByOriginalUrlMatchKey(matchKey: string): Promise<JobListEntry[]> {
+    return jobs.filter((job) => job.original_url_match_key === matchKey);
+  }
+
+  async function findByResolvedUrlMatchKey(matchKey: string): Promise<JobListEntry[]> {
+    return jobs.filter((job) => job.resolved_url_match_key === matchKey);
+  }
+
+  async function findByCompanyAndTitle(companyId: string, title: string): Promise<JobListEntry[]> {
+    return jobs.filter((job) => job.company_id === companyId && job.title === title);
+  }
+
   return {
     update,
     delete: deleteJob,
+    findByOriginalUrlMatchKey,
+    findByResolvedUrlMatchKey,
+    findByCompanyAndTitle,
     ...overrides,
   };
 }

@@ -367,3 +367,62 @@ describe("a key follows the link that won the merge", () => {
     expect(jobs[0]?.original_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/999");
   });
 });
+
+// The fake is the stand-in dedupe's step tests look up through, so its three
+// lookups have to answer what the real ones answer. Where they disagree the
+// fake is lying and every step test that trusts it is worthless.
+describe("the dedupe lookups", () => {
+  test("finds every held job holding an original-url match key", async () => {
+    const service = fakeJobService([
+      storedJob("orig-a", { original_url_match_key: "https://example.com/jobs/7" }),
+      storedJob("orig-b", { original_url_match_key: "https://example.com/jobs/7" }),
+      storedJob("orig-c", { original_url_match_key: "https://example.com/jobs/8" }),
+    ]);
+
+    const found = await service.findByOriginalUrlMatchKey("https://example.com/jobs/7");
+
+    expect(found.map((job) => job.id)).toEqual(["orig-a", "orig-b"]);
+  });
+
+  test("finds nothing where no held job holds the original-url key", async () => {
+    const service = fakeJobService([storedJob("orig-d")]);
+
+    const found = await service.findByOriginalUrlMatchKey("https://example.com/nobody-here");
+
+    expect(found).toEqual([]);
+  });
+
+  test("finds every held job holding a resolved-url match key", async () => {
+    const service = fakeJobService([
+      storedJob("res-a", { resolved_url_match_key: "https://boards.example.com/9" }),
+      storedJob("res-b", { resolved_url_match_key: "https://boards.example.com/10" }),
+    ]);
+
+    const found = await service.findByResolvedUrlMatchKey("https://boards.example.com/9");
+
+    expect(found.map((job) => job.id)).toEqual(["res-a"]);
+  });
+
+  test("finds every held job sharing a company and a title", async () => {
+    const service = fakeJobService([
+      storedJob("ct-a", { company_id: "company-77", title: "Senior Product Designer" }),
+      storedJob("ct-b", { company_id: "company-77", title: "Senior Product Designer" }),
+      storedJob("ct-c", { company_id: "company-77", title: "Design Engineer" }),
+      storedJob("ct-d", { company_id: "company-78", title: "Senior Product Designer" }),
+    ]);
+
+    const found = await service.findByCompanyAndTitle("company-77", "Senior Product Designer");
+
+    expect(found.map((job) => job.id)).toEqual(["ct-a", "ct-b"]);
+  });
+
+  // A job carrying no company or no title matches nothing, the way an
+  // absent column in the real table matches no equality test.
+  test("ignores a held job carrying neither a company nor a title", async () => {
+    const service = fakeJobService([storedJob("ct-e")]);
+
+    const found = await service.findByCompanyAndTitle("company-79", "Product Designer");
+
+    expect(found).toEqual([]);
+  });
+});
