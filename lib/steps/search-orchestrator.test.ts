@@ -1760,3 +1760,88 @@ describe("the source priority list reaches save", () => {
     ).rejects.toThrow(/source_priority_list/);
   });
 });
+
+// AC 72. Dedupe runs between association and save: association gives a job
+// the company identity dedupe matches on, and save writes what survives.
+describe("dedupe runs after association and before save", () => {
+  test("its trace rows are stamped post_collection_dedupe with the caller's run id", async () => {
+    const trace = makeTraceService();
+    // Two jobs on one link, so the list compare has a match to fold.
+    const collector = makeCollector("greenhouse", {
+      jobs: [makeJob("Designer"), makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+
+    await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace,
+      jobService: fakeJobService([]),
+      collectedAt: stubCollectedAt,
+      companies: fakeCompanyService([]),
+      collectors: [collector],
+    });
+
+    const dedupeEvents = trace.events.filter((event) => event.step === "post_collection_dedupe");
+    expect(dedupeEvents.length).toBeGreaterThan(0);
+    expect(dedupeEvents.every((event) => event.run_id === stubRunId)).toBe(true);
+  });
+
+  test("only the surviving job reaches the job service as a write", async () => {
+    const written: string[] = [];
+    const service = fakeJobService([], {
+      async update(entry) {
+        written.push(entry.id as string);
+        return { job: entry, outcome: "created" };
+      },
+      async delete() {
+        return { deleted: false, blockedBy: null };
+      },
+    });
+    const collector = makeCollector("greenhouse", {
+      jobs: [makeJob("Designer"), makeJob("Designer")],
+      errors: [],
+      warnings: [],
+    });
+
+    await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      jobService: service,
+      collectedAt: stubCollectedAt,
+      companies: fakeCompanyService([]),
+      collectors: [collector],
+    });
+
+    // The loser is deleted rather than written, so one of the two duplicates
+    // reaches the update path.
+    expect(written).toHaveLength(1);
+  });
+
+  // A step's warnings travel up through its caller, so a lookup that threw
+  // reaches the user rather than dying inside the run.
+  test("its warnings reach the report", async () => {
+    const service = fakeJobService([], {
+      async findByOriginalUrlMatchKey() {
+        throw new Error("the database went away");
+      },
+    });
+
+    const report = await runCollection({
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      jobService: service,
+      collectedAt: stubCollectedAt,
+      companies: fakeCompanyService([]),
+      collectors: [makeCollector("greenhouse", { jobs: [makeJob("Designer")], errors: [], warnings: [] })],
+    });
+
+    const lookupWarnings = report.warnings.filter((warning) =>
+      warning.message.includes("Database lookup failed")
+    );
+    expect(lookupWarnings).toHaveLength(1);
+  });
+});

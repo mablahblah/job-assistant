@@ -8,6 +8,7 @@ import { unusableReason } from "../collectors/job-usable";
 import type { Collector } from "../collectors/types";
 import { associateCompanies } from "./association";
 import type { CompanyService } from "../company-service";
+import { dedupeJobs } from "./dedupe";
 import type { JobListEntry } from "../job-list-entry";
 import type { JobService } from "../job-service";
 import { normalizeJobs } from "./normalization";
@@ -202,8 +203,21 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
   report.jobs = associated.jobs;
   report.warnings.push(...associated.warnings);
 
-  // The last step: the surviving list becomes rows, so a run ends in the
-  // database rather than in a list nothing outlives.
+  // Dedupe reduces the list to one entry per real posting, matching on the
+  // company identity association just attached to each job.
+  const deduped = await dedupeJobs(report.jobs, {
+    jobService: options.jobService,
+    priorityList,
+    collectedAt: options.collectedAt,
+    trace: options.trace,
+    runId: options.runId,
+    step: "post_collection_dedupe",
+  });
+  report.jobs = deduped.jobs;
+  report.warnings.push(...deduped.warnings);
+
+  // Save writes what survives into rows and deletes what dedupe marked, so a
+  // run ends in the database rather than in a list nothing outlives.
   const saved = await saveJobs(report.jobs, {
     jobService: options.jobService,
     priorityList,
