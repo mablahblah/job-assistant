@@ -16,13 +16,22 @@ import { dedupeWarnings } from "../dedupe-warnings";
 import type { DedupeWarning } from "../dedupe-warnings";
 import type { JobIdentityClause } from "../job-identity";
 import type { JobService } from "../job-service";
-import type { TraceService } from "../trace-service";
+import type { DedupeTraceDetail, TraceService } from "../trace-service";
 import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 
 // The mark a job carries when it lost to a stored row, and the reason the
 // trace row gives for that departure.
 const MATCHED_DB_ROW = "matched_db_row";
+
+// The longest real job title measured is 131 characters and the longest real
+// company name is 50, so 200 fits every genuine value while still cutting a
+// description a collector bug put in the wrong field.
+const MAX_DETAIL_LENGTH = 200;
+
+function truncate(value: string): string {
+  return value.length > MAX_DETAIL_LENGTH ? value.slice(0, MAX_DETAIL_LENGTH) : value;
+}
 
 export interface DedupeJobsOptions {
   jobService: JobService;
@@ -46,12 +55,22 @@ interface ConfirmedRow {
   clause: JobIdentityClause;
 }
 
+// Where a stored row's claim sits, and the clause that first tied that row to
+// whatever holds it. A later entry joining the same claim names that clause
+// rather than whichever one matched it to the row.
+interface ClaimInfo {
+  index: number;
+  clause: JobIdentityClause;
+}
+
 // A trace row waiting for its run id and step name, keyed on the job it
-// describes rather than on the entry being compared.
+// describes rather than on the entry being compared. Only a row that lost a
+// merge carries a detail; one simply joining the list has nothing to explain.
 interface PendingTrace {
   job: JobListEntry;
   event: string;
   reason: string;
+  detail?: DedupeTraceDetail;
 }
 
 interface PairFold {
@@ -72,12 +91,20 @@ export async function dedupeJobs(
   const pending: PendingTrace[] = [];
 
   // Pass one: entries that match each other on the list. Each loser already
-  // carries the delete_on_save the save step reads.
+  // carries the delete_on_save the save step reads, and foldMatchingJobs
+  // already knows which immediate partner it lost to and on what clause.
   const { jobs: listSurvivors, folds } = foldMatchingJobs(jobs, priorityList, collectedAt);
   for (const fold of folds) {
     marked.push(fold.loser);
     const reason = fold.loser.delete_on_save;
-    if (reason) pending.push({ job: fold.loser, event: "abandoned", reason });
+    if (reason) {
+      pending.push({
+        job: fold.loser,
+        event: "abandoned",
+        reason,
+        detail: dedupeDetail(fold.loser, fold.becameId, fold.clause),
+      });
+    }
   }
 
   // Every id the caller handed in. A row wearing one of these is some list
@@ -91,8 +118,8 @@ export async function dedupeJobs(
 
   // Pass two: each survivor against the stored rows it reaches.
   const survivors: JobListEntry[] = [];
-  // Row id to the position of the survivor now holding that row.
-  const claims = new Map<string, number>();
+  // Row id to the claim on it.
+  const claims = new Map<string, ClaimInfo>();
 
   for (const entry of listSurvivors) {
     let confirmed: ConfirmedRow[];
@@ -116,22 +143,24 @@ export async function dedupeJobs(
 
     // An entry reaching a row an earlier entry already holds is that same job
     // seen twice, so it joins that claim rather than standing beside it.
-    const claimIndex = claimIndexFor(confirmed, claims);
-    const claim = claimIndex === undefined ? undefined : survivors[claimIndex];
+    const claimInfo = claimFor(confirmed, claims);
     // Either the claim's own place, or the end of the list, where an entry
     // holding no claim lands when it is written back below.
-    const index = claimIndex ?? survivors.length;
+    const index = claimInfo?.index ?? survivors.length;
     let current = entry;
 
-    if (claim) {
-      // The claim already holds a stored row, so it is the earlier side.
+    if (claimInfo !== undefined) {
+      // The claim already holds a stored row, so it is the earlier side. The
+      // clause on record is the one that first tied that row to the claim,
+      // not whichever clause matches this entry to it.
+      const claim = survivors[claimInfo.index] as JobListEntry;
       const fold = foldPair(claim, entry, priorityList, collectedAt);
       current = fold.merged;
       marked.push(fold.loser);
-      pending.push(leavingRow(fold.loser));
+      pending.push(leavingRow(fold.loser, fold.merged.id, claimInfo.clause));
     }
 
-    for (const { id, row } of confirmed) {
+    for (const { id, row, clause } of confirmed) {
       // A row an earlier entry already folded in stays where it is.
       if (claims.has(id)) continue;
 
@@ -141,11 +170,12 @@ export async function dedupeJobs(
       const fold = foldPair(row, current, priorityList, collectedAt);
       current = fold.merged;
       marked.push(fold.loser);
-      pending.push(leavingRow(fold.loser));
+      pending.push(leavingRow(fold.loser, fold.merged.id, clause));
       // The row is the job this event describes, so it supplies both the id
-      // and the collector, whether or not its own id went on to survive.
+      // and the collector, whether or not its own id went on to survive. It
+      // joined the list rather than lost anything, so it carries no detail.
       pending.push({ job: row, event: "added_to_job_list", reason: "matched_list_entry" });
-      claims.set(id, index);
+      claims.set(id, { index, clause });
     }
 
     survivors[index] = current;
@@ -166,6 +196,7 @@ export async function dedupeJobs(
         event: row.event,
         collector: row.job.collector,
         reason: row.reason,
+        detail: row.detail,
       });
     }
   }
@@ -229,15 +260,14 @@ function collectRows(
   }
 }
 
-// The position of the survivor already holding one of these rows, where there
-// is one.
-function claimIndexFor(
+// The claim already holding one of these rows, where there is one.
+function claimFor(
   confirmed: readonly ConfirmedRow[],
-  claims: ReadonlyMap<string, number>
-): number | undefined {
+  claims: ReadonlyMap<string, ClaimInfo>
+): ClaimInfo | undefined {
   for (const { id } of confirmed) {
-    const index = claims.get(id);
-    if (index !== undefined) return index;
+    const claim = claims.get(id);
+    if (claim) return claim;
   }
   return undefined;
 }
@@ -264,10 +294,35 @@ function foldPair(
 
 // A side carrying a created_at already held a database row, so its departure
 // is a row being deleted rather than an entry simply leaving the list.
-function leavingRow(loser: JobListEntry): PendingTrace {
+function leavingRow(
+  loser: JobListEntry,
+  becameId: string | undefined,
+  clause: JobIdentityClause
+): PendingTrace {
   return {
     job: loser,
     event: loser.created_at ? "job_dbrow_deleted" : "abandoned",
     reason: MATCHED_DB_ROW,
+    detail: dedupeDetail(loser, becameId, clause),
+  };
+}
+
+// What a losing row records: the job it became at that moment, the clause
+// that matched, and enough of its own identity to check the merge afterwards
+// rather than only count it. becameId names the immediate partner, never the
+// final survivor of a chain, so the chain draws as a flow. A value the losing
+// side does not carry reads as an empty string.
+function dedupeDetail(
+  loser: JobListEntry,
+  becameId: string | undefined,
+  clause: JobIdentityClause
+): DedupeTraceDetail {
+  return {
+    became: truncate(becameId ?? ""),
+    clause: truncate(clause),
+    company: truncate(loser.raw_company_name ?? ""),
+    title: truncate(loser.title ?? loser.raw_title ?? ""),
+    original_url: truncate(loser.original_url ?? ""),
+    posting_date: truncate(loser.posting_date ? loser.posting_date.toISOString() : ""),
   };
 }
