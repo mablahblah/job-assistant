@@ -428,14 +428,17 @@ describe("a category page that renders no list at all", () => {
     expect(result.errors).toEqual([]);
   });
 
-  test("the warning names the category rather than a broken read", async () => {
+  // Every category this collector read came back empty, which is what a
+  // broken card selector looks like, so it says so once rather than per
+  // category.
+  test("the warning says no cards were found anywhere", async () => {
     stubFetch(categoryRoute(PRODUCT_DESIGNER, []));
 
     const result = await collect({ settings: makeSettings({ searchTerms: [PRODUCT_DESIGN_LABEL] }) });
 
-    const categoryWarnings = result.warnings.filter((warning) => warning.includes(PRODUCT_DESIGN_LABEL));
-    expect(categoryWarnings.length).toBeGreaterThan(0);
-    expect(categoryWarnings.some((warning) => warning.includes("no result cards"))).toBe(true);
+    const noCards = result.warnings.filter((warning) => warning.includes("no result cards"));
+    expect(noCards).toHaveLength(1);
+    expect(noCards[0]).toContain("selector");
   });
 });
 

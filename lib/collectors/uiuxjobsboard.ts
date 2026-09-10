@@ -8,7 +8,7 @@ import { ageToDate } from "../job-age";
 import { fetchContainer } from "./fetch-page";
 import { pickFixture, writeFixture, type FixtureCandidate } from "./fixture";
 import { matchCategories, type Category } from "./match-categories";
-import { paginate, type ResultCard } from "./paginate";
+import { noCardsWarnings, paginate, type PaginateResult, type ResultCard } from "./paginate";
 import type { Collector, CollectorResult } from "./types";
 import { UIUX_RESULTS_CONTAINER, readUiuxCards } from "./uiuxjobsboard-cards";
 
@@ -78,6 +78,10 @@ export const uiuxjobsboardCollector: Collector = {
 
     const jobs: JobListEntry[] = [];
     const warnings: string[] = [];
+    // Every category's result, kept so the empty ones can be judged together
+    // once they have all run. One empty category is ordinary; all of them
+    // empty is the card selector having broken.
+    const searchResults: PaginateResult[] = [];
     // The fixture is the strongest container the run saw, not the last one.
     // Keeping the last left a real fixture holding a single card, because
     // the last search to return anything was a one-result search.
@@ -120,6 +124,7 @@ export const uiuxjobsboardCollector: Collector = {
       // paginate, which catches what readPage throws. One dead search is a
       // degraded run rather than a failed collector, so the rest still go on.
       warnings.push(...searchResult.warnings);
+      searchResults.push(searchResult);
       jobs.push(...searchResult.cards.map(cardToJob));
 
       fixture = pickFixture(fixture, {
@@ -128,6 +133,8 @@ export const uiuxjobsboardCollector: Collector = {
         selfCheckFailed: searchResult.selfCheckFailed,
       });
     }
+
+    warnings.push(...noCardsWarnings(searchResults));
 
     // Called even when the self-check failed: writeFixture is what decides
     // not to write, and it returns the warning saying so.

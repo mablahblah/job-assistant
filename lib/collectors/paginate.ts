@@ -38,6 +38,9 @@ export interface PaginateOptions {
 }
 
 export interface PaginateResult {
+  // The label this search was given, so a check running after the collector's
+  // whole set of searches can name the ones that came back empty.
+  search: string;
   cards: ResultCard[];
   warnings: string[];
   // True when a self-check fired — no cards at all, or a card selector
@@ -45,6 +48,10 @@ export interface PaginateResult {
   // whether the search is trustworthy enough to refresh the saved fixture,
   // so a stop for an old card or a dead page does not set it.
   selfCheckFailed: boolean;
+  // True when the search read no cards at all. On its own that is ordinary —
+  // a site has no jobs matching this search — so it is reported rather than
+  // warned about, and noCardsWarnings below decides what it means.
+  foundNoCards: boolean;
 }
 
 // However deep a site's results go, one search never walks further than this.
@@ -65,8 +72,8 @@ function ceilingWarning(search: string): string {
   return `${search}: stopped at the ${PAGE_CEILING}-page ceiling, so the date-based stop never fired`;
 }
 
-function noCardsWarning(search: string): string {
-  return `${search}: no result cards were found`;
+function noCardsAnywhereWarning(searches: number): string {
+  return `no result cards were found in any of its ${searches} searches, so the card selector may have broken`;
 }
 
 function poorYieldWarning(search: string, readCards: number, matched: number): string {
@@ -165,9 +172,12 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
 
   let selfCheckFailed = false;
 
-  // Skipped after a failure, which already says why nothing came back.
-  if (stopReason !== "failure" && readCardsTotal === 0) {
-    warnings.push(noCardsWarning(search));
+  // Skipped after a failure, which already says why nothing came back. No
+  // warning of its own: an empty search is only worth reporting once every
+  // search has been tried, so the fact travels out on the result instead. It
+  // still fails the self-check, which keeps an empty page out of the fixture.
+  const foundNoCards = stopReason !== "failure" && readCardsTotal === 0;
+  if (foundNoCards) {
     selfCheckFailed = true;
   }
 
@@ -177,5 +187,18 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
     selfCheckFailed = true;
   }
 
-  return { cards, warnings, selfCheckFailed };
+  return { search, cards, warnings, selfCheckFailed, foundNoCards };
+}
+
+// Whether a collector's empty searches are worth telling the user about.
+//
+// One search finding nothing is ordinary: a site has no jobs matching it, and
+// saying so every run teaches the reader to skip the line. A card selector
+// that has broken finds nothing for every search, so that is what earns a
+// warning — one line about the collector rather than one per search, because
+// the collector is what would need fixing.
+export function noCardsWarnings(results: readonly PaginateResult[]): string[] {
+  if (results.length === 0) return [];
+  if (results.some((result) => !result.foundNoCards)) return [];
+  return [noCardsAnywhereWarning(results.length)];
 }

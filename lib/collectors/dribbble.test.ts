@@ -468,15 +468,32 @@ describe("a search that matched nothing renders no results list", () => {
     expect(result.errors).toEqual([]);
   });
 
-  test("the warning says no cards were found rather than naming a broken read", async () => {
+  // Every search this collector ran came back empty, which is what a broken
+  // card selector looks like, so it says so once rather than per search.
+  test("the warning says no cards were found anywhere", async () => {
     const term = "Founding Design";
     stubFetch(singleTermRoutes(term, [], []));
 
     const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
 
-    const searchWarnings = result.warnings.filter((warning) => warning.includes(term));
-    expect(searchWarnings.length).toBeGreaterThan(0);
-    expect(searchWarnings.some((warning) => warning.includes("no result cards"))).toBe(true);
+    const noCards = result.warnings.filter((warning) => warning.includes("no result cards"));
+    expect(noCards).toHaveLength(1);
+    expect(noCards[0]).toContain("selector");
+  });
+});
+
+// Dribbble anchors one search of each pair to the user's location. A site
+// with no jobs in that place is ordinary, and warning about it every run
+// would train the reader to skip the line the one time it matters.
+describe("a search that finds nothing beside one that finds cards", () => {
+  test("raises no no-cards warning at all", async () => {
+    const term = "Product Design";
+    stubFetch(singleTermRoutes(term, [], [dribbbleCard({ id: 1 })]));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
+
+    expect(result.jobs).toHaveLength(1);
+    expect(result.warnings.filter((warning) => warning.includes("no result cards"))).toEqual([]);
   });
 });
 

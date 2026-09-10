@@ -1,5 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { paginate, PAGE_CEILING, type PageRead, type PaginateOptions, type ResultCard } from "./paginate";
+import {
+  noCardsWarnings,
+  paginate,
+  PAGE_CEILING,
+  type PageRead,
+  type PaginateOptions,
+  type PaginateResult,
+  type ResultCard,
+} from "./paginate";
 
 // Every test drives real age strings through the search rather than mocking
 // job-age.ts, so "3 days ago" and "sometime recently" behave here exactly as
@@ -314,8 +322,12 @@ describe("stopping for a date reason before the ceiling records no ceiling warni
   });
 });
 
-describe("a search whose reads produce no cards at all records a warning", () => {
-  test("the warning names the search", async () => {
+describe("a search whose reads produce no cards at all reports it", () => {
+  // A site simply having no jobs for one search is ordinary, and warning
+  // about it every run trains the reader to ignore the line. Whether it is
+  // worth saying is decided across the collector's whole set of searches, by
+  // noCardsWarnings below, so the search itself only reports the fact.
+  test("the search itself raises no warning", async () => {
     const reader = scriptedReader([pageOf([], 0)]);
     const options = paginateOptions({
       readPage: reader.readPage,
@@ -325,7 +337,34 @@ describe("a search whose reads produce no cards at all records a warning", () =>
 
     const result = await paginate(options);
 
-    expect(result.warnings.some((w) => w.includes(options.search))).toBe(true);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test("it reports that it found no cards, and names itself", async () => {
+    const reader = scriptedReader([pageOf([], 0)]);
+    const options = paginateOptions({
+      readPage: reader.readPage,
+      advance: async () => false,
+      threshold: 30,
+    });
+
+    const result = await paginate(options);
+
+    expect(result.foundNoCards).toBe(true);
+    expect(result.search).toBe(options.search);
+  });
+
+  test("a search that found cards reports the opposite", async () => {
+    const reader = scriptedReader([pageOf([card("3 days ago")])]);
+    const options = paginateOptions({
+      readPage: reader.readPage,
+      advance: async () => false,
+      threshold: 30,
+    });
+
+    const result = await paginate(options);
+
+    expect(result.foundNoCards).toBe(false);
   });
 
   test("no cards are returned", async () => {
@@ -739,5 +778,49 @@ describe("paginate absorbs a failure instead of throwing it", () => {
     const result = await paginate(options);
 
     expect(result.warnings.every((w) => !w.includes("[object Object]"))).toBe(true);
+  });
+});
+
+// A selector that has broken returns nothing for every search a collector
+// runs, which is what separates it from a search that genuinely has no jobs.
+describe("noCardsWarnings decides whether empty searches are worth saying", () => {
+  function emptySearch(search: string): PaginateResult {
+    return { search, cards: [], warnings: [], selfCheckFailed: true, foundNoCards: true };
+  }
+
+  function fullSearch(search: string): PaginateResult {
+    return {
+      search,
+      cards: [card("3 days ago")],
+      warnings: [],
+      selfCheckFailed: false,
+      foundNoCards: false,
+    };
+  }
+
+  test("says nothing while any search still found cards", () => {
+    const results = [emptySearch("in 78701"), fullSearch("anywhere")];
+
+    expect(noCardsWarnings(results)).toEqual([]);
+  });
+
+  test("warns once when every search came back empty", () => {
+    const results = [emptySearch("one"), emptySearch("two"), emptySearch("three")];
+
+    const warnings = noCardsWarnings(results);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("3");
+  });
+
+  test("that warning points at the selector rather than at one search", () => {
+    const warnings = noCardsWarnings([emptySearch("one"), emptySearch("two")]);
+
+    expect(warnings[0]).toContain("no result cards");
+    expect(warnings[0]).not.toContain("one");
+  });
+
+  test("a collector that ran no searches says nothing", () => {
+    expect(noCardsWarnings([])).toEqual([]);
   });
 });
