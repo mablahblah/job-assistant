@@ -9,7 +9,7 @@
 // write does — the merge, the active-status freeze, the delete guard — lives
 // in that service. This step is the loop that asks it and records the answer.
 import type { JobService, JobWriteOutcome } from "../job-service";
-import type { TraceDetail, TraceService } from "../trace-service";
+import type { DeleteRefusedDetail, TraceDetail, TraceService } from "../trace-service";
 import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 import { saveWarnings, type SaveWarning } from "../save-warnings";
@@ -28,8 +28,10 @@ export interface SaveJobsResult {
   warnings: CollectionIssue[];
 }
 
-// A trace detail is cut at 200 characters. The only detail this step writes
-// is a thrown message, which has no length a driver promises to respect.
+// A trace detail is cut at 200 characters. The only unbounded one this step
+// writes is a thrown message, which has no length a driver promises to
+// respect; a refused delete's detail is an id and a status, both already
+// short.
 const MAX_DETAIL_LENGTH = 200;
 
 function truncate(value: string): string {
@@ -78,24 +80,35 @@ async function deleteEntry(
   // id is always there. The cast satisfies the service's signature.
   const result = await jobService.delete(entry.id as string);
 
+  // The reason dedupe marked this entry rides onto every outcome below, so a
+  // deletion is counted by the match that caused it rather than losing why.
+  const reason = entry.delete_on_save;
+
   if (result.deleted) {
-    return { job: null, traceRow: { event: "job_dbrow_deleted" }, warning: null };
+    return { job: null, traceRow: { event: "job_dbrow_deleted", reason }, warning: null };
   }
 
   if (result.blockedBy) {
     // The row holds a status the user has acted on, so the guard refused and
     // both rows stand. The entry stays in the list because its row is still
     // there, and the user is told so they can reconcile the pair by hand.
+    // The row names which job blocked the delete and what status blocked it,
+    // so the pair can be read off one line rather than looked up again.
+    const detail: DeleteRefusedDetail = {
+      blocked_by: result.blockedBy.id ?? "",
+      status: result.blockedBy.status ?? "",
+    };
     return {
       job: entry,
-      traceRow: null,
+      traceRow: { event: "job_dbrow_delete_refused", reason, detail },
       warning: { kind: "delete_refused", entry, blockedBy: result.blockedBy },
     };
   }
 
-  // No row held this id. Nothing was written and nothing is wrong, so this
-  // leaves no trace row, no warning, and nothing to report as saved.
-  return { job: null, traceRow: null, warning: null };
+  // No row held this id, so there is nothing to delete and nothing is wrong.
+  // The entry was a copy that lost a merge and never reached a row of its
+  // own, which is a dead end worth recording under the reason it lost.
+  return { job: null, traceRow: { event: "abandoned", reason }, warning: null };
 }
 
 async function updateEntry(

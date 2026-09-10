@@ -111,8 +111,7 @@ describe("the event each kind of write produces", () => {
   });
 });
 
-// Decision of 2026-09-06: neither an active job left alone nor a refused
-// delete records anything worth counting, so neither writes a row. The cost
+// AC 89. An active job left alone records nothing worth counting. The cost
 // is that such a job enters save with no matching event to leave it by.
 describe("what writes no row at all", () => {
   test("an active row left untouched writes nothing", async () => {
@@ -128,8 +127,47 @@ describe("what writes no row at all", () => {
 
     expect(trace.events).toEqual([]);
   });
+});
 
-  test("a delete the guard refused writes nothing", async () => {
+// AC 85 to 88. A deletion dedupe asked for is counted by the match that
+// caused it, so the reason delete_on_save carried rides onto every row the
+// deletion produces rather than being dropped at the door.
+describe("a deletion dedupe asked for", () => {
+  test("a deleted row carries the reason the mark held", async () => {
+    const trace = createFakeTraceService();
+
+    await saveJobs([entry("dupe", { delete_on_save: "repost_match_in_list" })], {
+      jobService: fakeJobService([saved("dupe")]),
+      priorityList: PRIORITY_LIST,
+      trace,
+      runId: RUN_ID,
+      step: STEP,
+    });
+
+    expect(trace.events[0]?.event).toBe("job_dbrow_deleted");
+    expect(trace.events[0]?.reason).toBe("repost_match_in_list");
+  });
+
+  // AC 85. The entry was a fresh copy that lost to a stored row and never
+  // reached a row of its own, so it is a dead end rather than a deletion.
+  test("an entry marked for deletion that no row holds reads abandoned", async () => {
+    const trace = createFakeTraceService();
+
+    await saveJobs([entry("ghost", { delete_on_save: "matched_db_row" })], {
+      jobService: fakeJobService([]),
+      priorityList: PRIORITY_LIST,
+      trace,
+      runId: RUN_ID,
+      step: STEP,
+    });
+
+    expect(trace.events[0]?.event).toBe("abandoned");
+    expect(trace.events[0]?.reason).toBe("matched_db_row");
+  });
+
+  // AC 86. The row holds application history the user is acting on, so the
+  // guard keeps it and the run records which match reached for it.
+  test("a delete the guard refused reads job_dbrow_delete_refused", async () => {
     const trace = createFakeTraceService();
 
     await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
@@ -140,21 +178,26 @@ describe("what writes no row at all", () => {
       step: STEP,
     });
 
-    expect(trace.events).toEqual([]);
+    expect(trace.events[0]?.event).toBe("job_dbrow_delete_refused");
+    expect(trace.events[0]?.reason).toBe("hard_match_in_list");
   });
 
-  test("an entry marked for deletion that no row holds writes nothing", async () => {
+  // AC 87. Naming the row that blocked the delete, and the status that made
+  // it block, is what lets the pair be reconciled without a second query.
+  test("the refused row names the blocking row and its status", async () => {
     const trace = createFakeTraceService();
 
-    await saveJobs([entry("ghost", { delete_on_save: "hard_match_in_list" })], {
-      jobService: fakeJobService([]),
+    await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
+      jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,
       trace,
       runId: RUN_ID,
       step: STEP,
     });
 
-    expect(trace.events).toEqual([]);
+    const detail = (trace.events[0]?.detail ?? {}) as Record<string, string>;
+    expect(detail["blocked_by"]).toBe("applied");
+    expect(detail["status"]).toBe("offer");
   });
 });
 
