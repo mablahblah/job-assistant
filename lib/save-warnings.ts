@@ -10,6 +10,7 @@
 // are. So one warning in, one line out, in the order they arrived.
 import type { CollectionIssue } from "./collection-issue";
 import type { JobListEntry } from "./job-list-entry";
+import { labelJob } from "./job-label";
 import { messageFromThrown } from "./thrown-message";
 
 export type SaveWarning =
@@ -28,19 +29,6 @@ export type SaveWarning =
       entry: JobListEntry;
       thrown: unknown;
     };
-
-// A job's readable name is its title, falling back to the raw title where
-// normalization left none. Either can arrive as an empty string rather than
-// absent, and an empty string is no use as a label, so the fallback runs on
-// emptiness and not only on absence; both are trimmed, since a source's
-// stray whitespace would otherwise show up in the printed line. The id
-// always tags along, because two jobs can show the same title. An entry with
-// no id at all reaches here only through a failed write — the job service
-// throws on one, and that throw is what the warning reports.
-function labelJob(job: JobListEntry): string {
-  const label = job.title?.trim() || job.raw_title?.trim() || "unlabeled job";
-  return `${label} (id: ${job.id ?? "unknown"})`;
-}
 
 export function saveWarnings(warnings: SaveWarning[]): CollectionIssue[] {
   return warnings.map((warning) => {
