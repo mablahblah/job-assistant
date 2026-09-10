@@ -439,14 +439,26 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // abandoned rows to add: 7. Normalization writes two rows per surviving
     // job, one for the title and one for the company name: 7 * 2 = 14.
     // Association writes one row per surviving job: 7. Save writes one row
-    // per surviving job too: 7. The steps sort alphabetically, which puts
-    // association first and save last.
+    // per surviving job too: 7. Dedupe is absent because no two of these
+    // seven jobs are the same job, and a job it passed through untouched
+    // leaves no row. The steps sort alphabetically, which puts association
+    // first and save last.
     expect(totals).toEqual([
       { step: "collection", count: 7 },
       { step: "post_collection_association", count: 7 },
       { step: "post_collection_normalization", count: 14 },
       { step: "post_collection_save", count: 7 },
     ]);
+  });
+
+  test("a run holding no duplicates leaves no dedupe rows at all", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_dedupe'",
+      [runId]
+    );
+
+    expect(Number(rows[0]?.["count"])).toBe(0);
   });
 
   test("a title_normalized row's detail round-trips as JSON holding the raw title and the normalized one", async () => {
@@ -766,5 +778,123 @@ describe("the trace table answers what save did to each job, across both passes"
     expect(new Date(String(rows[0]?.["collected_at"])).toISOString()).toBe(
       COLLECTED_AT.toISOString()
     );
+  });
+});
+
+// Three jobs from one collector, two of them the same posting reached twice.
+// The pair shares a link, which is the strongest identity clause, so dedupe
+// folds them whatever else they carry.
+const dedupeCollector: Collector = {
+  name: "adzuna",
+  async collect() {
+    return {
+      jobs: [
+        { ...makeJob("Product Designer"), raw_company_name: "Fabrikam" },
+        { ...makeJob("Product Designer"), raw_company_name: "Fabrikam" },
+        { ...makeJob("UX Researcher"), raw_company_name: "Fabrikam" },
+      ],
+      errors: [],
+      warnings: [],
+    };
+  },
+};
+
+describe("the trace table answers what dedupe merged away, and what save then did with it", () => {
+  let dir: string;
+  let url: string;
+  let db: PipelineDb;
+  let report: CollectionReport;
+  const runId = "run-dedupe";
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-dedupe-");
+    dir = temp.dir;
+    url = temp.url;
+    const built = buildWriter(url);
+    db = built.db;
+
+    // Real services throughout, so the rows this asserts on sit behind real
+    // Job and Company rows rather than objects in an array.
+    report = await runCollection({
+      jobService: createJobService(built.db),
+      collectedAt: COLLECTED_AT,
+      settings: stubSettings,
+      runId,
+      trace: built.writer,
+      companies: createCompanyService(built.db),
+      collectors: [dedupeCollector],
+      log: () => {},
+    });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("dedupe joins the step list, writing one row for the entry it merged away", async () => {
+    const rows = await queryTrace(
+      url,
+      "SELECT step, COUNT(*) as count FROM Trace WHERE run_id = ? GROUP BY step ORDER BY step",
+      [runId]
+    );
+    const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
+
+    // All three jobs are usable, so collection writes 3 and normalization
+    // writes 2 rows each: 6. Association writes one per job: 3. Dedupe folds
+    // the pair and writes one row, for the entry that left. Save meets all
+    // three entries the step handed back — two survivors it creates, and the
+    // marked loser it can find no row for: 3.
+    expect(totals).toEqual([
+      { step: "collection", count: 3 },
+      { step: "post_collection_association", count: 3 },
+      { step: "post_collection_dedupe", count: 1 },
+      { step: "post_collection_normalization", count: 6 },
+      { step: "post_collection_save", count: 3 },
+    ]);
+  });
+
+  test("the merged-away entry reads abandoned on a hard match", async () => {
+    const [row] = await queryTrace(
+      url,
+      "SELECT event, reason FROM Trace WHERE run_id = ? AND step = 'post_collection_dedupe'",
+      [runId]
+    );
+
+    expect(row?.["event"]).toBe("abandoned");
+    // Neither copy carries a posting date, so their pooled dates land on the
+    // same value and the gap between them is nothing at all.
+    expect(row?.["reason"]).toBe("hard_match_in_list");
+  });
+
+  test("its detail round-trips as JSON naming the job it became and the clause", async () => {
+    const [row] = await queryTrace(
+      url,
+      "SELECT detail FROM Trace WHERE run_id = ? AND step = 'post_collection_dedupe'",
+      [runId]
+    );
+    const detail = JSON.parse(String(row?.["detail"])) as Record<string, string>;
+
+    expect(detail["clause"]).toBe("original_url");
+    expect(detail["company"]).toBe("Fabrikam");
+    // The id it became belongs to a job the run kept, which is what lets the
+    // pair be drawn as one hop rather than a dead end.
+    expect(report.jobs.map((job) => job.id)).toContain(detail["became"]);
+  });
+
+  test("save records the same reason for the entry it could find no row for", async () => {
+    const [row] = await queryTrace(
+      url,
+      "SELECT event, reason FROM Trace WHERE run_id = ? AND step = 'post_collection_save' AND event = 'abandoned'",
+      [runId]
+    );
+
+    expect(row?.["event"]).toBe("abandoned");
+    // The reason names the match that removed the job rather than the write
+    // that never happened, so deletions can be counted by kind.
+    expect(row?.["reason"]).toBe("hard_match_in_list");
+  });
+
+  test("the pair left one row in the job table, not two", async () => {
+    const rows = await queryTrace(url, "SELECT COUNT(*) as count FROM Job", []);
+
+    expect(Number(rows[0]?.["count"])).toBe(2);
   });
 });
