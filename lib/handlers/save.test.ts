@@ -253,7 +253,7 @@ describe("warning about a write that threw", () => {
   });
 });
 
-// AC 56, 57 and 58. The step contract in .claude/rules/pipeline-steps.md: it
+// AC 56, 57 and 58. The handler contract in .claude/rules/handler-contract.md: it
 // takes the whole list, returns it with the warnings it raised, and reaches
 // the job table only through the service it was handed.
 describe("the step contract", () => {

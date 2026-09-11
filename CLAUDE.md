@@ -49,7 +49,7 @@ Path-scoped rules describing the old architecture moved to `legacy/rules/`, so t
 
 ## Terminology
 
-- **Collector:** Tool that pulls raw job list from Aggregators and ATS Systems
+- **Collector:** Pulls raw job list from Aggregators and ATS Systems
 - **Dedupe:** Three-stage system that removes duplicate jobs at different pipeline points (by URL ×2, then by content with parser priority)
 - **Resolver/Resolution:** Following job posting links and redirects, especially from aggregators, in an attempt to find the source posting with the most accurate information.
 - **Parser:** Tool that takes the best job posting url and extracts key information.

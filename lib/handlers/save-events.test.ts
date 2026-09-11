@@ -286,7 +286,7 @@ describe("a write that threw", () => {
   });
 });
 
-// AC 59. The step contract in .claude/rules/pipeline-steps.md: a step handed
+// AC 59. The handler contract in .claude/rules/handler-contract.md: a handler handed
 // no run id or no step name writes no trace and still does its work.
 describe("the step contract", () => {
   test("no trace service means no rows and the jobs are still saved", async () => {
