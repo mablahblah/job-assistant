@@ -209,11 +209,20 @@ model Setting {
 // abandoned for a write that throws, so the entry never lands; step and
 // reason are what tell the two abandoned populations apart. Save also writes
 // job_dbrow_delete_refused, where the active guard kept a row dedupe had
-// marked. Dedupe reuses abandoned for an entry it merged away that held no
-// row, reuses job_dbrow_deleted for one that did, and writes
-// added_to_job_list where a stored row joined this run's list; that row's
-// job_id and collector both come from the stored row, because that row is
-// the job the event describes.
+// marked. Dedupe writes abandoned for every entry it marks away, whether or
+// not that entry held a row, and writes added_to_job_list where a stored row
+// joined this run's list; that row's job_id and collector both come from the
+// stored row, because that row is the job the event describes. Resolution
+// writes job_resolved where a walk reached a page the rules accepted and
+// resolution_failed where it did not, and reuses abandoned where a collected
+// job's walk reached a blacklisted host.
+//
+// abandoned ends a job's journey through the pipeline and makes no claim
+// about whether a row existed. What became of the row is a separate event:
+// job_dbrow_deleted where save carried the delete out, or
+// job_dbrow_delete_refused where the active guard kept it. A job taking a
+// disqualifying status is not abandoned, because it keeps its row and can be
+// repaired.
 //
 // reason names why a dead end happened, and for normalization also how
 // completely a field came through.
@@ -260,6 +269,22 @@ model Setting {
 // job_dbrow_deleted where it already held a row of its own.
 // matched_list_entry sits under added_to_job_list, on the stored row that
 // joined the list.
+//
+// Resolution writes eight. Four sit under job_resolved and name the rule that
+// accepted the page: no_apply_links, where the page offered nowhere further
+// to go; walked_off_domain, where the walk left the host and arrived;
+// same_domain_hop_discarded, where it hopped within a host, never left, and
+// the hop was dropped; and hop_budget_spent, where the ceiling was reached
+// with a same-host link left unfollowed. Three sit only under
+// resolution_failed: dead_end, for a login wall, signup wall or paywall;
+// page_unavailable, where a hop's response was not a success; and
+// page_load_failed, where the browser could not load a hop at all.
+// hop_budget_spent sits there too, for a ceiling reached with an off-host
+// link left unfollowed — one population split by outcome, which is what lets
+// a single query answer how often four hops is the binding constraint. The
+// eighth, blacklisted_url, sits under resolution_failed for a hand-entered
+// job and under abandoned for a collected one, whose row is marked for
+// deletion instead.
 //
 // normalization_failed does not mean nothing was written. A title that
 // matched no job noun still stores its cleaned fallback, so the event

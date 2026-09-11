@@ -814,6 +814,55 @@ describe("Trace: the model comment carries both vocabularies", () => {
     expect(traceComment()).toContain(`Dedupe writes ${word}.`);
   });
 
+  // AC 66. Resolution writes two events of its own and reuses collection's
+  // abandoned for a job its walk disqualified.
+  test("resolution's events are listed", () => {
+    const comment = traceComment();
+    const events = [
+      "job_resolved",
+      "resolution_failed",
+      // Resolution's third event is collection's abandoned, reused rather
+      // than renamed, so the step and the reason are what tell the
+      // populations apart.
+      "abandoned",
+    ];
+    for (const event of events) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("resolution's reason codes are listed", () => {
+    // None of these is a substring of another or of a reason already in the
+    // comment. hop_budget_spent is the one that sits on two events, which is
+    // what lets a single query count how often four hops is the binding
+    // constraint.
+    const comment = traceComment();
+    const reasons = [
+      "no_apply_links",
+      "walked_off_domain",
+      "same_domain_hop_discarded",
+      "hop_budget_spent",
+      "dead_end",
+      "page_unavailable",
+      "page_load_failed",
+      "blacklisted_url",
+    ];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
+    }
+  });
+
+  // AC 67's schema half. A job merged away takes abandoned whether or not it
+  // held a row, so the comment may no longer tie the word to a row's absence.
+  test("the comment ties abandoned to the journey ending rather than to a missing row", () => {
+    const comment = traceComment();
+    const collapsed = comment.replace(/\/\//g, " ").replace(/\s+/g, " ").trim();
+
+    expect(collapsed).toContain(
+      "abandoned ends a job's journey through the pipeline and makes no claim about whether a row existed"
+    );
+  });
+
   test("the comment states that normalization_failed still writes a fallback value", () => {
     // The sentence is hard-wrapped across several "//"-prefixed lines, so a
     // toContain on the full sentence would fail even with every word
