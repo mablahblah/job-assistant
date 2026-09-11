@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "../lib/pipeline-db";
+import { DEDUPE_TRACE_REASONS } from "../lib/job-list-entry";
 
 // This file lives in prisma/, so the repo root is one level up.
 const prismaDir = dirname(fileURLToPath(import.meta.url));
@@ -788,20 +789,28 @@ describe("Trace: the model comment carries both vocabularies", () => {
   });
 
   test("dedupe's reason codes are listed", () => {
-    // None of these four is a substring of another or of a reason already in
-    // the comment: hard_match_in_list and repost_match_in_list differ from
-    // their first character, and matched_db_row and matched_list_entry
-    // diverge straight after the shared matched_ prefix.
+    // Read from the code rather than retyped here, so adding a reason there
+    // and forgetting this comment fails the build. None of the four is a
+    // substring of another or of a reason already in the comment:
+    // hard_match_in_list and repost_match_in_list differ from their first
+    // character, and matched_db_row and matched_list_entry diverge straight
+    // after the shared matched_ prefix.
     const comment = traceComment();
-    const reasons = [
-      "hard_match_in_list",
-      "repost_match_in_list",
-      "matched_db_row",
-      "matched_list_entry",
-    ];
-    for (const reason of reasons) {
+    for (const reason of DEDUPE_TRACE_REASONS) {
       expect(comment).toContain(reason);
     }
+  });
+
+  test("the comment's own count of dedupe's reasons matches the code", () => {
+    // The comment opens dedupe's section by saying how many reasons follow.
+    // Checking that number against the list catches the drift the loop above
+    // cannot see: a reason written into the comment and never added to the
+    // code leaves the count wrong here.
+    const countWords = ["", "one", "two", "three", "four", "five", "six"];
+    const word = countWords[DEDUPE_TRACE_REASONS.length];
+
+    expect(word).toBeDefined();
+    expect(traceComment()).toContain(`Dedupe writes ${word}.`);
   });
 
   test("the comment states that normalization_failed still writes a fallback value", () => {

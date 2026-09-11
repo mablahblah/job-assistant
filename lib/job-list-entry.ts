@@ -28,21 +28,31 @@ export interface RawSalary {
   salary_unit?: "cents";
 }
 
-// The reasons dedupe can mark an entry away for. The trace row written when
-// the entry goes carries the same word, so the match that removed a job is
-// named rather than merely counted.
-//
-// Dedupe's fourth reason, matched_list_entry, is deliberately absent: it sits
-// on a stored row that joined the list rather than on an entry leaving it, so
-// it never marks anything for deletion. The Trace model's comment in
-// prisma/schema.prisma is the source of truth for all four.
-export const DEDUPE_REASONS = [
+// Every reason dedupe can write onto a trace row, in the order the Trace
+// model's comment in prisma/schema.prisma names them. That comment describes
+// the same four words, and a test in prisma/schema.test.ts reads this list to
+// check it, so the two cannot drift apart.
+export const DEDUPE_TRACE_REASONS = [
   "hard_match_in_list",
   "repost_match_in_list",
   "matched_db_row",
+  "matched_list_entry",
 ] as const;
 
-export type DedupeReason = (typeof DEDUPE_REASONS)[number];
+export type DedupeTraceReason = (typeof DEDUPE_TRACE_REASONS)[number];
+
+// The one reason that never marks an entry away: it sits on a stored row that
+// joined the list, rather than on an entry leaving it.
+const REASON_ON_A_JOINING_ROW = "matched_list_entry";
+
+// The reasons dedupe can mark an entry away for — the four above minus the
+// joining-row one. The trace row written when the entry goes carries the same
+// word, so the match that removed a job is named rather than merely counted.
+export type DedupeReason = Exclude<DedupeTraceReason, typeof REASON_ON_A_JOINING_ROW>;
+
+export const DEDUPE_REASONS: readonly DedupeReason[] = DEDUPE_TRACE_REASONS.filter(
+  (reason): reason is DedupeReason => reason !== REASON_ON_A_JOINING_ROW
+);
 
 export type JobListEntry = Omit<
   Partial<Job>,

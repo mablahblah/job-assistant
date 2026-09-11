@@ -362,6 +362,32 @@ describe("stamping the link match keys", () => {
     expect(row?.original_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/999");
   });
 
+  // AC 18 the other way round. There the arriving link won; here the held one
+  // does, and its key has to stay put. The merge picks the winner before the
+  // key is computed, so stamping from the arriving link would leave the
+  // winning link sitting beside the losing link's key — a row dedupe would
+  // then match on a link it does not hold.
+  test("a losing link does not stamp its key over the winning link's", async () => {
+    await seedRow("keys-update-losing", {
+      collector: "greenhouse",
+      original_url: "https://boards.greenhouse.io/acme/jobs/999",
+      original_url_match_key: "https://boards.greenhouse.io/acme/jobs/999",
+    });
+
+    await service.update(
+      {
+        id: "keys-update-losing",
+        collector: "adzuna",
+        original_url: "https://www.adzuna.com/land/ad/111?se=x",
+      },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-update-losing" } });
+    expect(row?.original_url).toBe("https://boards.greenhouse.io/acme/jobs/999");
+    expect(row?.original_url_match_key).toBe("https://boards.greenhouse.io/acme/jobs/999");
+  });
+
   // AC 19. An active row is frozen except for its status, so the entry's own
   // link never reaches the write and neither key moves.
   test("a status-only write to an active row leaves both keys unchanged", async () => {
