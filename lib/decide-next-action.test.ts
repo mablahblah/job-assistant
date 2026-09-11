@@ -111,7 +111,10 @@ describe("AC 41: with no budget left the walk ends where it stands", () => {
   test("a link worth following is not followed once the budget is spent", () => {
     const links: ApplyLink[] = [{ href: "https://employer.example/careers/9", text: "Apply" }];
 
-    expect(decideNextAction(links, NO_BUDGET_LEFT)).toEqual({ action: "budget_spent" });
+    expect(decideNextAction(links, NO_BUDGET_LEFT)).toEqual({
+      action: "budget_spent",
+      unfollowedUrl: "https://employer.example/careers/9",
+    });
   });
 
   test("a page with nothing to follow still resolves, budget or no budget", () => {
@@ -127,6 +130,20 @@ describe("AC 41: with no budget left the walk ends where it stands", () => {
     expect(decideNextAction(links, NO_BUDGET_LEFT)).toEqual({
       action: "resolved",
       reason: "no_apply_links",
+    });
+  });
+});
+
+describe("the link the budget stopped the walk reaching is named", () => {
+  test("modal triggers are stepped over to name the first real link", () => {
+    const links: ApplyLink[] = [
+      { href: "#", text: "Apply" },
+      { href: "https://employer.example/careers/9", text: "Apply Now" },
+    ];
+
+    expect(decideNextAction(links, NO_BUDGET_LEFT)).toEqual({
+      action: "budget_spent",
+      unfollowedUrl: "https://employer.example/careers/9",
     });
   });
 });

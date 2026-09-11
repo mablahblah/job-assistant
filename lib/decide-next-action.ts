@@ -2,11 +2,14 @@ import type { ApplyLink } from "./apply-links";
 
 // The decision made at one page while resolving a job link toward its
 // employer posting: resolve here, follow a link, or stop because the hop
-// budget ran out.
+// budget ran out. A stop names the link it did not follow, which is the
+// link it would have followed with budget left — the walk reads it to tell
+// a posting it never reached from an apply form it was right to stop short
+// of.
 export type NextAction =
   | { action: "resolved"; reason: "no_apply_links" }
   | { action: "follow"; nextUrl: string }
-  | { action: "budget_spent" };
+  | { action: "budget_spent"; unfollowedUrl: string };
 
 // A modal trigger is an apply link with nothing real behind it: no href,
 // a bare "#", or javascript: code meant to pop a dialog rather than
@@ -21,9 +24,9 @@ function isModalTrigger(href: string): boolean {
 // looks at the links already collected and the budget flag handed to it,
 // so it can be tested without a browser and reused for every source.
 //
-// It never compares hosts. Whether a hop stayed on its own host is judged
-// after the browser lands, because a link's href can redirect elsewhere and
-// reading the href here would misjudge those.
+// It never compares hosts itself. Whether a hop stayed on its own host is
+// judged after the browser lands, because a link's href can redirect
+// elsewhere and reading the href here would misjudge those.
 export function decideNextAction(
   applyLinks: ApplyLink[],
   hopBudgetRemains: boolean,
@@ -37,7 +40,7 @@ export function decideNextAction(
   }
 
   if (!hopBudgetRemains) {
-    return { action: "budget_spent" };
+    return { action: "budget_spent", unfollowedUrl: realLink.href };
   }
 
   return { action: "follow", nextUrl: realLink.href };
