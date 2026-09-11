@@ -15,70 +15,66 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`.
 
-**Phase 7, URL Resolution, is eight tasks into eighteen.** Its spec is at [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md). Six of fourteen phases are closed; phase 7 is the seventh and is mid-build.
+**Phase 7, URL Resolution, is nine tasks into eighteen** — halfway. Its spec is at [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md). Six of fourteen phases are closed; phase 7 is the seventh and is mid-build.
 
-**1,816 tests across 73 files pass, `npm run lint` exits 0**, both verified fresh at close.
+The whole walk now exists offline and the first database-facing task is done. What remains is the plumbing: the job list, the step, the orchestrator, and the retrofits.
 
-**Four commits, pushed** — `1aa2fe5..064166d` on `feature/unified-pipeline`.
+**1,817 tests across 73 files pass, `npm run lint` exits 0**, both verified fresh at close.
 
-| Commit    | What it carries                                                              |
-| --------- | ---------------------------------------------------------------------------- |
-| `5dada7c` | The previous session's decision-log entry and hand-off                       |
-| `5281563` | Task 7 — `lib/settle-page.ts`, and the fake's time axis                      |
-| `b0979af` | Task 8 — `lib/resolve-job-url.ts`, and `unfollowedUrl` on `decideNextAction` |
-| `064166d` | Tasks 7 and 8 checked in `docs/CURRENT-FEATURE.md`                           |
+**Four commits, pushed** — `064166d..d0de370`. The working tree is clean.
 
-**One uncommitted line:** `docs/features/unified-pipeline/decision-log.md` gained the polling decision at close. This is the second session running to end that way.
+| Commit | What it carries |
+| --- | --- |
+| `0ff6d2b` | Task 9 — `delete_on_save` takes `DeleteOnSaveReason`, and its test |
+| `a4a3bb1` | Two decisions — settling polls, the four-hop budget stands |
+| `f5ad8db` | The task 9 tick and the previous session's hand-off |
+| `d0de370` | The `CLAUDE.md` quarantine line, deleted as redundant |
+
+**One untracked file:** `.claude/CLAUDE.md.bak`, a pre-edit copy of `CLAUDE.md` differing only by the line `d0de370` removed. Deliberately left out of every commit — it is redundant with git history. See open question 3.
 
 ## Completed This Session
 
-Phase 7 tasks 7 and 8, four changes, each built through `crowd-code` with its tests.
+A short session: one task, and the closing of the oldest open question on the phase.
 
-- **Task 7 is the settle condition**, `lib/settle-page.ts`. It returns immediately when the page carries five or more anchors **and** a non-empty title, and otherwise polls — 150ms interval, 15s budget by default — until the page finishes or the budget is spent. It never throws. A read that throws `"Execution context was destroyed"` counts as progress rather than an abort, because that error means the page navigated, which is what settling waits for. The clock and the sleep are injected, so its tests are deterministic and instant.
-- **Task 7 also gave the fake a time axis**, because a settle condition cannot be tested against a page that never changes. A `ScriptedPage` carries `becomes`, an ordered list of later renders each able to change `url`, `html` or `title`, and the returned page carries `advance()`. Advancing past the last render and advancing before any `goto` are both no-ops. All 17 pre-existing tests were untouched.
-- **Task 8 is the hop loop**, `lib/resolve-job-url.ts`, bounded by a counted loop at four hops. Each hop installs a `"response"` listener, loads, settles, reads the status of the page it landed on, checks the blacklist against the settled URL, checks for a dead end, then collects apply links and decides. It holds the URL it stood on before each hop, which is what lets a same-host hop be discarded.
-- **Task 8 also widened `decideNextAction`** so `budget_spent` carries `unfollowedUrl`.
+- **Task 9 widened `delete_on_save`**, `lib/job-list-entry.ts`. The field takes `DeleteOnSaveReason` — dedupe's three reasons plus `blacklisted_url` — so resolution can mark a job whose walk reached a blacklisted host for deletion. `DedupeReason` is untouched, which is the point: the *field* admits four words, but dedupe's own code is still held to three and cannot write the new one. `DELETE_ON_SAVE_REASONS` derives from `DEDUPE_REASONS` by spread rather than restating those three. Criterion 60 covered.
+- **Open question 1 is closed by a user decision** and is in the decision log, dated 2026-09-11. It had been running in `lib/resolve-job-url.ts` on inference since the previous session.
 
 ## Decisions & Context
 
 ### The one decision the user made
 
-**Settling polls through the existing `ResolutionPage`** rather than extending it with Playwright's `waitForURL` and `waitForFunction`. It is in the decision log, dated 2026-09-11. What follows lives nowhere else.
+**The four-hop ceiling stands as planned.** A walk reaching the ceiling with a link unfollowed judges that link by its own href — same-host resolves where the walk stands, off-host fails — and both outcomes trace as `hop_budget_spent`, so a real run measures how often four hops binds before anything is made smarter. No code changed; the decision ratified what was already built. The user's framing was to keep it simple, see how it performs, and extend later if the numbers ask for it.
 
 ### Calls made while building, none of them user decisions
 
-- **Task 8 is two files rather than one.** The hop-budget rule needs the link that was not followed, and re-deriving the modal-trigger test in the loop would be a second implementation of it.
-- **Five tests for the settle condition**, reading `crowd-code`'s "one minimal test" as one _behaviour_ per test. The unit carries three acceptance criteria plus the navigation gotcha, and one test would have left the writers free to fail two of them.
-- **A URL change during settling is progress, not an exit.** Settling continues on the page it landed on, which is what the measured spike does.
-- **`ResolutionOutcome` is three-way** — resolved, failed, blacklisted — and names no job fields and no trace rows. The step turns it into both. The blacklisted case carries no URL, because the collector decides whether the job is dropped or takes `unresolvable`, and neither writes a `resolved_url`.
-- **Writer selections.** The fake combined Writer B's extracted render-sequence helper with Writer A's single source of truth. `settle-page.ts` took Writer B unmodified, because pairing the two reads through `Promise.all` narrows the window in which an old page's anchor count pairs with a new page's title. The hop loop took Writer B, because a counted loop makes the four-page ceiling structural rather than a consequence of the budget flag, and its listener detaches before the content and link reads.
-- **`landedUrl` is initialised to `""`** to satisfy definite-assignment analysis across the `try`/`finally`.
+- **The writer selection went to the inline literal.** Both writers produced the same type and list; one extracted a `BLACKLISTED_URL_REASON` constant and derived the type with `typeof`, mirroring the file's existing `REASON_ON_A_JOINING_ROW`. Rejected, because that existing constant earns its name — `REASON_ON_A_JOINING_ROW` says something `"matched_list_entry"` does not — whereas `BLACKLISTED_URL_REASON` is the literal in capitals. The losing writer's comment explaining why the list derives from `DEDUPE_REASONS` was better, and was taken.
+- **Placement was changed on application.** Both writers put the new type and list *after* `JobListEntry`, because that is where the pasted context ended. The file defines types before use, so they went above it.
+- **One test for AC 60, not several**, because the criterion is one behaviour — what the field admits. The type-assignment loop inside that test looks redundant at runtime and is not: vitest does not typecheck, so assigning each reason to a `JobListEntry` is what puts the widened type in front of `tsc`, which only `npm run lint` runs.
+- **Four commits split by goal** — code, decisions, progress docs, and the `CLAUDE.md` tidy — following the branch's existing habit.
 
-These are work-documentation under the decision-log rule and belong in the feature spec. **They have not been written anywhere** — see open question 2.
+These are work-documentation under the decision-log rule and belong in the feature spec. **They have not been written anywhere** — see open question 1 below.
 
 ### Gotchas found this session
 
-- **The commit hook's "test gap" report is misattributed**, confirming the previous session's finding. It named `hopRenders`, `fakeResolutionPage`, `requireCurrentRender`, `goto` and `url` while committing two markdown files, and claimed 7 and 9 changed files on commits containing 2 and 4. Every symbol it flagged is covered. Do not act on it without checking.
-- **`$?` after a pipe is the last command's, not npm's.** `npm run test | tail` then `$?` reports `tail`. Redirect to a file and check `$?` directly.
-- **tsconfig has `strict: true` but not `noUncheckedIndexedAccess`**, so array indexing types as non-undefined and an index guard is unnecessary.
-- **ESLint carries no `curly` rule and no formatter**, so brace style is a readability call rather than a gate.
-- **`/change-status` does not work on this branch.** It calls `npx tsx scripts/cli.ts`, and the CLI is at `legacy/scripts/cli.ts` here. `dev.db` holds two Omada Health jobs — Staff Product Designer at `won't apply`, Senior Product Designer at `expired`. A status change to `rejected` was requested this session, the ambiguity was raised, and nothing was written.
+- **The commit hook's file counts are wrong for a third session running.** It reported 6 changed files on a 2-file commit and 4 on a 2-file commit. It reported zero test gaps this time, which at least matches reality. Do not act on its numbers without checking.
+- **`npm run lint` is the only gate that catches a type error**, and this session that mattered directly rather than incidentally: criterion 60 is a criterion *about a type*, so the suite passing proves almost nothing about it on its own.
 
 ### Approaches tried and abandoned
 
-- **Extending `ResolutionPage` with `waitForURL` and `waitForFunction`.** Faking them means writing a polling loop inside the fake, where no test covers it.
-- **Writer A's short-circuited settle read**, which skips the title read when the anchor count is already too low. Fewer round trips on a stuck page, but it widens the window in which an old page's anchor count pairs with a new page's title.
-- **Writer A's unbounded `for(;;)` hop loop.** Correct, but the four-page ceiling then rests entirely on the budget flag rather than on the loop itself.
+- **Extracting `BLACKLISTED_URL_REASON` as a named constant**, for the reason given above. Correct code, matching a shape already in the file, but the name repeats the literal rather than explaining it.
 
 ### Open questions
 
-1. **What splits `job_resolved` from `resolution_failed` when the four-hop ceiling is reached with a link unfollowed.** Built as: an unfollowed link on the same host as where the walk stands resolves there with reason `hop_budget_spent`; off-host fails with the same reason. Sourced from the phase 7 r&d line 71 — "where the ceiling is reached with an off-domain link still unfollowed" — and the spec's trace table, which agree. **The user never decided it**, and it is running in `lib/resolve-job-url.ts` now. It is also the one place a link is judged by its own href rather than by where the browser landed, which cuts against the decision that the same-domain test runs after landing; there is no budget left to land on it, so the href is the only evidence available.
-2. **Whether ten work-documentation items go in the feature spec.** Six carried from the previous session: `decideNextAction`'s signature, `PageAnchor` instead of adding `"dom"` to the tsconfig `lib` array, the fake resolving hrefs by rewriting attributes, the five file names, `APPLY_LINK_PATTERNS` staying module-private, and committing by goal. Four from this session, listed above under calls made while building.
-3. **Whether to correct the phase 7 r&d's open-question entry** with the previous session's uiuxjobsboard measurement.
+1. **Whether sixteen work-documentation items go in the feature spec.** Ten carried from previous sessions: `decideNextAction`'s signature, `PageAnchor` instead of adding `"dom"` to the tsconfig `lib` array, the fake resolving hrefs by rewriting attributes, the five file names, `APPLY_LINK_PATTERNS` staying module-private, committing by goal, task 8 being two files, five tests for the settle condition, a URL change during settling counting as progress, and `ResolutionOutcome` being three-way. Six added this session, listed above. This has now been carried three sessions and grows every time.
+2. **Whether to correct the phase 7 r&d's open-question entry** with the uiuxjobsboard measurement from two sessions ago.
+3. **What happens to `.claude/CLAUDE.md.bak`** — delete it, add `*.bak` to `.gitignore`, or leave it untracked. Asked twice this session and not answered; left untracked, which is the choice that destroys nothing.
+4. **Whether the commit hook's misattribution gets filed as a backlog item.** Raised at close, not answered.
+
+The previous hand-off's open question 1, on the hop-budget split, is **closed** — see the decision above.
 
 ### Carried forward, still true
 
-`cat` is blocked over 2048 bytes — use `sed -n` or Read. `grep -r --include` needs the pattern quoted. `timeout` is not on PATH. `npm run lint` runs ESLint then `tsc --noEmit`, and vitest does not typecheck, so lint is the only gate that catches a type error. `dev.db` at the repo root is the legacy database; `pipeline.db` is the new one. Anything new under `lib/steps/` loads `pipeline-steps.md` and `naming.md`. Rule edits go through `writing-rules`, skill edits through `writing-skills`. A `docs/BACKLOG.md` change needs approval first.
+`cat` is blocked over 2048 bytes — use `sed -n` or Read. `grep -r --include` needs the pattern quoted. `timeout` is not on PATH. `npm run lint` runs ESLint then `tsc --noEmit`, and vitest does not typecheck, so lint is the only gate that catches a type error. `$?` after a pipe is the last command's, not npm's — redirect to a file and check `$?` directly. tsconfig has `strict: true` but not `noUncheckedIndexedAccess`, so array indexing types as non-undefined. ESLint carries no `curly` rule and no formatter. `dev.db` at the repo root is the legacy database; `pipeline.db` is the new one. `/change-status` does not work on this branch — it calls `npx tsx scripts/cli.ts`, and the CLI is at `legacy/scripts/cli.ts` here. Anything new under `lib/steps/` loads `pipeline-steps.md` and `naming.md`. Rule edits go through `writing-rules`, skill edits through `writing-skills`. A `docs/BACKLOG.md` change needs approval first. Questions are plain text. Every message over one paragraph ends with a TL;DR.
 
 **Production code is written through `crowd-code`, never edited directly.** Writing the failing test first is the session's own job under crowd-code Phase 2; everything the writers produce is theirs.
 
@@ -86,9 +82,9 @@ Backlog entry 26, **Resolver Refinements**, holds six deferred improvements to t
 
 ## Next Steps
 
-1. **Answer open question 1** — the hop-budget split is running on inference rather than on a decision.
-2. **Commit the decision log's uncommitted line** with whatever lands next.
-3. **Task 9, widening `delete_on_save` to admit `blacklisted_url`** — the first task of this phase that touches the database rather than the walk, covering criterion 60.
-4. **Task 10, the resolution job-list read** on the job service and its fake: every job whose status is `backlog` and whose `is_resolved` is false, whenever it was collected, carrying `id`, `collector` and `created_at` and leaving the four flags behind. Criteria 1 to 4.
-5. **Then tasks 11 to 18** — the concurrency setting, the step itself with its browser contexts, `runResolution`, the dedupe set-aside, the `leavingRow` retrofit, the save warning, Dribbble self-resolving, and the trace vocabulary.
+1. **Task 10, the resolution job-list read** on the job service and its fake: every job whose status is `backlog` and whose `is_resolved` is false, whenever it was collected, carrying `id`, `collector` and `created_at` and leaving the four flags behind. Criteria 1 to 4. Two files, so two `crowd-code` changes.
+2. **Task 11, the concurrency setting** in the schema and the seed.
+3. **Task 12, the resolution step** over the job list, with its browser contexts and concurrency — the first task to need the page factory the spec's Approach section describes.
+4. **Then tasks 13 to 18** — `runResolution`, the dedupe set-aside, the `leavingRow` retrofit, the save warning, Dribbble self-resolving, and the trace vocabulary.
+5. **Answer open questions 1 and 3** — the first has been carried three sessions and is the one most likely to be lost.
 6. **`architecture.md:110` and the phase 5 and 6 specs still encode the old `abandoned` meaning.** That stays correct until task 15 lands, which supersedes those specs' criteria; phase 7's close updates the architecture doc.
