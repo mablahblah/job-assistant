@@ -49,3 +49,16 @@ export interface ResolutionPage {
   // Unsubscribes a handler previously passed to on.
   off(event: "response", handler: (response: ResolutionResponse) => void): void;
 }
+
+// One page and the way to shut it down again. A real lease holds a browser
+// context, so closing it takes that job's cookies and consent state with it
+// and the next job's walk starts clean.
+export interface ResolutionPageLease {
+  page: ResolutionPage;
+  close(): Promise<void>;
+}
+
+// Opens a fresh page for one job's walk. The resolution step is handed this
+// rather than a browser, so it launches nothing of its own and a scripted
+// fake stands in for Playwright with no adapter.
+export type ResolutionPageFactory = () => Promise<ResolutionPageLease>;
