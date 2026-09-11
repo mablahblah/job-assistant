@@ -7,6 +7,7 @@ import { createJobService } from "../lib/job-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
 import { runJobSearch } from "../lib/orchestrators/job-search";
+import type { ResolutionBrowserFactory } from "../lib/resolution-page";
 import { createTraceService } from "../lib/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 
@@ -22,6 +23,14 @@ function printIssues(label: string, issues: CollectionIssue[]): void {
     console.log(`  ${issue.collector}: ${issue.message}`);
   }
 }
+
+// Stands in until the real Playwright browser is built. The resolution leg
+// only calls this when the database holds a job needing a source URL, so a run
+// with nothing to walk still finishes. A run that does have work stops here
+// rather than pretending it resolved anything.
+const noBrowserYet: ResolutionBrowserFactory = () => {
+  throw new Error("the real browser is not built yet, so this run cannot resolve");
+};
 
 // Reads `--limit N` off the command line. Omitted means collect everything.
 // A limit of 0 reaches no source at all, which is how the test suite runs this
@@ -56,6 +65,7 @@ async function main(): Promise<void> {
     const collectedAt = new Date();
     const report = await runJobSearch({
       settings,
+      openBrowser: noBrowserYet,
       collectors: COLLECTORS,
       companies,
       jobService,

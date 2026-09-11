@@ -18,6 +18,8 @@ import { saveJobs } from "./handlers/save";
 import { createCompanyService } from "./company-service";
 import { createJobService } from "./job-service";
 import type { Collector } from "./collectors/types";
+import type { ResolutionBrowserFactory, ResolutionBrowserSession } from "./resolution-page";
+import { fakeResolutionPage } from "./resolution-page.fake";
 import type { JobListEntry } from "./job-list-entry";
 import type { SettingsService } from "./settings-service";
 import { fakeSettingsService } from "./settings-service.fake";
@@ -149,6 +151,43 @@ const greenhouseCollector: Collector = {
   },
 };
 
+// Three of the runs below ask a question about one collect-leg pass — how
+// titles normalized, how jobs reached their companies, what save did — so they
+// declare nothing left to resolve and take a browser that fails if anything
+// asks it to launch. The two runs asserting a whole run's step list walk for
+// real instead, because that claim covers both legs.
+const NOTHING_TO_RESOLVE = { findUnresolved: async () => [] };
+
+const FORBIDDEN_BROWSER = async (): Promise<ResolutionBrowserSession> => {
+  throw new Error("the run launched a browser with nothing to resolve");
+};
+
+// Walks every job to an employer posting of its own, so each one resolves and
+// no two land on the same URL for post-resolution dedupe to fold. The fake
+// page ignores the URL it is handed and serves the next script in order, and
+// these runs walk one job at a time, so script order is job order.
+function browserServing(): ResolutionBrowserFactory {
+  let served = 0;
+  return async () => ({
+    openPage: async () => {
+      const url = `https://employer.example/posting/${served}`;
+      served += 1;
+      return {
+        page: fakeResolutionPage([{ url, html: "<p>A job posting</p>" }]),
+        close: async () => {},
+      };
+    },
+    close: async () => {},
+  });
+}
+
+// One job at a time, and a priority list real enough for save to rank the one
+// collector these runs use.
+const RESOLVING_SETTINGS: Partial<SettingsService> = {
+  getResolutionConcurrency: async () => 1,
+  getSourcePriorityList: async () => ["collector:user", "collector:adzuna"],
+};
+
 describe("the trace table, read back with raw SQL, answers the funnel questions", () => {
   let dir: string;
   let db: PipelineDb;
@@ -169,7 +208,8 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     // Two runs against the one scratch database, so a query grouped by run
     // id has more than one run to separate.
     reportAlpha = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -179,7 +219,8 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       log: () => {},
     });
     await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -286,16 +327,6 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
   });
 });
 
-// A real vocabulary, so some titles genuinely normalize and some genuinely
-// do not. The describe above stays on stubSettings, whose four title getters
-// all return [], so nothing there ever exercises this path.
-const vocabularySettings: SettingsService = fakeSettingsService({
-  getTitleHeadNouns: async () => ["designer"],
-  getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
-  getTitleSuffixes: async () => [],
-  getTitleRemovalWords: async () => [],
-});
-
 // Three jobs, only one of which carries "designer" in its title, so this
 // collector's normalized and not-normalized counts land on different
 // numbers than the other collector's.
@@ -348,10 +379,18 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     runId = "run-gamma";
 
     await runJobSearch({
+      openBrowser: browserServing(),
+      settle: async () => {},
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
-      settings: vocabularySettings,
+      settings: fakeSettingsService({
+        getTitleHeadNouns: async () => ["designer"],
+        getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
+        getTitleSuffixes: async () => [],
+        getTitleRemovalWords: async () => [],
+        ...RESOLVING_SETTINGS,
+      }),
       runId,
       trace: built.writer,
       collectors: [indeedCollector, linkedinCollector],
@@ -434,20 +473,31 @@ describe("with a real title vocabulary, the trace table answers how many titles 
       [runId]
     );
     const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
-    // collection writes one "collected" row per job handed over, and none of
-    // the 3 + 4 = 7 jobs here fails the usability check, so that step has no
-    // abandoned rows to add: 7. Normalization writes two rows per surviving
-    // job, one for the title and one for the company name: 7 * 2 = 14.
-    // Association writes one row per surviving job: 7. Save writes one row
-    // per surviving job too: 7. Dedupe is absent because no two of these
-    // seven jobs are the same job, and a job it passed through untouched
-    // leaves no row. The steps sort alphabetically, which puts association
-    // first and save last.
+    // One run id covers both legs, so this is the whole pipeline's row set.
+    //
+    // The collect leg: collection writes one "collected" row per job handed
+    // over, and none of the 3 + 4 = 7 jobs here fails the usability check, so
+    // that step has no abandoned rows to add: 7. Normalization writes two rows
+    // per surviving job, one for the title and one for the company name:
+    // 7 * 2 = 14. Association writes one row per surviving job: 7. Save writes
+    // one row per surviving job too: 7. Post-collection dedupe is absent
+    // because no two of these seven jobs are the same job, and a job it passed
+    // through untouched leaves no row.
+    //
+    // The resolution leg then finds all 7, because the collect leg saved them
+    // with no source URL. Resolution writes one row per job walked: 7. Each
+    // walk lands on an employer posting of its own, so no two jobs collide and
+    // post-resolution dedupe writes nothing either. Save meets all 7 again: 7.
+    //
+    // The steps sort alphabetically, which puts association first and the
+    // resolution walk last.
     expect(totals).toEqual([
       { step: "collection", count: 7 },
       { step: "post_collection_association", count: 7 },
       { step: "post_collection_normalization", count: 14 },
       { step: "post_collection_save", count: 7 },
+      { step: "post_resolution_save", count: 7 },
+      { step: "resolution", count: 7 },
     ]);
   });
 
@@ -526,7 +576,8 @@ describe("the trace table answers how each job reached its company, across both 
     await companies.create({ ats_platform: "greenhouse", ats_slug: "fabrikam-boards" });
 
     const report = await runJobSearch({
-      jobService: createJobService(built.db),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: { ...createJobService(built.db), ...NOTHING_TO_RESOLVE },
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
       runId,
@@ -682,9 +733,10 @@ describe("the trace table answers what save did to each job, across both passes"
     db = built.db;
     // Real services throughout, so the rows this asserts on sit behind real
     // Job and Company rows rather than objects in an array.
-    const jobService = createJobService(built.db);
+    const jobService = { ...createJobService(built.db), ...NOTHING_TO_RESOLVE };
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       jobService,
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
@@ -816,9 +868,11 @@ describe("the trace table answers what dedupe merged away, and what save then di
     // Real services throughout, so the rows this asserts on sit behind real
     // Job and Company rows rather than objects in an array.
     report = await runJobSearch({
+      openBrowser: browserServing(),
+      settle: async () => {},
       jobService: createJobService(built.db),
       collectedAt: COLLECTED_AT,
-      settings: stubSettings,
+      settings: fakeSettingsService(RESOLVING_SETTINGS),
       runId,
       trace: built.writer,
       companies: createCompanyService(built.db),
@@ -837,17 +891,25 @@ describe("the trace table answers what dedupe merged away, and what save then di
     );
     const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
 
-    // All three jobs are usable, so collection writes 3 and normalization
-    // writes 2 rows each: 6. Association writes one per job: 3. Dedupe folds
-    // the pair and writes one row, for the entry that left. Save meets all
-    // three entries the step handed back — two survivors it creates, and the
-    // marked loser it can find no row for: 3.
+    // The collect leg: all three jobs are usable, so collection writes 3 and
+    // normalization writes 2 rows each: 6. Association writes one per job: 3.
+    // Dedupe folds the pair and writes one row, for the entry that left. Save
+    // meets all three entries the step handed back — two survivors it creates,
+    // and the marked loser it can find no row for: 3.
+    //
+    // The resolution leg then finds 2 rather than 3, which is the whole point
+    // of reading its list out of the database: the folded duplicate never
+    // became a row, so there is nothing to walk for it. Resolution writes one
+    // row per job walked: 2. Both land on postings of their own, so
+    // post-resolution dedupe writes nothing. Save meets both again: 2.
     expect(totals).toEqual([
       { step: "collection", count: 3 },
       { step: "post_collection_association", count: 3 },
       { step: "post_collection_dedupe", count: 1 },
       { step: "post_collection_normalization", count: 6 },
       { step: "post_collection_save", count: 3 },
+      { step: "post_resolution_save", count: 2 },
+      { step: "resolution", count: 2 },
     ]);
   });
 

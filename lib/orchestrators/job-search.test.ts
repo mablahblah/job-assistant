@@ -1,4 +1,6 @@
 import { describe, expect, test } from "vitest";
+import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
+import type { ResolutionBrowserSession } from "../resolution-page";
 import { runJobSearch } from "./job-search";
 import type { Collector, CollectorContext, CollectorResult } from "../collectors/types";
 import type { JobListEntry } from "../job-list-entry";
@@ -95,12 +97,23 @@ function makeTraceService(failures = 0): FakeTraceService {
 
 const emptyResult: CollectorResult = { jobs: [], errors: [], warnings: [] };
 
+// Every test below that is about the collect leg says so by declaring nothing
+// left to resolve, and is handed a browser that fails the test if anything asks
+// it to launch. Criterion 6 is then asserted by the fake rather than by
+// counting launches after the run.
+const NOTHING_TO_RESOLVE = { findUnresolved: async () => [] };
+
+const FORBIDDEN_BROWSER = async (): Promise<ResolutionBrowserSession> => {
+  throw new Error("the run launched a browser with nothing to resolve");
+};
+
 describe("the trace service's failure count reaches the report as traceFailures", () => {
   test("a nonzero failure count from the trace service appears on report.traceFailures", async () => {
     const trace = makeTraceService(3);
     const collector = makeCollector("lever", emptyResult);
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -115,7 +128,8 @@ describe("the trace service's failure count reaches the report as traceFailures"
     const trace = makeTraceService(0);
     const collector = makeCollector("lever", emptyResult);
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -146,7 +160,8 @@ describe("a surviving job carries its normalized title, not its raw one", () => 
       warnings: [],
     });
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
@@ -168,7 +183,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
     );
@@ -183,7 +198,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     const collected = trace.events.find((event) => event.event === "collected");
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
@@ -200,7 +215,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
     );
@@ -217,7 +232,8 @@ describe("normalization writes its own trace events after collection", () => {
       warnings: [],
     });
     await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
@@ -241,7 +257,7 @@ describe("normalization runs once, after collection finishes, not once per job i
     const trace = makeTraceService();
     const first = makeCollector("lever", { jobs: [makeJob("Designer")], errors: [], warnings: [] });
     const second = makeCollector("greenhouse", { jobs: [makeJob("Researcher")], errors: [], warnings: [] });
-    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [first, second] });
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [first, second] });
 
     const collectionIndexes = trace.events
       .map((event, index) => (event.step === "collection" ? index : -1))
@@ -266,7 +282,8 @@ describe("normalization runs once, after collection finishes, not once per job i
     const first = makeCollector("lever", { jobs: [makeJob("Senior Designer")], errors: [], warnings: [] });
     const second = makeCollector("greenhouse", { jobs: [makeJob("Senior UX Designer")], errors: [], warnings: [] });
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
@@ -287,14 +304,14 @@ describe("a job that never reaches the normalizer gets no normalization event", 
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
   });
 
   test("a collector that throws writes none", async () => {
     const trace = makeTraceService();
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
-    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [failing] });
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [failing] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
   });
 });
@@ -309,7 +326,8 @@ describe("unusable fields are reported once at the end of the run", () => {
       warnings: [],
     });
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -334,7 +352,8 @@ describe("unusable fields are reported once at the end of the run", () => {
       warnings: [],
     });
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -353,7 +372,8 @@ describe("unusable fields are reported once at the end of the run", () => {
       warnings: [],
     });
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -374,7 +394,8 @@ describe("the title vocabularies come from settings rather than the code", () =>
     const withNoun = fakeSettingsService({ getTitleHeadNouns: async () => ["designer"] });
 
     const withoutVocabulary = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -383,7 +404,8 @@ describe("the title vocabularies come from settings rather than the code", () =>
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
     const withVocabulary = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: withNoun,
@@ -406,10 +428,11 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
     const job = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -427,10 +450,11 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
     };
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -456,10 +480,11 @@ describe("association runs after normalization, on the tidied company name", () 
     };
 
     await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -481,10 +506,11 @@ describe("association covers surviving jobs from every collector", () => {
     const jobB = { ...makeJob("Backend Engineer"), raw_company_name: "Acme Corp" };
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService(companies),
       collectors: [
@@ -512,10 +538,11 @@ describe("a job dropped for being unusable never reaches the company service", (
     const job: JobListEntry = { raw_title: "Product Designer", raw_company_name: "Brightwave Labs" };
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -538,10 +565,11 @@ describe("a run limited to zero jobs never touches the company service", () => {
     });
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService(companies),
       collectors: [collector],
@@ -563,10 +591,11 @@ describe("association's trace rows carry the right step name and run id", () => 
     const job = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
 
     await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace,
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -592,7 +621,8 @@ describe("AC 60: save runs once over the whole surviving list", () => {
     });
 
     await runJobSearch({
-      jobService: fakeJobService(rows),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -607,6 +637,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
   test("jobs from two collectors are saved in one pass, not one pass each", async () => {
     let calls = 0;
     const service = fakeJobService([], {
+      ...NOTHING_TO_RESOLVE,
       async update(entry) {
         calls += 1;
         return { job: entry, outcome: "created" };
@@ -620,6 +651,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
     const second = makeCollector("lever", { jobs: [makeJob("Writer")], errors: [], warnings: [] });
 
     await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       jobService: service,
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -643,7 +675,8 @@ describe("AC 60: save runs once over the whole surviving list", () => {
     });
 
     await runJobSearch({
-      jobService: fakeJobService(rows),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -659,7 +692,8 @@ describe("AC 60: save runs once over the whole surviving list", () => {
     const rows: JobListEntry[] = [];
 
     await runJobSearch({
-      jobService: fakeJobService(rows),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -675,6 +709,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
 describe("AC 61: save's warnings are in the report", () => {
   test("a write that threw is reported as a warning", async () => {
     const service = fakeJobService([], {
+      ...NOTHING_TO_RESOLVE,
       async update() {
         throw new Error("SQLITE_BUSY: database is locked");
       },
@@ -686,6 +721,7 @@ describe("AC 61: save's warnings are in the report", () => {
     });
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       jobService: service,
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -710,7 +746,8 @@ describe("AC 61: save's warnings are in the report", () => {
     });
 
     const report = await runJobSearch({
-      jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -735,7 +772,8 @@ describe("AC 62: collected_at is stamped beside collector", () => {
     });
 
     await runJobSearch({
-      jobService: fakeJobService(rows),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -758,7 +796,8 @@ describe("AC 62: collected_at is stamped beside collector", () => {
     const second = makeCollector("lever", { jobs: [makeJob("Writer")], errors: [], warnings: [] });
 
     await runJobSearch({
-      jobService: fakeJobService(rows),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -784,7 +823,8 @@ describe("AC 63: the stamp date arrives as an argument", () => {
     });
 
     await runJobSearch({
-      jobService: fakeJobService(rows),
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
       collectedAt: longAgo,
       companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -805,6 +845,7 @@ describe("the source priority list reaches save", () => {
     const lists: (readonly string[])[] = [];
     const priorityList = ["collector:user", "collector:greenhouse"];
     const service = fakeJobService([], {
+      ...NOTHING_TO_RESOLVE,
       async update(entry, handed) {
         lists.push(handed);
         return { job: entry, outcome: "created" };
@@ -817,6 +858,7 @@ describe("the source priority list reaches save", () => {
     });
 
     await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       jobService: service,
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -840,7 +882,8 @@ describe("the source priority list reaches save", () => {
 
     await expect(
       runJobSearch({
-        jobService: fakeJobService([]),
+      openBrowser: FORBIDDEN_BROWSER,
+        jobService: fakeJobService([], NOTHING_TO_RESOLVE),
         collectedAt: stubCollectedAt,
         companies: fakeCompanyService([]),
         settings,
@@ -865,10 +908,11 @@ describe("dedupe runs after association and before save", () => {
     });
 
     await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace,
-      jobService: fakeJobService([]),
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
       collectors: [collector],
@@ -882,6 +926,7 @@ describe("dedupe runs after association and before save", () => {
   test("only the surviving job reaches the job service as a write", async () => {
     const written: string[] = [];
     const service = fakeJobService([], {
+      ...NOTHING_TO_RESOLVE,
       async update(entry) {
         written.push(entry.id as string);
         return { job: entry, outcome: "created" };
@@ -897,6 +942,7 @@ describe("dedupe runs after association and before save", () => {
     });
 
     await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -915,12 +961,14 @@ describe("dedupe runs after association and before save", () => {
   // reaches the user rather than dying inside the run.
   test("its warnings reach the report", async () => {
     const service = fakeJobService([], {
+      ...NOTHING_TO_RESOLVE,
       async findByOriginalUrlMatchKey() {
         throw new Error("the database went away");
       },
     });
 
     const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -934,5 +982,287 @@ describe("dedupe runs after association and before save", () => {
       warning.message.includes("Database lookup failed")
     );
     expect(lookupWarnings).toHaveLength(1);
+  });
+});
+
+// A row already on file, the way the resolution leg finds one when it queries
+// for jobs still needing a source URL.
+function unresolvedRow(id: string, fields: Partial<JobListEntry> = {}): JobListEntry {
+  return {
+    id,
+    collector: "adzuna",
+    collected_at: stubCollectedAt,
+    created_at: stubCollectedAt,
+    status: "backlog",
+    is_resolved: false,
+    is_parsed: false,
+    is_classified: false,
+    original_url: `https://board.example/listing/${id}`,
+    ...fields,
+  };
+}
+
+// How many browsers the run launched and how many it shut down.
+interface BrowserLog {
+  launches: number;
+  closes: number;
+}
+
+// Hands out one scripted page per call, in call order, from one browser. The
+// tests here run at a concurrency of one, so call order is job order.
+function browserFor(
+  scripts: ScriptedPage[][],
+  log: BrowserLog
+): () => Promise<ResolutionBrowserSession> {
+  let served = 0;
+  return async () => {
+    log.launches += 1;
+    return {
+      openPage: async () => {
+        const script = scripts[served] ?? [];
+        served += 1;
+        return { page: fakeResolutionPage(script), close: async () => {} };
+      },
+      async close() {
+        log.closes += 1;
+      },
+    };
+  };
+}
+
+// Settling is its own module with its own tests, so every walk here is
+// scripted as an already-finished page.
+const NO_SETTLE = async () => {};
+
+// AC 7. Collection found nothing this run, and the leg still runs, because the
+// list it walks comes out of the database rather than from collection.
+describe("AC 7: the resolution leg runs over whatever the database says needs it", () => {
+  test("a job on file is walked and the run reports it with its source URL", async () => {
+    const rows = [unresolvedRow("a")];
+    const log = { launches: 0, closes: 0 };
+
+    const report = await runJobSearch({
+      settings: fakeSettingsService({
+        getResolutionConcurrency: async () => 1,
+        getSourcePriorityList: async () => ["collector:adzuna"],
+      }),
+      collectors: [],
+      companies: fakeCompanyService([]),
+      jobService: fakeJobService(rows),
+      collectedAt: stubCollectedAt,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      openBrowser: browserFor(
+        [[{ url: "https://employer.example/9", html: "<p>A job posting</p>" }]],
+        log
+      ),
+      settle: NO_SETTLE,
+    });
+
+    expect(log.launches).toBe(1);
+    expect(rows[0]?.resolved_url).toBe("https://employer.example/9");
+    expect(report.jobs.map((job) => job.id)).toEqual(["a"]);
+  });
+});
+
+const PRIORITY_LIST = ["collector:user", "collector:adzuna"];
+
+function applyLink(href: string): string {
+  return `<a href="${href}">Apply</a>`;
+}
+
+// A walk that arrives at the employer's own posting.
+function arrivesAt(url: string): ScriptedPage[] {
+  return [{ url, html: "<p>A job posting</p>" }];
+}
+
+// The resolution leg end to end, reached through the orchestrator with no
+// collectors, so the collect leg contributes nothing and what the report
+// carries is what this leg did. The caller supplies the rows on file and the
+// walk each job takes; the rest is the same every time.
+function resolutionLegOver(
+  rows: JobListEntry[],
+  scripts: ScriptedPage[][],
+  log: BrowserLog = { launches: 0, closes: 0 }
+): {
+  rows: JobListEntry[];
+  trace: FakeTraceService;
+  log: BrowserLog;
+  report: ReturnType<typeof runJobSearch>;
+} {
+  const trace = makeTraceService();
+  const report = runJobSearch({
+    collectors: [],
+    companies: fakeCompanyService([]),
+    jobService: fakeJobService(rows),
+    settings: fakeSettingsService({
+      getResolutionConcurrency: async () => 1,
+      getSourcePriorityList: async () => PRIORITY_LIST,
+    }),
+    openBrowser: browserFor(scripts, log),
+    collectedAt: stubCollectedAt,
+    runId: stubRunId,
+    trace,
+    settle: NO_SETTLE,
+  });
+  return { rows, trace, log, report };
+}
+
+describe("AC 5: a run with nothing to resolve costs no browser", () => {
+  test("launches no browser where every job is already resolved or parked", async () => {
+    const log = { launches: 0, closes: 0 };
+    const { report } = resolutionLegOver(
+      [unresolvedRow("a", { is_resolved: true }), unresolvedRow("b", { status: "unresolvable" })],
+      [],
+      log
+    );
+
+    const result = await report;
+
+    expect(log.launches).toBe(0);
+    expect(result.jobs).toEqual([]);
+  });
+});
+
+describe("AC 74, 75: the leg runs its four parts in order", () => {
+  test("queries, resolves, dedupes and saves, in that order", async () => {
+    const { trace, report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+
+    await report;
+
+    // Each step's rows arrive as that step runs, so the order they were
+    // written in is the order the steps ran in.
+    const steps: string[] = [];
+    for (const event of trace.events) {
+      if (steps[steps.length - 1] !== event.step) steps.push(event.step);
+    }
+    expect(steps[0]).toBe("resolution");
+    expect(steps).toContain("post_resolution_save");
+  });
+
+  test("names the dedupe and save steps after resolution rather than collection", async () => {
+    const { trace, report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+
+    await report;
+
+    const steps = new Set(trace.events.map((event) => event.step));
+    expect(steps.has("post_collection_dedupe")).toBe(false);
+    expect(steps.has("post_collection_save")).toBe(false);
+  });
+});
+
+describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
+  test("a job that resolved carries its URL and is marked resolved", async () => {
+    const rows = [unresolvedRow("a")];
+    const { report } = resolutionLegOver(rows, [arrivesAt("https://employer.example/9")]);
+
+    await report;
+
+    expect(rows[0]?.resolved_url).toBe("https://employer.example/9");
+    expect(rows[0]?.is_resolved).toBe(true);
+  });
+
+  test("a job that resolved is ready for parsing and no further", async () => {
+    const rows = [unresolvedRow("a")];
+    const { report } = resolutionLegOver(rows, [arrivesAt("https://employer.example/9")]);
+
+    await report;
+
+    expect(rows[0]?.is_resolved).toBe(true);
+    expect(rows[0]?.is_parsed).toBe(false);
+  });
+
+  test("a job that failed to resolve is parked as unresolvable", async () => {
+    const rows = [unresolvedRow("a")];
+    const { report } = resolutionLegOver(rows, [
+      [
+        {
+          url: "https://board.example/listing/a",
+          responses: [{ url: "https://board.example/listing/a", status: 404 }],
+        },
+      ],
+    ]);
+
+    await report;
+
+    expect(rows[0]?.status).toBe("unresolvable");
+    expect(rows[0]?.is_resolved).toBe(false);
+  });
+});
+
+describe("AC 78: a blacklisted job leaves no row behind", () => {
+  test("its row is gone once the leg has run", async () => {
+    const rows = [unresolvedRow("a")];
+    const { report } = resolutionLegOver(rows, [arrivesAt("https://www.jobleads.com/jobs/1")]);
+
+    await report;
+
+    expect(rows.map((entry) => entry.id)).toEqual([]);
+  });
+});
+
+describe("AC 79: two jobs that resolved to one posting leave one row", () => {
+  test("one row remains and the other's departure is traced", async () => {
+    const rows = [
+      unresolvedRow("a", { raw_title: "Product Designer" }),
+      unresolvedRow("b", { raw_title: "Product Designer" }),
+    ];
+    const { trace, report } = resolutionLegOver(rows, [
+      [
+        {
+          url: "https://board.example/listing/a",
+          html: applyLink("https://employer.example/9"),
+        },
+        { url: "https://employer.example/9", html: "<p>A job posting</p>" },
+      ],
+      [
+        {
+          url: "https://board.example/listing/b",
+          html: applyLink("https://employer.example/9"),
+        },
+        { url: "https://employer.example/9", html: "<p>A job posting</p>" },
+      ],
+    ]);
+
+    await report;
+
+    expect(rows).toHaveLength(1);
+    const departures = trace.events.filter(
+      (event) => event.step === "post_resolution_dedupe" && event.event === "abandoned"
+    );
+    expect(departures).toHaveLength(1);
+  });
+});
+
+describe("AC 80: what the leg hands back", () => {
+  test("returns the job list along with the warnings its steps raised", async () => {
+    const { report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+
+    const result = await report;
+
+    expect(result.jobs.map((entry) => entry.id)).toEqual(["a"]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  // A lost trace write is counted rather than allowed to cancel a run over a
+  // row of diagnostics, so the total is read once every step is done.
+  test("reports how many trace writes the run lost", async () => {
+    const { report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+
+    const result = await report;
+
+    expect(result.traceFailures).toBe(0);
+  });
+});
+
+describe("the browser the run launched", () => {
+  test("is shut down once the leg is finished", async () => {
+    const log = { launches: 0, closes: 0 };
+    const { report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")], log);
+
+    await report;
+
+    expect(log.launches).toBe(1);
+    expect(log.closes).toBe(1);
   });
 });
