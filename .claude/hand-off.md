@@ -15,65 +15,63 @@
 
 The job pipeline is being rebuilt on the branch `feature/unified-pipeline`. Real job searches still run from `main`.
 
-**Phase 7 is built and closed.** All 18 of its tasks are done. It built URL resolution: following a job's link from a listing site through to the employer's own posting. Its record is [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md).
+**Phase 7a is planned, and 1 of its 10 tasks is built.** It reshapes the pipeline into one orchestrator calling one handler per leg, and ends with the pipeline running for real against live job sites. Its spec is [`phases/phase-07a-orchestrator-handlers-spec.md`](../docs/features/unified-pipeline/phases/phase-07a-orchestrator-handlers-spec.md) — 21 acceptance criteria, 10 tasks.
 
-Nothing is in progress. The next unit of work is planning phase 7a, which has no plan document yet.
+Task 2 is next: the handler contract, `naming.md`, and the `CLAUDE.md` glossary line.
 
-1,886 tests pass across 76 files. `npm run lint` exits 0. Both were checked at close.
+1,886 tests pass across 76 files. `npm run lint` exits 0.
 
-The branch is pushed. The remote matches it at `ccaa7ff`. The working tree is clean. Two files in `.claude/` have never been committed: `CLAUDE.md.bak` and `session-status.md`.
+Two commits are pushed and the remote matches: `9193a17` (the planning) and `f171eb9` (task 1). `docs/CURRENT-FEATURE.md` is modified and uncommitted — it holds task 1's checkbox. Two files in `.claude/` have never been committed: `CLAUDE.md.bak` and `session-status.md`.
 
 ## Completed This Session
 
-Three tasks, then the phase close.
+**Phase 7a was planned.** The conversation that created phase 7a had happened inside a phase 7 build session, so it produced decisions and meeting notes but never a spec. This session wrote that spec, closed the three questions it left open, and recorded six new decisions.
 
-- **Task 16.** The warning raised when a delete is refused now reads two ways. A job whose walk reaches a blocked site is marked for removal the same way a duplicate is, and the same guard refuses both. The row that refuses a blocked job is its own, so the single wording called the job a duplicate of itself.
-- **Task 17.** Dribbble marks its own jobs resolved as it collects them. It hosts the posting its card points at, so there is nowhere to walk to. Three of its listings share one "View job" link, and walking them would give three different jobs one address, which duplicate removal reads as proof they are one job.
-- **Task 18.** Resolution's two events and eight reasons are written into the `Trace` comment in `prisma/schema.prisma` and into `trace-events.md`, with a test holding the two together. Both had also been left saying `abandoned` means no database row existed, which stopped being true when task 15 landed.
-- **The close.** The architecture document gained the resolution leg and its eleven parts.
+**Task 1 was built.** `lib/handlers/` now holds the five handlers and their tests. `lib/orchestrators/` holds `search-orchestrator.ts` and `resolution-orchestrator.ts`, which tasks 4 and 5 dissolve. `lib/steps/` is gone. The handler contract's `paths:` was repointed. Test count unchanged at 1,886, which is what a pure move should give.
 
-Every call made while building is in the phase 7 record, under **Build Notes**. This document does not carry them.
+**A context-usage hook was added, outside this project.** `~/.claude/hooks/context-usage.py`, wired into `~/.claude/settings.json`. It reads the session transcript's newest token-usage record and reports how full the context window is. It reports every turn on `UserPromptSubmit`, and during tool use it stays silent below 50% then speaks once per 10% band. Proven firing by sentinel test.
 
 ## Decisions & Context
 
 ### What the user decided
 
-Nothing this session. Every decision phase 7 rests on was made while planning it and is in the decision log, dated 2026-09-11.
+Six decisions, all dated 2026-09-11 in the feature decision log:
 
-### Calls made while closing, and why
+- The pipeline runs from `npm run job-search`.
+- The `job-search` skill starts the orchestrator and reports what came back, naming no handler and no leg.
+- `runCollection` and `runResolution` are dissolved into the orchestrator rather than becoming handlers. Only the collectors loop becomes one.
+- A handler is handed the step name its trace rows record. What stops being called a step is the handler itself.
+- A piece wrapping something outside the app is a **tool**, and `lib/tools/` holds it.
+- Phase 7a wires resolution in and builds the real Playwright browser, so the pipeline reaches the post-resolution save against live sites.
 
-- **The architecture document now names a fourth kind of part: an orchestrator, which runs one leg of the pipeline.** The collection one was relabelled from step to orchestrator at the same time. Neither of the two takes a job list and hands it back, which is what the step contract says a step does, so the document was teaching a shape the code does not have. This reaches into vocabulary phase 7a is meant to settle. It is one edit to undo.
-- **The blocked-site refusal reuses the existing warning kind** and branches on why the job was marked, rather than taking a kind of its own. One guard refusing one delete should not make the save step pick between two words.
-- **No backlog change came out of phase 7.** The six deferred improvements to the walk are already entry 26, still waiting on a real run. Nothing else in the list became redundant.
+### Calls made while building, and why
+
+- **The two orchestrator files went to `lib/orchestrators/` in task 1**, where the spec had said they stay put. Leaving them would have kept `lib/steps/` alive holding only files that are not steps. The spec was updated to match. This was flagged after the fact and not objected to.
+- **`normalization-step.test.ts` was renamed `normalization-handler.test.ts`**, since the word it tests changed.
+- **The failure report's shape was proposed, not signed off.** Finished handlers with their counts, then the handler that threw and the reason. It sits in the spec as criteria 8 and 9 and task 6. The user's ruling was the behaviour — stop and warn loudly — which was already decision 317.
 
 ### Gotchas
 
-- **The commit hook's numbers are wrong, a fifth session running.** It reported 12 changed files on a 3-file commit. It named a function untested that three tests cover. Do not act on what it says.
+- **"cont" meant continue the conversation, not start building.** Task 1 was started on a misread. Check before moving from planning into code.
+- **The commit hook's numbers are wrong, a sixth session running.** It reported 30 changed files on a 5-file commit. Do not act on what it says.
 - **`npm run lint` is the only check that catches a type error.** The test runner does not check types.
+- **The session transcript records the model as `claude-opus-5` with no `[1m]` marker and carries no window size.** The context hook therefore defaults to 1,000,000. On a 200k model, set `CLAUDE_CONTEXT_WINDOW` in the global settings `env` block.
+- **`git status --cached` is not a flag.** Use `git diff --cached --name-only`.
+- **The Bash tool's working directory persists between calls.** A `cd` in one call changes where the next one starts, so a later relative path can miss. Use absolute paths.
+
+### Approaches abandoned
+
+- **Removing the `step` argument from every handler.** Proposed on a misreading of "the handlers should not specify step". The argument is correct and stays; what was wrong was calling the handler itself a step.
+- **Treating `--limit 0` as a problem.** It was argued that the flag would let the test suite reach a real browser once resolution joined the run. Reading `scripts/collect.test.ts` dissolved it: the suite spawns the command against a fresh scratch database holding no jobs, so the resolution leg finds nothing and launches nothing.
 
 ### Open questions
 
-1. **Does the architecture document get to name "orchestrator" before phase 7a decides the vocabulary?** Raised at the close of this session and not answered. The naming stands in the document today.
-2. **Does wiring resolution into the pipeline belong to phase 7a?** Starting the real browser goes with it. Nothing starts a real browser today — the code is handed one, and every test hands it a fake. Proposed two sessions ago, never answered.
-3. **What does the orchestrator report when one of its parts falls over?** It needs a shape carrying both the finished work and the failure.
-4. **Do the `Trace.step` values get renamed?** They hold positions in the pipeline, such as `post_collection_dedupe`, rather than the name of a piece of code. Phase 11a owns cleaning up trace words.
-5. **What happens to the two uncommitted files in `.claude/`?** Asked across five sessions. Never answered. Left untracked, which destroys nothing.
-
-### Still true
-
-- `cat` is blocked over 2048 bytes. Use `sed -n`.
-- `timeout` is not on PATH.
-- `$?` after a pipe belongs to the last command, not to npm. Redirect to a file instead.
-- Array indexing types as non-undefined. `noUncheckedIndexedAccess` is off.
-- `/change-status` does not work on this branch.
-- Rule edits go through `writing-rules`. Skill edits go through `writing-skills`.
-- A `docs/BACKLOG.md` change needs approval before it is written.
-- Questions are asked as plain text in conversation.
-- **Production code is written through `crowd-code`, never edited directly.** That skill sends two sub-agents the same failing test and picks the stronger answer. Writing that failing test first is this session's own job. Markdown, documentation and `prisma/schema.prisma` are edited directly.
+1. **What happens to the two uncommitted files in `.claude/`?** Asked across six sessions. Raised again this session and not answered. Left untracked, which destroys nothing.
 
 ## Next Steps
 
-1. **Plan phase 7a**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). It reshapes the pipeline into one orchestrator calling one handler per phase. Its five decisions are in the decision log, dated 2026-09-11, and the reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-notes.md`](../docs/features/unified-pipeline/meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-notes.md). Open questions 1, 2 and 3 above all land inside it.
-2. **Build phase 7a.**
-3. **Close phase 7a** — architecture document, decision log, any backlog change presented for approval.
-4. **Plan phase 8 — Parsers.**
+1. **Commit `docs/CURRENT-FEATURE.md`**, which carries task 1's checkbox.
+2. **Build task 2 — the vocabulary.** `pipeline-steps.md` becomes the handler contract, renamed and reworded. `naming.md` gains Orchestrators and Tools sections and its Steps section becomes Handlers. The `CLAUDE.md` glossary line "Collector: Tool that pulls raw job list" loses "Tool that". Rule edits go through `writing-rules`.
+3. **Build tasks 3 through 10**, in order. Tasks 4, 5 and 6 all rewrite the same orchestrator, so they are an awkward place to break across sessions.
+4. **Close phase 7a** — architecture document, decision log, any backlog change presented for approval.
+5. **Plan phase 8 — Parsers.**
