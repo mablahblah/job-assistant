@@ -6,6 +6,11 @@
 // its own list of jobs still needing a source URL — nothing upstream hands it
 // work, because the database is the only handoff between legs — walks them
 // behind one shared browser, then dedupes and saves what came back.
+//
+// A throw anywhere in that chain stops the run where it happened rather than
+// escaping to the caller. Every leg has already written to the database by
+// the time a later one can fail, so the run's finished work survives, and the
+// report carries it along with the spot that threw and the reason.
 import type { CollectionIssue } from "../collection-issue";
 import type { Collector } from "../collectors/types";
 import { associateCompanies } from "../handlers/association";
@@ -19,13 +24,40 @@ import { resolveJobs } from "../handlers/resolution";
 import type { ResolutionBrowserFactory, ResolutionPage } from "../resolution-page";
 import { saveJobs } from "../handlers/save";
 import type { SettingsService } from "../settings-service";
+import { messageFromThrown } from "../thrown-message";
 import type { TitleVocabularies } from "../title";
 import type { TraceService } from "../trace-service";
+
+export interface FinishedHandler {
+  // The `Trace.step` name this handler ran under. The handler is not a step:
+  // one dedupe handler runs at two positions, so the position is what this
+  // names and what its trace rows carry.
+  step: string;
+  // How many entries the list it handed back held.
+  jobs: number;
+}
+
+export interface RunJobSearchFailure {
+  // Where the run stopped. A handler's step name, or the name of one of the
+  // reads and lookups the run makes between handlers.
+  at: string;
+  // Always a string, because a thrown value is not guaranteed to be an Error
+  // and a report a caller has to unwrap is no report at all.
+  reason: string;
+}
 
 export interface RunJobSearchResult {
   jobs: JobListEntry[];
   errors: CollectionIssue[];
   warnings: CollectionIssue[];
+  // One entry per handler that finished, in run order. A handler that threw
+  // never finished, so it earns no entry here — it is named in `failure`
+  // instead, and this list is what the run got through before it.
+  handlers: FinishedHandler[];
+  // Where the run stopped and why, or null when nothing threw. Always
+  // present, never optional, for the reason traceFailures below is: a caller
+  // should not have to check whether the field exists before reading it.
+  failure: RunJobSearchFailure | null;
   // How many trace writes this run lost. Always present, 0 when nothing
   // failed, so a caller never has to check whether the field exists before
   // reading it.
@@ -70,162 +102,225 @@ export interface RunJobSearchOptions {
 }
 
 export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJobSearchResult> {
-  // The collection handler owns the collectors, the job ids and the usability
-  // check, and hands back the first job list of the run.
-  const collected = await collectJobs({
-    settings: options.settings,
-    collectors: options.collectors,
-    collectedAt: options.collectedAt,
-    runId: options.runId,
-    trace: options.trace,
-    limit: options.limit,
-    log: options.log,
-  });
-
   const report: RunJobSearchResult = {
-    jobs: collected.jobs,
-    errors: collected.errors,
-    warnings: collected.warnings,
+    jobs: [],
+    errors: [],
+    warnings: [],
+    handlers: [],
+    failure: null,
     traceFailures: 0,
   };
 
-  // Read before the handlers run, deliberately: a missing title vocabulary
-  // means the settings service throws, and that has to stop the whole run
-  // rather than read as one handler failing.
-  const vocabularies: TitleVocabularies = {
-    headNouns: await options.settings.getTitleHeadNouns(),
-    levels: await options.settings.getTitleLevels(),
-    suffixes: await options.settings.getTitleSuffixes(),
-    removalWords: await options.settings.getTitleRemovalWords(),
-  };
-
-  // Read here for the same reason, and read once for the whole run: both legs
-  // hand it to their dedupe and save calls, so merging the legs removes the
-  // resolution leg's own second read of the same list.
-  const priorityList = await options.settings.getSourcePriorityList();
-
-  // One call with every collector's surviving jobs, which is what a handler
-  // is handed. It writes its own trace rows and hands back the warnings it
-  // raised, folded to one line per collector rather than one per job.
-  const normalized = await normalizeJobs(report.jobs, {
-    vocabularies,
-    trace: options.trace,
-    runId: options.runId,
-    step: "post_collection_normalization",
-  });
-  report.jobs = normalized.jobs;
-  report.warnings.push(...normalized.warnings);
-
-  // Association gives each surviving job the company identity dedupe later
-  // matches on, so it runs over the same list normalization produced.
-  const associated = await associateCompanies(report.jobs, {
-    companies: options.companies,
-    trace: options.trace,
-    runId: options.runId,
-    step: "post_collection_association",
-  });
-  report.jobs = associated.jobs;
-  report.warnings.push(...associated.warnings);
-
-  // Dedupe reduces the list to one entry per real posting, matching on the
-  // company identity association just attached to each job.
-  const deduped = await dedupeJobs(report.jobs, {
-    jobService: options.jobService,
-    priorityList,
-    collectedAt: options.collectedAt,
-    trace: options.trace,
-    runId: options.runId,
-    step: "post_collection_dedupe",
-  });
-  report.jobs = deduped.jobs;
-  report.warnings.push(...deduped.warnings);
-
-  // Save writes what survives into rows and deletes what dedupe marked, so
-  // the collect leg ends in the database rather than in a list nothing
-  // outlives.
-  const saved = await saveJobs(report.jobs, {
-    jobService: options.jobService,
-    priorityList,
-    trace: options.trace,
-    runId: options.runId,
-    step: "post_collection_save",
-  });
-  report.jobs = saved.jobs;
-  report.warnings.push(...saved.warnings);
-
-  // The resolution leg takes no job list from the collect leg — it queries
-  // the database for whatever still needs a source URL, which is what lets
-  // this leg run over jobs collected by any earlier run as well.
-  const unresolved = await options.jobService.findUnresolved();
-
-  // A headed browser holds the machine for as long as it runs, so a list with
-  // nothing to walk must never reach the point of launching one.
-  if (unresolved.length > 0) {
-    // Read before the browser is launched, deliberately: a missing setting
-    // throws, and throwing here costs no browser rather than opening one for
-    // a run that cannot go ahead.
-    const concurrency = await options.settings.getResolutionConcurrency();
-
-    const browser = await options.openBrowser();
-
+  // Names the spot for the report and runs it, recording a throw before
+  // letting it carry on to the one catch below. The name is passed in rather
+  // than tracked in a variable the next line has to remember to update, so a
+  // handler added by a later phase cannot be reported under the last one's
+  // name.
+  async function at<T>(spot: string, run: () => Promise<T>): Promise<T> {
     try {
-      const resolved = await resolveJobs(unresolved, {
-        openPage: browser.openPage,
-        concurrency,
-        settle: options.settle,
+      return await run();
+    } catch (thrown) {
+      report.failure = { at: spot, reason: messageFromThrown(thrown) };
+      throw thrown;
+    }
+  }
+
+  // The same, for a handler, which additionally earns its line on the
+  // finished list. A handler that threw never reaches the push, because the
+  // throw leaves through `at` above.
+  async function handler<T extends { jobs: JobListEntry[] }>(
+    step: string,
+    run: () => Promise<T>
+  ): Promise<T> {
+    const result = await at(step, run);
+    report.handlers.push({ step, jobs: result.jobs.length });
+    return result;
+  }
+
+  try {
+    // The collection handler owns the collectors, the job ids and the usability
+    // check, and hands back the first job list of the run.
+    const collected = await handler("collection", () =>
+      collectJobs({
+        settings: options.settings,
+        collectors: options.collectors,
+        collectedAt: options.collectedAt,
+        runId: options.runId,
+        trace: options.trace,
+        limit: options.limit,
+        log: options.log,
+      })
+    );
+    report.jobs = collected.jobs;
+    report.errors = collected.errors;
+    report.warnings = collected.warnings;
+
+    // Read before the handlers run, deliberately: a missing title vocabulary
+    // means the settings service throws, and that has to stop the whole run
+    // rather than read as one handler failing.
+    const vocabularies = await at<TitleVocabularies>("title_vocabularies", async () => ({
+      headNouns: await options.settings.getTitleHeadNouns(),
+      levels: await options.settings.getTitleLevels(),
+      suffixes: await options.settings.getTitleSuffixes(),
+      removalWords: await options.settings.getTitleRemovalWords(),
+    }));
+
+    // Read here for the same reason, and read once for the whole run: both legs
+    // hand it to their dedupe and save calls, so merging the legs removes the
+    // resolution leg's own second read of the same list.
+    const priorityList = await at("source_priority_list", () =>
+      options.settings.getSourcePriorityList()
+    );
+
+    // One call with every collector's surviving jobs, which is what a handler
+    // is handed. It writes its own trace rows and hands back the warnings it
+    // raised, folded to one line per collector rather than one per job.
+    const normalized = await handler("post_collection_normalization", () =>
+      normalizeJobs(report.jobs, {
+        vocabularies,
         trace: options.trace,
         runId: options.runId,
-        step: "resolution",
-      });
-      report.warnings.push(...resolved.warnings);
+        step: "post_collection_normalization",
+      })
+    );
+    report.jobs = normalized.jobs;
+    report.warnings.push(...normalized.warnings);
 
-      // Dedupe reduces the list to one entry per real posting, now that
-      // resolution has given every job the source URL identity is judged on.
-      const resolvedDeduped = await dedupeJobs(resolved.jobs, {
+    // Association gives each surviving job the company identity dedupe later
+    // matches on, so it runs over the same list normalization produced.
+    const associated = await handler("post_collection_association", () =>
+      associateCompanies(report.jobs, {
+        companies: options.companies,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_collection_association",
+      })
+    );
+    report.jobs = associated.jobs;
+    report.warnings.push(...associated.warnings);
+
+    // Dedupe reduces the list to one entry per real posting, matching on the
+    // company identity association just attached to each job.
+    const deduped = await handler("post_collection_dedupe", () =>
+      dedupeJobs(report.jobs, {
         jobService: options.jobService,
         priorityList,
         collectedAt: options.collectedAt,
         trace: options.trace,
         runId: options.runId,
-        step: "post_resolution_dedupe",
-      });
-      report.warnings.push(...resolvedDeduped.warnings);
+        step: "post_collection_dedupe",
+      })
+    );
+    report.jobs = deduped.jobs;
+    report.warnings.push(...deduped.warnings);
 
-      // Save writes what survives and deletes what dedupe marked, so the
-      // resolution leg also ends in the database rather than in a list
-      // nothing outlives.
-      const resolvedSaved = await saveJobs(resolvedDeduped.jobs, {
+    // Save writes what survives into rows and deletes what dedupe marked, so
+    // the collect leg ends in the database rather than in a list nothing
+    // outlives.
+    const saved = await handler("post_collection_save", () =>
+      saveJobs(report.jobs, {
         jobService: options.jobService,
         priorityList,
         trace: options.trace,
         runId: options.runId,
-        step: "post_resolution_save",
-      });
-      report.warnings.push(...resolvedSaved.warnings);
+        step: "post_collection_save",
+      })
+    );
+    report.jobs = saved.jobs;
+    report.warnings.push(...saved.warnings);
 
-      // The report lists every job the run acted on, so the two legs' saved
-      // lists are joined on id. The resolution leg's version wins, because it
-      // ran later and its fields are newer. A job carrying no id is appended
-      // rather than matched: save itself treats a missing id as possible, and
-      // two jobs without one are two jobs rather than one seen twice.
-      for (const job of resolvedSaved.jobs) {
-        const existing = job.id
-          ? report.jobs.findIndex((entry) => entry.id === job.id)
-          : -1;
-        if (existing === -1) {
-          report.jobs.push(job);
-        } else {
-          report.jobs[existing] = job;
+    // The resolution leg takes no job list from the collect leg — it queries
+    // the database for whatever still needs a source URL, which is what lets
+    // this leg run over jobs collected by any earlier run as well. A collect
+    // leg that threw never arrives here, because the throw has already left
+    // for the catch below.
+    const unresolved = await at("unresolved_lookup", () => options.jobService.findUnresolved());
+
+    // A headed browser holds the machine for as long as it runs, so a list with
+    // nothing to walk must never reach the point of launching one.
+    if (unresolved.length > 0) {
+      // Read before the browser is launched, deliberately: a missing setting
+      // throws, and throwing here costs no browser rather than opening one for
+      // a run that cannot go ahead.
+      const concurrency = await at("resolution_concurrency", () =>
+        options.settings.getResolutionConcurrency()
+      );
+
+      const browser = await at("browser_launch", () => options.openBrowser());
+
+      try {
+        const resolved = await handler("resolution", () =>
+          resolveJobs(unresolved, {
+            openPage: browser.openPage,
+            concurrency,
+            settle: options.settle,
+            trace: options.trace,
+            runId: options.runId,
+            step: "resolution",
+          })
+        );
+        report.warnings.push(...resolved.warnings);
+
+        // Dedupe reduces the list to one entry per real posting, now that
+        // resolution has given every job the source URL identity is judged on.
+        const resolvedDeduped = await handler("post_resolution_dedupe", () =>
+          dedupeJobs(resolved.jobs, {
+            jobService: options.jobService,
+            priorityList,
+            collectedAt: options.collectedAt,
+            trace: options.trace,
+            runId: options.runId,
+            step: "post_resolution_dedupe",
+          })
+        );
+        report.warnings.push(...resolvedDeduped.warnings);
+
+        // Save writes what survives and deletes what dedupe marked, so the
+        // resolution leg also ends in the database rather than in a list
+        // nothing outlives.
+        const resolvedSaved = await handler("post_resolution_save", () =>
+          saveJobs(resolvedDeduped.jobs, {
+            jobService: options.jobService,
+            priorityList,
+            trace: options.trace,
+            runId: options.runId,
+            step: "post_resolution_save",
+          })
+        );
+        report.warnings.push(...resolvedSaved.warnings);
+
+        // The report lists every job the run acted on, so the two legs' saved
+        // lists are joined on id. The resolution leg's version wins, because it
+        // ran later and its fields are newer. A job carrying no id is appended
+        // rather than matched: save itself treats a missing id as possible, and
+        // two jobs without one are two jobs rather than one seen twice.
+        for (const job of resolvedSaved.jobs) {
+          const existing = job.id
+            ? report.jobs.findIndex((entry) => entry.id === job.id)
+            : -1;
+          if (existing === -1) {
+            report.jobs.push(job);
+          } else {
+            report.jobs[existing] = job;
+          }
         }
+      } finally {
+        // A throw from anywhere in this leg must still close the browser it
+        // opened, and the close is named in its own right so a browser that
+        // will not shut is not reported as whatever ran before it.
+        await at("browser_close", () => browser.close());
       }
-    } finally {
-      // A throw from any handler must still close the browser it opened.
-      await browser.close();
     }
+  } catch {
+    // Nothing to read off the throw here: `at` named the spot and wrote the
+    // reason on its way past. Swallowing it is what turns a run that fell
+    // over into a report rather than an exception the caller has to catch to
+    // see any of the work the finished legs already wrote.
   }
 
-  // Read once both legs are done, so a write either one lost is reflected in
-  // the total rather than checked leg by leg.
+  // Read once the run is over, whether it finished or stopped partway, so a
+  // write either leg lost is reflected in the total rather than checked leg
+  // by leg.
   report.traceFailures = options.trace.failureCount();
 
   return report;

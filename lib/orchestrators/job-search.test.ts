@@ -871,8 +871,10 @@ describe("the source priority list reaches save", () => {
     expect(lists).toEqual([priorityList, priorityList]);
   });
 
-  // Read outside every try, like the title vocabularies: a missing setting
-  // stops the whole run rather than reading as one collector failing.
+  // Read outside every handler, like the title vocabularies: a missing
+  // setting stops the whole run rather than reading as one collector failing.
+  // The stop is reported rather than thrown, so collection's finished work
+  // still reaches the caller.
   test("a settings service that throws for the list stops the run", async () => {
     const settings = fakeSettingsService({
       getSourcePriorityList: async () => {
@@ -880,18 +882,22 @@ describe("the source priority list reaches save", () => {
       },
     });
 
-    await expect(
-      runJobSearch({
+    const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-        jobService: fakeJobService([], NOTHING_TO_RESOLVE),
-        collectedAt: stubCollectedAt,
-        companies: fakeCompanyService([]),
-        settings,
-        runId: stubRunId,
-        trace: makeTraceService(),
-        collectors: [makeCollector("greenhouse", emptyResult)],
-      })
-    ).rejects.toThrow(/source_priority_list/);
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      collectedAt: stubCollectedAt,
+      companies: fakeCompanyService([]),
+      settings,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      collectors: [makeCollector("greenhouse", emptyResult)],
+    });
+
+    expect(report.failure).toEqual({
+      at: "source_priority_list",
+      reason: "source_priority_list is not set",
+    });
+    expect(report.handlers.map((finished) => finished.step)).toEqual(["collection"]);
   });
 });
 
@@ -1264,5 +1270,75 @@ describe("the browser the run launched", () => {
 
     expect(log.launches).toBe(1);
     expect(log.closes).toBe(1);
+  });
+});
+
+describe("AC 8, 9: a handler that throws stops the run and is named in the report", () => {
+  // Association is the handler driven here because it calls the company
+  // service directly, with nothing catching underneath it. A company service
+  // that fails outright is what a dead database connection looks like, and it
+  // reaches the orchestrator as a throw rather than as a warning.
+  function explodingCompanies() {
+    return fakeCompanyService([], {
+      findByMatchKey: async () => {
+        throw new Error("company lookup exploded");
+      },
+    });
+  }
+
+  async function runWithFailingAssociation() {
+    return runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      collectedAt: stubCollectedAt,
+      companies: explodingCompanies(),
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      collectors: [
+        makeCollector("lever", { jobs: [makeJob("designer")], errors: [], warnings: [] }),
+      ],
+    });
+  }
+
+  test("the run returns a report rather than throwing", async () => {
+    await expect(runWithFailingAssociation()).resolves.toBeDefined();
+  });
+
+  test("the report names the step that threw and the reason", async () => {
+    const report = await runWithFailingAssociation();
+    expect(report.failure).toEqual({
+      at: "post_collection_association",
+      reason: "company lookup exploded",
+    });
+  });
+
+  test("the report lists each finished handler and how many jobs its list held", async () => {
+    const report = await runWithFailingAssociation();
+    expect(report.handlers).toEqual([
+      { step: "collection", jobs: 1 },
+      { step: "post_collection_normalization", jobs: 1 },
+    ]);
+  });
+
+  test("no later handler runs, so nothing reaches save", async () => {
+    const report = await runWithFailingAssociation();
+    const steps = report.handlers.map((finished) => finished.step);
+    expect(steps).not.toContain("post_collection_dedupe");
+    expect(steps).not.toContain("post_collection_save");
+  });
+
+  test("a run where nothing throws reports a null failure", async () => {
+    const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      collectedAt: stubCollectedAt,
+      companies: fakeCompanyService([]),
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      collectors: [makeCollector("lever", emptyResult)],
+    });
+    expect(report.failure).toBeNull();
   });
 });
