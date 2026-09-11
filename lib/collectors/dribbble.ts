@@ -1,7 +1,8 @@
 // The Dribbble job collector. It runs every search term twice — once
 // anchored to the user's location, once anywhere — reads the result cards
-// off each search, and turns each into a job list entry ready for resolution
-// and parsing. Dribbble sends a finished page, so a request and a parse do
+// off each search, and turns each into a job list entry ready for parsing —
+// resolution has nowhere to walk, because Dribbble hosts the posting the card
+// points at. Dribbble sends a finished page, so a request and a parse do
 // everything a browser would without starting one.
 import type { JobListEntry } from "../job-list-entry";
 import { ageToDate } from "../job-age";
@@ -48,6 +49,12 @@ function buildSearches(searchTerms: string[], location: string): Search[] {
 // employer its own element, so taking it is not parsing; location, work mode,
 // and salary still wait for a parser to read the source posting — a job that
 // never reaches one leaves the backlog before anything needs them.
+//
+// The card's link is the posting itself, so the job is marked resolved here
+// and resolution never walks it, the way the ATS collectors do. That is not
+// just a page load saved: three listings were measured sharing one "View job"
+// link, so walking them would hand three different jobs one resolved link,
+// which dedupe reads as proof that they are one job.
 function cardToJob(card: ResultCard): JobListEntry {
   // The card states an age rather than a date. The collector reads it either
   // way, because an age past the expiry threshold is what stops pagination,
@@ -55,10 +62,11 @@ function cardToJob(card: ResultCard): JobListEntry {
   const postingDate = ageToDate(card.age);
   return {
     original_url: card.url,
+    resolved_url: card.url,
     raw_title: card.title,
     ...(postingDate ? { posting_date: postingDate } : {}),
     ...(card.company ? { raw_company_name: card.company } : {}),
-    is_resolved: false,
+    is_resolved: true,
     is_parsed: false,
     is_classified: false,
   };

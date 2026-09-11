@@ -344,14 +344,37 @@ describe("a card becomes a job carrying the fields an aggregator link can supply
     expect(olderJob?.posting_date?.getTime()).toBeLessThan(freshJob?.posting_date?.getTime() as number);
   });
 
-  test("is_resolved, is_parsed, and is_classified are all false", async () => {
+  // AC 57, 58, 59. Dribbble hosts its own postings, so there is nowhere for
+  // resolution to walk to. Three of its listings were measured sharing one
+  // "View job" link, so walking them would hand three distinct jobs one
+  // resolved URL and dedupe would read that as proof they are one job.
+  test("is_resolved is true, because Dribbble hosts the posting itself", async () => {
     const term = "Product Design";
     stubFetch(singleTermRoutes(term, [dribbbleCard()], []));
 
     const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
 
     const [job] = result.jobs;
-    expect(job.is_resolved).toBe(false);
+    expect(job.is_resolved).toBe(true);
+  });
+
+  test("resolved_url equals original_url", async () => {
+    const term = "Product Design";
+    stubFetch(singleTermRoutes(term, [dribbbleCard()], []));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
+
+    const [job] = result.jobs;
+    expect(job.resolved_url).toBe(job.original_url);
+  });
+
+  test("is_parsed and is_classified are still false", async () => {
+    const term = "Product Design";
+    stubFetch(singleTermRoutes(term, [dribbbleCard()], []));
+
+    const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
+
+    const [job] = result.jobs;
     expect(job.is_parsed).toBe(false);
     expect(job.is_classified).toBe(false);
   });
