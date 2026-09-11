@@ -1,11 +1,12 @@
-// Starts a job search: runs collection and reports what it found. Later
-// phases of the pipeline add their own step here, after this one.
+// Starts a job search: builds what the whole run shares, calls the
+// orchestrator, and reports what came back. Which legs run, and in what order,
+// is the orchestrator's to know rather than this script's.
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createCompanyService } from "../lib/company-service";
 import { createJobService } from "../lib/job-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
-import { runCollection } from "../lib/orchestrators/search-orchestrator";
+import { runJobSearch } from "../lib/orchestrators/job-search";
 import { createTraceService } from "../lib/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 
@@ -53,7 +54,7 @@ async function main(): Promise<void> {
     // The date stamped into every job's collected_at, so one run's jobs share
     // a single timestamp even when collection takes minutes.
     const collectedAt = new Date();
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings,
       collectors: COLLECTORS,
       companies,

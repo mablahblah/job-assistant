@@ -185,7 +185,7 @@ describe("the collect command mints a run id", () => {
     expect(source).toMatch(/crypto\.randomUUID\(\)/);
   });
 
-  test("passes the minted run id into runCollection", () => {
+  test("passes the minted run id into runJobSearch", () => {
     // Finds whatever name the script gave the minted id, rather than assuming
     // one, then checks that same name reaches the call.
     const mintedName = source.match(
@@ -193,8 +193,8 @@ describe("the collect command mints a run id", () => {
     )?.[1];
     expect(mintedName, "expected a variable assigned from crypto.randomUUID()").toBeTruthy();
 
-    const call = source.match(/runCollection\(\{[\s\S]*?\}\)/);
-    expect(call, "expected a call to runCollection({ ... })").toBeTruthy();
+    const call = source.match(/runJobSearch\(\{[\s\S]*?\}\)/);
+    expect(call, "expected a call to runJobSearch({ ... })").toBeTruthy();
 
     // The name has to appear as its own token in the call, not as part of some
     // other identifier.

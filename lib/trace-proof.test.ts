@@ -1,4 +1,4 @@
-// Runs a real collection through the real trace service against a scratch
+// Runs a real job search through the real trace service against a scratch
 // SQLite file, then answers the funnel questions with raw SQL read back
 // through a separate connection. Every other trace test uses a fake writer;
 // this is the proof that events written during a real run land in the
@@ -12,7 +12,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
 import { createTraceService, type TraceService } from "./trace-service";
-import { runCollection, type CollectionReport } from "./orchestrators/search-orchestrator";
+import { runJobSearch, type RunJobSearchResult } from "./orchestrators/job-search";
 import { associateCompanies } from "./handlers/association";
 import { saveJobs } from "./handlers/save";
 import { createCompanyService } from "./company-service";
@@ -155,7 +155,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
   let url: string;
   let runIdAlpha: string;
   let runIdBeta: string;
-  let reportAlpha: CollectionReport;
+  let reportAlpha: RunJobSearchResult;
 
   beforeAll(async () => {
     const temp = createDb("pipeline-trace-proof-");
@@ -168,7 +168,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
 
     // Two runs against the one scratch database, so a query grouped by run
     // id has more than one run to separate.
-    reportAlpha = await runCollection({
+    reportAlpha = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
@@ -178,7 +178,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       collectors: [adzunaCollector, greenhouseCollector],
       log: () => {},
     });
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
@@ -347,7 +347,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     db = built.db;
     runId = "run-gamma";
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
@@ -525,7 +525,7 @@ describe("the trace table answers how each job reached its company, across both 
     await companies.create({ ats_platform: "greenhouse", ats_slug: "acme-boards" });
     await companies.create({ ats_platform: "greenhouse", ats_slug: "fabrikam-boards" });
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: createJobService(built.db),
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
@@ -684,7 +684,7 @@ describe("the trace table answers what save did to each job, across both passes"
     // Job and Company rows rather than objects in an array.
     const jobService = createJobService(built.db);
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService,
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
@@ -803,7 +803,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
   let dir: string;
   let url: string;
   let db: PipelineDb;
-  let report: CollectionReport;
+  let report: RunJobSearchResult;
   const runId = "run-dedupe";
 
   beforeAll(async () => {
@@ -815,7 +815,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
 
     // Real services throughout, so the rows this asserts on sit behind real
     // Job and Company rows rather than objects in an array.
-    report = await runCollection({
+    report = await runJobSearch({
       jobService: createJobService(built.db),
       collectedAt: COLLECTED_AT,
       settings: stubSettings,

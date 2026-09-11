@@ -1,6 +1,7 @@
-// Runs the collection leg: the collection handler builds the job list, then
-// normalization, association, dedupe and save each run once over the whole
-// list. The leg ends in a database write, so the run's work outlives it.
+// Runs the job search, calling one handler after another and handing each the
+// run id, the collection date and the services they share. The collect leg is
+// collection, normalization, association, dedupe and save, and it ends in a
+// database write, so the run's work outlives the run.
 import type { CollectionIssue } from "../collection-issue";
 import type { Collector } from "../collectors/types";
 import { associateCompanies } from "../handlers/association";
@@ -15,7 +16,7 @@ import type { SettingsService } from "../settings-service";
 import type { TitleVocabularies } from "../title";
 import type { TraceService } from "../trace-service";
 
-export interface CollectionReport {
+export interface RunJobSearchResult {
   jobs: JobListEntry[];
   errors: CollectionIssue[];
   warnings: CollectionIssue[];
@@ -25,7 +26,7 @@ export interface CollectionReport {
   traceFailures: number;
 }
 
-export interface CollectionOptions {
+export interface RunJobSearchOptions {
   settings: SettingsService;
   collectors: Collector[];
   // Required, not optional: association is what gives a job the company
@@ -55,7 +56,7 @@ export interface CollectionOptions {
   log?: (message: string) => void;
 }
 
-export async function runCollection(options: CollectionOptions): Promise<CollectionReport> {
+export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJobSearchResult> {
   // The collection handler owns the collectors, the job ids and the usability
   // check, and hands back the first job list of the run.
   const collected = await collectJobs({
@@ -68,7 +69,7 @@ export async function runCollection(options: CollectionOptions): Promise<Collect
     log: options.log,
   });
 
-  const report: CollectionReport = {
+  const report: RunJobSearchResult = {
     jobs: collected.jobs,
     errors: collected.errors,
     warnings: collected.warnings,

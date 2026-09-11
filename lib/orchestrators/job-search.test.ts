@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { runCollection } from "./search-orchestrator";
+import { runJobSearch } from "./job-search";
 import type { Collector, CollectorContext, CollectorResult } from "../collectors/types";
 import type { JobListEntry } from "../job-list-entry";
 import type { SettingsService } from "../settings-service";
@@ -9,8 +9,9 @@ import { fakeCompanyService } from "../company-service.fake";
 import { fakeJobService } from "../job-service.fake";
 import type { CompanyRecord } from "../company-service";
 
-// The orchestrator only hands this to collectors, so no getter needs real
-// behaviour. It is here to prove it arrives unchanged.
+// Carries the default vocabularies and priority list, which is all the
+// orchestrator reads off settings. A test needing a title to actually reshape
+// uses settingsWithVocabularies() below instead.
 const stubSettings: SettingsService = fakeSettingsService();
 
 // A fixed stand-in for the UUID scripts/collect.ts mints for a real run.
@@ -98,7 +99,7 @@ describe("the trace service's failure count reaches the report as traceFailures"
   test("a nonzero failure count from the trace service appears on report.traceFailures", async () => {
     const trace = makeTraceService(3);
     const collector = makeCollector("lever", emptyResult);
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -113,7 +114,7 @@ describe("the trace service's failure count reaches the report as traceFailures"
   test("report.traceFailures is 0 when the trace service records no failures", async () => {
     const trace = makeTraceService(0);
     const collector = makeCollector("lever", emptyResult);
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -144,7 +145,7 @@ describe("a surviving job carries its normalized title, not its raw one", () => 
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -167,7 +168,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runCollection({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
     );
@@ -182,7 +183,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runCollection({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     const collected = trace.events.find((event) => event.event === "collected");
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
@@ -199,7 +200,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runCollection({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
     );
@@ -215,7 +216,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -240,7 +241,7 @@ describe("normalization runs once, after collection finishes, not once per job i
     const trace = makeTraceService();
     const first = makeCollector("lever", { jobs: [makeJob("Designer")], errors: [], warnings: [] });
     const second = makeCollector("greenhouse", { jobs: [makeJob("Researcher")], errors: [], warnings: [] });
-    await runCollection({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [first, second] });
+    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [first, second] });
 
     const collectionIndexes = trace.events
       .map((event, index) => (event.step === "collection" ? index : -1))
@@ -264,7 +265,7 @@ describe("normalization runs once, after collection finishes, not once per job i
   test("report.jobs carries each collector's normalized title, in collector order", async () => {
     const first = makeCollector("lever", { jobs: [makeJob("Senior Designer")], errors: [], warnings: [] });
     const second = makeCollector("greenhouse", { jobs: [makeJob("Senior UX Designer")], errors: [], warnings: [] });
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -286,14 +287,14 @@ describe("a job that never reaches the normalizer gets no normalization event", 
       errors: [],
       warnings: [],
     });
-    await runCollection({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
+    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [collector] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
   });
 
   test("a collector that throws writes none", async () => {
     const trace = makeTraceService();
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
-    await runCollection({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [failing] });
+    await runJobSearch({ jobService: fakeJobService([]), collectedAt: stubCollectedAt, companies: fakeCompanyService([]), settings: stubSettings, runId: stubRunId, trace, collectors: [failing] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
   });
 });
@@ -307,7 +308,7 @@ describe("unusable fields are reported once at the end of the run", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -332,7 +333,7 @@ describe("unusable fields are reported once at the end of the run", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -351,7 +352,7 @@ describe("unusable fields are reported once at the end of the run", () => {
       errors: [],
       warnings: [],
     });
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -372,7 +373,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
     const job = { ...makeJob("Growth Designer"), raw_title: "Designer, Growth" };
     const withNoun = fakeSettingsService({ getTitleHeadNouns: async () => ["designer"] });
 
-    const withoutVocabulary = await runCollection({
+    const withoutVocabulary = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -381,7 +382,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
       trace: makeTraceService(),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
-    const withVocabulary = await runCollection({
+    const withVocabulary = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -404,7 +405,7 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
     const companies: CompanyRecord[] = [];
     const job = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -425,7 +426,7 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
       raw_company_slug: "never-polled",
     };
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -454,7 +455,7 @@ describe("association runs after normalization, on the tidied company name", () 
       raw_company_name: "  Brightwave  Labs, Inc.  ",
     };
 
-    await runCollection({
+    await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -479,7 +480,7 @@ describe("association covers surviving jobs from every collector", () => {
     const jobA = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
     const jobB = { ...makeJob("Backend Engineer"), raw_company_name: "Acme Corp" };
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -510,7 +511,7 @@ describe("a job dropped for being unusable never reaches the company service", (
     // dropped before normalization or association run.
     const job: JobListEntry = { raw_title: "Product Designer", raw_company_name: "Brightwave Labs" };
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -536,7 +537,7 @@ describe("a run limited to zero jobs never touches the company service", () => {
       warnings: [],
     });
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -561,7 +562,7 @@ describe("association's trace rows carry the right step name and run id", () => 
     const trace = makeTraceService();
     const job = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
 
-    await runCollection({
+    await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace,
@@ -590,7 +591,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService(rows),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -618,7 +619,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
     });
     const second = makeCollector("lever", { jobs: [makeJob("Writer")], errors: [], warnings: [] });
 
-    await runCollection({
+    await runJobSearch({
       jobService: service,
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -641,7 +642,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService(rows),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -657,7 +658,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
   test("a run that collected nothing saves nothing", async () => {
     const rows: JobListEntry[] = [];
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService(rows),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -684,7 +685,7 @@ describe("AC 61: save's warnings are in the report", () => {
       warnings: [],
     });
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: service,
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -708,7 +709,7 @@ describe("AC 61: save's warnings are in the report", () => {
       warnings: [],
     });
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       jobService: fakeJobService([]),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -733,7 +734,7 @@ describe("AC 62: collected_at is stamped beside collector", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService(rows),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -756,7 +757,7 @@ describe("AC 62: collected_at is stamped beside collector", () => {
     });
     const second = makeCollector("lever", { jobs: [makeJob("Writer")], errors: [], warnings: [] });
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService(rows),
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -782,7 +783,7 @@ describe("AC 63: the stamp date arrives as an argument", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       jobService: fakeJobService(rows),
       collectedAt: longAgo,
       companies: fakeCompanyService([]),
@@ -815,7 +816,7 @@ describe("the source priority list reaches save", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       jobService: service,
       collectedAt: stubCollectedAt,
       companies: fakeCompanyService([]),
@@ -838,7 +839,7 @@ describe("the source priority list reaches save", () => {
     });
 
     await expect(
-      runCollection({
+      runJobSearch({
         jobService: fakeJobService([]),
         collectedAt: stubCollectedAt,
         companies: fakeCompanyService([]),
@@ -863,7 +864,7 @@ describe("dedupe runs after association and before save", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace,
@@ -895,7 +896,7 @@ describe("dedupe runs after association and before save", () => {
       warnings: [],
     });
 
-    await runCollection({
+    await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
@@ -919,7 +920,7 @@ describe("dedupe runs after association and before save", () => {
       },
     });
 
-    const report = await runCollection({
+    const report = await runJobSearch({
       settings: stubSettings,
       runId: stubRunId,
       trace: makeTraceService(),
