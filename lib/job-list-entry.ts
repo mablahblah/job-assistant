@@ -54,6 +54,19 @@ export const DEDUPE_REASONS: readonly DedupeReason[] = DEDUPE_TRACE_REASONS.filt
   (reason): reason is DedupeReason => reason !== REASON_ON_A_JOINING_ROW
 );
 
+// Every reason a step can mark an entry away for: dedupe's three, plus the one
+// resolution adds when a walk reaches a blacklisted host and the row has to go.
+// Dedupe gains no right to write that word — DedupeReason stays the narrower
+// type its own code is held to.
+export type DeleteOnSaveReason = DedupeReason | "blacklisted_url";
+
+// Derived from DEDUPE_REASONS rather than retyping those three, so a change to
+// what dedupe may set cannot leave this list behind.
+export const DELETE_ON_SAVE_REASONS: readonly DeleteOnSaveReason[] = [
+  ...DEDUPE_REASONS,
+  "blacklisted_url",
+];
+
 export type JobListEntry = Omit<
   Partial<Job>,
   "raw_location_list" | "raw_mode_list" | "normalized_mode_list" | "raw_salary"
@@ -62,7 +75,7 @@ export type JobListEntry = Omit<
   raw_mode_list?: string[] | null;
   normalized_mode_list?: string[] | null;
   raw_salary?: RawSalary | null;
-  delete_on_save?: DedupeReason;
+  delete_on_save?: DeleteOnSaveReason;
 };
 
 // Every Job column in schema order, plus delete_on_save last. The

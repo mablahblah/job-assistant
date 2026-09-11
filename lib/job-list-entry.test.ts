@@ -5,7 +5,12 @@ import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { DEDUPE_REASONS, JOB_LIST_ENTRY_FIELDS, type JobListEntry } from "./job-list-entry";
+import {
+  DEDUPE_REASONS,
+  DELETE_ON_SAVE_REASONS,
+  JOB_LIST_ENTRY_FIELDS,
+  type JobListEntry,
+} from "./job-list-entry";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -125,6 +130,22 @@ describe("AC 55: an entry marked away carries the reason it lost", () => {
     // was ever an empty string would silently keep the row.
     for (const reason of DEDUPE_REASONS) {
       expect(Boolean(reason)).toBe(true);
+    }
+  });
+});
+
+describe("AC 60: delete_on_save admits a resolution reason as well as dedupe's", () => {
+  test("the reasons the field admits are dedupe's three plus blacklisted_url", () => {
+    // DEDUPE_REASONS stays the narrower list of what dedupe itself may set.
+    // This is the wider one the field accepts, which resolution adds to when a
+    // walk reaches a blacklisted host and the row has to go.
+    expect([...DELETE_ON_SAVE_REASONS]).toEqual([...DEDUPE_REASONS, "blacklisted_url"]);
+
+    // Assigning each one is what puts the widened type under tsc, which is the
+    // only gate that reads it — vitest does not typecheck.
+    for (const reason of DELETE_ON_SAVE_REASONS) {
+      const entry: JobListEntry = { id: "job-1", delete_on_save: reason };
+      expect(entry.delete_on_save).toBe(reason);
     }
   });
 });
