@@ -62,3 +62,15 @@ export interface ResolutionPageLease {
 // rather than a browser, so it launches nothing of its own and a scripted
 // fake stands in for Playwright with no adapter.
 export type ResolutionPageFactory = () => Promise<ResolutionPageLease>;
+
+// A browser open for one resolution run, and the way to shut it down again.
+// One browser serves the whole run; every job takes its own page from it.
+export interface ResolutionBrowserSession {
+  openPage: ResolutionPageFactory;
+  close(): Promise<void>;
+}
+
+// Launches the browser a resolution run walks in. The orchestrator calls this
+// only once it knows there is work, so a run with nothing to resolve costs no
+// browser and leaves the machine alone.
+export type ResolutionBrowserFactory = () => Promise<ResolutionBrowserSession>;
