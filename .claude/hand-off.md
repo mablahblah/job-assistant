@@ -15,56 +15,49 @@
 
 The job pipeline is being rebuilt on the branch `feature/unified-pipeline`. Real job searches still run from `main`.
 
-Phase 7 is 15 tasks of 18. It builds URL resolution: following a job's link from a listing site through to the employer's own posting. Its plan is at [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md).
+**Phase 7 is built and closed.** All 18 of its tasks are done. It built URL resolution: following a job's link from a listing site through to the employer's own posting. Its record is [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md).
 
-A phase 7a was planned this session. It has no plan document yet.
+Nothing is in progress. The next unit of work is planning phase 7a, which has no plan document yet.
 
-1,871 tests pass across 76 files. `npm run lint` exits 0. Both were checked at close.
+1,886 tests pass across 76 files. `npm run lint` exits 0. Both were checked at close.
 
-Nothing on this branch is pushed. The remote last matched it at `e0aaaf9`. The working tree is otherwise clean. Two files in `.claude/` have never been committed: `CLAUDE.md.bak` and `session-status.md`.
+The branch is pushed. The remote matches it at `ccaa7ff`. The working tree is clean. Two files in `.claude/` have never been committed: `CLAUDE.md.bak` and `session-status.md`.
 
 ## Completed This Session
 
-Six tasks, then a design conversation.
+Three tasks, then the phase close.
 
-- **Task 10.** The job service can list every job still waiting to be followed. Four fields are left off each one. They record which stage a job has reached, and a stale copy would overwrite what a later stage owns.
-- **Task 11.** How many jobs are followed at once is now a setting, `resolution_concurrency`. It is seeded at 3.
-- **Task 12.** The code that follows the whole list. It runs several jobs at once. Each gets its own browser page, closed however it ends.
-- **Task 13.** `runResolution`. It reads its own list, follows every job, removes duplicates, and saves.
-- **Task 14.** Duplicate removal now skips any job already marked for deletion.
-- **Task 15.** A job dropped during duplicate removal now always records the same word, `abandoned`, meaning its journey ended. It used to claim a database row was deleted instead. Only the save step decides that, and it can refuse.
+- **Task 16.** The warning raised when a delete is refused now reads two ways. A job whose walk reaches a blocked site is marked for removal the same way a duplicate is, and the same guard refuses both. The row that refuses a blocked job is its own, so the single wording called the job a duplicate of itself.
+- **Task 17.** Dribbble marks its own jobs resolved as it collects them. It hosts the posting its card points at, so there is nowhere to walk to. Three of its listings share one "View job" link, and walking them would give three different jobs one address, which duplicate removal reads as proof they are one job.
+- **Task 18.** Resolution's two events and eight reasons are written into the `Trace` comment in `prisma/schema.prisma` and into `trace-events.md`, with a test holding the two together. Both had also been left saying `abandoned` means no database row existed, which stopped being true when task 15 landed.
+- **The close.** The architecture document gained the resolution leg and its eleven parts.
 
-Every call made while building is written into the phase 7 plan, under **Build Notes**. This document no longer carries them.
+Every call made while building is in the phase 7 record, under **Build Notes**. This document does not carry them.
 
 ## Decisions & Context
 
 ### What the user decided
 
-Five decisions. All are in the decision log, dated 2026-09-11.
+Nothing this session. Every decision phase 7 rests on was made while planning it and is in the decision log, dated 2026-09-11.
 
-- One orchestrator runs a whole pipeline. Nothing sits between it and the code it calls.
-- The files in `lib/steps/` are renamed **handlers**. A handler takes the job list, acts on every entry, and hands the list back.
-- Collection becomes a handler. Parsing will too. Collection is the one that takes no list, because it builds the first one.
-- A handler falling over stops the run and warns loudly. Nothing finished is lost, because every stage ends by writing to the database.
-- That reshaping happens in phase 7a, after phase 7.
+### Calls made while closing, and why
 
-The reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-notes.md`](../docs/features/unified-pipeline/meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-notes.md).
-
-### What went wrong
-
-`runResolution` was first put in a file named `resolution-orchestrator.ts`. That gave the project two files calling themselves orchestrators. Neither ran a pipeline. The user caught it. The fix became phase 7a.
+- **The architecture document now names a fourth kind of part: an orchestrator, which runs one leg of the pipeline.** The collection one was relabelled from step to orchestrator at the same time. Neither of the two takes a job list and hands it back, which is what the step contract says a step does, so the document was teaching a shape the code does not have. This reaches into vocabulary phase 7a is meant to settle. It is one edit to undo.
+- **The blocked-site refusal reuses the existing warning kind** and branches on why the job was marked, rather than taking a kind of its own. One guard refusing one delete should not make the save step pick between two words.
+- **No backlog change came out of phase 7.** The six deferred improvements to the walk are already entry 26, still waiting on a real run. Nothing else in the list became redundant.
 
 ### Gotchas
 
-- **The commit hook's numbers are wrong, a fourth session running.** It reported 8 changed files on a 7-file commit. It named tested functions as untested. Do not act on what it says.
+- **The commit hook's numbers are wrong, a fifth session running.** It reported 12 changed files on a 3-file commit. It named a function untested that three tests cover. Do not act on what it says.
 - **`npm run lint` is the only check that catches a type error.** The test runner does not check types.
 
 ### Open questions
 
-1. **Does wiring resolution into the pipeline belong to phase 7a?** Building the real browser goes with it. This was proposed and never answered. Nothing starts a real browser today. The code is handed one, and every test hands it a fake.
-2. **Do the `Trace.step` values get renamed?** They hold positions in the pipeline, such as `post_collection_dedupe`, rather than the name of a piece of code. Task 18 writes more of them, so a rename would partly redo it.
-3. **What does the orchestrator report when a handler falls over?** It needs a shape that carries both finished work and a failure.
-4. **What happens to the two uncommitted files in `.claude/`?** Asked across four sessions. Never answered. Left untracked, which destroys nothing.
+1. **Does the architecture document get to name "orchestrator" before phase 7a decides the vocabulary?** Raised at the close of this session and not answered. The naming stands in the document today.
+2. **Does wiring resolution into the pipeline belong to phase 7a?** Starting the real browser goes with it. Nothing starts a real browser today — the code is handed one, and every test hands it a fake. Proposed two sessions ago, never answered.
+3. **What does the orchestrator report when one of its parts falls over?** It needs a shape carrying both the finished work and the failure.
+4. **Do the `Trace.step` values get renamed?** They hold positions in the pipeline, such as `post_collection_dedupe`, rather than the name of a piece of code. Phase 11a owns cleaning up trace words.
+5. **What happens to the two uncommitted files in `.claude/`?** Asked across five sessions. Never answered. Left untracked, which destroys nothing.
 
 ### Still true
 
@@ -76,14 +69,11 @@ The reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-
 - Rule edits go through `writing-rules`. Skill edits go through `writing-skills`.
 - A `docs/BACKLOG.md` change needs approval before it is written.
 - Questions are asked as plain text in conversation.
-- **Production code is written through `crowd-code`, never edited directly.** That skill sends two sub-agents the same failing test and picks the stronger answer. Writing that failing test first is this session's own job.
-- Six improvements to how links are followed are already written down, as backlog entry 26. Each waits on a real run to show it is needed. No real run has happened.
+- **Production code is written through `crowd-code`, never edited directly.** That skill sends two sub-agents the same failing test and picks the stronger answer. Writing that failing test first is this session's own job. Markdown, documentation and `prisma/schema.prisma` are edited directly.
 
 ## Next Steps
 
-1. **Push the branch.**
-2. **Task 16.** Wording for the warning raised when a job cannot be deleted because the user has already applied to it. It needs its own phrasing rather than the one used for duplicates. The file is `lib/save-warnings.ts`. Criteria 64 and 65.
-3. **Task 17.** Dribbble marks its own jobs as already resolved. Three of its listings share one link, so following them would give three different jobs the same address. Criteria 57 to 59.
-4. **Task 18.** Write resolution's events into three places: the `Trace` comment in `prisma/schema.prisma`, the file `trace-events.md`, and `prisma/schema.test.ts`. Criteria 66 and 67.
-5. **Close phase 7.** The architecture document still describes the old meaning of `abandoned` at line 110.
-6. **Plan phase 7a, then build it.**
+1. **Plan phase 7a**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). It reshapes the pipeline into one orchestrator calling one handler per phase. Its five decisions are in the decision log, dated 2026-09-11, and the reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-notes.md`](../docs/features/unified-pipeline/meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-notes.md). Open questions 1, 2 and 3 above all land inside it.
+2. **Build phase 7a.**
+3. **Close phase 7a** — architecture document, decision log, any backlog change presented for approval.
+4. **Plan phase 8 — Parsers.**
