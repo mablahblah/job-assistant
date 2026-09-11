@@ -15,81 +15,80 @@
 
 Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`.
 
-**Phase 7, URL Resolution, is six tasks into eighteen.** Its spec is at [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md). Six of fourteen phases are closed; phase 7 is the seventh and is mid-build.
+**Phase 7, URL Resolution, is eight tasks into eighteen.** Its spec is at [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md). Six of fourteen phases are closed; phase 7 is the seventh and is mid-build.
 
-**1,793 tests across 71 files pass, `npm run lint` exits 0**, both verified fresh at close.
+**1,816 tests across 73 files pass, `npm run lint` exits 0**, both verified fresh at close.
 
-**Four commits, pushed** — `4fc2f70..1aa2fe5` on `feature/unified-pipeline`.
+**Four commits, pushed** — `1aa2fe5..064166d` on `feature/unified-pipeline`.
 
-| Commit | What it carries |
-| --- | --- |
-| `afb1782` | Tasks 1 to 4 — `lib/blacklist.ts`, `lib/url-domain.ts`, `lib/dead-end-signals.ts`, `lib/apply-links.ts` |
-| `254f424` | Task 5 — `lib/resolution-page.ts`, `lib/resolution-page.fake.ts` |
-| `fbe3422` | Task 6 — `lib/decide-next-action.ts` |
-| `1aa2fe5` | Tasks 1 to 6 checked in `docs/CURRENT-FEATURE.md` |
+| Commit    | What it carries                                                              |
+| --------- | ---------------------------------------------------------------------------- |
+| `5dada7c` | The previous session's decision-log entry and hand-off                       |
+| `5281563` | Task 7 — `lib/settle-page.ts`, and the fake's time axis                      |
+| `b0979af` | Task 8 — `lib/resolve-job-url.ts`, and `unfollowedUrl` on `decideNextAction` |
+| `064166d` | Tasks 7 and 8 checked in `docs/CURRENT-FEATURE.md`                           |
 
-**One uncommitted line:** `docs/features/unified-pipeline/decision-log.md` gained a single entry at session close and has not been committed.
+**One uncommitted line:** `docs/features/unified-pipeline/decision-log.md` gained the polling decision at close. This is the second session running to end that way.
 
 ## Completed This Session
 
-Phase 7 tasks 1 to 6, each built through `crowd-code` with its tests.
+Phase 7 tasks 7 and 8, four changes, each built through `crowd-code` with its tests.
 
-- **Tasks 1 to 4 are the unchanged ports** — the blacklist, `extractDomain`/`isSameDomain`, `detectDeadEndSignals`, and `APPLY_LINK_PATTERNS`/`filterApplyLinks`. Their legacy tests came across as written, regrouped under the acceptance criteria they cover.
-- **Task 5 is the fake `Page`**, which blocked tasks 6 to 8 because nothing in this codebase faked one.
-- **Task 6 is the first genuine rewrite** — `decideNextAction` loses the `uncertain` outcome, both hardcoded domain branches, and every host comparison.
+- **Task 7 is the settle condition**, `lib/settle-page.ts`. It returns immediately when the page carries five or more anchors **and** a non-empty title, and otherwise polls — 150ms interval, 15s budget by default — until the page finishes or the budget is spent. It never throws. A read that throws `"Execution context was destroyed"` counts as progress rather than an abort, because that error means the page navigated, which is what settling waits for. The clock and the sleep are injected, so its tests are deterministic and instant.
+- **Task 7 also gave the fake a time axis**, because a settle condition cannot be tested against a page that never changes. A `ScriptedPage` carries `becomes`, an ordered list of later renders each able to change `url`, `html` or `title`, and the returned page carries `advance()`. Advancing past the last render and advancing before any `goto` are both no-ops. All 17 pre-existing tests were untouched.
+- **Task 8 is the hop loop**, `lib/resolve-job-url.ts`, bounded by a counted loop at four hops. Each hop installs a `"response"` listener, loads, settles, reads the status of the page it landed on, checks the blacklist against the settled URL, checks for a dead end, then collects apply links and decides. It holds the URL it stood on before each hop, which is what lets a same-host hop be discarded.
+- **Task 8 also widened `decideNextAction`** so `budget_spent` carries `unfollowedUrl`.
 
 ## Decisions & Context
 
-**The one decision the user made is in the decision log**, dated 2026-09-11: the fake `Page` is driven by a walk scripted up front rather than a URL-to-page lookup. What follows lives nowhere else.
+### The one decision the user made
 
-### The uiuxjobsboard hydration problem does not reproduce
-
-The phase 7 r&d's open question on the settle condition rests on this claim: a uiuxjobsboard posting's real destination "sits in the hydration payload and becomes an anchor only after React runs." Measured on three live postings, twice — once in a headless browser sampling from t=0 to t=4000ms, once by plain `fetch` with no browser at all — the off-host ATS link is in the raw server markup, alongside 88 or 89 anchor tags and a non-empty title, before any JavaScript runs. The spike's settle test passes immediately **and** the link is already there.
-
-That measurement is strong for those three postings on 2026-09-11 and nothing further. It does not establish that the r&d was wrong when written; the site may have changed, or the original observation may have concerned the specific reddit posting it names. **Settling is still needed** — the research doc measures Adzuna's `/land/ad/` interstitial at 0/20 escaping without it and 20/20 with it.
+**Settling polls through the existing `ResolutionPage`** rather than extending it with Playwright's `waitForURL` and `waitForFunction`. It is in the decision log, dated 2026-09-11. What follows lives nowhere else.
 
 ### Calls made while building, none of them user decisions
 
-- **`decideNextAction(applyLinks, hopBudgetRemains)`** drops `currentUrl` and takes a boolean rather than `depth`/`maxDepth`. Nothing in it compares hosts any more, and the four-hop ceiling stays in the loop.
-- **`PageAnchor` exists instead of adding `"dom"` to the tsconfig `lib` array.** Adding the DOM library is a project-wide change and out of scope.
-- **The fake resolves hrefs by rewriting each anchor's attribute** against the page URL, because a browser reports `a.href` absolute and linkedom does not.
-- **File names** are `url-domain.ts`, `dead-end-signals.ts`, `apply-links.ts`, `decide-next-action.ts`, `resolution-page.ts`.
-- **`APPLY_LINK_PATTERNS` stays module-private** — nothing outside reads it.
-- **The session was committed as four commits by goal** rather than one.
+- **Task 8 is two files rather than one.** The hop-budget rule needs the link that was not followed, and re-deriving the modal-trigger test in the loop would be a second implementation of it.
+- **Five tests for the settle condition**, reading `crowd-code`'s "one minimal test" as one _behaviour_ per test. The unit carries three acceptance criteria plus the navigation gotcha, and one test would have left the writers free to fail two of them.
+- **A URL change during settling is progress, not an exit.** Settling continues on the page it landed on, which is what the measured spike does.
+- **`ResolutionOutcome` is three-way** — resolved, failed, blacklisted — and names no job fields and no trace rows. The step turns it into both. The blacklisted case carries no URL, because the collector decides whether the job is dropped or takes `unresolvable`, and neither writes a `resolved_url`.
+- **Writer selections.** The fake combined Writer B's extracted render-sequence helper with Writer A's single source of truth. `settle-page.ts` took Writer B unmodified, because pairing the two reads through `Promise.all` narrows the window in which an old page's anchor count pairs with a new page's title. The hop loop took Writer B, because a counted loop makes the four-page ceiling structural rather than a consequence of the budget flag, and its listener detaches before the content and link reads.
+- **`landedUrl` is initialised to `""`** to satisfy definite-assignment analysis across the `try`/`finally`.
 
-These six are work-documentation under the decision-log rule and belong in the feature spec. **They have not been written anywhere** — the user was asked and had not answered by close.
+These are work-documentation under the decision-log rule and belong in the feature spec. **They have not been written anywhere** — see open question 2.
 
 ### Gotchas found this session
 
-- **A real Playwright `Page` is assignable to a narrow structural subset of itself**, `$$eval` with a custom element type and `on`/`off` for `"response"` included. Verified by compiling against the real types rather than assumed. That is what lets the walk take a real page and a fake with no adapter.
-- **This project builds with `"lib": ["esnext"]`** — no DOM types. `Element` resolves to a name with no members, so it typechecks until something reads `.href` off it and then fails with TS2812. `lib/collectors/dribbble-cards.ts` already works around this by deriving its element type from linkedom.
-- **Vitest does not typecheck.** esbuild strips types, so a test file full of type errors passes under `npx vitest run` and fails only under `tsc --noEmit`. For a type-level test, `npm run lint` is the only gate that bites.
-- **linkedom does not resolve hrefs.** `<a href="/jobs/1">` reads back as `/jobs/1` from both `.href` and `getAttribute("href")`, and an anchor with no href gives `""` from `.href` and `null` from `getAttribute`. Setting the attribute to an absolute URL makes `.href` return it.
-- **The commit hook's "test gap" report is attributed to the wrong file set** — it named the fake's internals while committing `decideNextAction`, and `isModalTrigger` while committing a markdown file. All the symbols it flagged are covered. Do not act on it without checking.
+- **The commit hook's "test gap" report is misattributed**, confirming the previous session's finding. It named `hopRenders`, `fakeResolutionPage`, `requireCurrentRender`, `goto` and `url` while committing two markdown files, and claimed 7 and 9 changed files on commits containing 2 and 4. Every symbol it flagged is covered. Do not act on it without checking.
+- **`$?` after a pipe is the last command's, not npm's.** `npm run test | tail` then `$?` reports `tail`. Redirect to a file and check `$?` directly.
+- **tsconfig has `strict: true` but not `noUncheckedIndexedAccess`**, so array indexing types as non-undefined and an index guard is unnecessary.
+- **ESLint carries no `curly` rule and no formatter**, so brace style is a readability call rather than a gate.
+- **`/change-status` does not work on this branch.** It calls `npx tsx scripts/cli.ts`, and the CLI is at `legacy/scripts/cli.ts` here. `dev.db` holds two Omada Health jobs — Staff Product Designer at `won't apply`, Senior Product Designer at `expired`. A status change to `rejected` was requested this session, the ambiguity was raised, and nothing was written.
 
 ### Approaches tried and abandoned
 
-- **Typing `$$eval`'s elements from linkedom** via `ReturnType<typeof parseHTML>`. It compiles and a real `Page` still satisfies it, but it puts linkedom into a production interface. `PageAnchor` replaced it and needs no cast at either end.
-- **Adding `"dom"` to the tsconfig `lib` array** to make `Element` usable. Rejected as a project-wide change well beyond this task.
-- **An `as unknown as Element[]` cast inside the fake.** Needed only while the interface still said `Element[]`; removed once `PageAnchor` existed.
+- **Extending `ResolutionPage` with `waitForURL` and `waitForFunction`.** Faking them means writing a polling loop inside the fake, where no test covers it.
+- **Writer A's short-circuited settle read**, which skips the title read when the anchor count is already too low. Fewer round trips on a stuck page, but it widens the window in which an old page's anchor count pairs with a new page's title.
+- **Writer A's unbounded `for(;;)` hop loop.** Correct, but the four-page ceiling then rests entirely on the budget flag rather than on the loop itself.
 
 ### Open questions
 
-1. **How the settle condition reads the page.** The spike's `settleClientRedirect` uses `page.evaluate`, `page.waitForURL` and `page.waitForLoadState`, none of which are in `ResolutionPage`. Either poll with what the interface has — `$$eval("a", …)`, `title()`, `url()` — on a short interval, or extend the interface with the two wait methods and port the race as written. Polling was recommended and not confirmed. The research doc's warning is against *a plain 4s wait with no race*, which a short poll is not.
-2. **Whether to correct the phase 7 r&d's open-question entry** with the uiuxjobsboard measurement above.
-3. **Whether to add the six work-documentation items to the feature spec.**
+1. **What splits `job_resolved` from `resolution_failed` when the four-hop ceiling is reached with a link unfollowed.** Built as: an unfollowed link on the same host as where the walk stands resolves there with reason `hop_budget_spent`; off-host fails with the same reason. Sourced from the phase 7 r&d line 71 — "where the ceiling is reached with an off-domain link still unfollowed" — and the spec's trace table, which agree. **The user never decided it**, and it is running in `lib/resolve-job-url.ts` now. It is also the one place a link is judged by its own href rather than by where the browser landed, which cuts against the decision that the same-domain test runs after landing; there is no budget left to land on it, so the href is the only evidence available.
+2. **Whether ten work-documentation items go in the feature spec.** Six carried from the previous session: `decideNextAction`'s signature, `PageAnchor` instead of adding `"dom"` to the tsconfig `lib` array, the fake resolving hrefs by rewriting attributes, the five file names, `APPLY_LINK_PATTERNS` staying module-private, and committing by goal. Four from this session, listed above under calls made while building.
+3. **Whether to correct the phase 7 r&d's open-question entry** with the previous session's uiuxjobsboard measurement.
 
 ### Carried forward, still true
 
-`cat` is blocked over 2048 bytes — use `sed -n` or Read. `grep -r --include` needs the pattern quoted. `timeout` is not on PATH. `PIPESTATUS` does not survive; capture `$?` directly instead. `npm run lint` runs ESLint then `tsc --noEmit`. A scratchpad script reaches `node_modules` by symlinking it in, and both of this session's probes ran that way with no spike code left in the repo. `dev.db` at the repo root is the legacy database; `pipeline.db` is the new one and still holds 20 jobs, 31 companies. Anything new under `lib/steps/` loads `pipeline-steps.md` and `naming.md`. Rule edits go through `writing-rules`, skill edits through `writing-skills`. A `docs/BACKLOG.md` change needs approval first. Questions are plain text. Every message over one paragraph ends with a TL;DR.
+`cat` is blocked over 2048 bytes — use `sed -n` or Read. `grep -r --include` needs the pattern quoted. `timeout` is not on PATH. `npm run lint` runs ESLint then `tsc --noEmit`, and vitest does not typecheck, so lint is the only gate that catches a type error. `dev.db` at the repo root is the legacy database; `pipeline.db` is the new one. Anything new under `lib/steps/` loads `pipeline-steps.md` and `naming.md`. Rule edits go through `writing-rules`, skill edits through `writing-skills`. A `docs/BACKLOG.md` change needs approval first.
 
-**Production code is written through `crowd-code`, never edited directly.** The user corrected this mid-session. Writing the failing test first is the session's own job under crowd-code Phase 2; everything the writers produce is theirs.
+**Production code is written through `crowd-code`, never edited directly.** Writing the failing test first is the session's own job under crowd-code Phase 2; everything the writers produce is theirs.
+
+Backlog entry 26, **Resolver Refinements**, holds six deferred improvements to this walk, each waiting on a measured failure from a real run. Nothing this session produced one.
 
 ## Next Steps
 
-1. **Answer open question 1** — poll versus extending `ResolutionPage`. Task 7 cannot start without it.
-2. **Build task 7, the settle condition**, covering criteria 44 to 46: a page that already looks finished returns without waiting, a page that navigates away is judged where it landed, and a page that never settles is judged as it stands rather than failing. The spike's test is 5 or more anchors **and** a non-empty title; the research doc records the title half as load-bearing, since `gdit.dejobs.org` mid-render had exactly 5 anchors and an empty title.
-3. **Task 8, the hop loop** — the response-status check opens it, and it holds the URL it stood on before each hop so a same-domain hop can be discarded. This is where rule 3 lives, judged after landing.
-4. **Then tasks 9 to 18**, which move into the database and the step: widening `delete_on_save`, the job-list read, the concurrency setting, the step itself, `runResolution`, the dedupe set-aside, the `leavingRow` retrofit, the save warning, Dribbble self-resolving, and the trace vocabulary.
-5. **Commit the decision log's uncommitted line** with whatever lands next.
+1. **Answer open question 1** — the hop-budget split is running on inference rather than on a decision.
+2. **Commit the decision log's uncommitted line** with whatever lands next.
+3. **Task 9, widening `delete_on_save` to admit `blacklisted_url`** — the first task of this phase that touches the database rather than the walk, covering criterion 60.
+4. **Task 10, the resolution job-list read** on the job service and its fake: every job whose status is `backlog` and whose `is_resolved` is false, whenever it was collected, carrying `id`, `collector` and `created_at` and leaving the four flags behind. Criteria 1 to 4.
+5. **Then tasks 11 to 18** — the concurrency setting, the step itself with its browser contexts, `runResolution`, the dedupe set-aside, the `leavingRow` retrofit, the save warning, Dribbble self-resolving, and the trace vocabulary.
 6. **`architecture.md:110` and the phase 5 and 6 specs still encode the old `abandoned` meaning.** That stays correct until task 15 lands, which supersedes those specs' criteria; phase 7's close updates the architecture doc.
