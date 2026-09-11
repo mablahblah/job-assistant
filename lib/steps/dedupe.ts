@@ -299,8 +299,10 @@ function foldPair(
   };
 }
 
-// A side carrying a created_at already held a database row, so its departure
-// is a row being deleted rather than an entry simply leaving the list.
+// abandoned marks a job's journey through the pipeline ending, and makes no
+// claim about whether a row existed. Whether a row is really deleted is save's
+// to say, at the step that carries the delete out, and its guard can still
+// refuse one for a job the user has already applied to.
 function leavingRow(
   loser: JobListEntry,
   becameId: string | undefined,
@@ -308,7 +310,7 @@ function leavingRow(
 ): PendingTrace {
   return {
     job: loser,
-    event: loser.created_at ? "job_dbrow_deleted" : "abandoned",
+    event: "abandoned",
     reason: MATCHED_DB_ROW,
     detail: dedupeDetail(loser, becameId, clause),
   };

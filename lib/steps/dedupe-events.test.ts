@@ -148,7 +148,13 @@ describe("an entry that left the list for a stored row", () => {
     expect(leaving?.reason).toBe("matched_db_row");
   });
 
-  test("an entry that already held a row reads job_dbrow_deleted", async () => {
+  // Phase 7 AC 68 and 70, superseding the earlier reading. abandoned is the
+  // word for a job's journey through the pipeline ending, and it makes no
+  // claim about whether a row existed. Whether a row was actually deleted is
+  // save's to say, at the step that carries the delete out, so dedupe saying
+  // it here would be guessing at a delete the active-status guard can still
+  // refuse.
+  test("an entry that already held a row reads abandoned too", async () => {
     const trace = createFakeTraceService();
     // The stored row is the older of the two, so its id is the one that
     // survives and the entry's own row is the one that goes.
@@ -163,8 +169,23 @@ describe("an entry that left the list for a stored row", () => {
     await runDedupe(jobs, fakeJobService(rows), trace);
 
     const leaving = trace.events.find((event) => event.job_id === "row-new");
-    expect(leaving?.event).toBe("job_dbrow_deleted");
+    expect(leaving?.event).toBe("abandoned");
     expect(leaving?.reason).toBe("matched_db_row");
+  });
+
+  test("no dedupe row claims a database row was deleted", async () => {
+    const trace = createFakeTraceService();
+    const rows = [
+      storedRow("row-old", {
+        ...withOriginalUrl("https://example.com/1"),
+        created_at: new Date("2025-06-01T00:00:00.000Z"),
+      }),
+    ];
+    const jobs = [storedRow("row-new", withOriginalUrl("https://example.com/1"))];
+
+    await runDedupe(jobs, fakeJobService(rows), trace);
+
+    expect(trace.events.map((event) => event.event)).not.toContain("job_dbrow_deleted");
   });
 
   // AC 78 and 79. That row is the job the event describes, so it supplies
