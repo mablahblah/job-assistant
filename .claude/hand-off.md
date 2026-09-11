@@ -68,6 +68,7 @@ The reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-
 
 ### Still true
 
+- **The output style is new. Write to it, in conversation and in every document.** One idea per sentence. No sentence over 20 words. Plain words, and any term that only means something inside this project gets its plain meaning where it first appears. Earlier hand-offs leaned hard on that project vocabulary and ran long; this one was cut from 1,450 words to 980 to stop it.
 - `cat` is blocked over 2048 bytes. Use `sed -n`.
 - `timeout` is not on PATH.
 - `$?` after a pipe belongs to the last command, not to npm. Redirect to a file instead.
