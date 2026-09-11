@@ -19,6 +19,19 @@ export interface ScriptedPage {
   title?: string;
   // When true, goto rejects — the browser could not load this hop at all.
   failsToLoad?: boolean;
+  // Later renders this same hop moves through, in order, the way a page that
+  // is still loading does — reached one at a time by calling advance(). Each
+  // entry may name any of url, html and title; a field it leaves out keeps
+  // whatever value the hop was last showing.
+  becomes?: { url?: string; html?: string; title?: string }[];
+}
+
+// One render of a hop: what url(), content() and title() report at a given
+// point in that hop's sequence.
+interface HopRender {
+  url: string;
+  html?: string;
+  title?: string;
 }
 
 // Wraps one scripted { url, status } pair as the ResolutionResponse shape
@@ -33,21 +46,41 @@ function toResolutionResponse(response: {
   };
 }
 
-export function fakeResolutionPage(script: ScriptedPage[]): ResolutionPage {
+// Turns a hop's own fields plus its becomes list into the full sequence of
+// renders it moves through. Each later render starts from the one before it,
+// so a field a becomes entry does not name carries forward unchanged.
+function hopRenders(page: ScriptedPage): HopRender[] {
+  const renders: HopRender[] = [{ url: page.url, html: page.html, title: page.title }];
+  for (const change of page.becomes ?? []) {
+    const previous = renders[renders.length - 1];
+    renders.push({
+      url: change.url ?? previous.url,
+      html: change.html ?? previous.html,
+      title: change.title ?? previous.title,
+    });
+  }
+  return renders;
+}
+
+export function fakeResolutionPage(
+  script: ScriptedPage[],
+): ResolutionPage & { advance(): void } {
   // Which scripted page goto is up to. The first goto serves script[0].
   let nextIndex = 0;
-  // The page the walk last landed on. Undefined until the first goto.
-  let currentPage: ScriptedPage | undefined;
+  // The renders of the hop the walk last landed on, and which one reads see
+  // right now. Empty until the first goto.
+  let renders: HopRender[] = [];
+  let renderIndex = 0;
   // Everyone listening for "response" events, in registration order.
   let handlers: ((response: ResolutionResponse) => void)[] = [];
 
   // Reading the page only makes sense once a goto has happened, so that
   // assumption is checked here in one place.
-  function requireCurrentPage(): ScriptedPage {
-    if (!currentPage) {
+  function requireCurrentRender(): HopRender {
+    if (renders.length === 0) {
       throw new Error("no page has loaded yet — call goto before reading the page");
     }
-    return currentPage;
+    return renders[renderIndex];
   }
 
   return {
@@ -82,35 +115,39 @@ export function fakeResolutionPage(script: ScriptedPage[]): ResolutionPage {
         }
       }
 
-      currentPage = page;
+      // A freshly loaded hop starts at its own first render, whatever render
+      // the hop before it was left on.
+      renders = hopRenders(page);
+      renderIndex = 0;
       return resolutionResponses[0] ?? null;
     },
 
     url() {
-      return requireCurrentPage().url;
+      return requireCurrentRender().url;
     },
 
     async content() {
-      return requireCurrentPage().html ?? "";
+      return requireCurrentRender().html ?? "";
     },
 
     async title() {
-      return requireCurrentPage().title ?? "";
+      return requireCurrentRender().title ?? "";
     },
 
     async $$eval<T>(selector: string, fn: (elements: PageAnchor[]) => T): Promise<T> {
-      const page = requireCurrentPage();
-      const { document } = parseHTML(`<html><body>${page.html ?? ""}</body></html>`);
+      const render = requireCurrentRender();
+      const { document } = parseHTML(`<html><body>${render.html ?? ""}</body></html>`);
 
       // linkedom does not resolve relative hrefs the way a browser does, so
       // every anchor's href is rewritten to its absolute form here — against
-      // the page's own settled URL — before anything reads it. An anchor
-      // with no href attribute is left untouched, since that is how the walk
-      // tells a real link apart from a modal trigger with nothing to follow.
+      // the URL the page is currently showing — before anything reads it. An
+      // anchor with no href attribute is left untouched, since that is how
+      // the walk tells a real link apart from a modal trigger with nothing
+      // to follow.
       for (const anchor of document.querySelectorAll("a")) {
         const href = anchor.getAttribute("href");
         if (href !== null) {
-          anchor.setAttribute("href", new URL(href, page.url).href);
+          anchor.setAttribute("href", new URL(href, render.url).href);
         }
       }
 
@@ -124,6 +161,15 @@ export function fakeResolutionPage(script: ScriptedPage[]): ResolutionPage {
 
     off(_event: "response", handler: (response: ResolutionResponse) => void) {
       handlers = handlers.filter((registered) => registered !== handler);
+    },
+
+    // Moves the current hop to its next scripted render. A no-op once the hop
+    // has reached its last render, and before any goto has loaded one — an
+    // over-advance describes a page that simply stopped changing.
+    advance() {
+      if (renderIndex < renders.length - 1) {
+        renderIndex += 1;
+      }
     },
   };
 }

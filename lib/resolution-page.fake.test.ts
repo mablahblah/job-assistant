@@ -232,3 +232,21 @@ describe("the page's links are read out of its HTML", () => {
     expect(await readLinks(page)).toEqual([]);
   });
 });
+
+describe("a hop can change between reads, the way a page finishes rendering", () => {
+  test("advancing serves the hop's next render", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://board.example/listing/1",
+        becomes: [{ title: "Senior Product Designer" }],
+      },
+    ]);
+
+    await page.goto("https://board.example/listing/1");
+    expect(await page.title()).toBe("");
+
+    page.advance();
+
+    expect(await page.title()).toBe("Senior Product Designer");
+  });
+});
