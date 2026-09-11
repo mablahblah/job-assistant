@@ -13,120 +13,78 @@
 
 ## Current Task
 
-Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`, where the old pipeline still works.
+Feature: **Unified Job Pipeline** — a long-lived branch, `feature/unified-pipeline`. Job searches run from `main`.
 
-**Nothing is in progress.** Phase 6, Dedupe, is built and closed. Six of fourteen phases are closed. The next unit of work is clearing the open threads below, then planning phase 7, URL Resolution, which has no spec yet.
+**Phase 7, URL Resolution, is planned and not started.** Its spec is written and approved at [`phases/phase-07-url-resolution-spec.md`](../docs/features/unified-pipeline/phases/phase-07-url-resolution-spec.md) — 81 acceptance criteria and 18 tasks, with the regression net named. Six of fourteen phases are closed.
 
-Working tree clean, nothing unpushed, at `e842521`. **1,728 tests across 64 files, `npm run lint` exits 0**, both verified fresh at session close. The session started at 1,662 across 61.
+**1,730 tests across 64 files pass, `npm run lint` exits 0**, both verified fresh at close. This session wrote no application code.
 
-**The post-collection pass is complete end to end.** `npm run collect` runs collection → normalization → association → dedupe → save, and leaves rows behind.
+**Nothing is committed.** HEAD is still `1193804`.
+
+| File | What changed |
+| --- | --- |
+| `phases/phase-07-url-resolution-spec.md` | New — the phase spec |
+| `phases/phase-07-url-resolution-r&d.md` | Settled decisions, two measurements, backlogged items, two open questions |
+| `meeting-notes/2026-09-11-phase-07-url-resolution-meeting-notes.md` | New |
+| `decision-log.md` | 24 entries added, 4 superseded |
+| `feature_spec.md` | Vocabulary, resolver rubric, dedupe tracking stories, phase table, sequencing note, two new blacklist stories, one story deleted and one reworded |
+| `docs/CURRENT-FEATURE.md` | Plan phase 7 checked, 18 build tasks listed |
+| `docs/BACKLOG.md` | Resolution Accuracy retired, entries renumbered, Resolver Refinements added at 26 |
+| `docs/research/resolution-accuracy.md` | Moved out of `features/`, six inbound links repointed |
+| `features/resolver-refinements/` | New |
+| `features/update-job-workflow/feature_r&d.md` | Enriched — the orchestrator left the pipeline feature |
+
+**Modified by the previous session, not this one:** `lib/job-list-entry.ts`, `lib/job-service.test.ts`, `prisma/schema.test.ts`.
 
 ## Completed This Session
 
-**Phase 6 tasks 8 through 15, its close, and two changes outside it.** Twenty-two commits, all pushed.
+Phase 7 planning, end to end — discovery, stories, two stress-test rounds, acceptance criteria, spec review, tracking, and wrap-up.
 
-- **Task 8** — `pickWinner` returns `{ dataWinner, idSurvivor }`; `created_at` moved into a new `STRIPPED_AT_WRITE_FIELDS`.
-- **Task 9** — `lib/job-dedupe.ts`, the in-list fold.
-- **Task 10** — `lib/dedupe-warnings.ts`, one `lookup_failed` kind.
-- **Task 11** — `lib/steps/dedupe.ts` plus three lookups added to the job service and its fake. 20 tests.
-- **Task 12** — dedupe's five trace events and the six-value `detail` on a losing row. 12 tests.
-- **Task 13** — save's two new rows: `abandoned` where no row held the id, `job_dbrow_delete_refused` where the guard refused, and the dedupe reason carried onto both plus `job_dbrow_deleted`.
-- **Task 14** — dedupe wired between association and save in the orchestrator.
-- **Task 15** — the trace proof gained a dedupe block running against a real SQLite file.
-- **The close** — architecture doc, `trace-events.md`, decision log, two superseded phase-5 criteria, phase 6's task list collapsed to one line.
-- **A bug fix outside the phase** — `lib/collectors/paginate.ts`, the empty-search warning.
-- **A refactor outside the phase** — `lib/trace-detail.ts`, the 200-character cut in one place.
-
-**Verified against live data, twice.** Run 1: 21 jobs collected, one genuine Adzuna duplicate folded, 20 rows written. Run 2: the same 21 re-found, all 20 matched their stored rows, **table stayed at 20 — zero duplicates created.** The shared-host veto correctly refused to merge two distinct Duolingo greenhouse reqs whose dates were inside the 30-day window.
-
-`pipeline.db` now holds that real data: **20 jobs, 296 trace rows, 2 runs.** Not a fresh database any more.
+- **Four discovery questions closed**, including the `abandoned` one that blocked the phase.
+- **Two live measurements**, recorded with their limits in the r&d.
+- **Six sub-agents** across two stress-test rounds. Two findings were verified by hand against shipped code and changed the phase's scope.
+- **Backlog changes approved and written** — Resolution Accuracy retired into phase 7, Resolver Refinements added.
 
 ## Decisions & Context
 
-### Decisions the user made
+**Every decision is in the decision log** — 24 entries dated 2026-09-11. Read those rather than re-deriving them. What follows is only what lives nowhere else.
 
-- **`Trace.detail` holds a named shape per event kind, not one loose `Record<string, string>`.** Their words: "yes, cont", after asking what widening the type would do. A loose record stops the compiler checking any detail shape, so a misspelled key would reach the database unnoticed. Logged.
-- **The 200-character detail cut lives in one place.** Their words: "Can this live in 1 place?" — chosen over the backlog item that was proposed. Logged.
-- **The dribbble empty-search rule does not go in the decision log.** Their words: "No." It stays as work-documentation in `lib/collectors/paginate.ts`.
+### Two sub-agent claims were wrong, and both would have cost work
 
-### Calls made while building, not put to the user
+One proposed the `abandoned` retrofit emit both events from dedupe, which would have written `job_dbrow_deleted` twice for every merged-away row — save already writes it at `lib/steps/save.ts:78`. The same agent flagged dedupe's pass-one loop as needing the same fix; it doesn't, for the same reason. **Verify a sub-agent's claim against the code before acting on it.**
 
-These were offered for recording in the phase 6 spec and the offer was not taken up, so they live here only.
+### The measurement instrument matters more than the number
 
-- **A stored row pulled onto the list gets `added_to_job_list` whether or not its id survived.** It joined either way. A row that then loses gets two rows in one step — that one and its deletion.
-- **The step returns survivors first, then everything marked away.** Save needs the losers on the list to delete their rows; nothing depended on the order.
-- **A claim keeps the clause that first tied a row to it.** A second entry folding into an existing claim names that original clause, not whichever one matched the second entry.
-- **Every `detail` value is truncated, including the ISO date and the clause** — uniform rather than only the fields that can run long.
-- **The dribbble fix judges emptiness at the collector level.** A broken selector empties every search; a genuinely empty one sits beside siblings that found cards. This is why `paginate` reports `foundNoCards` instead of warning, and `noCardsWarnings` speaks only when every search came back empty.
-- **`truncateDetail` is a util, not a method on the trace service.** The fake trace service in step tests only records, so truncating at the write would be invisible to every step test that asserts it.
+The first same-domain-hop run measured "did the description survive the hop", which is not the question that was asked. The second measured "is the previous URL a job posting", using the structured data boards publish for Google Jobs. Greenhouse publishes none, and Ashby and Workday return empty bodies to a plain fetch — so half that run measured which boards opt into structured data rather than anything about resolution, and was discarded rather than reported.
 
 ### Gotchas found this session
 
-- **Prisma's JSON input needs an implicit index signature, which TypeScript gives a `type` alias and withholds from an `interface`.** `DedupeTraceDetail` failed to compile as an interface and works as a type. Both new detail shapes are types for this reason.
-- **`Job.company_id` is a real foreign key.** A test seeding a job row with a `company_id` must seed the company first, or the write fails on the constraint.
-- **Two stored rows with identical `created_at` tie**, and `pickIdSurvivor` returns the `earlier` argument. A test asserting which one survives must give them distinct birthdays or it is asserting an arbitrary outcome. One test written this session did that and was wrong, not the code.
-- **`npm run collect` rewrites collector fixtures** as a side effect. Any verification run leaves `lib/collectors/fixtures/*.html` modified. That is intended — it is how the offline markup test keeps its baseline — but the run does not announce it.
-- **The efficiency check still has to be run by hand.** The dedupe step measured linear: 57 → 129 → 264 → 535 ms as the list doubles from 500 to 4,000 jobs. Nothing in the rubric asked for it.
+- **A scratchpad script can reach `node_modules` by symlinking it in.** This supersedes the previous hand-off's claim that it cannot. Both measurements ran that way, with no spike code in the repo.
+- **`check-links.py` does not decode `%26`**, so it flags 25 working `feature_r&d.md` links. There are 17 genuinely broken links, all pre-existing, mostly `docs/APP.md`.
+- **Most URLs in `dev.db` are dead** — roughly a third of the Adzuna sample 404s or 410s, and 13 of 40 Lever postings had expired. Sample well above the target count.
+- **Playwright 1.58 is installed**, and a headed run opens windows that take focus.
+- **`spec-review` expects the draft not to be on disk** until approved. It was written first this session.
 
-### Approaches refused, so they do not come back
+### Approaches tried and abandoned
 
-- **A loose `Record<string, string>` for `TraceDetail`.** It never grows, and it stops the compiler checking any shape.
-- **Packing a losing row's six values into one string.** The `detail` column is Json so structure survives; a packed string cannot be queried.
-- **Truncating inside the trace service.** Invisible to every step test, because the fake only records.
-- **Silencing the no-cards warning per search.** It would go quiet on a genuinely broken selector, which is the only thing the check exists for.
+- **Porting the spike's Adzuna fix** — a domain-specific `if` beside the dead weLoveProduct one. Rejected against the architecture; the three general rules replace both.
+- **Following a same-domain link only while on the starting domain** — the user called it an overfit before any of it was built.
+- **A circuit breaker for a refusing host** — designed in full, then dropped as unmeasured. It is backlog entry 26's sixth item.
+- **Capturing Ashby and Workday postings as fixtures** — proposed and withdrawn; a client-hydrated page does not replay from saved HTML. The hop loop is tested against a fake `Page` instead.
 
-### Open threads
+### Not preserved
 
-Clearing these is the first task — see Next Steps.
-
-1. **Whether `lib/job-label.ts` earns a decision-log entry.** Offered twice across two sessions, never answered.
-2. **Whether the code-quality rubric gains an efficiency line.** Two options were put up and deferred: a line in `~/.claude/references/rubrics/code-quality-criteria.md` asking whether the work scales to real input, or a measurement step in `crowd-code` for changes that loop over a collection. The recommendation was the rubric line alone.
-3. **The contested-link guard test is missing from `lib/job-service.test.ts`.** The fake has it, the real service does not. Offered three times, never answered.
-4. **`DEDUPE_REASONS` and the `Trace` comment can drift apart** with nothing complaining.
-5. **`tableIndexes` in `prisma/schema.test.ts` has no test of its own.** Offered, never answered.
-6. **There are now eight merge groups** in `lib/job-merge.ts`, three of them saying "the merge does not settle this" — `NEVER_WRITTEN_FIELDS`, `DERIVED_AT_WRITE_FIELDS`, `STRIPPED_AT_WRITE_FIELDS`. Whether three is right has never been asked.
-7. **The writer-skipping decision is rule-shaped.** It is in the decision log dated 2026-09-09 but not yet written into `crowd-code`'s SKILL.md.
-8. **Whether Phase 11a wants a database reset of its own.** In the phase 11a r&d.
-9. **Phase 6 planning ran across several sessions and only the last has meeting notes.**
-10. **`pipeline.db` holds two runs of real data.** Run `npm run db:create && npm run db:seed` for a clean slate, or keep it — a third run is a further test of the database compare, and phase 7 works on resolution, so a table holding 20 real unresolved jobs is useful rather than in the way.
-
-**Closed since the last hand-off:** the fold algorithm shipped, is measured, is tested and is now proven on live data; the `company_id`+`title` index turned out to be task 1's all along.
+Both experiment harnesses lived in the session scratchpad and are gone. Their results are in the r&d. `same-domain-hop.mjs` is the one worth rebuilding if Resolver Refinements is ever picked up.
 
 ### Carried forward, still true
 
-**`cat` is blocked on any file over 2048 bytes** — use `sed -n 'START,ENDp'` or the Read tool. **The commit hook prints a graph analysis block** on every commit; harmless. **It also flags private helpers as untested** even where tests cover them through the module's public function. **`grep -r --include=*.ts` fails in this shell** — quote it as `--include="*.ts"`. **`timeout` is not on PATH** — use the Bash tool's own timeout parameter. **Vitest swallows `console.log` here** — write probe output to a file. **These test files import `test`, not `it`.** **Vitest output carries ANSI codes** — strip with `sed -e 's/\x1b\[[0-9;]*m//g'`. **`npx tsx -e` cannot run top-level `await`.** **`PIPESTATUS` does not survive** — use `cmd > file 2>&1; echo $?`. **`npm run lint` runs ESLint then `npx tsc --noEmit`**, with no `--max-warnings`, so a warning passes and a type error does not.
-
-**A `crowd-code-writer` returns `<` and `>` HTML-escaped.** Convert them back before applying a snippet.
-
-**After editing `prisma/schema.prisma`, run `npx prisma format` then `npx prisma generate`,** then `npm run db:create` and `npm run db:seed`.
-
-**Anything new under `lib/steps/` loads two rules** — `.claude/rules/pipeline-steps.md` and `.claude/rules/naming.md`. **Anything touching `lib/collectors/registry.ts` loads a third**, `.claude/rules/source-registry.md`. Nothing path-scoped covers `lib/collectors/**` otherwise. **Editing any file under `.claude/rules/` goes through the `writing-rules` skill.** **A `docs/BACKLOG.md` change needs the user's approval before it is written.**
-
-**Every message to the user over one paragraph ends with a one-sentence TL;DR.**
+`cat` is blocked over 2048 bytes — use `sed -n` or Read. `grep -r --include` needs the pattern quoted. `timeout` is not on PATH. Vitest swallows `console.log` and its output carries ANSI codes. `PIPESTATUS` does not survive. `npm run lint` runs ESLint then `tsc --noEmit`. `dev.db` at the repo root is the legacy database; `pipeline.db` is the new one. After editing `prisma/schema.prisma` run `npx prisma format`, `npx prisma generate`, then `db:create` and `db:seed`. Anything new under `lib/steps/` loads `pipeline-steps.md` and `naming.md`. Rule edits go through `writing-rules`, skill edits through `writing-skills`. A `docs/BACKLOG.md` change needs approval first. Questions are plain text. Every message over one paragraph ends with a TL;DR.
 
 ## Next Steps
 
-1. **Clear the open threads.** They are the first task. Several have been carried for three sessions, and each is small.
-
-   **Six need one answer from the user, and nothing else:**
-   - Thread 1 — does `lib/job-label.ts` earn a decision-log entry?
-   - Thread 2 — does the code-quality rubric gain an efficiency line? Recommendation: the rubric line alone.
-   - Thread 3 — add the contested-link guard test to `lib/job-service.test.ts`?
-   - Thread 5 — give `tableIndexes` in `prisma/schema.test.ts` a test of its own?
-   - Thread 6 — are three "the merge does not settle this" groups right, or would two do?
-   - Thread 10 — reset `pipeline.db`, or keep the two runs of real data?
-
-   Ask all six together as plain text, not one per turn.
-
-   **Three are work, and need no permission beyond the go-ahead:**
-   - Thread 4 — tie `DEDUPE_REASONS` to the `Trace` comment so the two cannot drift. A test reading the schema file as text already exists in `prisma/schema.test.ts` to copy from.
-   - Thread 7 — write the writer-skipping rule into `crowd-code`'s SKILL.md, through the `writing-skills` skill.
-   - Thread 9 — backfill meeting notes for the phase 6 planning sessions that have none, or record that they will not be written.
-
-   Thread 8 belongs to phase 11a and is answered when that phase is planned, not now.
-
-2. **Plan phase 7, URL Resolution.** Follow [`phase-planning-procedure.md`](../docs/features/unified-pipeline/phase-planning-procedure.md), starting from the phase 7 r&d file in [`phases/`](../docs/features/unified-pipeline/phases/) if one exists. The spec is written into `phases/` and its tasks go under the build item in `docs/CURRENT-FEATURE.md`.
-
-3. **Carry dedupe's obligation into the phase 7 spec.** Resolution must never write a `resolved_url` for a page that was not a job posting, and must leave the field empty where it cannot reach one. A generic careers page shared by several jobs gives them one key, and because matches chain, every job at that employer would collapse into a single row. It is in the decision log dated 2026-09-09 and dedupe cannot see the difference without sweeping the table.
-
-4. **Then build phase 7,** following the working flow in [`feature_spec.md`](../docs/features/unified-pipeline/feature_spec.md#working-flow).
+1. **Build phase 7, task 1** — port the blacklist into `lib/blacklist.ts` with its tests. Source is `legacy/lib/blacklist.ts`, ported unchanged; criteria 12 to 15 cover it.
+2. **Then tasks 2 to 4**, the other unchanged ports — domain utilities, dead-end signals, the apply-link pattern.
+3. **Task 5 before tasks 6 to 8.** The fake `Page` has to exist before the hop loop can be tested, and nothing in this codebase fakes one today.
+4. **Two open questions are answered during the build, not before it:** how strong the settle condition has to be, and how common an apply button whose wording misses `APPLY_LINK_PATTERNS` really is. Both are in the r&d with the evidence each needs.
+5. **`pipeline.db` still holds 20 jobs, 31 companies, 296 trace rows** and was never reset. Eleven of the 20 are unresolved and the user wanted them in a bigger resolver test set.
+6. **`architecture.md:110` and the phase 5 and 6 specs still encode the old `abandoned` meaning.** That is correct today and becomes wrong when task 15 lands — task 15 supersedes the phase specs' criteria, and phase 7's close updates the architecture doc.
