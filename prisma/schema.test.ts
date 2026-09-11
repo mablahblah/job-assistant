@@ -833,15 +833,15 @@ describe("Trace: the model comment carries both vocabularies", () => {
 
   test("resolution's reason codes are listed", () => {
     // None of these is a substring of another or of a reason already in the
-    // comment. hop_budget_spent is the one that sits on two events, which is
+    // comment. page_limit_reached is the one that sits on two events, which is
     // what lets a single query count how often four hops is the binding
     // constraint.
     const comment = traceComment();
     const reasons = [
       "no_apply_links",
-      "walked_off_domain",
-      "same_domain_hop_discarded",
-      "hop_budget_spent",
+      "link_left_site",
+      "stayed_on_site",
+      "page_limit_reached",
       "dead_end",
       "page_unavailable",
       "page_load_failed",

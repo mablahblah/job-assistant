@@ -8,7 +8,7 @@
 // writes or deletes a row, so it opens no database of its own and a fake
 // serves its tests. A loser rides the returned list carrying delete_on_save,
 // and the save step downstream is what removes it.
-import { foldMatchingJobs } from "../job-dedupe";
+import { mergeMatchingJobs } from "../job-dedupe";
 import { matchingClause } from "../job-identity";
 import { mergeJobs, pickWinner } from "../job-merge";
 import { urlMatchKey } from "../url-match-key";
@@ -65,7 +65,7 @@ interface PendingTrace {
   detail?: DedupeTraceDetail;
 }
 
-interface PairFold {
+interface PairMerge {
   merged: JobListEntry;
   loser: JobListEntry;
 }
@@ -98,9 +98,9 @@ export async function dedupeJobs(
   }
 
   // Pass one: entries that match each other on the list. Each loser already
-  // carries the delete_on_save the save step reads, and foldMatchingJobs
+  // carries the delete_on_save the save step reads, and mergeMatchingJobs
   // already knows which immediate partner it lost to and on what clause.
-  const { jobs: listSurvivors, folds } = foldMatchingJobs(toDedupe, priorityList, collectedAt);
+  const { jobs: keptJobs, folds } = mergeMatchingJobs(toDedupe, priorityList, collectedAt);
   for (const fold of folds) {
     marked.push(fold.loser);
     const reason = fold.loser.delete_on_save;
@@ -128,7 +128,7 @@ export async function dedupeJobs(
   // Row id to the claim on it.
   const claims = new Map<string, ClaimInfo>();
 
-  for (const entry of listSurvivors) {
+  for (const entry of keptJobs) {
     let confirmed: ConfirmedRow[];
     try {
       confirmed = await findMatchingRows(entry, jobService, listIds);
@@ -161,7 +161,7 @@ export async function dedupeJobs(
       // clause on record is the one that first tied that row to the claim,
       // not whichever clause matches this entry to it.
       const claim = survivors[claimInfo.index] as JobListEntry;
-      const fold = foldPair(claim, entry, priorityList, collectedAt);
+      const fold = mergePair(claim, entry, priorityList, collectedAt);
       current = fold.merged;
       marked.push(fold.loser);
       pending.push(leavingRow(fold.loser, fold.merged.id, claimInfo.clause));
@@ -174,7 +174,7 @@ export async function dedupeJobs(
       // A stored row is the earlier side, matching how the save step calls
       // mergeJobs(stored, entry): order settles the tie-break, which the
       // later side wins, and the collection date, which the earlier supplies.
-      const fold = foldPair(row, current, priorityList, collectedAt);
+      const fold = mergePair(row, current, priorityList, collectedAt);
       current = fold.merged;
       marked.push(fold.loser);
       pending.push(leavingRow(fold.loser, fold.merged.id, clause));
@@ -282,15 +282,15 @@ function claimFor(
 // Merges two sides of the same job. pickWinner gives the id to whichever side
 // holds a created_at, the signal for already holding a database row, so a
 // stored row's id always survives against a fresh entry.
-function foldPair(
+function mergePair(
   earlier: JobListEntry,
   later: JobListEntry,
   priorityList: readonly string[],
   collectedAt: Date
-): PairFold {
+): PairMerge {
   const merged = mergeJobs(earlier, later, priorityList, collectedAt);
-  const { idSurvivor } = pickWinner(earlier, later, priorityList);
-  const loser = idSurvivor === earlier ? later : earlier;
+  const { idWinner } = pickWinner(earlier, later, priorityList);
+  const loser = idWinner === earlier ? later : earlier;
   return {
     // The merged entry is what goes on to meet the next side.
     merged,

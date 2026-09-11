@@ -53,7 +53,7 @@ export interface ResolutionPage {
 // One page and the way to shut it down again. A real lease holds a browser
 // context, so closing it takes that job's cookies and consent state with it
 // and the next job's walk starts clean.
-export interface ResolutionPageLease {
+export interface OpenPage {
   page: ResolutionPage;
   close(): Promise<void>;
 }
@@ -61,7 +61,7 @@ export interface ResolutionPageLease {
 // Opens a fresh page for one job's walk. The resolution step is handed this
 // rather than a browser, so it launches nothing of its own and a scripted
 // fake stands in for Playwright with no adapter.
-export type ResolutionPageFactory = () => Promise<ResolutionPageLease>;
+export type ResolutionPageFactory = () => Promise<OpenPage>;
 
 // A browser open for one resolution run, and the way to shut it down again.
 // One browser serves the whole run; every job takes its own page from it.

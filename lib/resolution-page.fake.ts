@@ -28,7 +28,7 @@ export interface ScriptedPage {
 
 // One render of a hop: what url(), content() and title() report at a given
 // point in that hop's sequence.
-interface HopRender {
+interface PageRender {
   url: string;
   html?: string;
   title?: string;
@@ -49,8 +49,8 @@ function toResolutionResponse(response: {
 // Turns a hop's own fields plus its becomes list into the full sequence of
 // renders it moves through. Each later render starts from the one before it,
 // so a field a becomes entry does not name carries forward unchanged.
-function hopRenders(page: ScriptedPage): HopRender[] {
-  const renders: HopRender[] = [{ url: page.url, html: page.html, title: page.title }];
+function pageRenders(page: ScriptedPage): PageRender[] {
+  const renders: PageRender[] = [{ url: page.url, html: page.html, title: page.title }];
   for (const change of page.becomes ?? []) {
     const previous = renders[renders.length - 1];
     renders.push({
@@ -69,14 +69,14 @@ export function fakeResolutionPage(
   let nextIndex = 0;
   // The renders of the hop the walk last landed on, and which one reads see
   // right now. Empty until the first goto.
-  let renders: HopRender[] = [];
+  let renders: PageRender[] = [];
   let renderIndex = 0;
   // Everyone listening for "response" events, in registration order.
   let handlers: ((response: ResolutionResponse) => void)[] = [];
 
   // Reading the page only makes sense once a goto has happened, so that
   // assumption is checked here in one place.
-  function requireCurrentRender(): HopRender {
+  function requireCurrentRender(): PageRender {
     if (renders.length === 0) {
       throw new Error("no page has loaded yet — call goto before reading the page");
     }
@@ -117,7 +117,7 @@ export function fakeResolutionPage(
 
       // A freshly loaded hop starts at its own first render, whatever render
       // the hop before it was left on.
-      renders = hopRenders(page);
+      renders = pageRenders(page);
       renderIndex = 0;
       return resolutionResponses[0] ?? null;
     },

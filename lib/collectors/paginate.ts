@@ -56,7 +56,7 @@ export interface PaginateResult {
 
 // However deep a site's results go, one search never walks further than this.
 // Reaching it means the date-based stop did not work, which is worth a warning.
-export const PAGE_CEILING = 6;
+export const PAGE_LIMIT = 6;
 
 // Why the loop ended. Staying null is what earns the ceiling warning, so it
 // is tracked outright rather than guessed at from the turn count.
@@ -68,8 +68,8 @@ function unreadableAgeWarning(search: string, age: string): string {
   return `${search}: could not read the age "${age}" on a result card, so the search stopped`;
 }
 
-function ceilingWarning(search: string): string {
-  return `${search}: stopped at the ${PAGE_CEILING}-page ceiling, so the date-based stop never fired`;
+function limitWarning(search: string): string {
+  return `${search}: stopped at the ${PAGE_LIMIT}-page ceiling, so the date-based stop never fired`;
 }
 
 function noCardsAnywhereWarning(searches: number): string {
@@ -99,7 +99,7 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
   let matchedTotal = 0;
   let stopReason: StopReason | null = null;
 
-  for (let turn = 0; turn < PAGE_CEILING; turn++) {
+  for (let turn = 0; turn < PAGE_LIMIT; turn++) {
     let page: PageRead;
     try {
       page = await readPage();
@@ -149,7 +149,7 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
 
     // On the last turn the ceiling ends the search anyway, so advancing here
     // would load a page nothing ever reads.
-    if (turn === PAGE_CEILING - 1) break;
+    if (turn === PAGE_LIMIT - 1) break;
 
     let hasNextPage: boolean;
     try {
@@ -167,7 +167,7 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
   }
 
   if (stopReason === null) {
-    warnings.push(ceilingWarning(search));
+    warnings.push(limitWarning(search));
   }
 
   let selfCheckFailed = false;

@@ -29,7 +29,7 @@ function isModalTrigger(href: string): boolean {
 // elsewhere and reading the href here would misjudge those.
 export function decideNextAction(
   applyLinks: ApplyLink[],
-  hopBudgetRemains: boolean,
+  pagesLeft: boolean,
 ): NextAction {
   const realLink = applyLinks.find((link) => !isModalTrigger(link.href));
 
@@ -39,7 +39,7 @@ export function decideNextAction(
     return { action: "resolved", reason: "no_apply_links" };
   }
 
-  if (!hopBudgetRemains) {
+  if (!pagesLeft) {
     return { action: "budget_spent", unfollowedUrl: realLink.href };
   }
 

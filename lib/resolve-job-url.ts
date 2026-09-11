@@ -8,10 +8,10 @@ import { isBlacklistedUrl } from "./blacklist";
 import { detectDeadEndSignals } from "./dead-end-signals";
 import { decideNextAction } from "./decide-next-action";
 import type { ResolutionPage, ResolutionResponse } from "./resolution-page";
-import { settlePage } from "./settle-page";
+import { waitForPageToLoad } from "./wait-for-page-to-load";
 import { isSameDomain } from "./url-domain";
 
-const DEFAULT_MAX_HOPS = 4;
+const DEFAULT_MAX_PAGES = 4;
 const DEFAULT_TIMEOUT_MS = 15000;
 
 export type ResolutionOutcome =
@@ -20,18 +20,18 @@ export type ResolutionOutcome =
       resolvedUrl: string;
       reason:
         | "no_apply_links"
-        | "walked_off_domain"
-        | "same_domain_hop_discarded"
-        | "hop_budget_spent";
+        | "link_left_site"
+        | "stayed_on_site"
+        | "page_limit_reached";
     }
   | {
       outcome: "failed";
-      reason: "page_unavailable" | "page_load_failed" | "dead_end" | "hop_budget_spent";
+      reason: "page_unavailable" | "page_load_failed" | "dead_end" | "page_limit_reached";
     }
   | { outcome: "blacklisted" };
 
 export interface ResolveJobUrlOptions {
-  maxHops?: number;
+  maxPages?: number;
   settle?: (page: ResolutionPage) => Promise<void>;
   timeoutMs?: number;
 }
@@ -44,14 +44,14 @@ function isSuccessStatus(status: number): boolean {
 // The status of the page actually being looked at. A page can load fine and then jump
 // somewhere that refuses, so the last response recorded for the settled address wins;
 // goto's own response only ever describes the first page.
-function statusOfLandedPage(
+function statusOfFinalPage(
   recorded: ResolutionResponse[],
-  landedUrl: string,
+  finalUrl: string,
   gotoResponse: ResolutionResponse | null,
 ): number | undefined {
   for (let i = recorded.length - 1; i >= 0; i--) {
     const response = recorded[i];
-    if (response.url() === landedUrl) return response.status();
+    if (response.url() === finalUrl) return response.status();
   }
   return gotoResponse?.status();
 }
@@ -61,21 +61,21 @@ export async function resolveJobUrl(
   page: ResolutionPage,
   options?: ResolveJobUrlOptions,
 ): Promise<ResolutionOutcome> {
-  const maxHops = options?.maxHops ?? DEFAULT_MAX_HOPS;
-  const settle = options?.settle ?? settlePage;
+  const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
+  const settle = options?.settle ?? waitForPageToLoad;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   let currentUrl = startUrl;
   // Where the walk stood before this hop, so a hop can be undone after the fact.
   let previousUrl: string | undefined;
 
-  for (let hop = 0; hop < maxHops; hop++) {
+  for (let hop = 0; hop < maxPages; hop++) {
     const recorded: ResolutionResponse[] = [];
     const record = (response: ResolutionResponse): void => {
       recorded.push(response);
     };
 
-    let landedUrl = "";
+    let finalUrl = "";
     let status: number | undefined;
 
     // Listening has to start before the load, or the redirect chain is missed.
@@ -92,8 +92,8 @@ export async function resolveJobUrl(
       }
 
       await settle(page);
-      landedUrl = page.url();
-      status = statusOfLandedPage(recorded, landedUrl, gotoResponse);
+      finalUrl = page.url();
+      status = statusOfFinalPage(recorded, finalUrl, gotoResponse);
     } finally {
       page.off("response", record);
     }
@@ -103,7 +103,7 @@ export async function resolveJobUrl(
     }
 
     // Judged on where the page settled, not where the hop aimed.
-    if (isBlacklistedUrl(landedUrl)) {
+    if (isBlacklistedUrl(finalUrl)) {
       return { outcome: "blacklisted" };
     }
 
@@ -112,11 +112,11 @@ export async function resolveJobUrl(
       // A hop that stayed on the same host led to an application form, so the page
       // before it is the posting. An off-host hop came from an aggregator, and
       // stepping back there gains nothing.
-      if (previousUrl !== undefined && isSameDomain(previousUrl, landedUrl)) {
+      if (previousUrl !== undefined && isSameDomain(previousUrl, finalUrl)) {
         return {
           outcome: "resolved",
           resolvedUrl: previousUrl,
-          reason: "same_domain_hop_discarded",
+          reason: "stayed_on_site",
         };
       }
       return { outcome: "failed", reason: "dead_end" };
@@ -131,12 +131,12 @@ export async function resolveJobUrl(
     const applyLinks: ApplyLink[] = filterApplyLinks(rawLinks);
 
     // Budget remains while one more page still fits inside the ceiling.
-    const hopBudgetRemains = hop + 1 < maxHops;
-    const decision = decideNextAction(applyLinks, hopBudgetRemains);
+    const pagesLeft = hop + 1 < maxPages;
+    const decision = decideNextAction(applyLinks, pagesLeft);
 
     if (decision.action === "follow") {
       // Followed blind — the host comparison only happens once the page has landed.
-      previousUrl = landedUrl;
+      previousUrl = finalUrl;
       currentUrl = decision.nextUrl;
       continue;
     }
@@ -145,25 +145,25 @@ export async function resolveJobUrl(
       // The unfollowed link decides: same host means it was the application form and
       // the walk already stands on the posting; a different host means the posting
       // sits somewhere the walk never reached.
-      return isSameDomain(decision.unfollowedUrl, landedUrl)
-        ? { outcome: "resolved", resolvedUrl: landedUrl, reason: "hop_budget_spent" }
-        : { outcome: "failed", reason: "hop_budget_spent" };
+      return isSameDomain(decision.unfollowedUrl, finalUrl)
+        ? { outcome: "resolved", resolvedUrl: finalUrl, reason: "page_limit_reached" }
+        : { outcome: "failed", reason: "page_limit_reached" };
     }
 
     // Nothing worth following here, so this is the end of the walk.
     if (previousUrl === undefined) {
-      return { outcome: "resolved", resolvedUrl: landedUrl, reason: "no_apply_links" };
+      return { outcome: "resolved", resolvedUrl: finalUrl, reason: "no_apply_links" };
     }
-    if (isSameDomain(previousUrl, landedUrl)) {
+    if (isSameDomain(previousUrl, finalUrl)) {
       return {
         outcome: "resolved",
         resolvedUrl: previousUrl,
-        reason: "same_domain_hop_discarded",
+        reason: "stayed_on_site",
       };
     }
-    return { outcome: "resolved", resolvedUrl: landedUrl, reason: "walked_off_domain" };
+    return { outcome: "resolved", resolvedUrl: finalUrl, reason: "link_left_site" };
   }
 
   // Unreachable: the last hop never follows a link, because its budget is spent.
-  return { outcome: "failed", reason: "hop_budget_spent" };
+  return { outcome: "failed", reason: "page_limit_reached" };
 }

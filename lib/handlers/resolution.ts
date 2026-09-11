@@ -27,7 +27,7 @@ export interface ResolveJobsResult {
 
 // One job after its walk: the entry to return, and the row the walk earned.
 // A walk that wrote nothing worth recording carries no event.
-interface WalkedEntry {
+interface FollowedEntry {
   job: JobListEntry;
   event?: string;
   reason?: string;
@@ -36,11 +36,11 @@ interface WalkedEntry {
 // Nothing found, nothing claimed. Dedupe reads a shared resolved URL as proof
 // that two jobs are one, so a page the walk only passed through must never be
 // written as an answer.
-function parked(job: JobListEntry): JobListEntry {
+function markUnresolvable(job: JobListEntry): JobListEntry {
   return { ...job, is_resolved: false, resolved_url: null, status: "unresolvable" };
 }
 
-function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): WalkedEntry {
+function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): FollowedEntry {
   if (outcome.outcome === "resolved") {
     // A job that resolved keeps whatever status it already had: resolution
     // places a job, it does not move it.
@@ -52,13 +52,13 @@ function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): WalkedEntr
   }
 
   if (outcome.outcome === "failed") {
-    return { job: parked(job), event: "resolution_failed", reason: outcome.reason };
+    return { job: markUnresolvable(job), event: "resolution_failed", reason: outcome.reason };
   }
 
   // No collector will ever find a hand-entered job again, so dropping it would
-  // destroy it for good. It is parked instead, and stays repairable.
+  // destroy it for good. It is markUnresolvable instead, and stays repairable.
   if (job.collector === "user") {
-    return { job: parked(job), event: "resolution_failed", reason: "blacklisted_url" };
+    return { job: markUnresolvable(job), event: "resolution_failed", reason: "blacklisted_url" };
   }
 
   return {
@@ -68,11 +68,11 @@ function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): WalkedEntr
   };
 }
 
-async function walkJob(
+async function followJobLink(
   job: JobListEntry,
   openPage: ResolutionPageFactory,
   settle?: (page: ResolutionPage) => Promise<void>
-): Promise<WalkedEntry> {
+): Promise<FollowedEntry> {
   // A walk needs somewhere to start. An entry holding no link is handed back
   // untouched rather than walked from a made-up URL.
   if (!job.original_url) return { job };
@@ -122,7 +122,7 @@ export async function resolveJobs(
       next += 1;
 
       const job = jobs[index];
-      const walked = await walkJob(job, openPage, settle);
+      const walked = await followJobLink(job, openPage, settle);
       resolvedJobs[index] = walked.job;
 
       // A trace row is keyed by job id and collector, so a job carrying

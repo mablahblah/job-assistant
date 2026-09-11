@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { JobListEntry } from "./job-list-entry";
-import { foldMatchingJobs } from "./job-dedupe";
+import { mergeMatchingJobs } from "./job-dedupe";
 
 // greenhouse outranks adzuna, so the priority contest has an answer.
 const LIST = ["parser:greenhouse", "collector:greenhouse", "collector:adzuna"];
@@ -13,7 +13,7 @@ const JAN_01_EVENING = new Date("2025-01-01T20:00:00.000Z");
 const CREATED_EARLY = new Date("2024-06-01T00:00:00.000Z");
 
 function fold(jobs: JobListEntry[]) {
-  return foldMatchingJobs(jobs, LIST, COLLECTED_AT);
+  return mergeMatchingJobs(jobs, LIST, COLLECTED_AT);
 }
 
 // A role at one company, dated, so the company-and-title clause can fire.

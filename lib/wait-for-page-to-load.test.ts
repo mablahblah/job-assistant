@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { PageAnchor, ResolutionPage } from "./resolution-page";
 import { fakeResolutionPage } from "./resolution-page.fake";
-import { settlePage } from "./settle-page";
+import { waitForPageToLoad } from "./wait-for-page-to-load";
 
 // A page's anchors, as many as a test needs. A settled page carries five or
 // more of them, so a test says "enough" or "not enough" by count alone.
@@ -24,7 +24,7 @@ describe("a page that already looks finished is not waited on", () => {
     await page.goto("https://employer.example/careers/9");
 
     let waits = 0;
-    await settlePage(page, {
+    await waitForPageToLoad(page, {
       wait: async () => {
         waits += 1;
       },
@@ -50,7 +50,7 @@ describe("a page that is still going is given time", () => {
     ]);
     await page.goto("https://redirector.example/out");
 
-    await settlePage(page, {
+    await waitForPageToLoad(page, {
       wait: async () => {
         page.advance();
       },
@@ -68,7 +68,7 @@ describe("a page that is still going is given time", () => {
     ]);
     await page.goto("https://employer.example/careers/9");
 
-    await settlePage(page, {
+    await waitForPageToLoad(page, {
       wait: async () => {
         page.advance();
       },
@@ -89,8 +89,8 @@ describe("a page that never settles is judged as it stands", () => {
     let waits = 0;
 
     await expect(
-      settlePage(page, {
-        budgetMs: 600,
+      waitForPageToLoad(page, {
+        timeAllowedMs: 600,
         intervalMs: 200,
         now: () => elapsed,
         wait: async (ms) => {
@@ -137,7 +137,7 @@ describe("a read that fails because the page moved is progress, not a failure", 
       },
     };
 
-    await settlePage(navigatingPage, {
+    await waitForPageToLoad(navigatingPage, {
       wait: async () => {
         page.advance();
       },

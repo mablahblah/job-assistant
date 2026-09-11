@@ -436,7 +436,7 @@ describe("the resolution job list", () => {
     const service = fakeJobService([
       storedJob("list-waiting"),
       storedJob("list-resolved", { is_resolved: true }),
-      storedJob("list-parked", { status: "unresolvable" }),
+      storedJob("list-markUnresolvable", { status: "unresolvable" }),
     ]);
 
     const found = await service.findUnresolved();

@@ -504,7 +504,7 @@ describe("the resolution job list", () => {
   test("holds only backlog jobs that are not yet resolved", async () => {
     await seedRow("list-filter-waiting");
     await seedRow("list-filter-resolved", { is_resolved: true });
-    await seedRow("list-filter-parked", { status: "unresolvable" });
+    await seedRow("list-filter-markUnresolvable", { status: "unresolvable" });
 
     const found = onlyMine(await service.findUnresolved(), "list-filter-");
 

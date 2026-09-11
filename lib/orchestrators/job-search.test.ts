@@ -1038,7 +1038,7 @@ function browserFor(
 
 // Settling is its own module with its own tests, so every walk here is
 // scripted as an already-finished page.
-const NO_SETTLE = async () => {};
+const NO_WAIT = async () => {};
 
 // AC 7. Collection found nothing this run, and the leg still runs, because the
 // list it walks comes out of the database rather than from collection.
@@ -1062,7 +1062,7 @@ describe("AC 7: the resolution leg runs over whatever the database says needs it
         [[{ url: "https://employer.example/9", html: "<p>A job posting</p>" }]],
         log
       ),
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(log.launches).toBe(1);
@@ -1086,7 +1086,7 @@ function arrivesAt(url: string): ScriptedPage[] {
 // collectors, so the collect leg contributes nothing and what the report
 // carries is what this leg did. The caller supplies the rows on file and the
 // walk each job takes; the rest is the same every time.
-function resolutionLegOver(
+function resolutionStepOver(
   rows: JobListEntry[],
   scripts: ScriptedPage[][],
   log: BrowserLog = { launches: 0, closes: 0 }
@@ -1109,15 +1109,15 @@ function resolutionLegOver(
     collectedAt: stubCollectedAt,
     runId: stubRunId,
     trace,
-    settle: NO_SETTLE,
+    settle: NO_WAIT,
   });
   return { rows, trace, log, report };
 }
 
 describe("AC 5: a run with nothing to resolve costs no browser", () => {
-  test("launches no browser where every job is already resolved or parked", async () => {
+  test("launches no browser where every job is already resolved or markUnresolvable", async () => {
     const log = { launches: 0, closes: 0 };
-    const { report } = resolutionLegOver(
+    const { report } = resolutionStepOver(
       [unresolvedRow("a", { is_resolved: true }), unresolvedRow("b", { status: "unresolvable" })],
       [],
       log
@@ -1132,7 +1132,7 @@ describe("AC 5: a run with nothing to resolve costs no browser", () => {
 
 describe("AC 74, 75: the leg runs its four parts in order", () => {
   test("queries, resolves, dedupes and saves, in that order", async () => {
-    const { trace, report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+    const { trace, report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
 
     await report;
 
@@ -1147,7 +1147,7 @@ describe("AC 74, 75: the leg runs its four parts in order", () => {
   });
 
   test("names the dedupe and save steps after resolution rather than collection", async () => {
-    const { trace, report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+    const { trace, report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
 
     await report;
 
@@ -1160,7 +1160,7 @@ describe("AC 74, 75: the leg runs its four parts in order", () => {
 describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
   test("a job that resolved carries its URL and is marked resolved", async () => {
     const rows = [unresolvedRow("a")];
-    const { report } = resolutionLegOver(rows, [arrivesAt("https://employer.example/9")]);
+    const { report } = resolutionStepOver(rows, [arrivesAt("https://employer.example/9")]);
 
     await report;
 
@@ -1170,7 +1170,7 @@ describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
 
   test("a job that resolved is ready for parsing and no further", async () => {
     const rows = [unresolvedRow("a")];
-    const { report } = resolutionLegOver(rows, [arrivesAt("https://employer.example/9")]);
+    const { report } = resolutionStepOver(rows, [arrivesAt("https://employer.example/9")]);
 
     await report;
 
@@ -1178,9 +1178,9 @@ describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
     expect(rows[0]?.is_parsed).toBe(false);
   });
 
-  test("a job that failed to resolve is parked as unresolvable", async () => {
+  test("a job that failed to resolve is markUnresolvable as unresolvable", async () => {
     const rows = [unresolvedRow("a")];
-    const { report } = resolutionLegOver(rows, [
+    const { report } = resolutionStepOver(rows, [
       [
         {
           url: "https://board.example/listing/a",
@@ -1199,7 +1199,7 @@ describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
 describe("AC 78: a blacklisted job leaves no row behind", () => {
   test("its row is gone once the leg has run", async () => {
     const rows = [unresolvedRow("a")];
-    const { report } = resolutionLegOver(rows, [arrivesAt("https://www.jobleads.com/jobs/1")]);
+    const { report } = resolutionStepOver(rows, [arrivesAt("https://www.jobleads.com/jobs/1")]);
 
     await report;
 
@@ -1213,7 +1213,7 @@ describe("AC 79: two jobs that resolved to one posting leave one row", () => {
       unresolvedRow("a", { raw_title: "Product Designer" }),
       unresolvedRow("b", { raw_title: "Product Designer" }),
     ];
-    const { trace, report } = resolutionLegOver(rows, [
+    const { trace, report } = resolutionStepOver(rows, [
       [
         {
           url: "https://board.example/listing/a",
@@ -1242,7 +1242,7 @@ describe("AC 79: two jobs that resolved to one posting leave one row", () => {
 
 describe("AC 80: what the leg hands back", () => {
   test("returns the job list along with the warnings its steps raised", async () => {
-    const { report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+    const { report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
 
     const result = await report;
 
@@ -1253,7 +1253,7 @@ describe("AC 80: what the leg hands back", () => {
   // A lost trace write is counted rather than allowed to cancel a run over a
   // row of diagnostics, so the total is read once every step is done.
   test("reports how many trace writes the run lost", async () => {
-    const { report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
+    const { report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
 
     const result = await report;
 
@@ -1264,7 +1264,7 @@ describe("AC 80: what the leg hands back", () => {
 describe("the browser the run launched", () => {
   test("is shut down once the leg is finished", async () => {
     const log = { launches: 0, closes: 0 };
-    const { report } = resolutionLegOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")], log);
+    const { report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")], log);
 
     await report;
 

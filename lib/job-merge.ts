@@ -31,7 +31,7 @@ export const WRITTEN_THROUGH_FIELDS = [
 ] as const;
 
 // The row's record of which side won the contest.
-export const WINNER_STAMP_FIELDS = ["collector", "parser"] as const;
+export const WINNER_WRITTEN_FIELDS = ["collector", "parser"] as const;
 
 // Set when the job first appears and left alone after that.
 export const WRITE_ONCE_FIELDS = ["id", "collected_at"] as const;
@@ -84,7 +84,7 @@ function isFilled(value: unknown): boolean {
 // because a better source can arrive on a side that was never saved.
 export interface WinnerPick {
   dataWinner: JobListEntry;
-  idSurvivor: JobListEntry;
+  idWinner: JobListEntry;
 }
 
 // Decides whose id survives. created_at is the only field a job carries that
@@ -94,7 +94,7 @@ export interface WinnerPick {
 // the work log entry pointing at its id. A row beats an entry that was never
 // saved whatever the priority list says. With neither side saved there is no
 // history to protect, so the data winner's id rides along.
-function pickIdSurvivor(
+function pickIdWinner(
   earlier: JobListEntry,
   later: JobListEntry,
   dataWinner: JobListEntry
@@ -138,7 +138,7 @@ export function pickWinner(
     dataWinner = earlier;
   }
 
-  return { dataWinner, idSurvivor: pickIdSurvivor(earlier, later, dataWinner) };
+  return { dataWinner, idWinner: pickIdWinner(earlier, later, dataWinner) };
 }
 
 // Settles one value: a filled value always beats an empty one, so a better
@@ -183,8 +183,8 @@ export function mergeJobs(
   priorityList: readonly string[],
   collectedAt: Date
 ): JobListEntry {
-  const { dataWinner, idSurvivor } = pickWinner(earlier, later, priorityList);
-  const idLoser = idSurvivor === earlier ? later : earlier;
+  const { dataWinner, idWinner } = pickWinner(earlier, later, priorityList);
+  const idLoser = idWinner === earlier ? later : earlier;
 
   // Built key by key: assigning undefined would still create the property, and
   // modified_at and delete_on_save must never appear at all.
@@ -211,7 +211,7 @@ export function mergeJobs(
 
   // The row records who won, even though a single field may have survived from
   // the losing side. Per-field tracking would need a column per field.
-  for (const field of WINNER_STAMP_FIELDS) {
+  for (const field of WINNER_WRITTEN_FIELDS) {
     const value = dataWinner[field];
     if (value !== undefined) merged[field] = value;
   }
@@ -220,14 +220,14 @@ export function mergeJobs(
   // filled value beats an empty one, so a survivor carrying no id yields to
   // the other side's. Two in-memory jobs may have no id between them, so an
   // absent id stays absent.
-  const id = idSurvivor.id ?? idLoser.id;
+  const id = idWinner.id ?? idLoser.id;
   if (id !== undefined && id !== null) merged.id = id;
 
   // The birthday travels with the id it belongs to, taken from the surviving
   // side rather than the side whose data won. Without it a group of three
   // folded pairwise loses the has-a-row signal after the first fold, and the
   // second fold reads a saved side as fresh and gives its id away.
-  if (idSurvivor.created_at !== undefined) merged.created_at = idSurvivor.created_at;
+  if (idWinner.created_at !== undefined) merged.created_at = idWinner.created_at;
 
   // The merged entry always carries a collection date.
   const mergedCollectedAt = earlier.collected_at ?? later.collected_at ?? collectedAt;

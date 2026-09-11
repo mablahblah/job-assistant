@@ -94,8 +94,8 @@ describe("what leaves no row", () => {
 
     const result = await runDedupe(jobs, fakeJobService([]), trace);
 
-    const survivorId = result.jobs.find((job) => job.delete_on_save === undefined)?.id;
-    expect(trace.events.filter((event) => event.job_id === survivorId)).toEqual([]);
+    const winnerId = result.jobs.find((job) => job.delete_on_save === undefined)?.id;
+    expect(trace.events.filter((event) => event.job_id === winnerId)).toEqual([]);
   });
 });
 
@@ -274,12 +274,12 @@ describe("what a losing row's detail carries", () => {
 
     const result = await runDedupe(jobs, fakeJobService([]), trace);
 
-    const survivorId = result.jobs.find((job) => job.delete_on_save === undefined)?.id;
+    const winnerId = result.jobs.find((job) => job.delete_on_save === undefined)?.id;
     expect(trace.events).toHaveLength(2);
     // The first fold names the partner it met, which is not the entry the
     // chain ended on.
-    expect(detailOf(trace.events[0])["became"]).not.toBe(survivorId);
-    expect(detailOf(trace.events[1])["became"]).toBe(survivorId);
+    expect(detailOf(trace.events[0])["became"]).not.toBe(winnerId);
+    expect(detailOf(trace.events[1])["became"]).toBe(winnerId);
   });
 
   // AC 83. A collector bug putting a description in the wrong field must not

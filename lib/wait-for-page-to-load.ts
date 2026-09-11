@@ -7,12 +7,12 @@
 import type { ResolutionPage } from "./resolution-page";
 
 const DEFAULT_MIN_LINKS = 5;
-const DEFAULT_BUDGET_MS = 15000;
+const DEFAULT_TIME_ALLOWED_MS = 15000;
 const DEFAULT_INTERVAL_MS = 150;
 
-export interface SettlePageOptions {
+export interface WaitForPageToLoadOptions {
   minLinks?: number;
-  budgetMs?: number;
+  timeAllowedMs?: number;
   intervalMs?: number;
   now?: () => number;
   wait?: (ms: number) => Promise<void>;
@@ -43,13 +43,13 @@ async function looksFinished(
   }
 }
 
-export async function settlePage(
+export async function waitForPageToLoad(
   page: ResolutionPage,
-  options: SettlePageOptions = {},
+  options: WaitForPageToLoadOptions = {},
 ): Promise<void> {
   const {
     minLinks = DEFAULT_MIN_LINKS,
-    budgetMs = DEFAULT_BUDGET_MS,
+    timeAllowedMs = DEFAULT_TIME_ALLOWED_MS,
     intervalMs = DEFAULT_INTERVAL_MS,
     now = Date.now,
     wait = sleep,
@@ -60,7 +60,7 @@ export async function settlePage(
     return;
   }
 
-  const deadline = now() + budgetMs;
+  const deadline = now() + timeAllowedMs;
   while (now() < deadline) {
     await wait(intervalMs);
     if (await looksFinished(page, minLinks)) {

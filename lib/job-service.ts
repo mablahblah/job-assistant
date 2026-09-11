@@ -64,7 +64,7 @@ function toJobListEntry(row: Job): JobListEntry {
 // key, a null link clears its key too, and a link this write never mentions
 // leaves the stored key standing — setting it would wipe a good key on a
 // write that says nothing about that link.
-function stampLinkMatchKey(
+function writeLinkMatchKey(
   columns: Record<string, unknown>,
   keyField: string,
   link: string | null | undefined
@@ -81,8 +81,8 @@ function toColumnData(entry: JobListEntry): Record<string, unknown> {
   const columns: Record<string, unknown> = { ...entry };
   delete columns["delete_on_save"];
   delete columns["created_at"];
-  stampLinkMatchKey(columns, "original_url_match_key", entry.original_url);
-  stampLinkMatchKey(columns, "resolved_url_match_key", entry.resolved_url);
+  writeLinkMatchKey(columns, "original_url_match_key", entry.original_url);
+  writeLinkMatchKey(columns, "resolved_url_match_key", entry.resolved_url);
   return columns;
 }
 

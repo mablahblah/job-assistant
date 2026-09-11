@@ -15,7 +15,7 @@ import { urlMatchKey } from "./url-match-key";
 // a write that says nothing about that link. "Mentioned" is judged against the
 // arriving entry, but the key is built from the link that won, so a link that
 // lost the merge never stamps its key over the winner's.
-function stampLinkMatchKey(
+function writeLinkMatchKey(
   target: JobListEntry,
   keyField: "original_url_match_key" | "resolved_url_match_key",
   mentioned: string | null | undefined,
@@ -56,8 +56,8 @@ export function fakeJobService(
       // The schema defaults status to backlog on a real insert, so a fake
       // holding plain objects has to supply that default itself.
       if (job.status === undefined) job.status = "backlog";
-      stampLinkMatchKey(job, "original_url_match_key", entry.original_url, job.original_url);
-      stampLinkMatchKey(job, "resolved_url_match_key", entry.resolved_url, job.resolved_url);
+      writeLinkMatchKey(job, "original_url_match_key", entry.original_url, job.original_url);
+      writeLinkMatchKey(job, "resolved_url_match_key", entry.resolved_url, job.resolved_url);
       // The database stamps both timestamps on an insert.
       const now = new Date();
       job.created_at = now;
@@ -84,8 +84,8 @@ export function fakeJobService(
     Object.assign(held, merged);
     // Read the links off the merged record, so each key follows the link that
     // won the source-priority contest rather than the one the entry carried.
-    stampLinkMatchKey(held, "original_url_match_key", entry.original_url, held.original_url);
-    stampLinkMatchKey(held, "resolved_url_match_key", entry.resolved_url, held.resolved_url);
+    writeLinkMatchKey(held, "original_url_match_key", entry.original_url, held.original_url);
+    writeLinkMatchKey(held, "resolved_url_match_key", entry.resolved_url, held.resolved_url);
     // The database moves modified_at on every write and leaves the birthday be.
     held.modified_at = new Date();
     return { job: held, outcome: "updated" };

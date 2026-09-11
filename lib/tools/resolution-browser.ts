@@ -11,7 +11,7 @@ import { chromium } from "playwright";
 import type {
   ResolutionBrowserSession,
   ResolutionPage,
-  ResolutionPageLease,
+  OpenPage,
 } from "../resolution-page";
 
 // Resolution runs headed and the mode is deliberately not configurable.
@@ -63,7 +63,7 @@ export async function createResolutionBrowser(
   const browser = await launch();
 
   return {
-    async openPage(): Promise<ResolutionPageLease> {
+    async openPage(): Promise<OpenPage> {
       // A fresh context per job is the whole point: it starts with no
       // cookies and no consent state from whatever job was walked before it.
       const context = await browser.newContext();

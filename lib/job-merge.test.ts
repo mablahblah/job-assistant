@@ -9,7 +9,7 @@ import {
   NEVER_WRITTEN_FIELDS,
   POOLED_DATE_FIELDS,
   STRIPPED_AT_WRITE_FIELDS,
-  WINNER_STAMP_FIELDS,
+  WINNER_WRITTEN_FIELDS,
   WRITE_ONCE_FIELDS,
   WRITTEN_THROUGH_FIELDS,
   mergeJobs,
@@ -46,7 +46,7 @@ describe("the field list names every Job column exactly once", () => {
   const named = [
     ...CONTESTED_FIELDS,
     ...WRITTEN_THROUGH_FIELDS,
-    ...WINNER_STAMP_FIELDS,
+    ...WINNER_WRITTEN_FIELDS,
     ...WRITE_ONCE_FIELDS,
     ...POOLED_DATE_FIELDS,
     ...NEVER_WRITTEN_FIELDS,
@@ -404,14 +404,14 @@ describe("AC 42: the older row's id survives where both sides hold one", () => {
     const older = { ...ADZUNA, id: "job-older", created_at: CREATED_EARLY };
     const newer = { ...GREENHOUSE, id: "job-newer", created_at: CREATED_LATE };
 
-    expect(pickWinner(older, newer, LIST).idSurvivor.id).toBe("job-older");
+    expect(pickWinner(older, newer, LIST).idWinner.id).toBe("job-older");
   });
 
   test("which argument it arrived as does not decide it", () => {
     const older = { ...ADZUNA, id: "job-older", created_at: CREATED_EARLY };
     const newer = { ...GREENHOUSE, id: "job-newer", created_at: CREATED_LATE };
 
-    expect(pickWinner(newer, older, LIST).idSurvivor.id).toBe("job-older");
+    expect(pickWinner(newer, older, LIST).idWinner.id).toBe("job-older");
   });
 });
 
@@ -420,8 +420,8 @@ describe("AC 43: a side holding a row keeps its id over one that never was", () 
     const saved = { ...ADZUNA, id: "job-saved", created_at: CREATED_EARLY };
     const fresh = { ...GREENHOUSE, id: "job-fresh" };
 
-    expect(pickWinner(saved, fresh, LIST).idSurvivor.id).toBe("job-saved");
-    expect(pickWinner(fresh, saved, LIST).idSurvivor.id).toBe("job-saved");
+    expect(pickWinner(saved, fresh, LIST).idWinner.id).toBe("job-saved");
+    expect(pickWinner(fresh, saved, LIST).idWinner.id).toBe("job-saved");
   });
 });
 
@@ -430,8 +430,8 @@ describe("AC 44: with no row on either side the priority winner's id survives", 
     const worse = { ...ADZUNA, id: "job-worse" };
     const better = { ...GREENHOUSE, id: "job-better" };
 
-    expect(pickWinner(worse, better, LIST).idSurvivor.id).toBe("job-better");
-    expect(pickWinner(better, worse, LIST).idSurvivor.id).toBe("job-better");
+    expect(pickWinner(worse, better, LIST).idWinner.id).toBe("job-better");
+    expect(pickWinner(better, worse, LIST).idWinner.id).toBe("job-better");
   });
 });
 
@@ -440,7 +440,7 @@ describe("AC 45: two unsaved sides ranking equal give up either id", () => {
     const one = { ...ADZUNA, id: "job-one" };
     const two = { ...ADZUNA, id: "job-two" };
 
-    expect(["job-one", "job-two"]).toContain(pickWinner(one, two, LIST).idSurvivor.id);
+    expect(["job-one", "job-two"]).toContain(pickWinner(one, two, LIST).idWinner.id);
   });
 });
 
@@ -452,7 +452,7 @@ describe("AC 46: whose data wins is reported apart from whose id survives", () =
     const picked = pickWinner(saved, fresh, LIST);
 
     expect(picked.dataWinner.title).toBe("Greenhouse Title");
-    expect(picked.idSurvivor.id).toBe("job-saved");
+    expect(picked.idWinner.id).toBe("job-saved");
   });
 });
 

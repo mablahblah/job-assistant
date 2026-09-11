@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   noCardsWarnings,
   paginate,
-  PAGE_CEILING,
+  PAGE_LIMIT,
   type PageRead,
   type PaginateOptions,
   type PaginateResult,
@@ -120,7 +120,7 @@ function pagesOfYoungCards(count: number): PageRead[] {
 
 describe("the page ceiling", () => {
   test("is six, the number the phase settled on", () => {
-    expect(PAGE_CEILING).toBe(6);
+    expect(PAGE_LIMIT).toBe(6);
   });
 });
 
@@ -248,12 +248,12 @@ describe("an age string that cannot be read stops the search", () => {
   });
 });
 
-describe("the search stops after PAGE_CEILING pages even when nothing is old enough to end it", () => {
+describe("the search stops after PAGE_LIMIT pages even when nothing is old enough to end it", () => {
   // Every test hands over more pages than the ceiling allows, so an
   // off-by-one surfaces as a wrong call count rather than the reader throwing.
 
-  test("no more than PAGE_CEILING pages are ever read", async () => {
-    const reader = scriptedReader(pagesOfYoungCards(PAGE_CEILING + 2));
+  test("no more than PAGE_LIMIT pages are ever read", async () => {
+    const reader = scriptedReader(pagesOfYoungCards(PAGE_LIMIT + 2));
     const options = paginateOptions({
       readPage: reader.readPage,
       advance: async () => true,
@@ -262,11 +262,11 @@ describe("the search stops after PAGE_CEILING pages even when nothing is old eno
 
     await paginate(options);
 
-    expect(reader.calls()).toBe(PAGE_CEILING);
+    expect(reader.calls()).toBe(PAGE_LIMIT);
   });
 
   test("reaching the ceiling records a warning naming the search", async () => {
-    const reader = scriptedReader(pagesOfYoungCards(PAGE_CEILING + 2));
+    const reader = scriptedReader(pagesOfYoungCards(PAGE_LIMIT + 2));
     const options = paginateOptions({
       readPage: reader.readPage,
       advance: async () => true,
@@ -280,7 +280,7 @@ describe("the search stops after PAGE_CEILING pages even when nothing is old eno
 
   test("the last allowed page is read but never advanced past", async () => {
     // Advancing on the final turn would load a page nothing ever reads.
-    const reader = scriptedReader(pagesOfYoungCards(PAGE_CEILING + 2));
+    const reader = scriptedReader(pagesOfYoungCards(PAGE_LIMIT + 2));
     const advance = scriptedAdvance([]);
     const options = paginateOptions({
       readPage: reader.readPage,
@@ -290,11 +290,11 @@ describe("the search stops after PAGE_CEILING pages even when nothing is old eno
 
     await paginate(options);
 
-    expect(advance.calls()).toBe(PAGE_CEILING - 1);
+    expect(advance.calls()).toBe(PAGE_LIMIT - 1);
   });
 
   test("every card read before the ceiling is still returned", async () => {
-    const reader = scriptedReader(pagesOfYoungCards(PAGE_CEILING + 2));
+    const reader = scriptedReader(pagesOfYoungCards(PAGE_LIMIT + 2));
     const options = paginateOptions({
       readPage: reader.readPage,
       advance: async () => true,
@@ -303,7 +303,7 @@ describe("the search stops after PAGE_CEILING pages even when nothing is old eno
 
     const result = await paginate(options);
 
-    expect(result.cards.length).toBe(PAGE_CEILING);
+    expect(result.cards.length).toBe(PAGE_LIMIT);
   });
 });
 
@@ -511,7 +511,7 @@ describe("the self-check flag says whether the search is trustworthy", () => {
   });
 
   test("stopping at the page ceiling is not a self-check failure", async () => {
-    const reader = scriptedReader(pagesOfYoungCards(PAGE_CEILING + 2));
+    const reader = scriptedReader(pagesOfYoungCards(PAGE_LIMIT + 2));
     const options = paginateOptions({
       readPage: reader.readPage,
       advance: async () => true,

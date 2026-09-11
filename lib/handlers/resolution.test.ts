@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
-import type { ResolutionPage, ResolutionPageLease } from "../resolution-page";
+import type { ResolutionPage, OpenPage } from "../resolution-page";
 import type { JobListEntry } from "../job-list-entry";
 import { resolveJobs } from "./resolution";
 
 // Settling is its own module with its own tests. The walks here are scripted
 // as already-finished pages, so the step is handed a settle that does nothing
 // and each test says only what it is about.
-const NO_SETTLE = async () => {};
+const NO_WAIT = async () => {};
 
 // A link a page offers, worded so the apply-link filter keeps it.
 function applyLink(href: string): string {
@@ -34,7 +34,7 @@ function newLog(): FactoryLog {
 function countingFactory(
   script: ScriptedPage[],
   log: FactoryLog
-): () => Promise<ResolutionPageLease> {
+): () => Promise<OpenPage> {
   return async () => {
     const page = fakeResolutionPage(script);
     log.opened += 1;
@@ -60,7 +60,7 @@ function countingFactory(
 }
 
 // The plainest factory there is: one script, no counting.
-function factoryFor(script: ScriptedPage[]): () => Promise<ResolutionPageLease> {
+function factoryFor(script: ScriptedPage[]): () => Promise<OpenPage> {
   return async () => ({
     page: fakeResolutionPage(script),
     close: async () => {},
@@ -82,7 +82,7 @@ describe("AC 51, 52: the step takes the whole list and opens nothing of its own"
         job("a", "https://board.example/listing/1"),
         job("b", "https://board.example/listing/2"),
       ],
-      { openPage: factoryFor(script), concurrency: 2, settle: NO_SETTLE }
+      { openPage: factoryFor(script), concurrency: 2, settle: NO_WAIT }
     );
 
     expect(result.jobs.map((entry) => entry.id)).toEqual(["a", "b"]);
@@ -99,7 +99,7 @@ describe("AC 51, 52: the step takes the whole list and opens nothing of its own"
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.is_resolved).toBe(true);
@@ -115,7 +115,7 @@ describe("AC 47, 50: a job that resolved", () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.resolved_url).toBe("https://employer.example/careers/9");
@@ -132,7 +132,7 @@ describe("AC 47, 50: a job that resolved", () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.status).toBeUndefined();
@@ -140,7 +140,7 @@ describe("AC 47, 50: a job that resolved", () => {
 });
 
 describe("AC 48, 49: a job resolution could not place", () => {
-  test("is parked as unresolvable with no URL written", async () => {
+  test("is markUnresolvable as unresolvable with no URL written", async () => {
     const script: ScriptedPage[] = [
       {
         url: "https://board.example/listing/1",
@@ -151,7 +151,7 @@ describe("AC 48, 49: a job resolution could not place", () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.status).toBe("unresolvable");
@@ -176,7 +176,7 @@ describe("AC 48, 49: a job resolution could not place", () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.resolved_url ?? null).toBeNull();
@@ -192,7 +192,7 @@ describe("AC 16, 17, 19: a walk that reaches a blacklisted host", () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(blacklisted),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.delete_on_save).toBe("blacklisted_url");
@@ -201,11 +201,11 @@ describe("AC 16, 17, 19: a walk that reaches a blacklisted host", () => {
   });
 
   // No collector will ever find a hand-entered job again, so dropping it
-  // would destroy it for good. It is parked instead, and stays repairable.
+  // would destroy it for good. It is markUnresolvable instead, and stays repairable.
   test("parks a hand-entered job rather than dropping it", async () => {
     const result = await resolveJobs(
       [job("a", "https://board.example/listing/1", { collector: "user" })],
-      { openPage: factoryFor(blacklisted), concurrency: 1, settle: NO_SETTLE }
+      { openPage: factoryFor(blacklisted), concurrency: 1, settle: NO_WAIT }
     );
 
     expect(result.jobs[0]?.delete_on_save).toBeUndefined();
@@ -223,7 +223,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
     });
 
     expect(result.jobs[0]?.is_resolved).toBe(true);
@@ -237,7 +237,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
       { url: "https://employer.example/careers/9", html: "<p>A job posting</p>" },
     ];
     let calls = 0;
-    const openPage = async (): Promise<ResolutionPageLease> => {
+    const openPage = async (): Promise<OpenPage> => {
       calls += 1;
       if (calls === 1) throw new Error("the browser would not open a context");
       return { page: fakeResolutionPage(script), close: async () => {} };
@@ -248,7 +248,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
         job("a", "https://board.example/listing/1"),
         job("b", "https://board.example/listing/2"),
       ],
-      { openPage, concurrency: 1, settle: NO_SETTLE }
+      { openPage, concurrency: 1, settle: NO_WAIT }
     );
 
     expect(result.jobs.map((entry) => entry.id)).toEqual(["a", "b"]);
@@ -265,7 +265,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
 
     await resolveJobs(
       ["a", "b", "c", "d", "e"].map((id) => job(id, `https://board.example/listing/${id}`)),
-      { openPage: countingFactory(script, log), concurrency: 2, settle: NO_SETTLE }
+      { openPage: countingFactory(script, log), concurrency: 2, settle: NO_WAIT }
     );
 
     expect(log.maxOpenAtOnce).toBe(2);
@@ -282,7 +282,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
 
     await resolveJobs(
       ["a", "b", "c"].map((id) => job(id, `https://board.example/listing/${id}`)),
-      { openPage: countingFactory(script, log), concurrency: 2, settle: NO_SETTLE }
+      { openPage: countingFactory(script, log), concurrency: 2, settle: NO_WAIT }
     );
 
     expect(log.closed).toBe(log.opened);

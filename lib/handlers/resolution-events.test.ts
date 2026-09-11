@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
-import type { ResolutionPageLease } from "../resolution-page";
+import type { OpenPage } from "../resolution-page";
 import type { JobListEntry } from "../job-list-entry";
 import type { TraceEvent, TraceService } from "../trace-service";
 import { resolveJobs } from "./resolution";
@@ -14,14 +14,14 @@ const STEP = "resolution";
 
 // Settling is its own module with its own tests, so every walk here is
 // scripted as an already-finished page.
-const NO_SETTLE = async () => {};
+const NO_WAIT = async () => {};
 
 // A link a page offers, worded so the apply-link filter keeps it.
 function applyLink(href: string): string {
   return `<a href="${href}">Apply</a>`;
 }
 
-function factoryFor(script: ScriptedPage[]): () => Promise<ResolutionPageLease> {
+function factoryFor(script: ScriptedPage[]): () => Promise<OpenPage> {
   return async () => ({
     page: fakeResolutionPage(script),
     close: async () => {},
@@ -62,7 +62,7 @@ async function traceOf(
   await resolveJobs([entry], {
     openPage: factoryFor(script),
     concurrency: 1,
-    settle: NO_SETTLE,
+    settle: NO_WAIT,
     trace,
     runId: RUN_ID,
     step: STEP,
@@ -74,7 +74,7 @@ async function traceOf(
 // whole budget. The link left unfollowed on the fourth decides the outcome:
 // on the same host the walk already stands on the posting, off it the posting
 // sits somewhere the walk never reached.
-function budgetSpentScript(lastLink: string): ScriptedPage[] {
+function pageLimitScript(lastLink: string): ScriptedPage[] {
   return [
     { url: "https://a.example/1", html: applyLink("https://b.example/2") },
     { url: "https://b.example/2", html: applyLink("https://c.example/3") },
@@ -94,25 +94,25 @@ describe("AC 25, 30: the rule that accepted a resolution is named", () => {
     ]);
   });
 
-  test("a walk that left its host reads walked_off_domain", async () => {
+  test("a walk that left its host reads link_left_site", async () => {
     const events = await traceOf([
       { url: "https://board.example/listing/1", html: applyLink("https://employer.example/9") },
       { url: "https://employer.example/9", html: "<p>A job posting</p>" },
     ]);
 
     expect(events.map((event) => [event.event, event.reason])).toEqual([
-      ["job_resolved", "walked_off_domain"],
+      ["job_resolved", "link_left_site"],
     ]);
   });
 
-  test("a hop dropped for never leaving its host reads same_domain_hop_discarded", async () => {
+  test("a hop dropped for never leaving its host reads stayed_on_site", async () => {
     const events = await traceOf([
       { url: "https://board.example/listing/1", html: applyLink("https://board.example/apply/1") },
       { url: "https://board.example/apply/1", html: "<p>An application form</p>" },
     ]);
 
     expect(events.map((event) => [event.event, event.reason])).toEqual([
-      ["job_resolved", "same_domain_hop_discarded"],
+      ["job_resolved", "stayed_on_site"],
     ]);
   });
 });
@@ -158,18 +158,18 @@ describe("AC 9, 10, 35: every way a walk can fail has a name", () => {
 // how often four hops is the binding constraint.
 describe("AC 42: the hop ceiling is counted whichever way the walk ended", () => {
   test("a budget spent with a same-host link left over reads job_resolved", async () => {
-    const events = await traceOf(budgetSpentScript("https://d.example/5"));
+    const events = await traceOf(pageLimitScript("https://d.example/5"));
 
     expect(events.map((event) => [event.event, event.reason])).toEqual([
-      ["job_resolved", "hop_budget_spent"],
+      ["job_resolved", "page_limit_reached"],
     ]);
   });
 
   test("a budget spent with an off-host link left over reads resolution_failed", async () => {
-    const events = await traceOf(budgetSpentScript("https://e.example/5"));
+    const events = await traceOf(pageLimitScript("https://e.example/5"));
 
     expect(events.map((event) => [event.event, event.reason])).toEqual([
-      ["resolution_failed", "hop_budget_spent"],
+      ["resolution_failed", "page_limit_reached"],
     ]);
   });
 });
@@ -189,7 +189,7 @@ describe("AC 18, 20: a walk that reached a blacklisted host", () => {
     ]);
   });
 
-  // A hand-entered job is parked rather than dropped, so it has not left the
+  // A hand-entered job is markUnresolvable rather than dropped, so it has not left the
   // pipeline and abandoned would be a lie.
   test("a hand-entered job reads resolution_failed", async () => {
     const events = await traceOf(blacklisted, job("a", { collector: "user" }));
@@ -225,7 +225,7 @@ describe("the shape of every row this step writes", () => {
         { url: "https://employer.example/careers/9", html: "<p>A job posting</p>" },
       ]),
       concurrency: 1,
-      settle: NO_SETTLE,
+      settle: NO_WAIT,
       trace,
       runId: RUN_ID,
     });
