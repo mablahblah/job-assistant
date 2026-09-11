@@ -146,6 +146,47 @@ describe("warning about a delete the guard refused", () => {
   });
 });
 
+// AC 63, 64. Resolution marks a job for deletion when its walk reaches a
+// blacklisted site, and save treats that mark exactly as it treats dedupe's:
+// the row goes unless the user has acted on it. What differs is whose row it
+// is — the job's own rather than a duplicate's — which is why the refusal
+// needs its own wording rather than dedupe's.
+describe("an entry marked for reaching a blacklisted site", () => {
+  test("has its row deleted", async () => {
+    const rows = [saved("spam")];
+
+    await saveJobs([entry("spam", { delete_on_save: "blacklisted_url" })], {
+      jobService: fakeJobService(rows),
+      priorityList: PRIORITY_LIST,
+    });
+
+    expect(rows).toHaveLength(0);
+  });
+
+  test("whose row holds an active status keeps that row", async () => {
+    const rows = [saved("spam", { status: "app. sent" })];
+
+    await saveJobs([entry("spam", { delete_on_save: "blacklisted_url" })], {
+      jobService: fakeJobService(rows),
+      priorityList: PRIORITY_LIST,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("app. sent");
+  });
+
+  test("whose row holds an active status raises a warning naming the blacklist", async () => {
+    const result = await saveJobs([entry("spam", { delete_on_save: "blacklisted_url" })], {
+      jobService: fakeJobService([saved("spam", { status: "app. sent" })]),
+      priorityList: PRIORITY_LIST,
+    });
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.message).toContain("blacklisted");
+    expect(result.warnings[0]?.message).not.toContain("duplicate");
+  });
+});
+
 // AC 69. A write that throws is the only thing that stops a job here, and
 // the user is told rather than left to find a gap in the database.
 describe("warning about a write that threw", () => {

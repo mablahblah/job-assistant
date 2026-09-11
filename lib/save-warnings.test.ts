@@ -227,3 +227,61 @@ describe("the two kinds together", () => {
     expect(issues.map((issue) => issue.collector)).toEqual(["lever", "adzuna", "ashby"]);
   });
 });
+
+// AC 64, 65. Resolution marks a job for deletion when its walk reaches a
+// blacklisted site, and the same active-status guard can refuse that delete.
+// The row that refuses is the job's own, not a duplicate's, so the dedupe
+// wording would name one job twice and blame a match that never happened.
+describe("a delete refused on a job that reached a blacklisted site", () => {
+  const warning: SaveWarning = {
+    kind: "delete_refused",
+    collector: "adzuna",
+    entry: job("bl-job-1", "Lead Product Designer", {
+      delete_on_save: "blacklisted_url",
+    }),
+    blockedBy: job("bl-job-1", "Lead Product Designer", { status: "app. sent" }),
+  };
+
+  test("names the blacklist as the cause", () => {
+    expect(saveWarnings([warning])[0]?.message).toContain("blacklisted");
+  });
+
+  test("does not describe the job as a duplicate", () => {
+    expect(saveWarnings([warning])[0]?.message).not.toContain("duplicate");
+  });
+
+  test("names the job whose row was kept", () => {
+    expect(saveWarnings([warning])[0]?.message).toContain("Lead Product Designer");
+  });
+
+  test("identifies that job by id", () => {
+    expect(saveWarnings([warning])[0]?.message).toContain("bl-job-1");
+  });
+
+  test("names the active status that blocked the delete", () => {
+    expect(saveWarnings([warning])[0]?.message).toContain("app. sent");
+  });
+
+  test("carries the collector that produced the job", () => {
+    expect(saveWarnings([warning])[0]?.collector).toBe("adzuna");
+  });
+});
+
+// The two refusals share one warning kind, so the reason the entry was marked
+// is the only thing telling them apart. A dedupe reason still reads as a
+// duplicate rather than being swept into the blacklist wording.
+describe("a delete refused on a duplicate carrying its dedupe reason", () => {
+  test("still describes the job as a duplicate", () => {
+    const message = saveWarnings([
+      {
+        kind: "delete_refused",
+        collector: "greenhouse",
+        entry: job("dupe-id", "Senior UX Designer", { delete_on_save: "matched_db_row" }),
+        blockedBy: job("active-id", "Sr. UX Designer", { status: "interview" }),
+      },
+    ])[0]?.message;
+
+    expect(message).toContain("duplicates");
+    expect(message).not.toContain("blacklisted");
+  });
+});

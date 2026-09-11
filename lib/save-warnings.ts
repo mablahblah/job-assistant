@@ -34,6 +34,20 @@ export function saveWarnings(warnings: SaveWarning[]): CollectionIssue[] {
   return warnings.map((warning) => {
     switch (warning.kind) {
       case "delete_refused":
+        // Two steps mark an entry for deletion and the same guard refuses
+        // both, so the reason the entry was marked is the only thing telling
+        // them apart. Resolution's mark sits on the job's own row rather than
+        // a duplicate's, so entry and blockedBy are one row here and the
+        // duplicate wording would name it twice and blame a match that never
+        // happened. blockedBy is the one named, because the status the user
+        // acted on is the stored row's.
+        if (warning.entry.delete_on_save === "blacklisted_url") {
+          return {
+            collector: warning.collector,
+            message: `Delete refused: ${labelJob(warning.blockedBy)} was marked for removal because its walk reached a blacklisted site, but the row is already at status "${warning.blockedBy.status}". The row was kept — delete it by hand if you do not want it.`,
+          };
+        }
+
         // Both rows are named so the user can open each one. There is no
         // automatic path for this pair: the duplicate is either caught by a
         // later run or left standing. blockedBy always carries an active
