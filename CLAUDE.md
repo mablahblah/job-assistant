@@ -15,8 +15,6 @@ A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, t
 
 ## Branch: unified pipeline rebuild
 
-This branch rebuilds the pipeline from scratch. The old one is quarantined in [`legacy/`](legacy/README.md) and does not run here — it is reference material to copy from, never to import.
-
 **No bleed-through.** New code imports nothing from `legacy/`. Anything worth keeping is copied out, so shipping means deleting that folder in one move.
 
 Real job searches run on `main`, where the old pipeline is untouched. The database is untracked and survives branch switches; `dev.db` at the repo root is the live one.
