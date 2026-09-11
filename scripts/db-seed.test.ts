@@ -19,6 +19,7 @@ const EXPECTED_SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 const EXPECTED_LOCATION = "78701";
 const EXPECTED_RADIUS = 30;
 const EXPECTED_EXPIRY_THRESHOLD = 8;
+const EXPECTED_RESOLUTION_CONCURRENCY = 3;
 
 const GREENHOUSE_SLUGS = [
   "gitlab",
@@ -46,6 +47,7 @@ interface SettingRow {
   location: string | null;
   radius: number | null;
   expiry_threshold: number | null;
+  resolution_concurrency: number | null;
   modified_at: string;
 }
 
@@ -117,6 +119,8 @@ async function readSetting(url: string): Promise<SettingRow> {
       radius: row["radius"] === null ? null : Number(row["radius"]),
       expiry_threshold:
         row["expiry_threshold"] === null ? null : Number(row["expiry_threshold"]),
+      resolution_concurrency:
+        row["resolution_concurrency"] === null ? null : Number(row["resolution_concurrency"]),
       modified_at: String(row["modified_at"]),
     };
   } finally {
@@ -287,6 +291,10 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
     expect(setting.expiry_threshold).toBe(EXPECTED_EXPIRY_THRESHOLD);
   });
 
+  test("writes how many jobs resolution walks at a time", () => {
+    expect(setting.resolution_concurrency).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
+  });
+
   test("writes one company per ATS slug", () => {
     const slugs = companies.map((company) => company.ats_slug).sort();
     expect(slugs).toEqual([...ALL_ATS_SLUGS].sort());
@@ -328,6 +336,12 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
 
   test("leaves the expiry threshold alone", () => {
     expect(setting.expiry_threshold).toBe(EXPECTED_EXPIRY_THRESHOLD);
+  });
+
+  // The user is expected to raise this one, so a re-seed overwriting it would
+  // undo the change every time.
+  test("leaves the resolution concurrency alone", () => {
+    expect(setting.resolution_concurrency).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
   });
 });
 

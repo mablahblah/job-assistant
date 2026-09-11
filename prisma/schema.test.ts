@@ -78,6 +78,7 @@ const EXPECTED_SETTING_COLUMNS = [
   "title_suffixes",
   "title_removal_words",
   "source_priority_list",
+  "resolution_concurrency",
   "created_at",
   "modified_at",
 ];

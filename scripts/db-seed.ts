@@ -46,6 +46,7 @@ const SETTING_DEFAULTS = {
   // from what real titles turn out to need rather than from a list fitted in
   // advance.
   title_removal_words: ["w2", "c2h", "evergreen"],
+  resolution_concurrency: 3,
 };
 
 // The boards each ATS collector polls. A collector finds its work by asking
@@ -95,6 +96,7 @@ type SettingPatch = {
   title_levels?: TitleLevelDefault[];
   title_suffixes?: string[];
   title_removal_words?: string[];
+  resolution_concurrency?: number;
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -122,6 +124,9 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   if (existing.title_suffixes === null) patch.title_suffixes = SETTING_DEFAULTS.title_suffixes;
   if (existing.title_removal_words === null) {
     patch.title_removal_words = SETTING_DEFAULTS.title_removal_words;
+  }
+  if (existing.resolution_concurrency === null) {
+    patch.resolution_concurrency = SETTING_DEFAULTS.resolution_concurrency;
   }
 
   const filled = Object.keys(patch);

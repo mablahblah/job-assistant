@@ -30,6 +30,7 @@ export interface SettingsService {
   getTitleSuffixes(): Promise<string[]>;
   getTitleRemovalWords(): Promise<string[]>;
   getSourcePriorityList(): Promise<string[]>;
+  getResolutionConcurrency(): Promise<number>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -177,6 +178,16 @@ export function createSettingsService(db: PipelineDb): SettingsService {
         throw missingSettingError("source_priority_list");
       }
       return value;
+    },
+
+    // Zero is not a harmless stand-in here: a run walking no jobs at all
+    // looks like a run that found none.
+    async getResolutionConcurrency() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.resolution_concurrency === null) {
+        throw missingSettingError("resolution_concurrency");
+      }
+      return row.resolution_concurrency;
     },
   };
 }

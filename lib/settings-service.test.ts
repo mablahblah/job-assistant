@@ -25,6 +25,7 @@ const EXPECTED_SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 const EXPECTED_LOCATION = "78701";
 const EXPECTED_RADIUS = 30;
 const EXPECTED_EXPIRY_THRESHOLD = 8;
+const EXPECTED_RESOLUTION_CONCURRENCY = 3;
 
 const GREENHOUSE_SLUGS = [
   "gitlab",
@@ -190,6 +191,12 @@ describe("AC 9: an unseeded database throws instead of returning something empty
     await expect(service.getExpiryThreshold()).rejects.toThrow(/expiry_threshold/);
   });
 
+  // Zero would mean no job is walked at all, which reads as a run that found
+  // nothing rather than as a setting nobody filled.
+  test("getResolutionConcurrency throws rather than returning zero", async () => {
+    await expect(service.getResolutionConcurrency()).rejects.toThrow(/resolution_concurrency/);
+  });
+
   test("getSourcePriorityList throws rather than returning an empty list", async () => {
     await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
   });
@@ -214,13 +221,14 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the ten getters", () => {
+  test("exposes exactly the eleven getters", () => {
     expect(Object.keys(service).sort()).toEqual(
       [
         "getAtsCompanies",
         "getExpiryThreshold",
         "getLocation",
         "getRadius",
+        "getResolutionConcurrency",
         "getSearchTerms",
         "getSourcePriorityList",
         "getTitleHeadNouns",
@@ -266,6 +274,10 @@ describe("the getters return what the seed writes", () => {
 
   test("getExpiryThreshold returns the seeded expiry threshold", async () => {
     expect(await service.getExpiryThreshold()).toBe(EXPECTED_EXPIRY_THRESHOLD);
+  });
+
+  test("getResolutionConcurrency returns the seeded count", async () => {
+    expect(await service.getResolutionConcurrency()).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
   });
 
   test("getAtsCompanies('greenhouse') returns the seeded greenhouse boards", async () => {
