@@ -36,6 +36,12 @@ export interface JobService {
   findByOriginalUrlMatchKey(matchKey: string): Promise<JobListEntry[]>;
   findByResolvedUrlMatchKey(matchKey: string): Promise<JobListEntry[]>;
   findByCompanyAndTitle(companyId: string, title: string): Promise<JobListEntry[]>;
+  // Resolution keeps no list of its own; this is where it reads one. Nothing
+  // narrows it to a single run, so a job collected weeks ago and never
+  // resolved is still on it. The four phase gates are left off every row,
+  // because an entry carried on to dedupe and save should hold no stale copy
+  // of a flag another phase owns.
+  findUnresolved(): Promise<JobListEntry[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -186,6 +192,18 @@ export function createJobService(db: PipelineDb): JobService {
     // count as one job is the identity rules' question, not this one's.
     findByCompanyAndTitle(companyId, title) {
       return findManyAsEntries({ company_id: companyId, title });
+    },
+
+    // findManyAsEntries hands every row to toJobListEntry, which takes a whole
+    // Job. Omitting the gate fields narrows the row below that type, so this
+    // read runs its own query and casts the narrower row itself rather than
+    // bending the shared helper.
+    async findUnresolved() {
+      const rows = await db.job.findMany({
+        where: { status: "backlog", is_resolved: false },
+        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+      });
+      return rows.map((row) => row as unknown as JobListEntry);
     },
   };
 }

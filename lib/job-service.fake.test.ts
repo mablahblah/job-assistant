@@ -426,3 +426,86 @@ describe("the dedupe lookups", () => {
     expect(found).toEqual([]);
   });
 });
+
+// AC 1 to 4, against the fake. The real read runs against a table where
+// status and the three gates always hold a value; the fake holds plain
+// objects where a field can simply be missing, so each test below says what
+// a missing field means.
+describe("the resolution job list", () => {
+  test("holds only backlog jobs that are not yet resolved", async () => {
+    const service = fakeJobService([
+      storedJob("list-waiting"),
+      storedJob("list-resolved", { is_resolved: true }),
+      storedJob("list-parked", { status: "unresolvable" }),
+    ]);
+
+    const found = await service.findUnresolved();
+
+    expect(found.map((job) => job.id)).toEqual(["list-waiting"]);
+  });
+
+  // AC 2. Nothing narrows the list to one run. A job collected weeks ago and
+  // never resolved is still waiting for the walk.
+  test("holds a job collected during an earlier run", async () => {
+    const service = fakeJobService([
+      storedJob("list-earlier", { collected_at: new Date("2025-06-01T00:00:00.000Z") }),
+    ]);
+
+    const found = await service.findUnresolved();
+
+    expect(found.map((job) => job.id)).toEqual(["list-earlier"]);
+  });
+
+  // The real columns carry database defaults, so a held job saying nothing
+  // about its status or its resolution reads the way a real row would.
+  test("reads a missing status as backlog and a missing gate as false", async () => {
+    const service = fakeJobService([{ id: "list-bare", collected_at: COLLECTED_AT }]);
+
+    const found = await service.findUnresolved();
+
+    expect(found.map((job) => job.id)).toEqual(["list-bare"]);
+  });
+
+  // AC 3. The four gate fields are left behind, so an entry carried on to
+  // dedupe and save holds no stale copy of a flag another phase owns.
+  test("leaves the four gate fields behind", async () => {
+    const service = fakeJobService([
+      storedJob("list-absent", { is_parsed: false, is_classified: false, is_resolved: false }),
+    ]);
+
+    const [entry] = await service.findUnresolved();
+
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+
+  // AC 4. The walk needs the id to write back and the collector to know
+  // whether a blacklisted job may be dropped, and dedupe reads created_at as
+  // the sign that an entry already holds a database row.
+  test("carries the id, the collector and the created_at", async () => {
+    const created = new Date("2026-02-02T00:00:00.000Z");
+    const service = fakeJobService([
+      storedJob("list-present", { collector: "adzuna", created_at: created }),
+    ]);
+
+    const [entry] = await service.findUnresolved();
+
+    expect(entry?.id).toBe("list-present");
+    expect(entry?.collector).toBe("adzuna");
+    expect(entry?.created_at).toEqual(created);
+  });
+
+  // The fake's other lookups read the caller's array directly. This one hands
+  // back copies, so a walk writing to an entry cannot reach into the held job
+  // behind the service's back.
+  test("hands back a copy rather than the held job", async () => {
+    const jobs = [storedJob("list-copy")];
+    const service = fakeJobService(jobs);
+
+    const [entry] = await service.findUnresolved();
+
+    expect(entry).not.toBe(jobs[0]);
+  });
+});

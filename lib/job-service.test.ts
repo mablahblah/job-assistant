@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "./pipeline-db";
 import { createJobService, type JobService } from "./job-service";
+import type { JobListEntry } from "./job-list-entry";
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -486,5 +487,63 @@ describe("the dedupe lookups", () => {
     const found = await service.findByCompanyAndTitle("company-78", "Product Designer");
 
     expect(found.map((job) => job.id)).toEqual(["lookup-ct-c"]);
+  });
+});
+
+// AC 1 to 4. Resolution pulls its own job list out of the table rather than
+// being handed one by the step before it, so the read that builds that list
+// lives here on the service that owns Job.
+describe("the resolution job list", () => {
+  // One scratch database serves this whole file, so rows seeded by other
+  // tests sit in the same table. Each test here reads back only the ids it
+  // seeded itself.
+  function onlyMine(jobs: JobListEntry[], prefix: string): JobListEntry[] {
+    return jobs.filter((job) => (job.id ?? "").startsWith(prefix));
+  }
+
+  test("holds only backlog jobs that are not yet resolved", async () => {
+    await seedRow("list-filter-waiting");
+    await seedRow("list-filter-resolved", { is_resolved: true });
+    await seedRow("list-filter-parked", { status: "unresolvable" });
+
+    const found = onlyMine(await service.findUnresolved(), "list-filter-");
+
+    expect(found.map((job) => job.id)).toEqual(["list-filter-waiting"]);
+  });
+
+  // AC 2. Nothing narrows the list to one run. A job collected weeks ago and
+  // never resolved is still waiting for the walk.
+  test("holds a job collected during an earlier run", async () => {
+    await seedRow("list-earlier-run", { collected_at: new Date("2025-06-01T00:00:00.000Z") });
+
+    const found = onlyMine(await service.findUnresolved(), "list-earlier-run");
+
+    expect(found.map((job) => job.id)).toEqual(["list-earlier-run"]);
+  });
+
+  // AC 3. The four gate fields are left behind, so an entry carried on to
+  // dedupe and save holds no stale copy of a flag another phase owns.
+  test("leaves the four gate fields behind", async () => {
+    await seedRow("list-fields-absent");
+
+    const [entry] = onlyMine(await service.findUnresolved(), "list-fields-absent");
+
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+
+  // AC 4. The walk needs the id to write back and the collector to know
+  // whether a blacklisted job may be dropped, and dedupe reads created_at as
+  // the sign that an entry already holds a database row.
+  test("carries the id, the collector and the created_at", async () => {
+    await seedRow("list-fields-present", { collector: "adzuna" });
+
+    const [entry] = onlyMine(await service.findUnresolved(), "list-fields-present");
+
+    expect(entry?.id).toBe("list-fields-present");
+    expect(entry?.collector).toBe("adzuna");
+    expect(entry?.created_at).toBeInstanceOf(Date);
   });
 });
