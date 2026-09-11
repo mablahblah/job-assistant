@@ -126,7 +126,7 @@ describe("AC 55: an entry marked away carries the reason it lost", () => {
   });
 
   test("every reason is truthy, so save still sees a marked entry as marked", () => {
-    // lib/steps/save.ts reads `if (entry.delete_on_save)`, so a reason that
+    // lib/handlers/save.ts reads `if (entry.delete_on_save)`, so a reason that
     // was ever an empty string would silently keep the row.
     for (const reason of DEDUPE_REASONS) {
       expect(Boolean(reason)).toBe(true);

@@ -5,7 +5,7 @@ import { createCompanyService } from "../lib/company-service";
 import { createJobService } from "../lib/job-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
-import { runCollection } from "../lib/steps/search-orchestrator";
+import { runCollection } from "../lib/orchestrators/search-orchestrator";
 import { createTraceService } from "../lib/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 

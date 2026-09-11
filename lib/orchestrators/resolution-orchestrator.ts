@@ -4,12 +4,12 @@
 // work — the database is the only handoff between legs, so each one queries
 // what it has to do and writes back what it did.
 import type { CollectionIssue } from "../collection-issue";
-import { dedupeJobs } from "./dedupe";
+import { dedupeJobs } from "../handlers/dedupe";
 import type { JobListEntry } from "../job-list-entry";
 import type { JobService } from "../job-service";
 import type { ResolutionBrowserFactory, ResolutionPage } from "../resolution-page";
-import { resolveJobs } from "./resolution";
-import { saveJobs } from "./save";
+import { resolveJobs } from "../handlers/resolution";
+import { saveJobs } from "../handlers/save";
 import type { SettingsService } from "../settings-service";
 import type { TraceService } from "../trace-service";
 

@@ -198,7 +198,7 @@ describe("the two failures", () => {
   });
 });
 
-// AC 22, 23, 49, 50. The contract every step in lib/steps/ shares.
+// AC 22, 23, 49, 50. The contract every handler in lib/handlers/ shares.
 describe("the step contract", () => {
   // A step handed no trace context still does its work and stays silent,
   // which is what lets association run outside a job search.

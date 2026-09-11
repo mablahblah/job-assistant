@@ -6,13 +6,13 @@
 import type { CollectionIssue } from "../collection-issue";
 import { unusableReason } from "../collectors/job-usable";
 import type { Collector } from "../collectors/types";
-import { associateCompanies } from "./association";
+import { associateCompanies } from "../handlers/association";
 import type { CompanyService } from "../company-service";
-import { dedupeJobs } from "./dedupe";
+import { dedupeJobs } from "../handlers/dedupe";
 import type { JobListEntry } from "../job-list-entry";
 import type { JobService } from "../job-service";
-import { normalizeJobs } from "./normalization";
-import { saveJobs } from "./save";
+import { normalizeJobs } from "../handlers/normalization";
+import { saveJobs } from "../handlers/save";
 import type { SettingsService } from "../settings-service";
 import { messageFromThrown } from "../thrown-message";
 import type { TitleVocabularies } from "../title";
