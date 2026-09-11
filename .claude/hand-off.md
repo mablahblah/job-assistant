@@ -21,7 +21,7 @@ A phase 7a was planned this session. It has no plan document yet.
 
 1,871 tests pass across 76 files. `npm run lint` exits 0. Both were checked at close.
 
-**15 commits are unpushed**, starting from `e0aaaf9`. The working tree is otherwise clean. Two files in `.claude/` have never been committed: `CLAUDE.md.bak` and `session-status.md`.
+Nothing on this branch is pushed. The remote last matched it at `e0aaaf9`. The working tree is otherwise clean. Two files in `.claude/` have never been committed: `CLAUDE.md.bak` and `session-status.md`.
 
 ## Completed This Session
 
@@ -32,7 +32,7 @@ Six tasks, then a design conversation.
 - **Task 12.** The code that follows the whole list. It runs several jobs at once. Each gets its own browser page, closed however it ends.
 - **Task 13.** `runResolution`. It reads its own list, follows every job, removes duplicates, and saves.
 - **Task 14.** Duplicate removal now skips any job already marked for deletion.
-- **Task 15.** A job dropped during duplicate removal now always records `abandoned`. It used to claim a database row was deleted. Only the save step decides that, and it can refuse.
+- **Task 15.** A job dropped during duplicate removal now always records the same word, `abandoned`, meaning its journey ended. It used to claim a database row was deleted instead. Only the save step decides that, and it can refuse.
 
 Every call made while building is written into the phase 7 plan, under **Build Notes**. This document no longer carries them.
 
@@ -61,14 +61,13 @@ The reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-
 
 ### Open questions
 
-1. **Does wiring resolution into the pipeline belong to phase 7a?** Building the real browser goes with it. This was proposed and not answered. Nothing starts a real browser today. The code takes one as an argument and every test supplies a fake.
+1. **Does wiring resolution into the pipeline belong to phase 7a?** Building the real browser goes with it. This was proposed and never answered. Nothing starts a real browser today. The code is handed one, and every test hands it a fake.
 2. **Do the `Trace.step` values get renamed?** They hold positions in the pipeline, such as `post_collection_dedupe`, rather than the name of a piece of code. Task 18 writes more of them, so a rename would partly redo it.
 3. **What does the orchestrator report when a handler falls over?** It needs a shape that carries both finished work and a failure.
 4. **What happens to the two uncommitted files in `.claude/`?** Asked across four sessions. Never answered. Left untracked, which destroys nothing.
 
 ### Still true
 
-- **The output style is new. Write to it, in conversation and in every document.** One idea per sentence. No sentence over 20 words. Plain words, and any term that only means something inside this project gets its plain meaning where it first appears. Earlier hand-offs leaned hard on that project vocabulary and ran long; this one was cut from 1,450 words to 980 to stop it.
 - `cat` is blocked over 2048 bytes. Use `sed -n`.
 - `timeout` is not on PATH.
 - `$?` after a pipe belongs to the last command, not to npm. Redirect to a file instead.
@@ -78,11 +77,11 @@ The reasoning is in [`meeting-notes/2026-09-11-phase-07a-pipeline-shape-meeting-
 - A `docs/BACKLOG.md` change needs approval before it is written.
 - Questions are asked as plain text in conversation.
 - **Production code is written through `crowd-code`, never edited directly.** That skill sends two sub-agents the same failing test and picks the stronger answer. Writing that failing test first is this session's own job.
-- Backlog entry 26 holds six improvements to how links are followed. Each waits on a real run to show it is needed. Nothing this session produced one.
+- Six improvements to how links are followed are already written down, as backlog entry 26. Each waits on a real run to show it is needed. No real run has happened.
 
 ## Next Steps
 
-1. **Push the 15 commits.**
+1. **Push the branch.**
 2. **Task 16.** Wording for the warning raised when a job cannot be deleted because the user has already applied to it. It needs its own phrasing rather than the one used for duplicates. The file is `lib/save-warnings.ts`. Criteria 64 and 65.
 3. **Task 17.** Dribbble marks its own jobs as already resolved. Three of its listings share one link, so following them would give three different jobs the same address. Criteria 57 to 59.
 4. **Task 18.** Write resolution's events into three places: the `Trace` comment in `prisma/schema.prisma`, the file `trace-events.md`, and `prisma/schema.test.ts`. Criteria 66 and 67.
