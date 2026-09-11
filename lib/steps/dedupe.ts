@@ -82,10 +82,25 @@ export async function dedupeJobs(
   const warnings: DedupeWarning[] = [];
   const pending: PendingTrace[] = [];
 
+  // An entry that arrived already marked for deletion was decided before
+  // dedupe ever saw it, and the step that marked it already wrote the trace
+  // row saying so. Set it aside so neither pass touches it: mergeJobs never
+  // carries delete_on_save onto a merged entry, so one that won a fold would
+  // come out of here with its mark gone and its row left standing.
+  const setAside: JobListEntry[] = [];
+  const toDedupe: JobListEntry[] = [];
+  for (const job of jobs) {
+    if (job.delete_on_save) {
+      setAside.push(job);
+    } else {
+      toDedupe.push(job);
+    }
+  }
+
   // Pass one: entries that match each other on the list. Each loser already
   // carries the delete_on_save the save step reads, and foldMatchingJobs
   // already knows which immediate partner it lost to and on what clause.
-  const { jobs: listSurvivors, folds } = foldMatchingJobs(jobs, priorityList, collectedAt);
+  const { jobs: listSurvivors, folds } = foldMatchingJobs(toDedupe, priorityList, collectedAt);
   for (const fold of folds) {
     marked.push(fold.loser);
     const reason = fold.loser.delete_on_save;
@@ -99,10 +114,10 @@ export async function dedupeJobs(
     }
   }
 
-  // Every id the caller handed in. A row wearing one of these is some list
-  // entry's own row, not a second job standing beside it, and skipping the
-  // whole list rather than only the entry's own id also stops one entry
-  // claiming another entry's row.
+  // Every id the caller handed in, set-aside entries included. A row wearing
+  // one of these is some list entry's own row, not a second job standing
+  // beside it, and skipping the whole list rather than only the entry's own
+  // id also stops one entry claiming another entry's row.
   const listIds = new Set<string>();
   for (const job of jobs) {
     if (job.id) listIds.add(job.id);
@@ -193,7 +208,7 @@ export async function dedupeJobs(
     }
   }
 
-  return { jobs: [...survivors, ...marked], warnings: dedupeWarnings(warnings) };
+  return { jobs: [...survivors, ...marked, ...setAside], warnings: dedupeWarnings(warnings) };
 }
 
 // Asks the table its three questions about one entry and keeps the rows a

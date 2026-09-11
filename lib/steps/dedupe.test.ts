@@ -481,3 +481,67 @@ describe("the trace it is handed", () => {
     expect(survivors(result.jobs)).toHaveLength(1);
   });
 });
+
+// AC 61, 62. Resolution marks a job whose walk reached a blacklisted host for
+// deletion before dedupe ever sees it. mergeJobs never carries delete_on_save
+// onto a merged entry, so an entry that won a fold would come out of dedupe
+// with its mark gone and its row left standing.
+describe("an entry that arrived already marked for deletion", () => {
+  // Both entries share a link, so without the set-aside the two would fold
+  // into one and whichever won would carry a dedupe reason or none at all.
+  function markedAndItsTwin(): JobListEntry[] {
+    return [
+      freshEntry("blacklisted", {
+        ...withOriginalUrl("https://example.com/1"),
+        delete_on_save: "blacklisted_url",
+      }),
+      freshEntry("twin", withOriginalUrl("https://example.com/1")),
+    ];
+  }
+
+  test("is not folded against another entry that matches it", async () => {
+    const result = await runDedupe(markedAndItsTwin(), countingJobService([]));
+
+    expect(result.jobs.map((job) => job.id).sort()).toEqual(["blacklisted", "twin"]);
+    expect(survivors(result.jobs).map((job) => job.id)).toEqual(["twin"]);
+  });
+
+  test("keeps the reason it arrived with rather than a dedupe reason", async () => {
+    const result = await runDedupe(markedAndItsTwin(), countingJobService([]));
+
+    const marked = markedAway(result.jobs);
+    expect(marked.map((job) => job.id)).toEqual(["blacklisted"]);
+    expect(marked[0]?.delete_on_save).toBe("blacklisted_url");
+  });
+
+  test("is not compared against the stored rows either", async () => {
+    const jobs = [
+      freshEntry("blacklisted", {
+        ...withOriginalUrl("https://example.com/1"),
+        delete_on_save: "blacklisted_url",
+      }),
+    ];
+    const service = countingJobService([
+      storedRow("row-1", withOriginalUrl("https://example.com/1")),
+    ]);
+
+    const result = await runDedupe(jobs, service);
+
+    expect(result.jobs.map((job) => job.id)).toEqual(["blacklisted"]);
+    expect(service.calls).toEqual([]);
+  });
+
+  // Resolution already wrote the row saying this job is leaving. Dedupe did
+  // nothing to it, so dedupe has nothing to record.
+  test("gets no trace row from dedupe", async () => {
+    const trace = createFakeTraceService();
+
+    await runDedupe(markedAndItsTwin(), countingJobService([]), {
+      trace,
+      runId: "run-1",
+      step: "post_resolution_dedupe",
+    });
+
+    expect(trace.events.map((event) => event.job_id)).not.toContain("blacklisted");
+  });
+});
