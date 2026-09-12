@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
-import type { ResolutionPage, OpenPage } from "../resolution-page";
+import type { ResolutionPage, ResolutionResponse, OpenPage } from "../resolution-page";
 import type { JobListEntry } from "../job-list-entry";
 import { resolveJobs } from "./resolution";
 
@@ -67,6 +67,43 @@ function factoryFor(script: ScriptedPage[]): () => Promise<OpenPage> {
   });
 }
 
+
+// The scripted fake ignores the address it is handed and serves its pages in
+// order, which suits a test about one job walking several pages. The lane
+// tests below are about several jobs on different hosts instead, so this
+// factory picks each job's page by the address it asks for.
+function factoryByUrl(pages: Record<string, ScriptedPage>): () => Promise<OpenPage> {
+  return async () => {
+    let inner: ResolutionPage | null = null;
+    const handlers: ((response: ResolutionResponse) => void)[] = [];
+
+    const page: ResolutionPage = {
+      async goto(url, options) {
+        const scripted = pages[url];
+        if (!scripted) throw new Error(`no page scripted for ${url}`);
+        inner = fakeResolutionPage([scripted]);
+        for (const handler of handlers) inner.on("response", handler);
+        return inner.goto(url, options);
+      },
+      url: () => inner?.url() ?? "",
+      content: async () => (inner ? inner.content() : ""),
+      title: async () => (inner ? inner.title() : ""),
+      $$eval: async (selector, fn) => (inner ? inner.$$eval(selector, fn) : fn([])),
+      on(_event, handler) {
+        handlers.push(handler);
+        inner?.on("response", handler);
+      },
+      off(_event, handler) {
+        const at = handlers.indexOf(handler);
+        if (at !== -1) handlers.splice(at, 1);
+        inner?.off("response", handler);
+      },
+    };
+
+    return { page, close: async () => {} };
+  };
+}
+
 function job(id: string, url: string, fields: Partial<JobListEntry> = {}): JobListEntry {
   return { id, original_url: url, collector: "adzuna", ...fields };
 }
@@ -82,7 +119,7 @@ describe("AC 51, 52: the step takes the whole list and opens nothing of its own"
         job("a", "https://board.example/listing/1"),
         job("b", "https://board.example/listing/2"),
       ],
-      { openPage: factoryFor(script), concurrency: 2, waitForLoad: NO_WAIT }
+      { openPage: factoryFor(script), fastConcurrency: 2, waitForLoad: NO_WAIT }
     );
 
     expect(result.jobs.map((entry) => entry.id)).toEqual(["a", "b"]);
@@ -98,7 +135,7 @@ describe("AC 51, 52: the step takes the whole list and opens nothing of its own"
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -114,7 +151,7 @@ describe("AC 47, 50: a job that resolved", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -131,7 +168,7 @@ describe("AC 47, 50: a job that resolved", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -153,7 +190,7 @@ describe("a failure the source may not repeat", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -169,7 +206,7 @@ describe("a failure the source may not repeat", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -188,7 +225,7 @@ describe("a failure the source may not repeat", () => {
 
     await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
       trace: {
         write: async (row) => {
@@ -216,7 +253,7 @@ describe("AC 48, 49: a job resolution could not place", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -241,7 +278,7 @@ describe("AC 48, 49: a job resolution could not place", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -257,7 +294,7 @@ describe("AC 16, 17, 19: a job's resolution that reaches a blacklisted host", ()
   test("marks a collected job for deletion and writes no URL", async () => {
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(blacklisted),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -271,7 +308,7 @@ describe("AC 16, 17, 19: a job's resolution that reaches a blacklisted host", ()
   test("parks a hand-entered job rather than dropping it", async () => {
     const result = await resolveJobs(
       [job("a", "https://board.example/listing/1", { collector: "user" })],
-      { openPage: factoryFor(blacklisted), concurrency: 1, waitForLoad: NO_WAIT }
+      { openPage: factoryFor(blacklisted), fastConcurrency: 1, waitForLoad: NO_WAIT }
     );
 
     expect(result.jobs[0]?.delete_on_save).toBeUndefined();
@@ -288,7 +325,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
 
     const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
       openPage: factoryFor(script),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
     });
 
@@ -314,7 +351,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
         job("a", "https://board.example/listing/1"),
         job("b", "https://board.example/listing/2"),
       ],
-      { openPage, concurrency: 1, waitForLoad: NO_WAIT }
+      { openPage, fastConcurrency: 1, waitForLoad: NO_WAIT }
     );
 
     expect(result.jobs.map((entry) => entry.id)).toEqual(["a", "b"]);
@@ -331,7 +368,7 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
 
     await resolveJobs(
       ["a", "b", "c", "d", "e"].map((id) => job(id, `https://board.example/listing/${id}`)),
-      { openPage: countingFactory(script, log), concurrency: 2, waitForLoad: NO_WAIT }
+      { openPage: countingFactory(script, log), fastConcurrency: 2, waitForLoad: NO_WAIT }
     );
 
     expect(log.maxOpenAtOnce).toBe(2);
@@ -348,10 +385,134 @@ describe("AC 53, 54, 55, 56: how the step runs the list", () => {
 
     await resolveJobs(
       ["a", "b", "c"].map((id) => job(id, `https://board.example/listing/${id}`)),
-      { openPage: countingFactory(script, log), concurrency: 2, waitForLoad: NO_WAIT }
+      { openPage: countingFactory(script, log), fastConcurrency: 2, waitForLoad: NO_WAIT }
     );
 
     expect(log.closed).toBe(log.opened);
     expect(log.closed).toBe(3);
+  });
+});
+
+// The two lanes. Every job starts in the fast one. A host that refuses us
+// sends its remaining jobs to the slow lane, which runs once the fast lane is
+// done and that host has had time to cool off.
+describe("a host that refuses us is moved to the slow lane", () => {
+  // a.example refuses its first job and would answer its second. b.example
+  // answers. Dealt round-robin the order is a1, b1, a2.
+  const twoHosts: Record<string, ScriptedPage> = {
+    "https://a.example/1": {
+      url: "https://a.example/1",
+      responses: [{ url: "https://a.example/1", status: 403 }],
+    },
+    "https://a.example/2": { url: "https://a.example/2", html: "<p>A job posting</p>" },
+    "https://b.example/1": { url: "https://b.example/1", html: "<p>A job posting</p>" },
+  };
+
+  function threeJobs(): JobListEntry[] {
+    return [
+      job("a1", "https://a.example/1"),
+      job("a2", "https://a.example/2"),
+      job("b1", "https://b.example/1"),
+    ];
+  }
+
+  function laneOptions(waits: number[]) {
+    return {
+      openPage: factoryByUrl(twoHosts),
+      fastConcurrency: 1,
+      slowConcurrency: 1,
+      slowPauseMs: 12_000,
+      waitForLoad: NO_WAIT,
+      wait: async (ms: number) => {
+        waits.push(ms);
+      },
+    };
+  }
+
+  test("the job that was refused is tried again in the slow lane", async () => {
+    const waits: number[] = [];
+
+    const result = await resolveJobs(threeJobs(), laneOptions(waits));
+
+    expect(waits.length).toBeGreaterThan(0);
+    expect(waits.every((ms) => ms === 12_000)).toBe(true);
+  });
+
+  // The refusal was about the moment, not the job, so a1 keeps its place.
+  test("a job refused in both lanes still keeps its place in the backlog", async () => {
+    const result = await resolveJobs(threeJobs(), laneOptions([]));
+
+    expect(result.jobs.find((entry) => entry.id === "a1")?.status ?? null).toBeNull();
+  });
+
+  test("the other job on the refused host still resolves, in the slow lane", async () => {
+    const result = await resolveJobs(threeJobs(), laneOptions([]));
+
+    expect(result.jobs.find((entry) => entry.id === "a2")?.resolved_url).toBe(
+      "https://a.example/2"
+    );
+  });
+
+  test("a job on an untouched host is unaffected", async () => {
+    const result = await resolveJobs(threeJobs(), laneOptions([]));
+
+    expect(result.jobs.find((entry) => entry.id === "b1")?.resolved_url).toBe(
+      "https://b.example/1"
+    );
+  });
+
+  // The caller reads the list by position, so whatever order the lanes ran
+  // in, what comes back has to line up with what went in.
+  test("the list comes back in the order it was handed over", async () => {
+    const result = await resolveJobs(threeJobs(), laneOptions([]));
+
+    expect(result.jobs.map((entry) => entry.id)).toEqual(["a1", "a2", "b1"]);
+  });
+
+  // A 404 is the same answer every run, so it says nothing about the host.
+  // Demoting on it would send a whole site to the slow lane over one dead job.
+  test("a page that is merely gone does not move its host", async () => {
+    const gone: Record<string, ScriptedPage> = {
+      "https://a.example/1": {
+        url: "https://a.example/1",
+        responses: [{ url: "https://a.example/1", status: 404 }],
+      },
+      "https://a.example/2": { url: "https://a.example/2", html: "<p>A job posting</p>" },
+    };
+    const waits: number[] = [];
+
+    await resolveJobs([job("a1", "https://a.example/1"), job("a2", "https://a.example/2")], {
+      openPage: factoryByUrl(gone),
+      fastConcurrency: 1,
+      slowConcurrency: 1,
+      slowPauseMs: 12_000,
+      waitForLoad: NO_WAIT,
+      wait: async (ms: number) => {
+        waits.push(ms);
+      },
+    });
+
+    expect(waits).toEqual([]);
+  });
+
+  test("a run where nothing refuses us never reaches the slow lane", async () => {
+    const clean: Record<string, ScriptedPage> = {
+      "https://a.example/1": { url: "https://a.example/1", html: "<p>A job posting</p>" },
+      "https://b.example/1": { url: "https://b.example/1", html: "<p>A job posting</p>" },
+    };
+    const waits: number[] = [];
+
+    await resolveJobs([job("a1", "https://a.example/1"), job("b1", "https://b.example/1")], {
+      openPage: factoryByUrl(clean),
+      fastConcurrency: 2,
+      slowConcurrency: 1,
+      slowPauseMs: 12_000,
+      waitForLoad: NO_WAIT,
+      wait: async (ms: number) => {
+        waits.push(ms);
+      },
+    });
+
+    expect(waits).toEqual([]);
   });
 });

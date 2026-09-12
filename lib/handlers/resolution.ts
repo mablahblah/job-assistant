@@ -8,13 +8,20 @@
 import type { CollectionIssue } from "../collection-issue";
 import type { JobListEntry } from "../job-list-entry";
 import type { ResolutionPage, ResolutionPageFactory } from "../resolution-page";
+import { interleaveByHost } from "../interleave-by-host";
 import { resolveJobUrl, type ResolutionOutcome } from "../resolve-job-url";
 import type { TraceService } from "../trace-service";
 
 export interface ResolveJobsOptions {
   openPage: ResolutionPageFactory;
-  concurrency: number;
+  fastConcurrency: number;
+  // Optional because a run where nothing refuses us never reaches the slow
+  // lane, so a caller with no reason to think about it need not name either.
+  slowConcurrency?: number;
+  slowPauseMs?: number;
   waitForLoad?: (page: ResolutionPage) => Promise<void>;
+  // Injected so a test can watch the pauses rather than sit through them.
+  wait?: (ms: number) => Promise<void>;
   trace?: TraceService;
   runId?: string;
   step?: string;
@@ -123,51 +130,149 @@ export async function resolveJobs(
   jobs: JobListEntry[],
   options: ResolveJobsOptions
 ): Promise<ResolveJobsResult> {
-  const { openPage, concurrency, waitForLoad, trace, runId, step } = options;
+  const {
+    openPage,
+    fastConcurrency,
+    slowConcurrency = 1,
+    slowPauseMs = 12_000,
+    waitForLoad,
+    wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    trace,
+    runId,
+    step,
+  } = options;
 
-  // Seeded with the list as it arrived, so order survives however the resolutions
-  // interleaved and a job whose resolution threw is already sitting there untouched.
+  // Seeded with the list as it arrived, so the result comes back in the order
+  // the caller handed it over however the two lanes interleaved, and a job
+  // whose resolution threw is already sitting there untouched.
   const resolvedJobs: JobListEntry[] = jobs.slice();
 
-  // Concurrent, unlike association: every job's resolution is its own page on its own
-  // site, waiting on the network and sharing nothing with the others. A headed
-  // browser holds the machine for as long as the run lasts, so shortening the
-  // run is the whole point. The worker count is the ceiling on how many pages
-  // are open at one time.
-  let next = 0;
+  // Both lanes work reordered views of the same entries, so this is the only
+  // way back from a job to the position its result belongs at.
+  const positionOf = new Map<JobListEntry, number>();
+  jobs.forEach((job, index) => positionOf.set(job, index));
 
-  async function worker(): Promise<void> {
-    while (next < jobs.length) {
-      const index = next;
-      next += 1;
-
-      const job = jobs[index];
-      const followed = await followJobLink(job, openPage, waitForLoad);
-      resolvedJobs[index] = followed.job;
-
-      // A trace row is keyed by job id and collector, so a job carrying
-      // neither has nothing to key its record on. All three of trace, runId
-      // and step are needed as well: a step handed only some of them still
-      // does its work and stays silent, which is what lets the same function
-      // run outside a job search.
-      if (!followed.event || !job.id || !job.collector) continue;
-
-      if (trace && runId !== undefined && step !== undefined) {
-        await trace.write({
-          run_id: runId,
-          job_id: job.id,
-          step,
-          event: followed.event,
-          collector: job.collector,
-          reason: followed.reason,
-        });
-      }
+  // The same derivation interleaveByHost uses. A job whose link is missing or
+  // unreadable belongs to no host, so it can neither be held back by a
+  // refused one nor send one to the slow lane itself.
+  function hostOf(job: JobListEntry): string | undefined {
+    if (!job.original_url) return undefined;
+    try {
+      return new URL(job.original_url).host;
+    } catch {
+      return undefined;
     }
   }
 
-  // One worker per lane, never more than there are jobs to resolve.
-  const workerCount = Math.max(1, Math.min(concurrency, jobs.length));
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  function record(job: JobListEntry, followed: FollowedEntry): void {
+    const position = positionOf.get(job);
+    if (position !== undefined) resolvedJobs[position] = followed.job;
+  }
+
+  async function writeTrace(job: JobListEntry, followed: FollowedEntry): Promise<void> {
+    // A trace row is keyed by job id and collector, so a job carrying
+    // neither has nothing to key its record on. All three of trace, runId
+    // and step are needed as well: a step handed only some of them still
+    // does its work and stays silent, which is what lets the same function
+    // run outside a job search.
+    if (!followed.event || !job.id || !job.collector) return;
+    if (!trace || runId === undefined || step === undefined) return;
+
+    await trace.write({
+      run_id: runId,
+      job_id: job.id,
+      step,
+      event: followed.event,
+      collector: job.collector,
+      reason: followed.reason,
+    });
+  }
+
+  // Jobs from one site arriving back to back is what gets a host to refuse us
+  // in the first place, so the fast lane never sees the caller's order. It
+  // sees one job from each host in turn.
+  const dealt = interleaveByHost(jobs);
+
+  // Empty at the start of every call. Which hosts end up here is decided
+  // entirely by what they did during this run — nothing names one, and
+  // nothing carries over from the run before.
+  const refusedHosts = new Set<string>();
+
+  // What the fast lane declined to finish: a job whose host had already
+  // refused us, and the job whose own attempt proved that. Neither keeps a
+  // result or a trace row, because the slow lane's attempt is the one that
+  // counts.
+  const slowLaneJobs: JobListEntry[] = [];
+
+  let nextFast = 0;
+
+  async function fastWorker(): Promise<void> {
+    while (nextFast < dealt.length) {
+      const index = nextFast;
+      nextFast += 1;
+
+      const job = dealt[index];
+      if (!job) continue;
+      const host = hostOf(job);
+
+      // Asking again would spend a visit learning what the last one already
+      // proved, and every such visit keeps the block alive that much longer.
+      if (host !== undefined && refusedHosts.has(host)) {
+        slowLaneJobs.push(job);
+        continue;
+      }
+
+      const followed = await followJobLink(job, openPage, waitForLoad);
+
+      // Only a refusal demotes a host. Every other failure is about the one
+      // posting — a 404 is a job that is gone, and sending a whole site to
+      // the slow lane over one dead posting would cost the rest of its jobs
+      // for nothing.
+      if (followed.reason === "page_refused") {
+        if (host !== undefined) refusedHosts.add(host);
+        slowLaneJobs.push(job);
+        continue;
+      }
+
+      record(job, followed);
+      await writeTrace(job, followed);
+    }
+  }
+
+  const fastWorkerCount = Math.max(1, Math.min(fastConcurrency, dealt.length));
+  await Promise.all(Array.from({ length: fastWorkerCount }, () => fastWorker()));
+
+  let nextSlow = 0;
+
+  async function slowWorker(): Promise<void> {
+    // Only a worker's first job goes unpaused. It arrives after the whole
+    // fast lane has run, which is cooling-off time already spent; everything
+    // after it is another visit stacked on the one before.
+    let tookFirst = false;
+
+    while (nextSlow < slowLaneJobs.length) {
+      const index = nextSlow;
+      nextSlow += 1;
+
+      if (tookFirst) await wait(slowPauseMs);
+      tookFirst = true;
+
+      const job = slowLaneJobs[index];
+      if (!job) continue;
+
+      const followed = await followJobLink(job, openPage, waitForLoad);
+
+      // There is no third lane to defer to, so whatever comes back here —
+      // another refusal included — is this job's answer for the run.
+      record(job, followed);
+      await writeTrace(job, followed);
+    }
+  }
+
+  if (slowLaneJobs.length > 0) {
+    const slowWorkerCount = Math.max(1, Math.min(slowConcurrency, slowLaneJobs.length));
+    await Promise.all(Array.from({ length: slowWorkerCount }, () => slowWorker()));
+  }
 
   // This step raises none today. The field is here because every step's
   // result carries it.

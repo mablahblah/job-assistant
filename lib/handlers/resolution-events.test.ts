@@ -66,7 +66,7 @@ async function traceOf(
   const trace = createFakeTraceService();
   await resolveJobs([entry], {
     openPage: factoryFor(script),
-    concurrency: 1,
+    fastConcurrency: 1,
     waitForLoad: NO_WAIT,
     trace,
     runId: RUN_ID,
@@ -242,7 +242,7 @@ describe("the shape of every row this step writes", () => {
       openPage: factoryFor([
         { url: "https://employer.example/careers/9", html: "<p>A job posting</p>" },
       ]),
-      concurrency: 1,
+      fastConcurrency: 1,
       waitForLoad: NO_WAIT,
       trace,
       runId: RUN_ID,

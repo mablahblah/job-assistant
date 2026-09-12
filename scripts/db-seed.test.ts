@@ -19,7 +19,9 @@ const EXPECTED_SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 const EXPECTED_LOCATION = "78701";
 const EXPECTED_RADIUS = 30;
 const EXPECTED_EXPIRY_THRESHOLD = 8;
-const EXPECTED_RESOLUTION_CONCURRENCY = 3;
+const EXPECTED_FAST_CONCURRENCY = 3;
+const EXPECTED_SLOW_CONCURRENCY = 1;
+const EXPECTED_SLOW_PAUSE_SECONDS = 12;
 
 const GREENHOUSE_SLUGS = [
   "gitlab",
@@ -47,7 +49,9 @@ interface SettingRow {
   location: string | null;
   radius: number | null;
   expiry_threshold: number | null;
-  resolution_concurrency: number | null;
+  resolution_fast_concurrency: number | null;
+  resolution_slow_concurrency: number | null;
+  resolution_slow_pause_seconds: number | null;
   modified_at: string;
 }
 
@@ -119,8 +123,18 @@ async function readSetting(url: string): Promise<SettingRow> {
       radius: row["radius"] === null ? null : Number(row["radius"]),
       expiry_threshold:
         row["expiry_threshold"] === null ? null : Number(row["expiry_threshold"]),
-      resolution_concurrency:
-        row["resolution_concurrency"] === null ? null : Number(row["resolution_concurrency"]),
+      resolution_fast_concurrency:
+        row["resolution_fast_concurrency"] === null
+          ? null
+          : Number(row["resolution_fast_concurrency"]),
+      resolution_slow_concurrency:
+        row["resolution_slow_concurrency"] === null
+          ? null
+          : Number(row["resolution_slow_concurrency"]),
+      resolution_slow_pause_seconds:
+        row["resolution_slow_pause_seconds"] === null
+          ? null
+          : Number(row["resolution_slow_pause_seconds"]),
       modified_at: String(row["modified_at"]),
     };
   } finally {
@@ -292,7 +306,9 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
   });
 
   test("writes how many jobs resolution resolves at a time", () => {
-    expect(setting.resolution_concurrency).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
+    expect(setting.resolution_fast_concurrency).toBe(EXPECTED_FAST_CONCURRENCY);
+    expect(setting.resolution_slow_concurrency).toBe(EXPECTED_SLOW_CONCURRENCY);
+    expect(setting.resolution_slow_pause_seconds).toBe(EXPECTED_SLOW_PAUSE_SECONDS);
   });
 
   test("writes one company per ATS slug", () => {
@@ -341,7 +357,9 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
   // The user is expected to raise this one, so a re-seed overwriting it would
   // undo the change every time.
   test("leaves the resolution concurrency alone", () => {
-    expect(setting.resolution_concurrency).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
+    expect(setting.resolution_fast_concurrency).toBe(EXPECTED_FAST_CONCURRENCY);
+    expect(setting.resolution_slow_concurrency).toBe(EXPECTED_SLOW_CONCURRENCY);
+    expect(setting.resolution_slow_pause_seconds).toBe(EXPECTED_SLOW_PAUSE_SECONDS);
   });
 });
 

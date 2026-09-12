@@ -184,7 +184,9 @@ function browserServing(): ResolutionBrowserFactory {
 // One job at a time, and a priority list real enough for save to rank the one
 // collector these runs use.
 const RESOLVING_SETTINGS: Partial<SettingsService> = {
-  getResolutionConcurrency: async () => 1,
+  getResolutionFastConcurrency: async () => 1,
+  getResolutionSlowConcurrency: async () => 1,
+  getResolutionSlowPauseSeconds: async () => 0,
   getSourcePriorityList: async () => ["collector:user", "collector:adzuna"],
 };
 

@@ -1061,7 +1061,9 @@ describe("AC 7: the resolution step runs over whatever the database says needs i
 
     const report = await runJobSearch({
       settings: fakeSettingsService({
-        getResolutionConcurrency: async () => 1,
+        getResolutionFastConcurrency: async () => 1,
+        getResolutionSlowConcurrency: async () => 1,
+        getResolutionSlowPauseSeconds: async () => 0,
         getSourcePriorityList: async () => ["collector:adzuna"],
       }),
       collectors: [],
@@ -1118,7 +1120,9 @@ function resolutionStepOver(
     // the resolution assertions would be counting two steps' work.
     jobService: fakeJobService(rows, { findUnparsed: async () => [] }),
     settings: fakeSettingsService({
-      getResolutionConcurrency: async () => 1,
+      getResolutionFastConcurrency: async () => 1,
+      getResolutionSlowConcurrency: async () => 1,
+      getResolutionSlowPauseSeconds: async () => 0,
       getSourcePriorityList: async () => PRIORITY_LIST,
     }),
     openBrowser: browserFor(scripts, log),

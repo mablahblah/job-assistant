@@ -78,7 +78,9 @@ const EXPECTED_SETTING_COLUMNS = [
   "title_suffixes",
   "title_removal_words",
   "source_priority_list",
-  "resolution_concurrency",
+  "resolution_fast_concurrency",
+  "resolution_slow_concurrency",
+  "resolution_slow_pause_seconds",
   "created_at",
   "modified_at",
 ];

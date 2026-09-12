@@ -47,7 +47,9 @@ const SETTING_DEFAULTS = {
   // from what real titles turn out to need rather than from a list fitted in
   // advance.
   title_removal_words: ["w2", "c2h", "evergreen"],
-  resolution_concurrency: 3,
+  resolution_fast_concurrency: 3,
+  resolution_slow_concurrency: 1,
+  resolution_slow_pause_seconds: 12,
 };
 
 // The boards each ATS collector polls. A collector finds its work by asking
@@ -131,7 +133,9 @@ type SettingPatch = {
   title_levels?: TitleLevelDefault[];
   title_suffixes?: string[];
   title_removal_words?: string[];
-  resolution_concurrency?: number;
+  resolution_fast_concurrency?: number;
+  resolution_slow_concurrency?: number;
+  resolution_slow_pause_seconds?: number;
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -160,8 +164,17 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   if (existing.title_removal_words === null) {
     patch.title_removal_words = SETTING_DEFAULTS.title_removal_words;
   }
-  if (existing.resolution_concurrency === null) {
-    patch.resolution_concurrency = SETTING_DEFAULTS.resolution_concurrency;
+  if (existing.resolution_fast_concurrency === null) {
+    patch.resolution_fast_concurrency = SETTING_DEFAULTS.resolution_fast_concurrency;
+  }
+  if (existing.resolution_slow_concurrency === null) {
+    patch.resolution_slow_concurrency = SETTING_DEFAULTS.resolution_slow_concurrency;
+  }
+  // Filled when absent like every other setting, and left alone once set,
+  // because a pause the user has tuned against a source that pushed back is
+  // exactly the kind of value a seed must never overwrite.
+  if (existing.resolution_slow_pause_seconds === null) {
+    patch.resolution_slow_pause_seconds = SETTING_DEFAULTS.resolution_slow_pause_seconds;
   }
 
   const filled = Object.keys(patch);

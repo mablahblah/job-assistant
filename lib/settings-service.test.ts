@@ -25,7 +25,9 @@ const EXPECTED_SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 const EXPECTED_LOCATION = "78701";
 const EXPECTED_RADIUS = 30;
 const EXPECTED_EXPIRY_THRESHOLD = 8;
-const EXPECTED_RESOLUTION_CONCURRENCY = 3;
+const EXPECTED_FAST_CONCURRENCY = 3;
+const EXPECTED_SLOW_CONCURRENCY = 1;
+const EXPECTED_SLOW_PAUSE_SECONDS = 12;
 
 const GREENHOUSE_SLUGS = [
   "gitlab",
@@ -193,8 +195,24 @@ describe("AC 9: an unseeded database throws instead of returning something empty
 
   // Zero would mean no job is resolved at all, which reads as a run that found
   // nothing rather than as a setting nobody filled.
-  test("getResolutionConcurrency throws rather than returning zero", async () => {
-    await expect(service.getResolutionConcurrency()).rejects.toThrow(/resolution_concurrency/);
+  test("getResolutionFastConcurrency throws rather than returning zero", async () => {
+    await expect(service.getResolutionFastConcurrency()).rejects.toThrow(
+      /resolution_fast_concurrency/
+    );
+  });
+
+  test("getResolutionSlowConcurrency throws rather than returning zero", async () => {
+    await expect(service.getResolutionSlowConcurrency()).rejects.toThrow(
+      /resolution_slow_concurrency/
+    );
+  });
+
+  // Zero here is a real value meaning no pause, so it cannot stand in for
+  // absent either. An unfilled pause has to be told apart from a chosen one.
+  test("getResolutionSlowPauseSeconds throws rather than returning zero", async () => {
+    await expect(service.getResolutionSlowPauseSeconds()).rejects.toThrow(
+      /resolution_slow_pause_seconds/
+    );
   });
 
   test("getSourcePriorityList throws rather than returning an empty list", async () => {
@@ -221,14 +239,16 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the eleven getters", () => {
+  test("exposes exactly the thirteen getters", () => {
     expect(Object.keys(service).sort()).toEqual(
       [
         "getAtsCompanies",
         "getExpiryThreshold",
         "getLocation",
         "getRadius",
-        "getResolutionConcurrency",
+        "getResolutionFastConcurrency",
+        "getResolutionSlowConcurrency",
+        "getResolutionSlowPauseSeconds",
         "getSearchTerms",
         "getSourcePriorityList",
         "getTitleHeadNouns",
@@ -276,8 +296,16 @@ describe("the getters return what the seed writes", () => {
     expect(await service.getExpiryThreshold()).toBe(EXPECTED_EXPIRY_THRESHOLD);
   });
 
-  test("getResolutionConcurrency returns the seeded count", async () => {
-    expect(await service.getResolutionConcurrency()).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
+  test("getResolutionFastConcurrency returns the seeded count", async () => {
+    expect(await service.getResolutionFastConcurrency()).toBe(EXPECTED_FAST_CONCURRENCY);
+  });
+
+  test("getResolutionSlowConcurrency returns the seeded count", async () => {
+    expect(await service.getResolutionSlowConcurrency()).toBe(EXPECTED_SLOW_CONCURRENCY);
+  });
+
+  test("getResolutionSlowPauseSeconds returns the seeded pause", async () => {
+    expect(await service.getResolutionSlowPauseSeconds()).toBe(EXPECTED_SLOW_PAUSE_SECONDS);
   });
 
   test("getAtsCompanies('greenhouse') returns the seeded greenhouse boards", async () => {

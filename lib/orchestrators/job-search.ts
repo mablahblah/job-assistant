@@ -251,8 +251,14 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       // Read before the browser is launched, deliberately: a missing setting
       // throws, and throwing here costs no browser rather than opening one for
       // a run that cannot go ahead.
-      const concurrency = await at("resolution_concurrency", () =>
-        options.settings.getResolutionConcurrency()
+      const fastConcurrency = await at("resolution_fast_concurrency", () =>
+        options.settings.getResolutionFastConcurrency()
+      );
+      const slowConcurrency = await at("resolution_slow_concurrency", () =>
+        options.settings.getResolutionSlowConcurrency()
+      );
+      const slowPauseSeconds = await at("resolution_slow_pause_seconds", () =>
+        options.settings.getResolutionSlowPauseSeconds()
       );
 
       const browser = await at("browser_launch", () => options.openBrowser());
@@ -261,7 +267,11 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
         const resolved = await handler("resolution", () =>
           resolveJobs(unresolved, {
             openPage: browser.openPage,
-            concurrency,
+            fastConcurrency,
+            slowConcurrency,
+            // Stored in seconds because that is the unit a person tuning it
+            // against a source that pushed back thinks in.
+            slowPauseMs: slowPauseSeconds * 1000,
             waitForLoad: options.waitForLoad,
             trace: options.trace,
             runId: options.runId,

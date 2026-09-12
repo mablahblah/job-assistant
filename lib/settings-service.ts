@@ -30,7 +30,9 @@ export interface SettingsService {
   getTitleSuffixes(): Promise<string[]>;
   getTitleRemovalWords(): Promise<string[]>;
   getSourcePriorityList(): Promise<string[]>;
-  getResolutionConcurrency(): Promise<number>;
+  getResolutionFastConcurrency(): Promise<number>;
+  getResolutionSlowConcurrency(): Promise<number>;
+  getResolutionSlowPauseSeconds(): Promise<number>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -180,14 +182,32 @@ export function createSettingsService(db: PipelineDb): SettingsService {
       return value;
     },
 
-    // Zero is not a harmless stand-in here: a run resolving no jobs at all
-    // looks like a run that found none.
-    async getResolutionConcurrency() {
+    // Zero is not a harmless stand-in for either lane's width: a lane
+    // resolving no jobs at all looks like a lane that found none.
+    async getResolutionFastConcurrency() {
       const row = await getSettingsRow(db);
-      if (row === null || row.resolution_concurrency === null) {
-        throw missingSettingError("resolution_concurrency");
+      if (row === null || row.resolution_fast_concurrency === null) {
+        throw missingSettingError("resolution_fast_concurrency");
       }
-      return row.resolution_concurrency;
+      return row.resolution_fast_concurrency;
+    },
+
+    async getResolutionSlowConcurrency() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.resolution_slow_concurrency === null) {
+        throw missingSettingError("resolution_slow_concurrency");
+      }
+      return row.resolution_slow_concurrency;
+    },
+
+    // Zero is a real answer here, meaning no pause at all, so it cannot be
+    // read as absent the way an empty list or a zero width can.
+    async getResolutionSlowPauseSeconds() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.resolution_slow_pause_seconds === null) {
+        throw missingSettingError("resolution_slow_pause_seconds");
+      }
+      return row.resolution_slow_pause_seconds;
     },
   };
 }
