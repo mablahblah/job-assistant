@@ -11,7 +11,7 @@ const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptsDir, "..");
 
 // Creating and seeding each measured well under two seconds, and the registry
-// is empty so the collect run has nothing to poll. This is a ceiling for all
+// is empty so the job-search run has nothing to poll. This is a ceiling for all
 // three steps together rather than a budget, generous because each spawns
 // npx tsx in turn.
 const SETUP_TIMEOUT_MS = 120_000;
@@ -49,7 +49,7 @@ function createAndSeed(prefix: string): { dir: string; url: string } {
   return temp;
 }
 
-interface CollectResult {
+interface RunResult {
   status: number | null;
   stderr: string;
   // The trace-failure line, when there is one, goes to stdout alongside the
@@ -59,10 +59,10 @@ interface CollectResult {
 
 // Run with spawnSync rather than execFileSync, so a non-zero exit is a result
 // to inspect rather than a throw that skips the rest of the suite.
-function runCollect(url: string): CollectResult {
+function runJobSearch(url: string): RunResult {
   // --limit 0 keeps the suite off the network: the wiring runs end to end and
   // no collector is asked for anything.
-  const result = spawnSync("npx", ["tsx", "scripts/collect.ts", "--limit", "0"], {
+  const result = spawnSync("npx", ["tsx", "scripts/job-search.ts", "--limit", "0"], {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     encoding: "utf8",
@@ -110,9 +110,9 @@ async function readSetting(url: string): Promise<SettingRow> {
 // The registry is empty, so this pins down the wiring rather than what gets
 // collected: a real database in, settings read but never written, and nothing
 // saved, because saving belongs to a later phase.
-describe("AC 14: the collect command runs collection and writes nothing", () => {
+describe("AC 11: the job-search command runs the pipeline and reaches no source", () => {
   let dir: string;
-  let result: CollectResult;
+  let result: RunResult;
   let jobCount: number;
   let traceCount: number;
   let settingsBefore: SettingRow;
@@ -120,11 +120,11 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
   let entriesAfter: string[];
 
   beforeAll(async () => {
-    const temp = createAndSeed("pipeline-collect-");
+    const temp = createAndSeed("pipeline-job-search-");
     dir = temp.dir;
 
     settingsBefore = await readSetting(temp.url);
-    result = runCollect(temp.url);
+    result = runJobSearch(temp.url);
     jobCount = await countRows(temp.url, "Job");
     traceCount = await countRows(temp.url, "Trace");
     settingsAfter = await readSetting(temp.url);
@@ -138,7 +138,7 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
   test("exits successfully against a freshly created and seeded database", () => {
     // The exit status alone leaves a broken command silent about why, so the
     // command's own stderr rides along in the failure message.
-    expect(result.status, `collect.ts failed:\n${result.stderr}`).toBe(0);
+    expect(result.status, `job-search.ts failed:\n${result.stderr}`).toBe(0);
   });
 
   test("writes no Job rows, because collection stops at a job list in memory", () => {
@@ -178,8 +178,8 @@ describe("AC 14: the collect command runs collection and writes nothing", () => 
 // another search's events. --limit 0 returns before any trace event exists, so
 // a minted run id leaves nothing to observe in the database or on stdout — the
 // only evidence available is the script's own text.
-describe("the collect command mints a run id", () => {
-  const source = readFileSync(join(repoRoot, "scripts", "collect.ts"), "utf-8");
+describe("the job-search command mints a run id", () => {
+  const source = readFileSync(join(repoRoot, "scripts", "job-search.ts"), "utf-8");
 
   test("calls crypto.randomUUID()", () => {
     expect(source).toMatch(/crypto\.randomUUID\(\)/);
@@ -199,5 +199,60 @@ describe("the collect command mints a run id", () => {
     // The name has to appear as its own token in the call, not as part of some
     // other identifier.
     expect(call?.[0]).toMatch(new RegExp(`\\b${mintedName}\\b`));
+  });
+});
+
+// AC 13 and the summary the user reads. A --limit 0 run reaches no source, so
+// every number is zero — which is exactly what makes the shape of the summary
+// checkable without touching a job site.
+describe("what a finished run prints", () => {
+  let dir: string;
+  let result: RunResult;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-job-search-summary-");
+    dir = temp.dir;
+    result = runJobSearch(temp.url);
+  }, SETUP_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("the headline numbers are printed even when they are zero", () => {
+    expect(result.stdout, result.stderr).toContain("Collected: 0 jobs");
+    expect(result.stdout).toContain("Resolved: 0 jobs");
+  });
+
+  test("every collector is named, so a source that went quiet is visible", () => {
+    for (const name of ["adzuna", "jsearch", "greenhouse", "lever", "ashby", "dribbble", "uiuxjobsboard"]) {
+      expect(result.stdout).toContain(`  - ${name} collected 0 jobs`);
+    }
+  });
+
+  test("a detail line with nothing to report is left out", () => {
+    expect(result.stdout).not.toContain("could not be resolved");
+    expect(result.stdout).not.toContain("Dedupe (post collection)");
+  });
+
+  test("a run where nothing threw says nothing about a failure", () => {
+    expect(result.stdout).not.toContain("Run stopped");
+    expect(result.stderr).not.toContain("Run stopped");
+  });
+});
+
+// AC 12. The command is named after the pipeline rather than after its first
+// step, so the script the package exposes has to move with it.
+describe("AC 12: package.json exposes job-search and no longer exposes collect", () => {
+  const scripts = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8")) as {
+    scripts: Record<string, string>;
+  };
+
+  test("job-search is present", () => {
+    expect(scripts.scripts["job-search"]).toBeDefined();
+  });
+
+  test("collect is gone", () => {
+    expect(scripts.scripts["collect"]).toBeUndefined();
   });
 });

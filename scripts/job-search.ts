@@ -7,7 +7,8 @@ import { createJobService } from "../lib/job-service";
 import { createSettingsService } from "../lib/settings-service";
 import type { CollectionIssue } from "../lib/collection-issue";
 import { runJobSearch } from "../lib/orchestrators/job-search";
-import type { ResolutionBrowserFactory } from "../lib/resolution-page";
+import { createResolutionBrowser } from "../lib/tools/resolution-browser";
+import { summaryFromTraceCounts } from "../lib/run-summary";
 import { createTraceService } from "../lib/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 
@@ -23,14 +24,6 @@ function printIssues(label: string, issues: CollectionIssue[]): void {
     console.log(`  ${issue.collector}: ${issue.message}`);
   }
 }
-
-// Stands in until the real Playwright browser is built. The resolution step
-// only calls this when the database holds a job needing a source URL, so a run
-// with nothing to resolve still finishes. A run that does have work stops here
-// rather than pretending it resolved anything.
-const noBrowserYet: ResolutionBrowserFactory = () => {
-  throw new Error("the real browser is not built yet, so this run cannot resolve");
-};
 
 // Reads `--limit N` off the command line. Omitted means collect everything.
 // A limit of 0 reaches no source at all, which is how the test suite runs this
@@ -63,34 +56,57 @@ async function main(): Promise<void> {
     // The date written into every job's collected_at, so one run's jobs share
     // a single timestamp even when collection takes minutes.
     const collectedAt = new Date();
+
     const report = await runJobSearch({
       settings,
-      openBrowser: noBrowserYet,
       collectors: COLLECTORS,
       companies,
       jobService,
+      // createResolutionBrowser already takes an optional launcher and returns
+      // a resolution browser session, which is exactly what openBrowser is
+      // asked for, so it is handed over by name rather than wrapped.
+      openBrowser: createResolutionBrowser,
       collectedAt,
-      limit,
       runId,
+      limit,
       trace,
     });
 
-    // Errors and warnings first, so a source that dropped out is the first
-    // thing read rather than something noticed weeks later.
     printIssues("Errors", report.errors);
     printIssues("Warnings", report.warnings);
 
-    // A trace write failing is invisible unless reported here, so a run where
-    // tracing silently dropped rows does not look identical to one where
-    // nothing went wrong. Silent when nothing failed, so a clean run gains no
-    // new line.
+    if (report.failure) {
+      console.log(`Run stopped at ${report.failure.at}: ${report.failure.reason}`);
+      // Printed only here, on failure. A run that finishes cleanly has no
+      // question to answer about which steps got that far, so the list would
+      // only be noise beside the summary the user actually reads.
+      console.log("Finished before it stopped:");
+      for (const handler of report.handlers) {
+        console.log(`  - ${handler.step}: ${handler.jobs} jobs`);
+      }
+    }
+
     if (report.traceFailures > 0) {
       console.log(`Trace failures: ${report.traceFailures}`);
     }
 
-    // The job list itself, as JSON on stdout, so an agent reading the command
-    // can consume it. Collection saves to the database as its last step.
-    console.log(JSON.stringify(report.jobs));
+    // The report runJobSearch returns carries list lengths, not the
+    // per-collector and per-reason numbers the summary needs — those exist
+    // only as the trace rows each step wrote while it ran. Reading them back
+    // from the database here also means a run that stopped early still gets a
+    // summary of whatever did finish, because those rows are already written
+    // by the time runJobSearch returns.
+    const counts = await trace.countsForRun(runId);
+    const collectorNames = COLLECTORS.map((collector) => collector.name);
+    for (const line of summaryFromTraceCounts(counts, collectorNames)) {
+      console.log(line);
+    }
+
+    // Set rather than exited on, so the disconnect below still runs and
+    // anything already written to stdout is flushed before the process ends.
+    if (report.failure) {
+      process.exitCode = 1;
+    }
   } finally {
     await prisma.$disconnect();
   }

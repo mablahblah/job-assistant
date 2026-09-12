@@ -9,7 +9,7 @@
     "db:create": "npx tsx scripts/db-create.ts",
     "db:seed": "npx tsx scripts/db-seed.ts",
     "db:reset": "npx tsx scripts/db-reset.ts",
-    "collect": "npx tsx scripts/collect.ts",
+    "job-search": "npx tsx scripts/job-search.ts",
     "lint": "npx eslint . --ext .ts && npm run typecheck",
     "typecheck": "npx tsc --noEmit",
     "test": "vitest run",
