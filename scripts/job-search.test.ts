@@ -256,3 +256,53 @@ describe("AC 12: package.json exposes job-search and no longer exposes collect",
     expect(scripts.scripts["collect"]).toBeUndefined();
   });
 });
+
+// Phase 8b, AC 14, 15, 16. The fault this guards against happened for real: a
+// column added to the schema was never pushed to the live database, so every
+// trace write of that run failed silently and a whole run's history was lost.
+// Dropping that same column back off a seeded database reproduces it exactly.
+describe("phase 8b AC 14, 15, 16: a database that does not match the code stops the run", () => {
+  let dir: string;
+  let result: RunResult;
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-job-search-drift-");
+    dir = temp.dir;
+
+    const client = createClient({ url: temp.url });
+    try {
+      await client.execute("ALTER TABLE Trace DROP COLUMN domain");
+    } finally {
+      client.close();
+    }
+
+    result = runJobSearch(temp.url);
+  }, SETUP_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // AC 15. Both halves matter: which table is wrong, and what to type next.
+  test("names the table it could not read", () => {
+    expect(result.stdout).toContain("Trace");
+  });
+
+  test("names the command that rebuilds the database", () => {
+    expect(result.stdout).toContain("npm run db:create");
+  });
+
+  // AC 16. A run that recorded nothing must not look like a run that worked.
+  test("exits with a code that is not zero", () => {
+    expect(result.status).not.toBe(0);
+  });
+
+  // AC 14. runJobSearch is handed createResolutionBrowser and is the only
+  // thing that ever calls it, so a run that never reached runJobSearch never
+  // launched a browser. What proves it was never reached is the absence of
+  // the lines printed from its report the moment it returns.
+  test("stops before the pipeline runs, so nothing launches a browser", () => {
+    expect(result.stdout).not.toContain("Errors:");
+    expect(result.stdout).not.toContain("Warnings:");
+  });
+});

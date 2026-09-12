@@ -539,6 +539,38 @@ describe("a host that refuses us is moved to the slow lane", () => {
 
     expect(waits).toEqual([]);
   });
+
+  // A block is temporary, so a host judged once must not be judged forever.
+  // The count of pages opened is what tells the two apart. A run that
+  // remembered a.example would open three — b1 in the fast lane, then a1 and
+  // a2 in the slow one — because a1 would be deferred without ever being
+  // tried. A run starting clean opens four, spending one on the attempt that
+  // learns the refusal all over again.
+  test("the set of refused hosts is empty again on the next run", async () => {
+    function countingOptions(opens: { count: number }) {
+      const openPage = factoryByUrl(twoHosts);
+      return {
+        openPage: async () => {
+          opens.count += 1;
+          return openPage();
+        },
+        fastConcurrency: 1,
+        slowConcurrency: 1,
+        slowPauseMs: 12_000,
+        waitForLoad: NO_WAIT,
+        wait: async () => {},
+      };
+    }
+
+    const first = { count: 0 };
+    await resolveJobs(threeJobs(), countingOptions(first));
+
+    const second = { count: 0 };
+    await resolveJobs(threeJobs(), countingOptions(second));
+
+    expect(first.count).toBe(4);
+    expect(second.count).toBe(first.count);
+  });
 });
 
 // Only one of the permanent failures was ever proven to park a job. If any of

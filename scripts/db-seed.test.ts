@@ -321,6 +321,14 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
 describe("AC7: re-seeding never resets a setting that already has a value", () => {
   const myTerms = ["Staff Product Designer", "Design Systems"];
 
+  // Deliberately none of the seeded defaults. A setting left at its default
+  // survives a re-seed whether the seed overwrites it or not, so tuning these
+  // away from 3, 1 and 12 is the only thing that makes the check below mean
+  // anything.
+  const MY_FAST_CONCURRENCY = 5;
+  const MY_SLOW_CONCURRENCY = 2;
+  const MY_SLOW_PAUSE_SECONDS = 30;
+
   let dir: string;
   let setting: SettingRow;
 
@@ -330,6 +338,11 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
     await runSql(temp.url, "UPDATE Setting SET search_terms = ? WHERE id = 1", [
       JSON.stringify(myTerms),
     ]);
+    await runSql(
+      temp.url,
+      "UPDATE Setting SET resolution_fast_concurrency = ?, resolution_slow_concurrency = ?, resolution_slow_pause_seconds = ? WHERE id = 1",
+      [MY_FAST_CONCURRENCY, MY_SLOW_CONCURRENCY, MY_SLOW_PAUSE_SECONDS]
+    );
     runScript("db-seed.ts", temp.url);
     setting = await readSetting(temp.url);
   }, MULTI_SEED_TIMEOUT_MS);
@@ -354,12 +367,13 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
     expect(setting.expiry_threshold).toBe(EXPECTED_EXPIRY_THRESHOLD);
   });
 
-  // The user is expected to raise this one, so a re-seed overwriting it would
-  // undo the change every time.
-  test("leaves the resolution concurrency alone", () => {
-    expect(setting.resolution_fast_concurrency).toBe(EXPECTED_FAST_CONCURRENCY);
-    expect(setting.resolution_slow_concurrency).toBe(EXPECTED_SLOW_CONCURRENCY);
-    expect(setting.resolution_slow_pause_seconds).toBe(EXPECTED_SLOW_PAUSE_SECONDS);
+  // A source that pushes back is what these three exist to be slowed against,
+  // so the user is expected to raise them. A re-seed overwriting the change
+  // would undo that tuning every time.
+  test("keeps the three lane settings I tuned", () => {
+    expect(setting.resolution_fast_concurrency).toBe(MY_FAST_CONCURRENCY);
+    expect(setting.resolution_slow_concurrency).toBe(MY_SLOW_CONCURRENCY);
+    expect(setting.resolution_slow_pause_seconds).toBe(MY_SLOW_PAUSE_SECONDS);
   });
 });
 
