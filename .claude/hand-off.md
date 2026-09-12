@@ -13,100 +13,85 @@
 
 ## Current Task
 
-**Phase 8 — Parsers. Tasks 1 to 18 of 22 are built. Tasks 19 to 22 remain, then "Close phase 8".**
+**Phase 8 is built. Phase 8b is built and specified. Neither is closed.**
 
-The spec is at `docs/features/unified-pipeline/phases/phase-08-parsers-spec.md`.
+The user's words for what comes next: *"I want to pick back up on 8b, so i can finish this review and close it, then close 8, then do 8a quickly."*
 
-Verified at session end: **2,171 tests pass across 95 files, and `npm run lint` exits 0.**
+Verified at session end: **2,219 tests pass across 97 files, `npm run lint` exits 0.** Working tree clean, nothing uncommitted, no unfixed failures.
 
-Seven commits pushed, `443af8b` to `72e7c8e`:
-
-| Hash | Subject |
-| --- | --- |
-| `3405cb2` | docs: the hand-off the previous session wrote is committed |
-| `ee7ccd8` | fix: the two defects phase 8 found by running the code |
-| `9a7afc0` | feat: the two shared pieces every parser needs land first |
-| `69aa917` | refactor: the three ATS field mappings are lifted out of their collectors |
-| `3e31863` | feat: the four parsers and the registry that finds them |
-| `1ea78c6` | feat: parsing becomes a step of the pipeline |
-| `72e7c8e` | docs: phase 8's first eighteen tasks are marked built |
-
-**Three files are modified and uncommitted**, all written after that last commit: `docs/CURRENT-FEATURE.md` (task 5's checkbox, ticked late — see the gotcha below), `docs/features/unified-pipeline/decision-log.md` (one new entry), and the phase 8 spec (a new *Calls the build made* section). Commit them before starting task 19.
-
-**The next unbuilt thing is task 19** — the Parsing block in `lib/run-summary.ts`.
+Phase 8b was built before it was specified — a live test run of phase 8 exposed three faults serious enough to fix on the spot. Its spec is now on disk at [phase-08b-resolution-pacing-spec.md](../docs/features/unified-pipeline/phases/phase-08b-resolution-pacing-spec.md) with 47 acceptance criteria, written from what was built and what was measured.
 
 ## Completed This Session
 
-**Parsing became a real step of the pipeline.** A job search now reads its own list of resolved-but-unparsed jobs, reads each posting with the parser that owns its link's domain, then normalizes, associates, dedupes and saves.
+**Phase 8 tasks 19 to 22, finishing its build.**
 
-**Tasks 1 to 4 — the defects and the shared pieces.**
+- The run summary gained a Parsing block: how many parsed, how many did not, and the top five failing domains with a count and a label each.
+- The four parsers joined the seeded source priority list.
+- Parsing's vocabulary went into the `Trace` model comment and `trace-events.md`.
+- `.claude/rules/naming.md` gained a Parsers section.
 
-- `tldts` added, and `lib/registrable-domain.ts` written: `registrableDomainFromUrl(url)` gives null for anything that is not an http or https address, and for an address with no owned domain.
-- `normalizeModeList` widened to recognise `in-person`, which its sibling reader has always returned and it always dropped.
-- `lib/raw-salary-from-text.ts` turns the description reader's `salary_low`/`salary_high` into the envelope's `salary_min`/`salary_max`, or null.
-- `lib/tools/page-fetcher.ts` holds `fetchPageHtml(url)` and `BROWSER_USER_AGENT`; `fetchContainer` was repointed at it.
+**Phase 8b, all of it.** Three faults, each fixed:
 
-**Tasks 5 to 7 — the three field mappings lifted.** `lib/greenhouse-fields.ts`, `lib/lever-fields.ts` and `lib/ashby-fields.ts` each hold what was a private `toJobListEntry` inside a collector, minus the link and the phase gates. Every collector was repointed, and each collector's test now proves it went through the shared mapper rather than a copy, using a `vi.mock` spy that still runs the real function.
+1. **Every resolution failure parked its job** as `unresolvable`, which takes it off the queue for good. A live run had parked **100 of 334 jobs** that way — 47 Adzuna, 47 JSearch, 6 UIUXJobsBoard. Now `page_refused` and `page_load_failed` keep the job; everything else still parks it. `page_unavailable` split in two to make that distinction possible.
+2. **A whole run's trace was lost silently.** `Trace` gained a `domain` column in phase 8 and the live database never got it, so every trace write failed, was caught, counted, and reported only in a line at the end that a stopped run never reaches. `lib/schema-check.ts` now stops a run before anything else when the two disagree.
+3. **Nothing paced our requests.** Resolution now runs two lanes, with the queue dealt round-robin by host in `lib/interleave-by-host.ts`.
 
-**Tasks 8 to 13 — the parsers.** `lib/parsers/types.ts` holds the `Parser` contract. The four parsers are `greenhouse.ts`, `lever.ts`, `ashby.ts` and `dribbble.ts`. `registry.ts` holds `PARSERS_BY_DOMAIN` and `parserForUrl`, checked against `resolved-addresses.fixture.json`.
+**Reviewed as if it had been planned.** Two stress agents attacked the design and checked every criterion against the tests. Three false claims in the spec were corrected and five test gaps closed. A technical writer then graded the spec against the rubric, and its findings were resolved.
 
-**Tasks 14 to 18 — the step itself.** `findUnparsed()` on the job service and its fake. A `domain` column on `Trace`, carried by `TraceEvent` and grouped by `countsForRun`. `lib/handlers/parsing.ts` and its two test files. The step wired into `runJobSearch` behind a new `parserFor` option.
-
-**Two files added beyond the 22 tasks**, both approved and recorded in the spec: `lib/description-fallback.ts` and the `MappedJobFields` type.
+Thirteen commits, `30f3854` to `6ddcb59`.
 
 ## Decisions & Context
 
 ### What the user decided
 
-One entry, dated 2026-09-12, at the bottom of `docs/features/unified-pipeline/decision-log.md`:
+Four entries appended to `docs/features/unified-pipeline/decision-log.md`, all dated 2026-09-12. Read them there. In short: a failure that describes the moment keeps the job; no retry limit; a run stops when the database and code disagree; resolution runs two lanes.
 
-- **The page-fetcher tool is a plain function, `fetchPageHtml(url)`**, not the `create{Subject}()` builder `.claude/rules/naming.md` prescribes for a tool. The builder shape exists so a test can be handed a stand-in; this fetcher holds no state to configure, and the tests needing one already swap the global `fetch`.
+**The two-lane decision is the one that constrains future work.** Giving each host its own pace was rejected as routing by URL — domain-specific judgement belongs in collectors and parsers and nowhere else.
 
-### Calls made, not user decisions
+### Dropped as work-documentation, not decisions
 
-Seven, all shown to the user and approved as work-documentation. They are written into the phase 8 spec under **Calls the build made**. Read them there. Do not re-litigate them.
+- **The three lane settings.** The reason is self-evident, so the entry would read the same without it.
+- **Rebuilding the database rather than un-parking 100 jobs.** A one-time cleanup that constrains nothing later.
+- **The source priority order.** The user was explicit: *"this is not a decision, there is no decision about order."* Only two things are true, and both are already in the 2026-09-06 entry — new sources get added to the list, and the list is theirs to reorder.
 
-In short: two files added beyond the task list, three behaviour choices the spec left open (an unreadable link errors, a vanished Ashby posting reads as nothing found, parsing runs one job at a time), and two trace-shape choices (only failure rows carry the domain, and `detail` holds the link as plain text).
+### Measured facts — do not re-measure
 
-### Facts verified live on 2026-09-12 — do not re-check
+- **Adzuna allows roughly 20-25 page visits per five minutes and refuses at about 30.** Measured three ways over 66 jobs. The full tables are in the spec's "What was measured".
+- **One at a time resolved 46 of 66. Every 7s resolved 34. Every 5s resolved 31.** The shipped 3-at-a-time-with-no-delay resolved 19.
+- **The block lifts on its own** after a few minutes. Every paced run recovered for stretches of 8 to 13 clean requests.
+- **JSearch's 51 jobs point at 36 LinkedIn, 10 ZipRecruiter, 5 CareerBuilder.** LinkedIn's login wall reads as `dead_end`, correctly. Its parked jobs are mostly right and pacing will not change them.
+- **A refused page burns the full 15-second settling budget** before its status is read, because a 403 page carries too few links to look finished.
 
-- **Greenhouse's single-posting endpoint returns the same object shape as the board-list endpoint**, `first_published` and `company_name` included. Checked against `stripe`. The shared mapper takes it unchanged, and no second request is needed for the employer's name.
-- **Lever's single-posting endpoint matches its list endpoint.** The `gohighlevel` board page's title is exactly `HighLevel` — the bare employer name.
-- **Ashby's board answer holds only `jobs` and `apiVersion`.** The `hinge-health` board page's title is `Hinge Health Jobs`, which `nameFromBoardTitle` reduces to `Hinge Health`.
-- **A Dribbble job page carries two data blocks**: an inline `Dribbble.JobListing.initialize({...})` with `locationType` and `trackingProperties`, and a JSON-LD `JobPosting`. Checked against `https://dribbble.com/jobs/310076-Senior-Creative-Designer`.
-- **`dev.db` holds 2,208 jobs across 17 distinct link hosts.** The fixture is those 17, each naming the parser it must reach. It includes `job-boards.eu.greenhouse.io` at one job, and `historical`, a stored value that is not a web address at all.
+### Known limit, recorded in the spec
+
+**The fast lane has no pacing at all.** A host above roughly a sixth of the queue still breaks through; Adzuna is 30%. The two lanes cut the cost of a block, they do not prevent one. Whether the fast lane should be paced is the next iteration, to be decided against a run of the shipped code rather than in advance.
 
 ### Gotchas discovered
 
-- **A blocked Bash command runs none of its parts.** The read-guard hook rejects the whole command line, so a `sed` chained ahead of a blocked `cat` never runs. That is exactly how task 5's checkbox stayed unticked while the task was built and committed. Check the file after any chained edit.
-- **After editing `prisma/schema.prisma`, run `npx prisma generate` and `npx prisma db push`.** Both were run for the `Trace.domain` column.
-- **`TraceDetail` does not accept `{ url: string }`.** It accepts a bare string, `{from, to}`, and two dedupe-specific shapes. The parsing handler stores the resolved link as a plain string.
-- **The parsing step changed what a whole-pipeline run writes.** A job resolved in a run is now parsed in the same run, so it is normalized twice. Two suites in `lib/trace-proof.test.ts` had to grow: three by-collector counts gained `AND step = 'post_collection_normalization'`, and two step-total lists gained the four parsing steps.
-- **Two resolution tests are now handed `findUnparsed: async () => []`** through `resolutionStepOver` in `lib/orchestrators/job-search.test.ts`, because a row they mark resolved would otherwise join the parsing list.
-- **A parsed field does not yet outrank a collected one.** `parser:greenhouse` is absent from the seeded priority list, so `sideRank` returns null for the parser side and a stored collector value wins a contested field. Task 20 fixes it. One orchestrator test therefore asserts on `raw_company_name`, a field the stored row leaves empty, rather than on `raw_title` — revisit that assertion once task 20 lands.
+- **`npm run db:seed` appends to the bottom and never reorders.** Running it on a database that already holds a priority list will not fix that list's order.
+- **The database was rebuilt from scratch this session** and holds no jobs.
+- **The scripted resolution page fake ignores the URL it is handed** and serves its pages in order. A test covering several jobs on different hosts needs `factoryByUrl`, added in `lib/handlers/resolution.test.ts`.
+- **`pkill -f "scripts/job-search.ts"` does not always take the Playwright browser with it.** `pkill -f "playwright_chromiumdev_profile"` finishes the job.
 
-### Open questions
+### Two review findings the user dismissed — do not re-raise
 
-1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are tracked and pushed.** A `git add -A` swept them in. Unanswered for eleven sessions.
-2. **The over-merge query backlog entry 26 owes has not been run.** Its trigger, the first real run, has happened. The query is resolved links shared across distinct job ids, sliced by the rule that accepted them.
-3. **Whether resolution should stop on its own aggregator.** Two jobs did and saved as resolved. Phase 8 handles the consequence — such a job goes `unparseable` — but the resolver behaviour is undecided.
+- **The run-summary constraint.** Every phase is supposed to add a summary block; 8b adds none. The user's words: *"This isn't true."*
+- **A claimed contradiction with the seed.** The grader read the hand-written ranking as overturning a signed-off decision. Checked against the code: the seed still appends to the bottom and never reorders. No contradiction.
 
-### Do not re-raise
+### Open question, unanswered for two sessions
 
-The four stress-test findings on the previous hand-off's list remain dismissed, and three sit in the spec's **Behaviour not covered by a criterion** section. The spec's new **Calls the build made** section is settled too.
+**Should the Tools section of `.claude/rules/naming.md` record that a tool holding no state can be a plain function rather than a `create{Subject}()` builder?** The page-fetcher is such a tool, and the decision is already in the log, but the rule does not mention the exception.
+
+### Still open from earlier hand-offs
+
+1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are tracked and pushed.** A `git add -A` swept them in. Unanswered for twelve sessions.
+2. **The over-merge query backlog entry 26 owes has not been run.** Its trigger, the first real run, has happened.
+3. **Whether resolution should stop on its own aggregator** is still undecided.
 
 ## Next Steps
 
-1. **Commit the three modified docs** listed under Current Task before starting anything.
-2. **Task 19 — the Parsing block in `lib/run-summary.ts`.** How many jobs parsed, how many did not, and the failing owned domains with a count each. Each listed domain carries `no parser` or `parser failed`. Highest count first, capped at five with no line counting the rest, ties broken alphabetically, this run's rows only. It reads the trace rows the handler already writes; `TraceRunCount` now carries `domain`.
-3. **Task 20 — seed the four parsers** into `SOURCE_PRIORITY_DEFAULTS` in `scripts/db-seed.ts`, above every collector and below `collector:user`. `npm run db:seed` appends a new name to the bottom whatever its kind, so each has to be placed by hand. This is what finally makes a parsed field outrank a collected one.
-4. **Task 21 — write parsing's vocabulary** into the `Trace` model comment in `prisma/schema.prisma`, into `trace-events.md`, and into `prisma/schema.test.ts`. The step names in use are `parsing`, `post_parsing_normalization`, `post_parsing_association`, `post_parsing_dedupe` and `post_parsing_save`. The events are `job_parsed` and `parse_failed`, with reasons `no_parser_for_domain`, `parser_errored` and `nothing_parsed`.
-5. **Task 22 — add a Parsers section to `.claude/rules/naming.md`.** Ask the user about one thing while you are in that file: its Tools section says a tool has a `create{Subject}()` builder, and this session's page-fetcher deliberately does not. That exception may belong in the rule. The user decides whether to write it.
-6. **Close phase 8** — architecture doc, decision log, and any `BACKLOG.md` change presented for approval.
-
-### Facts the build will need
-
-- **The command is `npm run job-search`.**
-- **The new pipeline uses `pipeline.db`.** `dev.db` is `main`'s live database and this branch never touches it, though it is the source for measurements and fixtures.
-- **The four parsers name themselves `greenhouse`, `lever`, `ashby` and `dribbble`**, matching their filenames. A registry test reads each file off disk by that name to prove no parser reaches for Playwright.
-- **`parseJobs` takes an optional `parserFor`**, and so does `runJobSearch`. Left out, both use the real registry. It is how every parsing test stays offline.
+1. **Finish reviewing phase 8b.** The spec is on disk with 47 criteria. A code review of the build against those criteria has not been run — that is the one review step still outstanding.
+2. **Close phase 8b** — architecture doc, and any `BACKLOG.md` change presented for approval. The decision log is already done.
+3. **Close phase 8** — same. The source priority ranking work belongs to this close rather than to 8b, which is why 8b's spec carries none of it.
+4. **Phase 8a, sorting `lib/`.** Plan it, then build it. Forty-three files sit flat at the top of `lib/`, and sorting them rewrites an import path in all forty-three. The user wants this done "quickly".
+5. **Rerun the Adzuna measurement against the shipped two-lane code**, to see whether it beats 19 of 66. The database holds no jobs, so this needs a collection run first.
