@@ -615,13 +615,13 @@ const EXPECTED_PRIORITY_LIST = [
   "parser:lever",
   "parser:ashby",
   "parser:dribbble",
-  "collector:adzuna",
-  "collector:jsearch",
   "collector:greenhouse",
   "collector:lever",
   "collector:ashby",
   "collector:dribbble",
   "collector:uiuxjobsboard",
+  "collector:adzuna",
+  "collector:jsearch",
 ];
 
 describe("AC26: seeding a fresh database builds the source priority list", () => {
@@ -644,8 +644,27 @@ describe("AC26: seeding a fresh database builds the source priority list", () =>
     expect(setting.source_priority_list?.[0]).toBe("collector:user");
   });
 
-  test("every collector in the registry follows it, in registry order", () => {
+  // Decision of 2026-09-12: the ranking is a judgment about which source tells
+  // the truth, so it is written out by hand rather than following the order
+  // the registries happen to list each source in.
+  test("the list comes out in the ranked order, not registry order", () => {
     expect(setting.source_priority_list).toEqual(EXPECTED_PRIORITY_LIST);
+  });
+
+  // A collector that read the employer's own board saw the posting itself. An
+  // aggregator carries someone else's copy of it.
+  test("the two aggregators rank below every collector that reads a board", () => {
+    const list = setting.source_priority_list ?? [];
+    const lastBoard = Math.max(
+      list.indexOf("collector:greenhouse"),
+      list.indexOf("collector:lever"),
+      list.indexOf("collector:ashby"),
+      list.indexOf("collector:dribbble"),
+      list.indexOf("collector:uiuxjobsboard")
+    );
+
+    expect(list.indexOf("collector:adzuna")).toBeGreaterThan(lastBoard);
+    expect(list.indexOf("collector:jsearch")).toBeGreaterThan(lastBoard);
   });
 
   // AC53. A parser read the employer's own posting, so where it disagrees
@@ -716,11 +735,11 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "parser:lever",
       "parser:ashby",
       "parser:dribbble",
-      "collector:jsearch",
       "collector:lever",
       "collector:ashby",
       "collector:dribbble",
       "collector:uiuxjobsboard",
+      "collector:jsearch",
     ]);
   });
 

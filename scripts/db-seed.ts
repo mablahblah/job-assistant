@@ -76,25 +76,47 @@ const SLUGS_BY_PLATFORM: Record<string, string[]> = {
 // SETTING_DEFAULTS because it is not filled when null and left alone after:
 // this list is read while it holds the user's own ordering and appended to.
 //
-// collector:user is not in the registry. It is a fixed entry standing for a
-// job the user typed in by hand, and it leads so such a job outranks every
-// collected copy of the same posting.
+// The ranking is written out by hand rather than derived from the registries,
+// because it is a judgment about which source tells the truth while the
+// registries are ordered by when each source was built.
 //
-// Every parser outranks every collector, because a parser read the employer's
-// own posting while a collector read an aggregator's copy of it. Only
-// collector:user beats a parser, since a job the user typed in is the one
+// collector:user is not in either registry. It is a fixed entry standing for
+// a job the user typed in by hand, and it leads because that is the one
 // source nothing automated should be allowed to overwrite.
 //
-// The parser registry is keyed by owned domain, so one parser could in
-// principle be reached by two domains. The names are deduplicated, keeping
-// the order the registry lists them in.
-const SOURCE_PRIORITY_DEFAULTS: string[] = [
+// Every parser follows, because a parser read the employer's own posting.
+// Then the collectors that read an employer's own board, and last the two
+// aggregators, which carry someone else's copy of a posting rather than the
+// posting itself.
+const RANKED_SOURCES: string[] = [
   "collector:user",
+  "parser:greenhouse",
+  "parser:lever",
+  "parser:ashby",
+  "parser:dribbble",
+  "collector:greenhouse",
+  "collector:lever",
+  "collector:ashby",
+  "collector:dribbble",
+  "collector:uiuxjobsboard",
+  "collector:adzuna",
+  "collector:jsearch",
+];
+
+// Whatever a registry holds that the ranking above does not name. A source
+// added to a registry and forgotten here still gets an entry rather than
+// silently ranking nowhere, and it joins at the bottom, which is where an
+// unplaced source belongs. The parser registry is keyed by owned domain, so
+// one parser could in principle be reached by two domains; the names are
+// deduplicated.
+const UNRANKED_SOURCES: string[] = [
   ...Array.from(new Set(Object.values(PARSERS_BY_DOMAIN).map((parser) => parser.name))).map(
     (name) => `parser:${name}`
   ),
   ...COLLECTORS.map((collector) => `collector:${collector.name}`),
-];
+].filter((name) => !RANKED_SOURCES.includes(name));
+
+const SOURCE_PRIORITY_DEFAULTS: string[] = [...RANKED_SOURCES, ...UNRANKED_SOURCES];
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
