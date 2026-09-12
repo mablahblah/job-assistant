@@ -11,6 +11,7 @@ import { createResolutionBrowser } from "../lib/tools/resolution-browser";
 import { summaryFromTraceCounts } from "../lib/run-summary";
 import { createTraceService } from "../lib/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
+import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/schema-check";
 
 // One line per issue, naming both the collector and its own message, since
 // that message is what names the board or search behind it.
@@ -42,6 +43,20 @@ async function main(): Promise<void> {
   const limit = limitFromArgs(process.argv.slice(2));
   const prisma = createPipelineDb();
   try {
+    // Before anything else, and before the browser especially. A database the
+    // code cannot read does not fail loudly: the trace service swallows every
+    // write it cannot make, so a run would collect jobs for minutes and end
+    // with no history of having done it. Stopping here costs nothing; going
+    // on costs the whole run's record.
+    const drifted = await modelsFailingSchemaCheck(schemaProbesFor(prisma));
+    if (drifted.length > 0) {
+      console.log("The database does not match the schema this code expects.");
+      console.log(`Tables that could not be read: ${drifted.join(", ")}`);
+      console.log("Rebuild it with: npm run db:create && npm run db:seed");
+      process.exitCode = 1;
+      return;
+    }
+
     const settings = createSettingsService(prisma);
     const trace = createTraceService(prisma);
     // The one way anything reaches the Company table, so association attaches
