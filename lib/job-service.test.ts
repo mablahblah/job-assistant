@@ -547,3 +547,62 @@ describe("the resolution job list", () => {
     expect(entry?.created_at).toBeInstanceOf(Date);
   });
 });
+
+// AC 24 to 27. Parsing pulls its own job list out of the table the way
+// resolution does, because the database is the only handoff between steps.
+describe("the parsing job list", () => {
+  // One scratch database serves this whole file, so rows seeded by other
+  // tests sit in the same table. Each test here reads back only the ids it
+  // seeded itself.
+  function onlyMine(jobs: JobListEntry[], prefix: string): JobListEntry[] {
+    return jobs.filter((job) => (job.id ?? "").startsWith(prefix));
+  }
+
+  test("holds only backlog jobs that are resolved and not yet parsed", async () => {
+    await seedRow("parse-list-waiting", { is_resolved: true });
+    await seedRow("parse-list-unresolved");
+    await seedRow("parse-list-parsed", { is_resolved: true, is_parsed: true });
+    await seedRow("parse-list-unparseable", { is_resolved: true, status: "unparseable" });
+
+    const found = onlyMine(await service.findUnparsed(), "parse-list-");
+
+    expect(found.map((job) => job.id)).toEqual(["parse-list-waiting"]);
+  });
+
+  test("holds a job that kept backlog after failing to parse on an earlier run", async () => {
+    await seedRow("parse-retry", {
+      is_resolved: true,
+      is_parsed: false,
+      collected_at: new Date("2025-06-01T00:00:00.000Z"),
+    });
+
+    const found = onlyMine(await service.findUnparsed(), "parse-retry");
+
+    expect(found.map((job) => job.id)).toEqual(["parse-retry"]);
+  });
+
+  test("leaves the four gate fields behind", async () => {
+    await seedRow("parse-fields-absent", { is_resolved: true });
+
+    const [entry] = onlyMine(await service.findUnparsed(), "parse-fields-absent");
+
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+
+  test("carries the id, the resolved link and the collector a parse needs", async () => {
+    await seedRow("parse-fields-present", {
+      is_resolved: true,
+      collector: "adzuna",
+      resolved_url: "https://boards.greenhouse.io/acme/jobs/1",
+    });
+
+    const [entry] = onlyMine(await service.findUnparsed(), "parse-fields-present");
+
+    expect(entry?.id).toBe("parse-fields-present");
+    expect(entry?.collector).toBe("adzuna");
+    expect(entry?.resolved_url).toBe("https://boards.greenhouse.io/acme/jobs/1");
+  });
+});

@@ -9,6 +9,8 @@ import type { TraceEvent, TraceService } from "../trace-service";
 import { fakeSettingsService } from "../settings-service.fake";
 import { fakeCompanyService } from "../company-service.fake";
 import { fakeJobService } from "../job-service.fake";
+import type { JobService } from "../job-service";
+import type { Parser } from "../parsers/types";
 import type { CompanyRecord } from "../company-service";
 
 // Carries the default vocabularies and priority list, which is all the
@@ -106,7 +108,12 @@ const emptyResult: CollectorResult = { jobs: [], errors: [], warnings: [] };
 // left to resolve, and is handed a browser that fails the test if anything asks
 // it to launch. Criterion 6 is then asserted by the fake rather than by
 // counting launches after the run.
-const NOTHING_TO_RESOLVE = { findUnresolved: async () => [] };
+const NOTHING_TO_RESOLVE = { findUnresolved: async () => [], findUnparsed: async () => [] };
+
+// A parser lookup that finds nothing, so a test about an earlier step never
+// reaches a real job board. The parsing step then does nothing but park the
+// jobs it was handed.
+const NO_PARSERS = () => null;
 
 const FORBIDDEN_BROWSER = async (): Promise<ResolutionBrowserSession> => {
   throw new Error("the run launched a browser with nothing to resolve");
@@ -1105,7 +1112,11 @@ function resolutionStepOver(
   const report = runJobSearch({
     collectors: [],
     companies: fakeCompanyService([]),
-    jobService: fakeJobService(rows),
+    // Every test built on this helper is about the resolution step, so the
+    // parsing step is told there is nothing waiting. Left to the fake's own
+    // read, a row this helper marks resolved would join the parsing list and
+    // the resolution assertions would be counting two steps' work.
+    jobService: fakeJobService(rows, { findUnparsed: async () => [] }),
     settings: fakeSettingsService({
       getResolutionConcurrency: async () => 1,
       getSourcePriorityList: async () => PRIORITY_LIST,
@@ -1344,6 +1355,134 @@ describe("AC 8, 9: a handler that throws stops the run and is named in the repor
       trace: makeTraceService(),
       collectors: [makeCollector("lever", emptyResult)],
     });
+    expect(report.failure).toBeNull();
+  });
+});
+
+// AC 52. Parsing is a step of its own, reading its list from the database the
+// way resolution does, and running normalization, association, dedupe and save
+// after it.
+describe("the parsing step", () => {
+  // A job already resolved and waiting to be parsed, which is what the
+  // parsing list read hands back.
+  function waiting(id: string, fields: Partial<JobListEntry> = {}): JobListEntry {
+    return {
+      id,
+      collector: "adzuna",
+      collected_at: stubCollectedAt,
+      original_url: "https://www.adzuna.com/details/1",
+      resolved_url: "https://boards.greenhouse.io/acme/jobs/1",
+      raw_title: "Product Designer",
+      raw_company_slug: "acme",
+      ...fields,
+    };
+  }
+
+  const READING_PARSER: Parser = {
+    name: "greenhouse",
+    parse: async () => ({ raw_title: "Senior Product Designer", raw_company_name: "Acme" }),
+  };
+
+  // The fake's own findUnparsed reads the array it was handed, but these
+  // tests hand it jobs already carrying is_parsed unset, so the list is stated
+  // outright rather than inferred.
+  function oneToParse(list: JobListEntry[]): Partial<JobService> {
+    return {
+      findUnresolved: async () => [],
+      findUnparsed: async () => list.map((job) => ({ ...job })),
+    };
+  }
+
+  function baseOptions(jobService: JobService, parserFor: (url: string) => Parser | null) {
+    return {
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService,
+      collectedAt: stubCollectedAt,
+      companies: fakeCompanyService([]),
+      settings: stubSettings,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      collectors: [],
+      parserFor,
+    };
+  }
+
+  test("it reads its own list rather than being handed one", async () => {
+    let asked = false;
+    const jobService = fakeJobService([], {
+      findUnresolved: async () => [],
+      findUnparsed: async () => {
+        asked = true;
+        return [];
+      },
+    });
+
+    await runJobSearch(baseOptions(jobService, NO_PARSERS));
+
+    expect(asked).toBe(true);
+  });
+
+  test("a job on the list is read by its parser and reaches the report", async () => {
+    const jobService = fakeJobService([waiting("a")], oneToParse([waiting("a")]));
+
+    const report = await runJobSearch(baseOptions(jobService, () => READING_PARSER));
+
+    // The employer name is one the stored row leaves empty, so a filled value
+    // beats an absent one whatever the source priority list says. Whether a
+    // parser outranks a collector on a field they both fill is settled by that
+    // list, which is seeded separately.
+    expect(report.jobs.find((job) => job.id === "a")?.raw_company_name).toBe("Acme");
+  });
+
+  test("AC 52: normalization runs on what parsing produced, so the title is normalized", async () => {
+    const jobService = fakeJobService([waiting("a")], oneToParse([waiting("a")]));
+
+    const report = await runJobSearch(baseOptions(jobService, () => READING_PARSER));
+
+    // Normalization is what fills `title` off `raw_title`; parsing alone
+    // never writes it, so a filled title proves normalization ran after.
+    expect(report.jobs.find((job) => job.id === "a")?.title).toBeDefined();
+  });
+
+  test("AC 52: association runs after normalization, so the job comes out with a company", async () => {
+    const jobService = fakeJobService([waiting("a")], oneToParse([waiting("a")]));
+
+    const report = await runJobSearch(baseOptions(jobService, () => READING_PARSER));
+
+    expect(report.jobs.find((job) => job.id === "a")?.company_id).toBeDefined();
+  });
+
+  test("AC 52: save runs last, so the parsed job's row is written", async () => {
+    const written: string[] = [];
+    const held = [waiting("a")];
+    const jobService = fakeJobService(held, {
+      findUnresolved: async () => [],
+      findUnparsed: async () => held.map((job) => ({ ...job })),
+      async update(entry, priorityList) {
+        written.push(entry.id ?? "");
+        return fakeJobService(held).update(entry, priorityList);
+      },
+    });
+
+    await runJobSearch(baseOptions(jobService, () => READING_PARSER));
+
+    expect(written).toContain("a");
+  });
+
+  test("the parsing step writes its trace rows under its own step name", async () => {
+    const trace = makeTraceService();
+    const jobService = fakeJobService([waiting("a")], oneToParse([waiting("a")]));
+
+    await runJobSearch({ ...baseOptions(jobService, () => READING_PARSER), trace });
+
+    expect(trace.events.some((event) => event.step === "parsing")).toBe(true);
+  });
+
+  test("a run with nothing to parse still finishes and reports no failure", async () => {
+    const jobService = fakeJobService([], NOTHING_TO_RESOLVE);
+
+    const report = await runJobSearch(baseOptions(jobService, NO_PARSERS));
+
     expect(report.failure).toBeNull();
   });
 });

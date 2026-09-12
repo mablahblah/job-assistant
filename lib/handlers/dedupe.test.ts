@@ -96,11 +96,15 @@ function countingJobService(
       calls.push("findByCompanyAndTitle");
       return service.findByCompanyAndTitle(companyId, title);
     },
-    // Resolution's own read. Dedupe never calls it, which is exactly what the
-    // call list is here to prove.
+    // Resolution's own read, and parsing's. Dedupe never calls either, which
+    // is exactly what the call list is here to prove.
     async findUnresolved() {
       calls.push("findUnresolved");
       return service.findUnresolved();
+    },
+    async findUnparsed() {
+      calls.push("findUnparsed");
+      return service.findUnparsed();
     },
   };
 }

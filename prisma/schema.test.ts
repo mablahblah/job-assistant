@@ -94,14 +94,15 @@ const EXPECTED_TRACE_COLUMNS = [
   "event",
   "reason",
   "collector",
+  "domain",
   "detail",
   "created_at",
 ];
 
-// Every trace row carries these. reason and detail are filled only by the
-// events that have something to say.
+// Every trace row carries these. reason, domain and detail are filled only by
+// the events that have something to say.
 const TRACE_REQUIRED_COLUMNS = ["run_id", "job_id", "step", "event", "collector", "created_at"];
-const TRACE_NULLABLE_COLUMNS = ["reason", "detail"];
+const TRACE_NULLABLE_COLUMNS = ["reason", "domain", "detail"];
 
 // Columns the pipeline writes on its way to save. A collector fills only what
 // its source supplied and a later phase fills the rest, so every one of these

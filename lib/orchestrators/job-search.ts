@@ -1,11 +1,14 @@
 // Runs the job search, calling one handler after another and handing each the
-// run id, the collection date and the services they share. Two steps run in
+// run id, the collection date and the services they share. Three steps run in
 // sequence, and each ends in a database write, so a run's work outlives the
 // run whether or not the next step gets to it. The collect step is collection,
 // normalization, association, dedupe and save. The resolution step then reads
 // its own list of jobs still needing a source URL — nothing upstream hands it
 // work, because the database is the only handoff between steps — resolves them
-// behind one shared browser, then dedupes and saves what came back.
+// behind one shared browser, then dedupes and saves what came back. The
+// parsing step reads its own list of jobs already resolved but not yet parsed,
+// reads each with the parser that owns its link's domain, then normalizes,
+// associates, dedupes and saves.
 //
 // A throw anywhere in that chain stops the run where it happened rather than
 // escaping to the caller. Every step has already written to the database by
@@ -20,7 +23,9 @@ import { dedupeJobs } from "../handlers/dedupe";
 import type { JobListEntry } from "../job-list-entry";
 import type { JobService } from "../job-service";
 import { normalizeJobs } from "../handlers/normalization";
+import { parseJobs } from "../handlers/parsing";
 import { resolveJobs } from "../handlers/resolution";
+import type { Parser } from "../parsers/types";
 import type { ResolutionBrowserFactory, ResolutionPage } from "../resolution-page";
 import { saveJobs } from "../handlers/save";
 import type { SettingsService } from "../settings-service";
@@ -82,6 +87,10 @@ export interface RunJobSearchOptions {
   // The substitution point that lets the resolution step be tested offline against scripted
   // pages. Left out, resolution settles a page the way it does in a browser.
   waitForLoad?: (page: ResolutionPage) => Promise<void>;
+  // The substitution point that lets the parsing step be tested offline
+  // against stand-in parsers. Left out, parsing looks a parser up in the real
+  // registry.
+  parserFor?: (url: string) => Parser | null;
   // The date written into every job's collected_at. It arrives as an
   // argument so the orchestrator reads no clock, which is what lets one run
   // share a single write and a test pin it to a fixed date.
@@ -309,6 +318,84 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
         // opened, and the close is named in its own right so a browser that
         // will not shut is not reported as whatever ran before it.
         await at("browser_close", () => browser.close());
+      }
+    }
+
+    // The parsing step reads its own list too: jobs already resolved but not
+    // yet parsed. Nothing upstream hands it work, because the database is the
+    // only handoff between steps. Unlike resolution it guards nothing behind a
+    // length check, because there is no browser to avoid launching and five
+    // handlers over an empty list cost nothing.
+    const unparsed = await at("unparsed_lookup", () => options.jobService.findUnparsed());
+
+    const parsed = await handler("parsing", () =>
+      parseJobs(unparsed, {
+        parserFor: options.parserFor,
+        trace: options.trace,
+        runId: options.runId,
+        step: "parsing",
+      })
+    );
+    report.warnings.push(...parsed.warnings);
+
+    // Normalization runs before association, not after: association matches on
+    // the cleaned company name and normalization is what cleans it, so running
+    // association first would split one employer across two company rows.
+    const parsedNormalized = await handler("post_parsing_normalization", () =>
+      normalizeJobs(parsed.jobs, {
+        vocabularies,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_parsing_normalization",
+      })
+    );
+    report.warnings.push(...parsedNormalized.warnings);
+
+    const parsedAssociated = await handler("post_parsing_association", () =>
+      associateCompanies(parsedNormalized.jobs, {
+        companies: options.companies,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_parsing_association",
+      })
+    );
+    report.warnings.push(...parsedAssociated.warnings);
+
+    const parsedDeduped = await handler("post_parsing_dedupe", () =>
+      dedupeJobs(parsedAssociated.jobs, {
+        jobService: options.jobService,
+        priorityList,
+        collectedAt: options.collectedAt,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_parsing_dedupe",
+      })
+    );
+    report.warnings.push(...parsedDeduped.warnings);
+
+    const parsedSaved = await handler("post_parsing_save", () =>
+      saveJobs(parsedDeduped.jobs, {
+        jobService: options.jobService,
+        priorityList,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_parsing_save",
+      })
+    );
+    report.warnings.push(...parsedSaved.warnings);
+
+    // The report lists every job the run acted on, so the parsing step's saved
+    // list is joined on id, the same way the resolution step's list before it
+    // was. The parsing step's version wins, because it ran later and its
+    // fields are newer. A job carrying no id is appended rather than matched:
+    // save itself treats a missing id as possible, and two jobs without one
+    // are two jobs rather than one seen twice.
+    for (const job of parsedSaved.jobs) {
+      const existing = job.id ? report.jobs.findIndex((entry) => entry.id === job.id) : -1;
+      if (existing === -1) {
+        report.jobs.push(job);
+      } else {
+        report.jobs[existing] = job;
       }
     }
   } catch {

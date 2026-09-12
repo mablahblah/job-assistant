@@ -42,6 +42,13 @@ export interface JobService {
   // because an entry carried on to dedupe and save should hold no stale copy
   // of a flag another phase owns.
   findUnresolved(): Promise<JobListEntry[]>;
+  // Parsing keeps no list of its own either; this is where it reads one. A
+  // job only qualifies once resolution has done its work and parsing has not
+  // yet done its own, so an unresolved job and an already-parsed job are both
+  // left off, along with one that took a status removing it from the queue on
+  // an earlier run, such as unparseable. The four phase gates are left off
+  // every row for the same reason as above.
+  findUnparsed(): Promise<JobListEntry[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -201,6 +208,17 @@ export function createJobService(db: PipelineDb): JobService {
     async findUnresolved() {
       const rows = await db.job.findMany({
         where: { status: "backlog", is_resolved: false },
+        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+      });
+      return rows.map((row) => row as unknown as JobListEntry);
+    },
+
+    // The same narrowing as findUnresolved, but for the other side of
+    // resolution: only a job resolution has already finished with, and
+    // parsing has not yet touched, belongs on this list.
+    async findUnparsed() {
+      const rows = await db.job.findMany({
+        where: { status: "backlog", is_resolved: true, is_parsed: false },
         omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
       });
       return rows.map((row) => row as unknown as JobListEntry);

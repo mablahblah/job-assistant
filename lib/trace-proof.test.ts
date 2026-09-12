@@ -403,7 +403,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
   test("the headline question: how many titles normalized, by collector", async () => {
     const rows = await queryTrace(
       url,
-      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND reason = 'title_normalized' GROUP BY collector",
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND reason = 'title_normalized' GROUP BY collector",
       [runId]
     );
     const counts = Object.fromEntries(
@@ -417,7 +417,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
   test("its twin: how many titles did not normalize, by collector", async () => {
     const rows = await queryTrace(
       url,
-      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND reason = 'title_not_normalized' GROUP BY collector",
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND reason = 'title_not_normalized' GROUP BY collector",
       [runId]
     );
     const counts = Object.fromEntries(
@@ -431,7 +431,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
   test("normalized and not-normalized together account for every job that carried a title", async () => {
     const rows = await queryTrace(
       url,
-      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND (reason = 'title_normalized' OR reason = 'title_not_normalized') GROUP BY collector",
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND (reason = 'title_normalized' OR reason = 'title_not_normalized') GROUP BY collector",
       [runId]
     );
     const counts = Object.fromEntries(
@@ -489,13 +489,24 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // resolution ends on an employer posting of its own, so no two jobs collide and
     // post-resolution dedupe writes nothing either. Save meets all 7 again: 7.
     //
+    // The parsing step then finds the same 7, because resolution just placed
+    // them and nothing has parsed them yet. No parser covers the employer
+    // postings these resolutions ended on, so parsing writes one parse_failed
+    // row each: 7. Its normalization pass writes two rows per job again:
+    // 7 * 2 = 14. Association writes 7, and save 7. Parsing's dedupe writes
+    // nothing, for the same reason the other two dedupe passes did not.
+    //
     // The steps sort alphabetically, which puts association first and the
     // resolution last.
     expect(totals).toEqual([
       { step: "collection", count: 7 },
+      { step: "parsing", count: 7 },
       { step: "post_collection_association", count: 7 },
       { step: "post_collection_normalization", count: 14 },
       { step: "post_collection_save", count: 7 },
+      { step: "post_parsing_association", count: 7 },
+      { step: "post_parsing_normalization", count: 14 },
+      { step: "post_parsing_save", count: 7 },
       { step: "post_resolution_save", count: 7 },
       { step: "resolution", count: 7 },
     ]);
@@ -902,12 +913,23 @@ describe("the trace table answers what dedupe merged away, and what save then di
     // became a row, so there is nothing to resolve for it. Resolution writes one
     // row per job resolved: 2. Both end on postings of their own, so
     // post-resolution dedupe writes nothing. Save meets both again: 2.
+    //
+    // The parsing step then finds the same 2, because resolution just placed
+    // them and nothing has parsed them yet. No parser covers the postings
+    // those resolutions ended on, so parsing writes one parse_failed row
+    // each: 2. Its normalization pass writes two rows per job: 4. Association
+    // writes 2, and save 2. Parsing's dedupe writes nothing, because the pair
+    // was already folded before either of these two was ever stored.
     expect(totals).toEqual([
       { step: "collection", count: 3 },
+      { step: "parsing", count: 2 },
       { step: "post_collection_association", count: 3 },
       { step: "post_collection_dedupe", count: 1 },
       { step: "post_collection_normalization", count: 6 },
       { step: "post_collection_save", count: 3 },
+      { step: "post_parsing_association", count: 2 },
+      { step: "post_parsing_normalization", count: 4 },
+      { step: "post_parsing_save", count: 2 },
       { step: "post_resolution_save", count: 2 },
       { step: "resolution", count: 2 },
     ]);

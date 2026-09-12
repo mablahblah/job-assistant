@@ -509,3 +509,29 @@ describe("the resolution job list", () => {
     expect(entry).not.toBe(jobs[0]);
   });
 });
+
+describe("the fake's parsing job list", () => {
+  test("holds only backlog jobs that are resolved and not yet parsed", async () => {
+    const service = fakeJobService([
+      storedJob("waiting", { is_resolved: true }),
+      storedJob("unresolved"),
+      storedJob("parsed", { is_resolved: true, is_parsed: true }),
+      storedJob("unparseable", { is_resolved: true, status: "unparseable" }),
+    ]);
+
+    const found = await service.findUnparsed();
+
+    expect(found.map((job) => job.id)).toEqual(["waiting"]);
+  });
+
+  test("leaves the four gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([storedJob("waiting", { is_resolved: true })]);
+
+    const [entry] = await service.findUnparsed();
+
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+});

@@ -124,23 +124,36 @@ export function fakeJobService(
     return jobs.filter((job) => job.company_id === companyId && job.title === title);
   }
 
+  // The four keys are dropped from the copy rather than set to undefined,
+  // which is what Prisma's omit does on the real read. A key left standing
+  // holds a stale copy of a flag another phase owns.
+  function withoutGateFields(job: JobListEntry): JobListEntry {
+    const entry = { ...job };
+    delete entry.status;
+    delete entry.is_resolved;
+    delete entry.is_parsed;
+    delete entry.is_classified;
+    return entry;
+  }
+
   // Both checks lean on the defaults the schema gives the real columns: a held
   // job saying nothing about its status is in the backlog, and one saying
   // nothing about its resolution is unresolved.
   async function findUnresolved(): Promise<JobListEntry[]> {
     return jobs
       .filter((job) => (job.status ?? "backlog") === "backlog" && !job.is_resolved)
-      .map((job) => {
-        // The four keys are dropped from the copy rather than set to
-        // undefined, which is what Prisma's omit does on the real read. A key
-        // left standing holds a stale copy of a flag another phase owns.
-        const entry = { ...job };
-        delete entry.status;
-        delete entry.is_resolved;
-        delete entry.is_parsed;
-        delete entry.is_classified;
-        return entry;
-      });
+      .map(withoutGateFields);
+  }
+
+  // A held job saying nothing about its resolution is unresolved, so it stays
+  // off this list; it only joins once is_resolved is truthy and is_parsed is
+  // still falsy.
+  async function findUnparsed(): Promise<JobListEntry[]> {
+    return jobs
+      .filter(
+        (job) => (job.status ?? "backlog") === "backlog" && !!job.is_resolved && !job.is_parsed
+      )
+      .map(withoutGateFields);
   }
 
   return {
@@ -150,6 +163,7 @@ export function fakeJobService(
     findByResolvedUrlMatchKey,
     findByCompanyAndTitle,
     findUnresolved,
+    findUnparsed,
     ...overrides,
   };
 }

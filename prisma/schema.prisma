@@ -326,6 +326,12 @@ model Trace {
   reason     String?
   // Which collector produced the job.
   collector  String
+  // The domain the job's source owns, on the events where a source is what
+  // failed. It is a column of its own rather than a field inside detail
+  // because detail is JSON holding a different shape per event, and SQLite
+  // cannot group a web address out of it — a counted value has to be
+  // groupable.
+  domain     String?
   // What is specific to this one event. Nothing that gets counted goes here.
   detail     Json?
   created_at DateTime @default(now())

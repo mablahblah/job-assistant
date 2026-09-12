@@ -12,9 +12,10 @@ function count(
   event: string,
   collector: string,
   n: number,
-  reason: string | null = null
+  reason: string | null = null,
+  domain: string | null = null
 ): TraceRunCount {
-  return { step, event, reason, collector, count: n };
+  return { step, event, reason, collector, domain, count: n };
 }
 
 describe("the summary is built from one run's trace rows", () => {

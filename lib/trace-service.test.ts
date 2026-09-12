@@ -300,13 +300,28 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
     const counts = await writer.countsForRun("r1");
     expect(counts).toEqual(
       expect.arrayContaining([
-        { step: "collection", event: "collected", reason: null, collector: "adzuna", count: 2 },
-        { step: "collection", event: "collected", reason: null, collector: "lever", count: 1 },
+        {
+          step: "collection",
+          event: "collected",
+          reason: null,
+          collector: "adzuna",
+          domain: null,
+          count: 2,
+        },
+        {
+          step: "collection",
+          event: "collected",
+          reason: null,
+          collector: "lever",
+          domain: null,
+          count: 1,
+        },
         {
           step: "post_collection_dedupe",
           event: "abandoned",
           reason: "hard_match_in_list",
           collector: "adzuna",
+          domain: null,
           count: 1,
         },
       ])
@@ -320,5 +335,74 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
 
   test("a run that wrote nothing reads back as an empty list", async () => {
     expect(await writer.countsForRun("never-ran")).toEqual([]);
+  });
+});
+
+// AC 38 and 40. A counted value cannot live in detail: that column is JSON
+// holding a different shape per event, and SQLite cannot group a web address
+// out of it. countsForRun groups on step, event, reason and collector, so the
+// grouped shape has to carry the owned domain before any of it can be counted.
+describe("the owned domain travels in its own column, so a failing source is countable", () => {
+  let dir: string;
+  let url: string;
+  let db: PipelineDb;
+  let writer: TraceService;
+
+  const failure = {
+    run_id: "r1",
+    step: "parsing",
+    event: "parse_failed",
+    reason: "no_parser_for_domain",
+    collector: "adzuna",
+  };
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-domain-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, writer } = buildWriter(url));
+    await writer.write({ ...failure, job_id: "a", domain: "myworkdayjobs.com" });
+    await writer.write({ ...failure, job_id: "b", domain: "myworkdayjobs.com" });
+    await writer.write({ ...failure, job_id: "c", domain: "linkedin.com" });
+    await writer.write({
+      run_id: "r1",
+      job_id: "d",
+      step: "parsing",
+      event: "job_parsed",
+      collector: "adzuna",
+    });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("a row written with a domain reads that domain back out of the database", async () => {
+    const rows = await queryTrace(url, "SELECT domain FROM Trace WHERE job_id = ?", ["c"]);
+
+    expect(rows[0]?.["domain"]).toBe("linkedin.com");
+  });
+
+  test("a row written with no domain leaves the column empty rather than throwing", async () => {
+    const rows = await queryTrace(url, "SELECT domain FROM Trace WHERE job_id = ?", ["d"]);
+
+    expect(rows[0]?.["domain"]).toBeNull();
+  });
+
+  test("two failures on one domain count as one group of two", async () => {
+    const counts = await writer.countsForRun("r1");
+
+    expect(counts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ domain: "myworkdayjobs.com", count: 2 }),
+        expect.objectContaining({ domain: "linkedin.com", count: 1 }),
+      ])
+    );
+  });
+
+  test("a group whose rows carry no domain reads that back as empty", async () => {
+    const counts = await writer.countsForRun("r1");
+
+    expect(counts).toEqual(
+      expect.arrayContaining([expect.objectContaining({ event: "job_parsed", domain: null })])
+    );
   });
 });

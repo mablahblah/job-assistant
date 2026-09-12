@@ -47,18 +47,22 @@ export interface TraceEvent {
   event: string;
   collector: string;
   reason?: string;
+  // The owned domain a failing source is counted under. Only the events that
+  // blame a source fill it.
+  domain?: string;
   detail?: TraceDetail;
 }
 
-// One group's tally from a run: every row sharing a step, event, reason and
-// collector, collapsed to a count. reason stays nullable rather than optional
-// because a row with no reason is a real, present group of its own, not an
-// absent field.
+// One group's tally from a run: every row sharing a step, event, reason,
+// collector and domain, collapsed to a count. reason and domain stay nullable
+// rather than optional because a row with no reason, or no domain, is a real,
+// present group of its own, not an absent field.
 export interface TraceRunCount {
   step: string;
   event: string;
   reason: string | null;
   collector: string;
+  domain: string | null;
   count: number;
 }
 
@@ -86,6 +90,7 @@ export function createTraceService(db: PipelineDb): TraceService {
             // Omitted fields fall through as undefined, which Prisma writes
             // as SQL NULL rather than as any column default.
             reason: event.reason,
+            domain: event.domain,
             detail: event.detail,
           },
         });
@@ -108,7 +113,7 @@ export function createTraceService(db: PipelineDb): TraceService {
       // silently read back nothing would tell the user the run did nothing,
       // which is worse than an error reaching them instead.
       const groups = await db.trace.groupBy({
-        by: ["step", "event", "reason", "collector"],
+        by: ["step", "event", "reason", "collector", "domain"],
         where: { run_id: runId },
         _count: { _all: true },
       });
@@ -120,6 +125,7 @@ export function createTraceService(db: PipelineDb): TraceService {
         event: group.event,
         reason: group.reason,
         collector: group.collector,
+        domain: group.domain,
         count: group._count._all,
       }));
     },
