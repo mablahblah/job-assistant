@@ -1,5 +1,14 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { ashbyCollector } from "./ashby";
+import { jobFieldsFromAshbyPosting } from "../ashby-fields";
+
+// The shared mapper is wrapped in a spy that still runs the real thing, so
+// every test below reads the same fields it always did while one test can
+// also check the collector went through the mapper rather than a copy of it.
+vi.mock("../ashby-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../ashby-fields")>();
+  return { ...actual, jobFieldsFromAshbyPosting: vi.fn(actual.jobFieldsFromAshbyPosting) };
+});
 import type { AtsCompany, SettingsService } from "../settings-service";
 import { fakeSettingsService } from "../settings-service.fake";
 
@@ -567,5 +576,20 @@ describe("descriptions", () => {
     const result = await ashbyCollector.collect({ settings, limit: Infinity });
 
     expect(result.jobs[0].description).toBeUndefined();
+  });
+});
+
+describe("AC 10: the collector and the parser read a posting through one shared mapper", () => {
+  test("the collector's fields come from jobFieldsFromAshbyPosting, not a second copy of it", async () => {
+    const job = await collectOneJob();
+
+    expect(jobFieldsFromAshbyPosting).toHaveBeenCalledWith(
+      expect.objectContaining({ title: expect.any(String) }),
+      "hinge-health"
+    );
+    // The mapper's answer is what reached the entry, so the two cannot drift.
+    expect(job).toMatchObject(
+      vi.mocked(jobFieldsFromAshbyPosting).mock.results[0].value as object
+    );
   });
 });

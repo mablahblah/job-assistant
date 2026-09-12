@@ -1,7 +1,16 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { greenhouseCollector } from "./greenhouse";
+import { jobFieldsFromGreenhousePosting } from "../greenhouse-fields";
 import type { AtsCompany, SettingsService } from "../settings-service";
 import { fakeSettingsService } from "../settings-service.fake";
+
+// The shared mapper is wrapped in a spy that still runs the real thing, so
+// every test below reads the same fields it always did while one test can
+// also check the collector went through the mapper rather than a copy of it.
+vi.mock("../greenhouse-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../greenhouse-fields")>();
+  return { ...actual, jobFieldsFromGreenhousePosting: vi.fn(actual.jobFieldsFromGreenhousePosting) };
+});
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -535,5 +544,20 @@ describe("a posting carrying no description at all", () => {
     expect(result.jobs[0].raw_mode_list).toEqual([]);
     expect(result.jobs[0].salary_low).toBeUndefined();
     expect(result.jobs[0].salary_period).toBeUndefined();
+  });
+});
+
+describe("AC 10: the collector and the parser read a posting through one shared mapper", () => {
+  test("the collector's fields come from jobFieldsFromGreenhousePosting, not a second copy of it", async () => {
+    const job = await collectOneJob();
+
+    expect(jobFieldsFromGreenhousePosting).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 555111, title: "Senior Product Designer" }),
+      "stripe"
+    );
+    // The mapper's answer is what reached the entry, so the two cannot drift.
+    expect(job).toMatchObject(
+      vi.mocked(jobFieldsFromGreenhousePosting).mock.results[0].value as object
+    );
   });
 });

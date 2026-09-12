@@ -67,6 +67,18 @@ export const DELETE_ON_SAVE_REASONS: readonly DeleteOnSaveReason[] = [
   "blacklisted_url",
 ];
 
+// What a shared field mapper hands back: a job's fields and nothing else.
+// A collector and a parser read the same source response and must agree about
+// what it means, so both call one mapper. But the two disagree about the rest
+// of the entry — a collector builds the posting's link and opens the phase
+// gates, while a parser already holds a resolved link and is about to close
+// the parsing gate. Leaving those five fields out of the type means a mapper
+// cannot overwrite a link or reset a gate it does not own.
+export type MappedJobFields = Omit<
+  JobListEntry,
+  "original_url" | "resolved_url" | "is_resolved" | "is_parsed" | "is_classified"
+>;
+
 export type JobListEntry = Omit<
   Partial<Job>,
   "raw_location_list" | "raw_mode_list" | "normalized_mode_list" | "raw_salary"

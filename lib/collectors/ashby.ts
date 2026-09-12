@@ -1,7 +1,12 @@
 // Polls Ashby's public job board API for jobs whose title matches the user's
 // search terms. Ashby's API carries no employer name, so a job records the
 // slug of the board it came from and leaves the name to company association.
-import type { JobListEntry, RawSalary } from "../job-list-entry";
+import {
+  jobFieldsFromAshbyPosting,
+  type AshbyJobBoardResponse,
+  type AshbyPosting,
+} from "../ashby-fields";
+import type { JobListEntry } from "../job-list-entry";
 import { matchesSearchTerms } from "../search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
@@ -12,94 +17,18 @@ const PLATFORM = "ashby";
 const jobBoardUrl = (slug: string) =>
   `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`;
 
-interface AshbySecondaryLocation {
-  location?: string;
-}
-
-interface AshbyCompensationComponent {
-  compensationType: string;
-  interval?: string | null;
-  currencyCode?: string | null;
-  minValue?: number | null;
-  maxValue?: number | null;
-}
-
-interface AshbyPosting {
-  title: string;
-  isListed: boolean;
-  jobUrl: string;
-  publishedAt: string;
-  location?: string;
-  secondaryLocations?: AshbySecondaryLocation[];
-  workplaceType?: string | null;
-  descriptionPlain?: string;
-  descriptionHtml?: string;
-  compensation?: {
-    summaryComponents?: AshbyCompensationComponent[];
-  };
-}
-
-interface AshbyJobBoardResponse {
-  jobs: AshbyPosting[];
-}
-
+// The link and the phase gates are the collector's own: an Ashby listing is
+// already the source posting, so it needs no resolving, and Ashby supplies the
+// posting's own URL rather than making it be rebuilt from slug and id. The
+// description still has to be read, which is a parser's job. Everything else
+// comes from the shared mapper, so the collector and the parser cannot
+// disagree about what a posting's fields mean.
 function toJobListEntry(posting: AshbyPosting, slug: string): JobListEntry {
-  // An ATS listing is already the source posting, so it needs no resolving.
-  // Ashby supplies the posting's own URL, so it is used rather than rebuilt
-  // from slug and id. The description still has to be read, which is a
-  // parser's job.
   const url = posting.jobUrl;
-
-  // The plain-text field wins over the HTML one when both are present, and a
-  // blank one counts as none.
-  const description = posting.descriptionPlain || posting.descriptionHtml || undefined;
-
-  // The primary location first, then any secondary ones, all kept. Blanks are
-  // dropped rather than stored as empty entries.
-  const raw_location_list = [
-    posting.location,
-    ...(posting.secondaryLocations?.map((secondary) => secondary.location) ?? []),
-  ].filter((location): location is string => Boolean(location));
-
-  // Stored exactly as Ashby sends it — Remote, Hybrid, or OnSite. Mapping
-  // those words onto the three the app uses is normalization's job, and a
-  // posting without the field leaves the list empty for a parser to fill.
-  // The isRemote flag is deliberately not read: it is true on hybrid postings
-  // anchored to an office, so it contradicts workplaceType.
-  const raw_mode_list = posting.workplaceType ? [posting.workplaceType] : [];
-
-  // summaryComponents mixes salary, equity, commission, and bonus entries in
-  // no fixed order — equity is frequently first, carrying null values — so the
-  // salary is picked out by type rather than taken as the first entry. The
-  // interval and the currency are recorded as sent, because a source's own
-  // words about its own pay are what the raw fields are for. No salary_unit,
-  // since Ashby sends whole currency units rather than cents.
-  const salaryComponent = posting.compensation?.summaryComponents?.find(
-    (component) => component.compensationType === "Salary"
-  );
-  const raw_salary: RawSalary | undefined = salaryComponent
-    ? {
-        salary_min: salaryComponent.minValue ?? undefined,
-        salary_max: salaryComponent.maxValue ?? undefined,
-        salary_period: salaryComponent.interval ?? undefined,
-        salary_currency: salaryComponent.currencyCode ?? undefined,
-      }
-    : undefined;
-
   return {
     original_url: url,
     resolved_url: url,
-    raw_title: posting.title,
-    // The slug is the only employer identity this API supplies, and it is the
-    // stronger one anyway: company association looks a company up by slug
-    // before it falls back to a name.
-    raw_company_slug: slug,
-    // Ashby publishes one date, so nothing fills posting_updated_date.
-    posting_date: new Date(posting.publishedAt),
-    raw_location_list,
-    raw_mode_list,
-    description,
-    ...(raw_salary ? { raw_salary } : {}),
+    ...jobFieldsFromAshbyPosting(posting, slug),
     is_resolved: true,
     is_parsed: false,
     is_classified: false,

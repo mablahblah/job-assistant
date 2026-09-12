@@ -1,5 +1,14 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { leverCollector } from "./lever";
+import { jobFieldsFromLeverPosting } from "../lever-fields";
+
+// The shared mapper is wrapped in a spy that still runs the real thing, so
+// every test below reads the same fields it always did while one test can
+// also check the collector went through the mapper rather than a copy of it.
+vi.mock("../lever-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lever-fields")>();
+  return { ...actual, jobFieldsFromLeverPosting: vi.fn(actual.jobFieldsFromLeverPosting) };
+});
 import type { AtsCompany, SettingsService } from "../settings-service";
 import { fakeSettingsService } from "../settings-service.fake";
 
@@ -494,5 +503,20 @@ describe("AC 102: a work mode named only in the description is left for a parser
     const result = await leverCollector.collect({ settings, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual(["onsite"]);
+  });
+});
+
+describe("AC 10: the collector and the parser read a posting through one shared mapper", () => {
+  test("the collector's fields come from jobFieldsFromLeverPosting, not a second copy of it", async () => {
+    const job = await collectOneJob();
+
+    expect(jobFieldsFromLeverPosting).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Senior Product Designer" }),
+      "gohighlevel"
+    );
+    // The mapper's answer is what reached the entry, so the two cannot drift.
+    expect(job).toMatchObject(
+      vi.mocked(jobFieldsFromLeverPosting).mock.results[0].value as object
+    );
   });
 });
