@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { normalizeModeList } from "./work-mode-list";
+import type { WorkMode } from "./work-mode";
 
 describe("a recognised word is translated to its database spelling", () => {
   test("Remote gives remote", () => {
@@ -67,4 +68,23 @@ describe("the real spellings these sources publish", () => {
   ])("%s's words are read correctly", (_source, raw, expected) => {
     expect(normalizeModeList(raw)).toEqual(expected);
   });
+});
+
+describe("every word the description reader can return survives normalization", () => {
+  // readWorkModeFromText returns a WorkMode or nothing, so these three words
+  // are the whole of what a description can hand over. Writing them as the
+  // keys of a Record<WorkMode, ...> means a fourth mode added to the type
+  // fails to compile here until this list names it too.
+  const EVERY_READER_ANSWER: Record<WorkMode, WorkMode> = {
+    remote: "remote",
+    hybrid: "hybrid",
+    "in-person": "in-person",
+  };
+
+  test.each(Object.entries(EVERY_READER_ANSWER))(
+    "%s read out of a description gives %s",
+    (word, expected) => {
+      expect(normalizeModeList([word])).toEqual([expected]);
+    }
+  );
 });
