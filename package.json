@@ -26,7 +26,8 @@
     "linkedom": "^0.18.13",
     "playwright": "^1.58.2",
     "prisma": "^7.5.0",
-    "stemmer": "^2.0.1"
+    "stemmer": "^2.0.1",
+    "tldts": "^7.4.12"
   },
   "devDependencies": {
     "@types/node": "^20",
