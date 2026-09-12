@@ -13,91 +13,95 @@
 
 ## Current Task
 
-Nothing is in progress. The session closed on a clean boundary.
+**Planning phase 8 — Parsers.** It is partly done and stops at a clean boundary.
 
-The job pipeline is being rebuilt on `feature/unified-pipeline`. Real job searches still run from `main`.
+Discovery is finished and the stress test is finished. Every decision either reached the decision log or the phase r&d file. What is missing is the phase spec, which has never been written.
 
-**Phases 0 through 7b are built and closed.** `npm run job-search` runs the whole pipeline against real job sites and prints a summary. Phase 8, Parsers, is next and has not been planned.
+**Thirty-six acceptance criteria were drafted in conversation and never reviewed.** They were not written to any file, so they are gone. They have to be drafted again from the stories and the settled decisions, both of which are on disk.
 
-1,932 tests pass across 80 files. `npm run lint` exits 0. Both verified at session end. The working tree is clean and the remote matches at `83ca7ce`.
+No code changed this session. The working tree is clean and the remote matches `b221bbf`.
+
+Verified at session end: 1,932 tests pass across 80 files, and `npm run lint` exits 0.
 
 ## Completed This Session
 
-**Phase 7a, tasks 6 to 10.**
+**Phase 8 planning, up to the spec.**
 
-A handler that throws now stops the run instead of escaping. The report names the spot and the reason, lists the handlers that finished with their counts, and the command exits non-zero. Every read between handlers is caught the same way, because a throw escaping takes the whole report with it.
+The brain dump is captured verbatim. Discovery settled about twenty questions, including the two the r&d file had carried open since phase 5.
 
-`lib/tools/resolution-browser.ts` is the first tool. It launches one visible Chromium per run and gives each job a fresh context. It takes its launcher as an argument so tests never open a window.
+**A three-agent stress test.** Two code analysts and one UX reviewer ran against the eleven phase-8 stories. Their raw findings, with what survived and what did not, are in `docs/features/unified-pipeline/phases/phase-08-stress-test.md`.
 
-`scripts/job-search.ts` replaced `scripts/collect.ts`, and `package.json` moved with it. It prints a summary rather than a job list.
+**Two real defects were found in code that already exists**, both verified by running it rather than reading it. Both become acceptance criteria in phase 8.
 
-The `job-search` skill was rewritten to run the one command and read the summary.
+**Phase 8a was created** — sorting `lib/` — and sits in `docs/CURRENT-FEATURE.md` between phase 8 and phase 9.
 
-The pipeline ran for real. Fourteen jobs collected from seven sources, eleven resolved, three not.
+**The `build-requirements` skill gained a verification step**, now step 6 of its Phase 4. It lives at `~/.claude/skills/build-requirements/SKILL.md`, outside this repository, so it is not in this project's commits.
 
-**Phase 7b, which did not exist at session start.**
-
-A full vocabulary cleanup. The user asked for an audit of every metaphor and coined term, annotated the result, and chose 32 terms to change across 212 files. Twelve were code names, three were values stored in `Trace`, the rest was prose.
-
-**Two defects the live run found, both fixed.**
-
-A page whose address carries an error flag was saving as a real posting. A board redirects a dead job id to the employer's whole listing, answers HTTP 200, and says so only in the address. That is now the failed reason `posting_gone`.
-
-The summary printed "1 jobs". Zero keeps the plural; one does not.
+Two commits pushed: `c447cd6` and `b221bbf`.
 
 ## Decisions & Context
 
 ### What the user decided
 
-Ten entries were added to the feature decision log, all dated 2026-09-11. The ones that shape later work:
+Twenty entries dated 2026-09-12 are in `docs/features/unified-pipeline/decision-log.md`. The fuller reasoning behind each is in `docs/features/unified-pipeline/phases/phase-08-parsers-r&d.md`, under `Settled in planning` and `Settled during the stress test, 2026-09-12`.
 
-- A handler that throws stops the run, and so does a failed read between handlers, so the finished steps' saved work still reaches the user.
-- A finished handler is named in the report by its `Trace.step` name, because one dedupe handler runs at two positions.
-- The run summary is built from trace rows rather than from what the orchestrator returns, and carries only collection, the post-collection dedupe and resolution.
-- A collector that hands over an already-resolved job writes a `job_resolved` trace row with the reason `collector_provided`.
-- **Every phase from here adds its trace rows and its own summary block, not just its handler.** This is now a constraint in the feature spec.
-- The vocabulary cleanup runs before the rest of the pipeline is built, because every later phase would otherwise be written in the words being removed.
-- A leg of the pipeline is called a step. `Trace.step` already names a position, and a leg is a position.
-- `walk` is replaced by `resolution`, and by "one job's resolution" where the per-job part matters.
+The ones that shape the build most:
 
-### Calls made while building
+- Four parsers port — Greenhouse, Lever, Ashby, Dribbble. Adzuna's does not.
+- All three failure kinds are traced, and only "no parser for the domain" sets the status `unparseable`.
+- Parsing opens no browser. Ashby reads its API instead of driving Playwright.
+- A resolved link finds its parser by **registrable domain**, not by exact host.
+- `Trace` gains a column holding that registrable domain. `detail` keeps the full link.
+- A description is read only inside a matched parser. A job no parser covered gains nothing.
+- Inside one parser, the source's own published field beats anything read from prose.
 
-These are in the phase 7a spec under "Calls made while building", not in the decision log, because the user did not make them.
+### Two defects to fix, both verified by running the code
 
-- The spot a run stopped at is passed to the catch as an argument, so a handler added later cannot be reported under the previous one's name.
-- The browser tool takes its launcher as an argument.
-- One spot name was added beyond the agreed list, `browser_close`.
-- The finished-handler list prints only on failure.
+**`in-person` is dropped silently.** `readWorkModeFromText` returns the literal string `in-person` at `lib/work-mode.ts:53`. `normalizeModeList` recognises only `remote`, `hybrid`, `onsite` and `on-site` at `lib/work-mode-list.ts:14-19`. Both sides are `string[]`, so it compiles, the value is thrown away, and the trace says normalization failed rather than that it was handed an unknown word. Fix: add `in-person` to the recognised list.
 
-### Facts a fresh session needs
+**The salary reader's shape does not fit its field.** `readSalaryFromText` returns `salary_low` and `salary_high`; `raw_salary` holds `salary_min` and `salary_max`. TypeScript catches a direct assignment, so this is a gap in the plan rather than a shipping bug. The round trip is safe — with no unit set the normalizer reads whole currency units, and every period word the reader emits is one it already accepts.
 
-- **The command is `npm run job-search`.** `npm run collect` is gone.
-- **The new pipeline uses `pipeline.db`.** `dev.db` is `main`'s live database and this branch never touches it.
-- **A database can drift from the schema with nothing warning.** The first live run failed because `pipeline.db` predated the `resolution_concurrency` column, and every collector threw the same SQL error. `npx prisma db push` adds a missing nullable column and keeps the rows. `npm run db:create` destroys them. Backlog entry 42 covers warning about this.
-- **`lingo-audit.md` and `lingo-rename-map.md` deliberately still contain the old words.** Any future find-and-replace must exclude them. One pass rewrote them and they had to be restored from git.
+### Findings raised and dismissed — do not re-raise these
 
-### Gotchas discovered
+Four stress-test findings did not survive checking. They are recorded with their reasons in `phase-08-stress-test.md` so the next stress test does not surface them again.
 
-- **BSD `sed` has no `\b`.** Use `perl -pi -e` or python for identifier renames.
-- **`perl -pi -e '...' $FILES` fails silently on a long file list.** Use `find ... -print0 | xargs -0 perl -i -p script.pl`.
-- **A shell loop using `"$w[a-z]*"` inside double quotes expands as a variable named `w[a-z]`** and silently returns zero matches. Use `"${w}[a-z]*"`. This produced false "0 remaining" counts twice during the cleanup, and both times the work looked finished when it was not.
-- **`.{0,40}word.{0,40}` over many files backtracks catastrophically and hangs.** Use fixed-width context or plain `grep -n`.
-- **Two renames collided with existing names.** `hop` to `page` hit the `page` parameter in `lib/resolve-job-url.ts`; the loop counter became `pagesOpened`. `lease` to `openPage` hit the `openPage` method; the local became `opened`. The typecheck caught both.
+- **A disqualifying status overwriting an active job.** The mechanics are all real and the path is not reachable. A job takes `unparseable` and leaves the backlog in the same run that parsed it, so nothing about it changes between the post-resolution dedupe and the post-parsing dedupe. It cannot newly match a row it did not already match, and at the earlier pass it carried no status.
+- **A company minted from an unparseable job's low-trust name.** Company association runs right after collection, long before parsing, so the row is created whatever parsing later does. The decision of 2026-09-03 already settled that JSearch's name is trusted like any other.
+- **Resolution stopping on an ATS board listing page.** All 655 ATS links in `dev.db` were tested against the slug readers. Zero would fail.
+- **Greenhouse's `embed/job_app` link shape.** It appears zero times in the data.
 
-### Approaches abandoned
+### Measured this session
 
-- **Inferring how many jobs arrived already resolved, as jobs saved minus jobs resolved.** The two numbers cover different jobs: resolution reads its list from the database and also processes jobs an earlier run collected, so on a second run the subtraction can go negative. A trace row at collection replaced it.
-- **A content scan to catch the error page.** The page carries no error wording at all — it renders 95 real jobs. The address was the only evidence.
+- **22 distinct hosts** across every link in `dev.db`. Greenhouse serves from three of them, and the third, `job-boards.eu.greenhouse.io`, appears exactly once.
+- **`meredith.wd5.myworkdayjobs.com` is real.** The per-employer subdomain case is not hypothetical, which is what decided the registrable-domain collapse.
+- **Ashby's API carries no employer name.** Checked live against the `hinge-health` board: the response holds only `jobs` and `apiVersion`.
+- **`fetchWithTimeout` sets no headers at all**, while `lib/collectors/fetch-page.ts` spoofs a Chrome user agent on purpose.
+- **The board-title reader was run against real title shapes.** A dangling dash cleans itself up later; `Careers - Acme` and `Page Not Found` both pass through as company names.
+
+### Calls made, not user decisions
+
+- The `build-requirements` skill was edited directly rather than through `writing-skills`, because it was a single-step insertion.
+- The second stress-test round was skipped. The skill calls for it on an `XL` feature; the user chose to go straight to acceptance criteria.
 
 ### Open questions
 
-1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are now tracked and pushed.** A `git add -A` swept them in. The user was told and has not said whether to untrack them. This has been unanswered for eight sessions.
-2. **The over-merge query that backlog entry 26 owes has not been run.** Its trigger was the first real run, which has now happened. The query is resolved links shared across distinct job ids, sliced by the rule that accepted them.
-3. **Two jobs stopped on their own aggregator and saved as resolved.** One on Adzuna, one on CareerBuilder. Recorded as a seventh weakness in the resolver-refinements r&d. No decision yet on whether to fix.
+1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are tracked and pushed.** A `git add -A` swept them in. Unanswered for nine sessions.
+2. **The over-merge query that backlog entry 26 owes has not been run.** Its trigger, the first real run, has happened. The query is resolved links shared across distinct job ids, sliced by the rule that accepted them.
+3. **Two jobs stopped on their own aggregator and saved as resolved.** Recorded as a seventh weakness in the resolver-refinements r&d. Phase 8 now handles the consequence — such a job goes `unparseable` — but whether resolution should stop doing it is undecided.
 
 ## Next Steps
 
-1. **Plan phase 8 — Parsers.** Follow the phase planning procedure. It is the next unchecked item in `docs/CURRENT-FEATURE.md`.
-2. **Before planning, settle open question 3.** Whether aggregator stops are fixed in phase 8's parser work or stay in the resolver-refinements backlog changes what phase 8 owns.
-3. **Run the over-merge query** from open question 2. It is one query and it measures whether resolution is accepting wrong pages.
-4. **Remember the new spec constraint when planning phase 8.** Parsing must add its trace rows and its own block in the run summary, not just its handler.
+1. **Redraft the acceptance criteria for phase 8.** Work from the eleven stories, which are in this session's transcript only, and from the settled decisions in the phase r&d file. The stories cover parsing a job, failing to parse, and knowing what parser to build next. Roughly 36 criteria, Given/When/Then, covering: matching a link to a parser by registrable domain, no browser, the shared field mapper, the board-page name read, the published-field-beats-prose rule, the three failure kinds and which one sets a status, the trace rows and the new domain column, and the summary's Parsing block.
+2. **Write `phase-08-parsers-spec.md`** beside the r&d file — What We're Building, User Stories, Edge Cases, Acceptance Criteria, Tasks, Approach. A task is one unit of code together with its tests, never split in two.
+3. **Run `spec-review` on it.**
+4. **Check off "Plan phase 8"** in `docs/CURRENT-FEATURE.md` and put the task list under its build item.
+5. **Invoke `wrap-up-planning`**, scoped to phase 8.
+6. **Then build**, test-first, through the `start-work-session` loop.
+
+### Facts the build will need
+
+- **`tldts` is not installed yet.** It has to be added before the registrable-domain util can be written.
+- **The command is `npm run job-search`.** `npm run collect` is gone.
+- **The new pipeline uses `pipeline.db`.** `dev.db` is `main`'s live database and this branch never touches it, though it is the source for measurements and fixtures.
+- **A database can drift from the schema with nothing warning.** `npx prisma db push` adds a missing nullable column and keeps the rows; `npm run db:create` destroys them.
+- **Harvest the host fixture from `dev.db`, do not read it live.** It is untracked and keeps growing. This follows the precedent set for the search-term analyzer on 2026-08-27.
