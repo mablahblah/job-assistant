@@ -845,6 +845,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "page_limit_reached",
       "dead_end",
       "page_unavailable",
+      "page_refused",
       "page_load_failed",
       "blacklisted_url",
       "posting_gone",

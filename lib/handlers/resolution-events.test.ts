@@ -123,11 +123,24 @@ describe("AC 25, 30: the rule that accepted a resolution is named", () => {
 });
 
 describe("AC 9, 10, 35: every way a job's resolution can fail has a name", () => {
-  test("a page that refuses reads page_unavailable", async () => {
+  test("a page that refuses reads page_refused", async () => {
     const events = await traceOf([
       {
         url: "https://board.example/listing/1",
         responses: [{ url: "https://board.example/listing/1", status: 403 }],
+      },
+    ]);
+
+    expect(events.map((event) => [event.event, event.reason])).toEqual([
+      ["resolution_failed", "page_refused"],
+    ]);
+  });
+
+  test("a page that is gone reads page_unavailable", async () => {
+    const events = await traceOf([
+      {
+        url: "https://board.example/listing/1",
+        responses: [{ url: "https://board.example/listing/1", status: 404 }],
       },
     ]);
 

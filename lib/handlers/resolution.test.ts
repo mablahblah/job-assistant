@@ -139,6 +139,72 @@ describe("AC 47, 50: a job that resolved", () => {
   });
 });
 
+// A source that refused us, or a page the browser could not load, says
+// nothing about the job. Parking it would lose a good job to someone else's
+// bad afternoon, so it keeps its place and the next run tries again.
+describe("a failure the source may not repeat", () => {
+  test("a refused page keeps the job in the backlog", async () => {
+    const script: ScriptedPage[] = [
+      {
+        url: "https://board.example/listing/1",
+        responses: [{ url: "https://board.example/listing/1", status: 403 }],
+      },
+    ];
+
+    const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
+      openPage: factoryFor(script),
+      concurrency: 1,
+      waitForLoad: NO_WAIT,
+    });
+
+    expect(result.jobs[0]?.status ?? null).toBeNull();
+    expect(result.jobs[0]?.is_resolved).toBe(false);
+    expect(result.jobs[0]?.resolved_url ?? null).toBeNull();
+  });
+
+  test("a page the browser could not load keeps the job in the backlog", async () => {
+    const script: ScriptedPage[] = [
+      { url: "https://board.example/listing/1", failsToLoad: true },
+    ];
+
+    const result = await resolveJobs([job("a", "https://board.example/listing/1")], {
+      openPage: factoryFor(script),
+      concurrency: 1,
+      waitForLoad: NO_WAIT,
+    });
+
+    expect(result.jobs[0]?.status ?? null).toBeNull();
+    expect(result.jobs[0]?.is_resolved).toBe(false);
+  });
+
+  test("a job that keeps its place still writes a row saying why", async () => {
+    const script: ScriptedPage[] = [
+      {
+        url: "https://board.example/listing/1",
+        responses: [{ url: "https://board.example/listing/1", status: 403 }],
+      },
+    ];
+    const written: { event: string; reason?: string }[] = [];
+
+    await resolveJobs([job("a", "https://board.example/listing/1")], {
+      openPage: factoryFor(script),
+      concurrency: 1,
+      waitForLoad: NO_WAIT,
+      trace: {
+        write: async (row) => {
+          written.push({ event: row.event, reason: row.reason });
+        },
+        failureCount: () => 0,
+        countsForRun: async () => [],
+      },
+      runId: "run-1",
+      step: "resolution",
+    });
+
+    expect(written).toEqual([{ event: "resolution_failed", reason: "page_refused" }]);
+  });
+});
+
 describe("AC 48, 49: a job resolution could not place", () => {
   test("is markUnresolvable as unresolvable with no URL written", async () => {
     const script: ScriptedPage[] = [

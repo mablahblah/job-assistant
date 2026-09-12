@@ -29,11 +29,50 @@ describe("AC 6, 22, 25: a page offering nothing to follow is the resolution", ()
 });
 
 describe("AC 7, 8, 9, 11: a page that does not succeed is never a destination", () => {
-  test("a 403 fails resolution rather than resolving it", async () => {
+  test("a 403 is a refusal, which the source may lift on a later run", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://board.example/listing/1",
         responses: [{ url: "https://board.example/listing/1", status: 403 }],
+      },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({ outcome: "failed", reason: "page_refused" });
+  });
+
+  test("a 429 is a refusal, being the source saying we asked too often", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://board.example/listing/1",
+        responses: [{ url: "https://board.example/listing/1", status: 429 }],
+      },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({ outcome: "failed", reason: "page_refused" });
+  });
+
+  test("a 503 is a refusal, the server being unwell rather than the page gone", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://board.example/listing/1",
+        responses: [{ url: "https://board.example/listing/1", status: 503 }],
+      },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({ outcome: "failed", reason: "page_refused" });
+  });
+
+  test("a 401 is the page being unavailable, since no later run gets a login", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://board.example/listing/1",
+        responses: [{ url: "https://board.example/listing/1", status: 401 }],
       },
     ]);
 
@@ -83,7 +122,7 @@ describe("AC 11a: the status read is the status of the page ended on", () => {
 
     expect(
       await resolveJobUrl("https://redirector.example/out", page, { waitForLoad: NO_WAIT }),
-    ).toEqual({ outcome: "failed", reason: "page_unavailable" });
+    ).toEqual({ outcome: "failed", reason: "page_refused" });
   });
 });
 

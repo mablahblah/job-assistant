@@ -40,6 +40,25 @@ function markUnresolvable(job: JobListEntry): JobListEntry {
   return { ...job, is_resolved: false, resolved_url: null, status: "unresolvable" };
 }
 
+// The two failures that describe the moment rather than the job. A source
+// that refused us and a page the browser could not load both say nothing
+// about whether the posting is any good, and both may answer next time.
+// Parking a job for one of these loses a real job to someone else's bad
+// afternoon, and it never comes back, because the list of jobs to resolve
+// only ever reads jobs still in the backlog.
+const RETRYABLE_FAILURES = ["page_refused", "page_load_failed"] as const;
+
+function isRetryable(reason: string): boolean {
+  return (RETRYABLE_FAILURES as readonly string[]).includes(reason);
+}
+
+// Keeps the job exactly where it was. Status is left untouched rather than
+// set, so a job arrives at the next run in the same state it arrived at this
+// one, and the resolved URL stays empty because nothing was found.
+function leaveForNextRun(job: JobListEntry): JobListEntry {
+  return { ...job, is_resolved: false, resolved_url: null };
+}
+
 function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): FollowedEntry {
   if (outcome.outcome === "resolved") {
     // A job that resolved keeps whatever status it already had: resolution
@@ -52,7 +71,8 @@ function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): FollowedEn
   }
 
   if (outcome.outcome === "failed") {
-    return { job: markUnresolvable(job), event: "resolution_failed", reason: outcome.reason };
+    const job_ = isRetryable(outcome.reason) ? leaveForNextRun(job) : markUnresolvable(job);
+    return { job: job_, event: "resolution_failed", reason: outcome.reason };
   }
 
   // No collector will ever find a hand-entered job again, so dropping it would

@@ -29,6 +29,7 @@ export type ResolutionOutcome =
       outcome: "failed";
       reason:
         | "page_unavailable"
+        | "page_refused"
         | "page_load_failed"
         | "dead_end"
         | "page_limit_reached"
@@ -45,6 +46,16 @@ export interface ResolveJobUrlOptions {
 // A page is usable only when the server said yes.
 function isSuccessStatus(status: number): boolean {
   return status >= 200 && status <= 299;
+}
+
+// Two populations hide inside "the server said no", and they want opposite
+// treatment. A 403 or a 429 is the source rate-limiting us and a 5xx is the
+// source unwell; all three are about this moment, and the same request an
+// hour later may well be answered. Everything else non-success — a 404 for a
+// filled job, a 401 wanting a login we do not have — is the same answer on
+// every run. Only the first group is worth asking again.
+function isRefusalStatus(status: number): boolean {
+  return status === 403 || status === 429 || status >= 500;
 }
 
 // The status of the page actually being looked at. A page can load fine and then jump
@@ -105,7 +116,10 @@ export async function resolveJobUrl(
     }
 
     if (status !== undefined && !isSuccessStatus(status)) {
-      return { outcome: "failed", reason: "page_unavailable" };
+      return {
+        outcome: "failed",
+        reason: isRefusalStatus(status) ? "page_refused" : "page_unavailable",
+      };
     }
 
     // Read straight after the status, because a page can answer 200 while its

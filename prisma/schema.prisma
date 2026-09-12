@@ -290,8 +290,11 @@ model Setting {
 // the page was dropped; and page_limit_reached, where the ceiling was reached
 // with a same-host link left unfollowed. Three sit only under
 // resolution_failed: dead_end, for a login wall, signup wall or paywall;
-// page_unavailable, where a page's response was not a success;
-// page_load_failed, where the browser could not load a page at all; and
+// page_unavailable, where a page is not there — a 404 for a filled job, or a
+// 401 wanting a login we do not have; page_refused, where the source turned
+// us away for now, being a 403, a 429 or a server error, which is the one
+// status group worth asking again; page_load_failed, where the browser could
+// not load a page at all; and
 // posting_gone, where a page answered successfully while its own address
 // carried an error flag, which is how a board redirects a dead job id to its
 // whole listing.
