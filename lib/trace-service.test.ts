@@ -268,3 +268,57 @@ describe("writes made one after another land in that order", () => {
     expect(Number(second?.["id"])).toBeGreaterThan(Number(first?.["id"]));
   });
 });
+
+describe("one run's rows are read back grouped, so a summary costs one query", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let writer: TraceService;
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-counts-");
+    dir = temp.dir;
+    ({ db, writer } = buildWriter(temp.url));
+    await writer.write({ run_id: "r1", job_id: "a", step: "collection", event: "collected", collector: "adzuna" });
+    await writer.write({ run_id: "r1", job_id: "b", step: "collection", event: "collected", collector: "adzuna" });
+    await writer.write({ run_id: "r1", job_id: "c", step: "collection", event: "collected", collector: "lever" });
+    await writer.write({
+      run_id: "r1",
+      job_id: "b",
+      step: "post_collection_dedupe",
+      event: "abandoned",
+      collector: "adzuna",
+      reason: "hard_match_in_list",
+    });
+    // A second run, so a passing read proves the query filters by run id
+    // rather than counting the whole table.
+    await writer.write({ run_id: "r2", job_id: "z", step: "collection", event: "collected", collector: "adzuna" });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("each step, event, reason and collector comes back with its own count", async () => {
+    const counts = await writer.countsForRun("r1");
+    expect(counts).toEqual(
+      expect.arrayContaining([
+        { step: "collection", event: "collected", reason: null, collector: "adzuna", count: 2 },
+        { step: "collection", event: "collected", reason: null, collector: "lever", count: 1 },
+        {
+          step: "post_collection_dedupe",
+          event: "abandoned",
+          reason: "hard_match_in_list",
+          collector: "adzuna",
+          count: 1,
+        },
+      ])
+    );
+  });
+
+  test("another run's rows are not counted", async () => {
+    const counts = await writer.countsForRun("r1");
+    expect(counts).toHaveLength(3);
+  });
+
+  test("a run that wrote nothing reads back as an empty list", async () => {
+    expect(await writer.countsForRun("never-ran")).toEqual([]);
+  });
+});

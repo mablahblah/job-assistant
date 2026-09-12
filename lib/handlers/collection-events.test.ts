@@ -81,6 +81,11 @@ function makeTraceService(failures = 0): FakeTraceService {
     async write(event) {
       events.push(event);
     },
+    // No test here reads a summary back, so the fake answers with
+    // nothing rather than keeping counts the tests would not check.
+    async countsForRun() {
+      return [];
+    },
     failureCount() {
       return failures;
     },

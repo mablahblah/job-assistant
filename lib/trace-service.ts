@@ -1,4 +1,5 @@
-// Writes every Trace row for the pipeline. A job enters at collection, passes
+// Writes every Trace row for the pipeline, and reads one run's rows back as a
+// summary. A job enters at collection, passes
 // through each pipeline step, and either reaches the end or hits a dead end
 // recording when and why. Routing every write through this one service keeps
 // every row the same shape.
@@ -49,9 +50,22 @@ export interface TraceEvent {
   detail?: TraceDetail;
 }
 
+// One group's tally from a run: every row sharing a step, event, reason and
+// collector, collapsed to a count. reason stays nullable rather than optional
+// because a row with no reason is a real, present group of its own, not an
+// absent field.
+export interface TraceRunCount {
+  step: string;
+  event: string;
+  reason: string | null;
+  collector: string;
+  count: number;
+}
+
 export interface TraceService {
   write(event: TraceEvent): Promise<void>;
   failureCount(): number;
+  countsForRun(runId: string): Promise<TraceRunCount[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -87,6 +101,27 @@ export function createTraceService(db: PipelineDb): TraceService {
 
     failureCount() {
       return failures;
+    },
+
+    async countsForRun(runId: string) {
+      // A throw here is left to travel, unlike write's: a summary that
+      // silently read back nothing would tell the user the run did nothing,
+      // which is worse than an error reaching them instead.
+      const groups = await db.trace.groupBy({
+        by: ["step", "event", "reason", "collector"],
+        where: { run_id: runId },
+        _count: { _all: true },
+      });
+
+      // Prisma's _count shape is its own; callers of this method see only the
+      // flat count field, never Prisma's vocabulary.
+      return groups.map((group) => ({
+        step: group.step,
+        event: group.event,
+        reason: group.reason,
+        collector: group.collector,
+        count: group._count._all,
+      }));
     },
   };
 }
