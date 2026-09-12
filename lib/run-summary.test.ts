@@ -87,6 +87,103 @@ describe("the summary is built from one run's trace rows", () => {
     expect(lines).toContain("Resolved: 0 jobs");
   });
 
+  test("parsed counts what a parser read, and what it could not", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("parsing", "job_parsed", "ashby", 40),
+        count("parsing", "parse_failed", "adzuna", 6, "no_parser_for_domain", "myworkdayjobs.com"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Parsed: 40 jobs");
+    expect(lines).toContain("  - 6 jobs could not be parsed");
+    expect(lines).toContain("    - myworkdayjobs.com: 6 jobs (no parser)");
+  });
+
+  test("a domain no parser owns and a domain whose parser broke are labelled apart", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("parsing", "parse_failed", "adzuna", 4, "no_parser_for_domain", "myworkdayjobs.com"),
+        count("parsing", "parse_failed", "ashby", 3, "parser_errored", "lever.co"),
+        count("parsing", "parse_failed", "ashby", 2, "nothing_parsed", "lever.co"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("    - lever.co: 5 jobs (parser failed)");
+    expect(lines).toContain("    - myworkdayjobs.com: 4 jobs (no parser)");
+  });
+
+  test("the five domains costing the most jobs are the ones that print", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("parsing", "parse_failed", "adzuna", 9, "no_parser_for_domain", "six.com"),
+        count("parsing", "parse_failed", "adzuna", 8, "no_parser_for_domain", "five.com"),
+        count("parsing", "parse_failed", "adzuna", 7, "no_parser_for_domain", "four.com"),
+        count("parsing", "parse_failed", "adzuna", 6, "no_parser_for_domain", "three.com"),
+        count("parsing", "parse_failed", "adzuna", 5, "no_parser_for_domain", "two.com"),
+        count("parsing", "parse_failed", "adzuna", 4, "no_parser_for_domain", "one.com"),
+      ],
+      COLLECTORS
+    );
+
+    const listed = lines.filter((line) => line.startsWith("    - "));
+    expect(listed).toHaveLength(5);
+    expect(listed[0]).toBe("    - six.com: 9 jobs (no parser)");
+    expect(listed[4]).toBe("    - two.com: 5 jobs (no parser)");
+    expect(lines.join("\n")).not.toContain("one.com");
+  });
+
+  test("two domains that failed the same number of times print alphabetically", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("parsing", "parse_failed", "adzuna", 3, "no_parser_for_domain", "zebra.com"),
+        count("parsing", "parse_failed", "adzuna", 3, "no_parser_for_domain", "apple.com"),
+      ],
+      COLLECTORS
+    );
+
+    const listed = lines.filter((line) => line.startsWith("    - "));
+    expect(listed).toEqual([
+      "    - apple.com: 3 jobs (no parser)",
+      "    - zebra.com: 3 jobs (no parser)",
+    ]);
+  });
+
+  test("a failure with no owned domain counts in the total but has nothing to list", () => {
+    const lines = summaryFromTraceCounts(
+      [count("parsing", "parse_failed", "adzuna", 2, "no_parser_for_domain", null)],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("  - 2 jobs could not be parsed");
+    expect(lines.filter((line) => line.startsWith("    - "))).toEqual([]);
+  });
+
+  test("a run where every job parsed prints no failures and no domains", () => {
+    const lines = summaryFromTraceCounts(
+      [count("parsing", "job_parsed", "ashby", 12)],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Parsed: 12 jobs");
+    expect(lines.join("\n")).not.toContain("could not be parsed");
+    expect(lines.filter((line) => line.startsWith("    - "))).toEqual([]);
+  });
+
+  test("parsing is counted apart from the steps that run after it", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("parsing", "job_parsed", "ashby", 3),
+        count("post_parsing_dedupe", "abandoned", "ashby", 5, "hard_match_in_list"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Parsed: 3 jobs");
+  });
+
   test("a detail line with nothing to report is left out", () => {
     const lines = summaryFromTraceCounts(
       [count("collection", "collected", "ashby", 5)],
@@ -104,6 +201,7 @@ describe("the summary is built from one run's trace rows", () => {
     expect(lines).toContain("Collected: 0 jobs");
     expect(lines).toContain("  - adzuna collected 0 jobs");
     expect(lines).toContain("Resolved: 0 jobs");
+    expect(lines).toContain("Parsed: 0 jobs");
   });
 
   test("the blocks come out in the order the pipeline runs them", () => {
@@ -112,6 +210,7 @@ describe("the summary is built from one run's trace rows", () => {
         count("collection", "collected", "ashby", 100),
         count("post_collection_dedupe", "abandoned", "ashby", 9, "hard_match_in_list"),
         count("resolution", "job_resolved", "ashby", 55, "no_apply_links"),
+        count("parsing", "job_parsed", "ashby", 30),
       ],
       COLLECTORS
     );
@@ -119,6 +218,7 @@ describe("the summary is built from one run's trace rows", () => {
     const joined = lines.join("\n");
     expect(joined.indexOf("Collected:")).toBeLessThan(joined.indexOf("Dedupe (post collection)"));
     expect(joined.indexOf("Dedupe (post collection)")).toBeLessThan(joined.indexOf("Resolved:"));
+    expect(joined.indexOf("Resolved:")).toBeLessThan(joined.indexOf("Parsed:"));
   });
 });
 
@@ -144,6 +244,7 @@ describe("one job reads as one job", () => {
         count("post_collection_dedupe", "abandoned", "ashby", 1, "hard_match_in_list"),
         count("post_collection_dedupe", "abandoned", "ashby", 1, "matched_db_row"),
         count("resolution", "resolution_failed", "ashby", 1, "posting_gone"),
+        count("parsing", "parse_failed", "ashby", 1, "no_parser_for_domain", "myworkdayjobs.com"),
       ],
       ["ashby"]
     );
@@ -152,6 +253,8 @@ describe("one job reads as one job", () => {
     expect(lines).toContain("  - 1 job was a duplicate from this collection");
     expect(lines).toContain("  - 1 job was a duplicate of a job already saved");
     expect(lines).toContain("  - 1 job could not be resolved");
+    expect(lines).toContain("  - 1 job could not be parsed");
+    expect(lines).toContain("    - myworkdayjobs.com: 1 job (no parser)");
   });
 
   test("zero keeps the plural, because zero jobs is not one job", () => {
