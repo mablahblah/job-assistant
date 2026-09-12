@@ -120,3 +120,42 @@ describe("the summary is built from one run's trace rows", () => {
     expect(joined.indexOf("Dedupe (post collection)")).toBeLessThan(joined.indexOf("Resolved:"));
   });
 });
+
+describe("one job reads as one job", () => {
+  test("the headline numbers drop the plural at one", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("collection", "collected", "ashby", 1),
+        count("resolution", "job_resolved", "ashby", 1),
+      ],
+      ["ashby"]
+    );
+
+    expect(lines).toContain("Collected: 1 job");
+    expect(lines).toContain("  - ashby collected 1 job");
+    expect(lines).toContain("Resolved: 1 job");
+  });
+
+  test("the detail lines agree with their verb at one", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("collection", "job_resolved", "ashby", 1, "collector_provided"),
+        count("post_collection_dedupe", "abandoned", "ashby", 1, "hard_match_in_list"),
+        count("post_collection_dedupe", "abandoned", "ashby", 1, "matched_db_row"),
+        count("resolution", "resolution_failed", "ashby", 1, "posting_gone"),
+      ],
+      ["ashby"]
+    );
+
+    expect(lines).toContain("  - 1 job already had a source link");
+    expect(lines).toContain("  - 1 job was a duplicate from this collection");
+    expect(lines).toContain("  - 1 job was a duplicate of a job already saved");
+    expect(lines).toContain("  - 1 job could not be resolved");
+  });
+
+  test("zero keeps the plural, because zero jobs is not one job", () => {
+    const lines = summaryFromTraceCounts([], ["ashby"]);
+    expect(lines).toContain("Collected: 0 jobs");
+    expect(lines).toContain("  - ashby collected 0 jobs");
+  });
+});

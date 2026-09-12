@@ -13,6 +13,19 @@ function total(counts: TraceRunCount[], matches: (row: TraceRunCount) => boolean
   return counts.reduce((sum, row) => (matches(row) ? sum + row.count : sum), 0);
 }
 
+// English disagrees with a bare plural at one, and a summary the user reads
+// every run is the wrong place to make them forgive it. Zero keeps the plural,
+// because zero jobs is not one job.
+function jobs(n: number): string {
+  return n === 1 ? "1 job" : `${n} jobs`;
+}
+
+// Two detail lines carry a verb that has to agree as well, so they cannot be
+// built from the count alone.
+function wasOrWere(n: number): string {
+  return n === 1 ? "was a duplicate" : "were duplicates";
+}
+
 export function summaryFromTraceCounts(
   counts: TraceRunCount[],
   collectors: string[]
@@ -23,7 +36,7 @@ export function summaryFromTraceCounts(
   // nothing is exactly what the reader needs told rather than left to infer
   // from a missing line.
   const collected = total(counts, (row) => row.step === "collection" && row.event === "collected");
-  lines.push(`Collected: ${collected} jobs`);
+  lines.push(`Collected: ${jobs(collected)}`);
 
   // Every collector gets a line, in the order the run was given them, even
   // one that found nothing. A collector that collected zero writes no trace
@@ -35,7 +48,7 @@ export function summaryFromTraceCounts(
       (row) =>
         row.step === "collection" && row.event === "collected" && row.collector === collector
     );
-    lines.push(`  - ${collector} collected ${found} jobs`);
+    lines.push(`  - ${collector} collected ${jobs(found)}`);
   }
 
   // `collector_provided` is written when an ATS board or Dribbble hands over a
@@ -51,7 +64,7 @@ export function summaryFromTraceCounts(
       row.reason === "collector_provided"
   );
   if (alreadyResolved > 0) {
-    lines.push(`  - ${alreadyResolved} jobs already had a source link`);
+    lines.push(`  - ${jobs(alreadyResolved)} already had a source link`);
   }
 
   // Two reasons both mean the duplicate was found inside this run's own list,
@@ -77,10 +90,14 @@ export function summaryFromTraceCounts(
   if (duplicatesInList > 0 || duplicatesAlreadySaved > 0) {
     lines.push("Dedupe (post collection)");
     if (duplicatesInList > 0) {
-      lines.push(`  - ${duplicatesInList} jobs were duplicates from this collection`);
+      lines.push(`  - ${jobs(duplicatesInList)} ${wasOrWere(duplicatesInList)} from this collection`);
     }
     if (duplicatesAlreadySaved > 0) {
-      lines.push(`  - ${duplicatesAlreadySaved} jobs were duplicates of jobs already saved`);
+      lines.push(
+        `  - ${jobs(duplicatesAlreadySaved)} ${wasOrWere(duplicatesAlreadySaved)} of ${
+          duplicatesAlreadySaved === 1 ? "a job" : "jobs"
+        } already saved`
+      );
     }
   }
 
@@ -88,14 +105,14 @@ export function summaryFromTraceCounts(
   // for jobs a collector resolved itself. Those are counted above, and
   // counting them again here would credit resolution with work it never did.
   const resolved = total(counts, (row) => row.step === "resolution" && row.event === "job_resolved");
-  lines.push(`Resolved: ${resolved} jobs`);
+  lines.push(`Resolved: ${jobs(resolved)}`);
 
   const failed = total(
     counts,
     (row) => row.step === "resolution" && row.event === "resolution_failed"
   );
   if (failed > 0) {
-    lines.push(`  - ${failed} jobs could not be resolved`);
+    lines.push(`  - ${jobs(failed)} could not be resolved`);
   }
 
   return lines;
