@@ -62,14 +62,14 @@ describe("AC 42: the term Product Design matches Senior Product Designer through
 describe("AC 43: a token of three characters or fewer is not stemmed", () => {
   test("a three-character token the stemmer would shorten stays whole", () => {
     // Measured, the stemmer turns `uxs` into `ux`. Were three-character tokens
-    // stemmed, every real `UxS ...` title would collapse onto the search term
-    // `UX` and match it wrongly, which is the group AC 40 guards. So the
+    // stemmed, every real `UxS ...` title would merge onto the search term
+    // `UX` and match it wrongly, which is the group AC 40 guardrails. So the
     // exemption reaches three characters, not only one and two.
     expect(analyzeText("UxS")).toEqual(["uxs"]);
   });
 
   test("a four-character token is still stemmed", () => {
-    // The guard exempts short tokens without switching stemming off, so the
+    // The guardrail exempts short tokens without switching stemming off, so the
     // first length the stemmer sees is four.
     expect(analyzeText("Designs")).toEqual(["design"]);
   });
@@ -78,7 +78,7 @@ describe("AC 43: a token of three characters or fewer is not stemmed", () => {
 describe("AC 77: a blank search term matches nothing", () => {
   test("a term holding no words matches no title", () => {
     // A blank term analyzes to no words at all, and "every word present" is
-    // vacuously true of no words, so without a guard one stray blank term in
+    // vacuously true of no words, so without a guardrail one stray blank term in
     // settings would quietly match every job collected.
     expect(matchesSearchTerms("Senior Graphic Designer", [""])).toBe(false);
   });

@@ -1,5 +1,5 @@
-// A stand-in for a real browser page, used to test the URL resolver's hop
-// loop without a browser. A test lays out the whole walk up front as an
+// A stand-in for a real browser page, used to test the URL resolver's page
+// loop without a browser. A test lays out the whole resolution up front as an
 // ordered list of pages; each call to goto ignores the URL it is handed and
 // simply serves the next page in that list. This lets a test say "start
 // here, land there, then dead-end" without modelling a URL-to-page lookup.
@@ -7,27 +7,27 @@ import { parseHTML } from "linkedom";
 import type { PageAnchor, ResolutionPage, ResolutionResponse } from "./resolution-page";
 
 export interface ScriptedPage {
-  // The address the page settles on — what url() reports once this hop is done.
+  // The address the page ends on — what url() reports once this page is done.
   url: string;
-  // The responses this hop produced, in the order they arrived. The first is
-  // what goto hands back; the last is the page actually landed on. Defaults to
+  // The responses this page produced, in the order they arrived. The first is
+  // what goto hands back; the last is the page actually ended on. Defaults to
   // a single 200 at `url`.
   responses?: { url: string; status: number }[];
   // The page's HTML. Defaults to an empty string.
   html?: string;
   // The page's title. Defaults to an empty string.
   title?: string;
-  // When true, goto rejects — the browser could not load this hop at all.
+  // When true, goto rejects — the browser could not load this page at all.
   failsToLoad?: boolean;
-  // Later renders this same hop moves through, in order, the way a page that
+  // Later renders this same page moves through, in order, the way a page that
   // is still loading does — reached one at a time by calling advance(). Each
   // entry may name any of url, html and title; a field it leaves out keeps
-  // whatever value the hop was last showing.
+  // whatever value the page was last showing.
   becomes?: { url?: string; html?: string; title?: string }[];
 }
 
-// One render of a hop: what url(), content() and title() report at a given
-// point in that hop's sequence.
+// One render of a page: what url(), content() and title() report at a given
+// point in that page's sequence.
 interface PageRender {
   url: string;
   html?: string;
@@ -35,7 +35,7 @@ interface PageRender {
 }
 
 // Wraps one scripted { url, status } pair as the ResolutionResponse shape
-// the walk expects.
+// resolution expects.
 function toResolutionResponse(response: {
   url: string;
   status: number;
@@ -46,7 +46,7 @@ function toResolutionResponse(response: {
   };
 }
 
-// Turns a hop's own fields plus its becomes list into the full sequence of
+// Turns a page's own fields plus its becomes list into the full sequence of
 // renders it moves through. Each later render starts from the one before it,
 // so a field a becomes entry does not name carries forward unchanged.
 function pageRenders(page: ScriptedPage): PageRender[] {
@@ -67,7 +67,7 @@ export function fakeResolutionPage(
 ): ResolutionPage & { advance(): void } {
   // Which scripted page goto is up to. The first goto serves script[0].
   let nextIndex = 0;
-  // The renders of the hop the walk last landed on, and which one reads see
+  // The renders of the page resolution last ended on, and which one reads see
   // right now. Empty until the first goto.
   let renders: PageRender[] = [];
   let renderIndex = 0;
@@ -90,15 +90,15 @@ export function fakeResolutionPage(
     ): Promise<ResolutionResponse | null> {
       if (nextIndex >= script.length) {
         throw new Error(
-          "ran off the end of the script — this walk needed another scripted page",
+          "ran off the end of the script — this resolution needed another scripted page",
         );
       }
       const page = script[nextIndex];
       nextIndex += 1;
 
       if (page.failsToLoad) {
-        // A hop the browser could not load at all: no responses fire, and
-        // the walk never lands here.
+        // A page the browser could not load at all: no responses fire, and
+        // resolution never lands here.
         throw new Error(`failed to load ${page.url}`);
       }
 
@@ -106,7 +106,7 @@ export function fakeResolutionPage(
       const responses = page.responses ?? [{ url: page.url, status: 200 }];
       const resolutionResponses = responses.map(toResolutionResponse);
 
-      // Every response this hop produced is announced to listeners, in order,
+      // Every response this page produced is announced to listeners, in order,
       // before goto resolves — mirroring how a real page fires "response"
       // events as it fetches.
       for (const response of resolutionResponses) {
@@ -115,8 +115,8 @@ export function fakeResolutionPage(
         }
       }
 
-      // A freshly loaded hop starts at its own first render, whatever render
-      // the hop before it was left on.
+      // A freshly loaded page starts at its own first render, whatever render
+      // the page before it was left on.
       renders = pageRenders(page);
       renderIndex = 0;
       return resolutionResponses[0] ?? null;
@@ -142,7 +142,7 @@ export function fakeResolutionPage(
       // every anchor's href is rewritten to its absolute form here — against
       // the URL the page is currently showing — before anything reads it. An
       // anchor with no href attribute is left untouched, since that is how
-      // the walk tells a real link apart from a modal trigger with nothing
+      // resolution tells a real link apart from a modal trigger with nothing
       // to follow.
       for (const anchor of document.querySelectorAll("a")) {
         const href = anchor.getAttribute("href");
@@ -163,7 +163,7 @@ export function fakeResolutionPage(
       handlers = handlers.filter((registered) => registered !== handler);
     },
 
-    // Moves the current hop to its next scripted render. A no-op once the hop
+    // Moves the current page to its next scripted render. A no-op once the page
     // has reached its last render, and before any goto has loaded one — an
     // over-advance describes a page that simply stopped changing.
     advance() {

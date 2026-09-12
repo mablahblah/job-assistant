@@ -136,7 +136,7 @@ export async function dedupeJobs(
       // Under-merging leaves a duplicate the user can see and delete;
       // over-merging destroys a job nobody knows is gone. So a failed lookup
       // leaves the entry exactly as it arrived and only raises a warning.
-      // The collector fallback matches the save step: a real run stamps one
+      // The collector fallback matches the save step: a real run writes one
       // onto every job, so it is never reached there either.
       warnings.push({
         kind: "lookup_failed",
@@ -299,9 +299,9 @@ function mergePair(
   };
 }
 
-// abandoned marks a job's journey through the pipeline ending, and makes no
+// abandoned marks a job's path through the pipeline ending, and makes no
 // claim about whether a row existed. Whether a row is really deleted is save's
-// to say, at the step that carries the delete out, and its guard can still
+// to say, at the step that carries the delete out, and its guardrail can still
 // refuse one for a job the user has already applied to.
 function leavingRow(
   loser: JobListEntry,

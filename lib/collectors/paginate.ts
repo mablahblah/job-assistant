@@ -54,7 +54,7 @@ export interface PaginateResult {
   foundNoCards: boolean;
 }
 
-// However deep a site's results go, one search never walks further than this.
+// However deep a site's results go, one search never reads further than this.
 // Reaching it means the date-based stop did not work, which is worth a warning.
 export const PAGE_LIMIT = 6;
 
@@ -118,7 +118,7 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
     for (const pageCard of page.cards) {
       const days = parseAgeToDays(pageCard.age);
       if (days === null) {
-        // Failing open would let a site's reworded cards walk its whole
+        // Failing open would let a site's reworded cards rewrite its whole
         // history, every run, in silence.
         warnings.push(unreadableAgeWarning(search, pageCard.age));
         stopReason = "unreadable-age";

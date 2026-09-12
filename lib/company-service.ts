@@ -62,7 +62,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // Reads the column name a driver-level unique-constraint refusal blames. Any
-// hop that isn't the shape we expect comes back as null rather than
+// page that isn't the shape we expect comes back as null rather than
 // throwing, so a driver whose error shape changes falls back safely instead
 // of crashing the caller.
 function columnFromRefusal(error: Prisma.PrismaClientKnownRequestError): string | null {

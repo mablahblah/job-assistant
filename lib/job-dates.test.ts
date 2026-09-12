@@ -146,7 +146,7 @@ describe("no date anywhere", () => {
   });
 });
 
-// Dedupe collapses two job list entries through this same rule, and neither
+// Dedupe merges two job list entries through this same rule, and neither
 // may carry a database row.
 describe("two job list entries with no stored row", () => {
   test("the rule applies unchanged", () => {

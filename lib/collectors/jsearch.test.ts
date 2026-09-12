@@ -217,7 +217,7 @@ describe("AC 34: one of the two searches failing is surfaced", () => {
   }
 
   test("a warning names which search failed", async () => {
-    // The old pipeline swallowed a rejected half and reported success with
+    // The old pipeline ignored a rejected half and reported success with
     // half the jobs.
     const result = await run();
     expect(result.warnings.some((warning) => warning.toLowerCase().includes("remote"))).toBe(true);

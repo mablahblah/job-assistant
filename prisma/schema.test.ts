@@ -83,7 +83,7 @@ const EXPECTED_SETTING_COLUMNS = [
   "modified_at",
 ];
 
-// One row per event in a job's journey through the pipeline. job_id names the
+// One row per event in a job's path through the pipeline. job_id names the
 // job an event describes but carries no foreign key, so a trace outlives the
 // job it was written for.
 const EXPECTED_TRACE_COLUMNS = [
@@ -135,7 +135,7 @@ const COLLECTOR_WRITTEN_COLUMNS = [
 // SQL default: Prisma supplies id and modified_at at write time.
 const DATABASE_WRITTEN_COLUMNS = ["id", "created_at", "modified_at"];
 
-// Stamped by the orchestrator on every entry before save runs, so it is
+// Written by the orchestrator on every entry before save runs, so it is
 // required with no default: a row reaching the database without one would
 // have no honest earliest sighting, and no default could supply one.
 const ORCHESTRATOR_WRITTEN_COLUMNS = ["collected_at"];
@@ -434,7 +434,7 @@ describe("AC17: no collector-written field is required without a default", () =>
     expect(nullable || hasDefault).toBe(true);
   });
 
-  test("only the database-written and orchestrator-stamped columns are required without a default", async () => {
+  test("only the database-written and orchestrator-written columns are required without a default", async () => {
     const allowed = [...DATABASE_WRITTEN_COLUMNS, ...ORCHESTRATOR_WRITTEN_COLUMNS];
     const offenders = jobColumns.filter(
       (column) =>
@@ -815,7 +815,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
   });
 
   // AC 66. Resolution writes two events of its own and reuses collection's
-  // abandoned for a job its walk disqualified.
+  // abandoned for a job its resolution disqualified.
   test("resolution's events are listed", () => {
     const comment = traceComment();
     const events = [
@@ -834,7 +834,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
   test("resolution's reason codes are listed", () => {
     // None of these is a substring of another or of a reason already in the
     // comment. page_limit_reached is the one that sits on two events, which is
-    // what lets a single query count how often four hops is the binding
+    // what lets a single query count how often four pages is the binding
     // constraint.
     const comment = traceComment();
     const reasons = [
@@ -854,12 +854,12 @@ describe("Trace: the model comment carries both vocabularies", () => {
 
   // AC 67's schema half. A job merged away takes abandoned whether or not it
   // held a row, so the comment may no longer tie the word to a row's absence.
-  test("the comment ties abandoned to the journey ending rather than to a missing row", () => {
+  test("the comment ties abandoned to the path ending rather than to a missing row", () => {
     const comment = traceComment();
     const collapsed = comment.replace(/\/\//g, " ").replace(/\s+/g, " ").trim();
 
     expect(collapsed).toContain(
-      "abandoned ends a job's journey through the pipeline and makes no claim about whether a row existed"
+      "abandoned ends a job's path through the pipeline and makes no claim about whether a row existed"
     );
   });
 
@@ -890,7 +890,7 @@ describe("Company: name is optional and match_key and ats_slug are each unique",
   const WRITTEN_AT = "2026-01-01T00:00:00.000Z";
 
   // Sqlite records a unique column as a unique index rather than a column
-  // flag, so finding one means walking the index list and reading which
+  // flag, so finding one means reading through the index list and reading which
   // columns each index covers.
   async function uniqueColumnNames(dbUrl: string, table: string): Promise<Set<string>> {
     const client = createClient({ url: dbUrl });
@@ -1067,7 +1067,7 @@ describe("Job: a row takes the id it was created with", () => {
   let dir: string;
   let url: string;
 
-  const STAMPED_AT = new Date("2026-01-01T00:00:00.000Z");
+  const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
   beforeAll(() => {
     const temp = makeTempDb("pipeline-schema-explicit-id-");
@@ -1094,7 +1094,7 @@ describe("Job: a row takes the id it was created with", () => {
 
   test("a create passing an id writes that id", async () => {
     const db = clientFor(url);
-    await db.job.create({ data: { id: "known-id-123", collected_at: STAMPED_AT } });
+    await db.job.create({ data: { id: "known-id-123", collected_at: COLLECTED_AT } });
     const row = await db.job.findUnique({ where: { id: "known-id-123" } });
     expect(row?.id).toBe("known-id-123");
   });
@@ -1103,7 +1103,7 @@ describe("Job: a row takes the id it was created with", () => {
   // default at all, which would break every create that does not supply one.
   test("a create omitting the id still gets one", async () => {
     const db = clientFor(url);
-    const created = await db.job.create({ data: { collected_at: STAMPED_AT } });
+    const created = await db.job.create({ data: { collected_at: COLLECTED_AT } });
     expect(created.id).toHaveLength(25);
   });
 });
@@ -1112,12 +1112,12 @@ describe("Job: a row takes the id it was created with", () => {
 // so each needs an index to look a match up instead of reading every row.
 // Neither may be unique: two rows for one posting hold the same key from the
 // moment both are saved until the pass that collapses them, and a merge the
-// active guard refuses leaves that pair standing for good.
+// active guardrail refuses leaves that pair standing for good.
 describe("Job: the two link match-key columns and their indexes", () => {
   let dir: string;
   let url: string;
 
-  const STAMPED_AT = new Date("2026-01-01T00:00:00.000Z");
+  const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
   const MATCH_KEY_COLUMNS = ["original_url_match_key", "resolved_url_match_key"];
 
   beforeAll(() => {
@@ -1164,7 +1164,7 @@ describe("Job: the two link match-key columns and their indexes", () => {
       for (const id of ["match-key-row-a", "match-key-row-b"]) {
         await client.execute({
           sql: "INSERT INTO Job (id, collected_at, modified_at, original_url_match_key) VALUES (?, ?, ?, ?)",
-          args: [id, STAMPED_AT.getTime(), STAMPED_AT.getTime(), key],
+          args: [id, COLLECTED_AT.getTime(), COLLECTED_AT.getTime(), key],
         });
       }
       const result = await client.execute({

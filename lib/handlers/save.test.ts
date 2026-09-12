@@ -83,7 +83,7 @@ describe("an entry marked for deletion", () => {
 
 // AC 53 and 54. The user has to open both rows to reconcile them, so the
 // refusal is reported by name and never folded into a count.
-describe("warning about a delete the guard refused", () => {
+describe("warning about a delete the guardrail refused", () => {
   test("raises one warning naming both rows", async () => {
     const rows = [saved("applied", { status: "offer", title: "Staff Designer" })];
 
@@ -146,7 +146,7 @@ describe("warning about a delete the guard refused", () => {
   });
 });
 
-// AC 63, 64. Resolution marks a job for deletion when its walk reaches a
+// AC 63, 64. Resolution marks a job for deletion when its resolution reaches a
 // blacklisted site, and save treats that mark exactly as it treats dedupe's:
 // the row goes unless the user has acted on it. What differs is whose row it
 // is — the job's own rather than a duplicate's — which is why the refusal
@@ -369,7 +369,7 @@ describe("the list the step returns", () => {
     expect(result.jobs.map((job) => job.id)).toEqual(["keep"]);
   });
 
-  test("keeps an entry whose delete the guard refused", async () => {
+  test("keeps an entry whose delete the guardrail refused", async () => {
     const result = await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,

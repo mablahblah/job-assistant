@@ -24,7 +24,7 @@ type CardElement = ReturnType<LinkedomDocument["querySelectorAll"]>[number];
 // a type this project can name directly either.
 type QueriedElement = ReturnType<CardElement["querySelector"]>;
 
-// Every read is funnelled through here to land on a trimmed string, so a
+// Every read is funnelled through here to end on a trimmed string, so a
 // missing element reads the same as one whose text is blank.
 function trimmedText(value: string | null | undefined): string {
   return (value ?? "").trim();

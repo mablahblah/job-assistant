@@ -1,5 +1,5 @@
 // Starts a job search: builds what the whole run shares, calls the
-// orchestrator, and reports what came back. Which legs run, and in what order,
+// orchestrator, and reports what came back. Which steps run, and in what order,
 // is the orchestrator's to know rather than this script's.
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createCompanyService } from "../lib/company-service";
@@ -24,9 +24,9 @@ function printIssues(label: string, issues: CollectionIssue[]): void {
   }
 }
 
-// Stands in until the real Playwright browser is built. The resolution leg
+// Stands in until the real Playwright browser is built. The resolution step
 // only calls this when the database holds a job needing a source URL, so a run
-// with nothing to walk still finishes. A run that does have work stops here
+// with nothing to resolve still finishes. A run that does have work stops here
 // rather than pretending it resolved anything.
 const noBrowserYet: ResolutionBrowserFactory = () => {
   throw new Error("the real browser is not built yet, so this run cannot resolve");
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
     // Names this job search so every trace event it produces can be grouped
     // and compared against other searches.
     const runId = crypto.randomUUID();
-    // The date stamped into every job's collected_at, so one run's jobs share
+    // The date written into every job's collected_at, so one run's jobs share
     // a single timestamp even when collection takes minutes.
     const collectedAt = new Date();
     const report = await runJobSearch({

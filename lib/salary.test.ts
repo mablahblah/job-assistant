@@ -310,7 +310,7 @@ describe("the fixture of real excerpts from the boards this pipeline polls", () 
   const salaryCases = fixture.salary;
   const neitherCases = fixture.neither;
 
-  // An emptied or broken fixture would let both sweeps below pass while
+  // An emptied or broken fixture would let both checks below pass while
   // checking nothing, so both groups have to actually hold cases.
   test("the fixture holds both salary cases and cases naming neither", () => {
     expect(salaryCases.length).toBeGreaterThan(0);

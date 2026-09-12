@@ -6,7 +6,7 @@ import { mergeJobs, pickWinner } from "./job-merge";
 // One edge of the fold: the entry that left the list, the entry it merged into
 // at that moment, and the identity clause that tied the two together. Kept per
 // edge rather than per final survivor, because a chain of three folded in two
-// steps draws as two hops and naming the last survivor would lose the middle.
+// steps draws as two pages and naming the last survivor would lose the middle.
 export interface JobMerge {
   loser: JobListEntry;
   becameId: string | undefined;
@@ -41,7 +41,7 @@ function firstMatch(
 // every one it matches, the merged entry taking its place each time, until
 // nothing matches and it joins the survivors itself. That collapses a chain
 // and joins two groups an entry sits between, at one scan of the survivors per
-// entry rather than a fresh sweep of every pair after every fold.
+// entry rather than a fresh cleanup of every pair after every fold.
 export function mergeMatchingJobs(
   jobs: readonly JobListEntry[],
   priorityList: readonly string[],
@@ -63,7 +63,7 @@ export function mergeMatchingJobs(
 
       // The merged entry carries the id survivor's id, so the other side is
       // the one that has to leave. Whose data won the contest is a separate
-      // question and routinely lands on the opposite side, because a side
+      // question and routinely ends on the opposite side, because a side
       // holding a database row keeps its id however its data ranked.
       const { idWinner } = pickWinner(earlier, carried, priorityList);
       const loser = idWinner === earlier ? carried : earlier;

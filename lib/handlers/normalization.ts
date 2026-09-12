@@ -5,7 +5,7 @@
 //
 // Every present field is recomputed from its raw source on every call, with
 // no check for whether its target is already filled in. That is what makes a
-// second pass over unchanged raw data land on exactly the same job, and what
+// second pass over unchanged raw data end on exactly the same job, and what
 // lets a pass after parsing improve on a figure the first pass got wrong or
 // left out. A raw field with nothing in it is the one exception: it is left
 // alone, because going looking for a missing value is parsing, a later phase
@@ -14,7 +14,7 @@
 // Alongside the tidied job, a call returns one trace event per field that had
 // a raw value to work from, recording whether that field came out fully
 // normalized, partly normalized, or not normalized at all. A field the job
-// carried nothing for writes no event, matching the guard that left it alone.
+// carried nothing for writes no event, matching the guardrail that left it alone.
 // The events carry no run id, job id or step: a caller adds those, which is
 // what lets the same function serve the pass after collection and the pass
 // after parsing.
@@ -109,7 +109,7 @@ export function normalizeJob(
     result.normalized_mode_list = normalized;
 
     // Counted against recognised raw entries, not output length: two raw
-    // spellings of the same mode collapse into one output entry, and that
+    // spellings of the same mode merge into one output entry, and that
     // still counts as both having been recognised rather than one going
     // missing. Recognition is asked of normalizeModeList itself rather than a
     // second copy of its word list.

@@ -35,7 +35,7 @@ describe("a page that already looks finished is not waited on", () => {
 });
 
 describe("a page that is still going is given time", () => {
-  test("a page that navigates away while settling is judged where it landed", async () => {
+  test("a page that navigates away while waiting for the page to load is judged where it ended", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://redirector.example/out",
@@ -78,7 +78,7 @@ describe("a page that is still going is given time", () => {
   });
 });
 
-describe("a page that never settles is judged as it stands", () => {
+describe("a page that never finishes is judged as it stands", () => {
   test("settling returns rather than throwing once the budget is spent", async () => {
     const page = fakeResolutionPage([{ url: "https://slow.example/1" }]);
     await page.goto("https://slow.example/1");
@@ -122,7 +122,7 @@ describe("a read that fails because the page moved is progress, not a failure", 
     await page.goto("https://redirector.example/out");
 
     // A real browser throws this out of $$eval when the page navigates
-    // mid-read. The walk must read that as the page having moved on.
+    // mid-read. Resolution must read that as the page having moved on.
     let reads = 0;
     const navigatingPage: ResolutionPage = {
       ...page,

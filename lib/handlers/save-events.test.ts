@@ -166,8 +166,8 @@ describe("a deletion dedupe asked for", () => {
   });
 
   // AC 86. The row holds application history the user is acting on, so the
-  // guard keeps it and the run records which match reached for it.
-  test("a delete the guard refused reads job_dbrow_delete_refused", async () => {
+  // guardrail keeps it and the run records which match reached for it.
+  test("a delete the guardrail refused reads job_dbrow_delete_refused", async () => {
     const trace = createFakeTraceService();
 
     await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {

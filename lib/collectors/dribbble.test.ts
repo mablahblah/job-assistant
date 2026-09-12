@@ -329,7 +329,7 @@ describe("a card becomes a job carrying the fields an aggregator link can supply
     expect(result.jobs[0].posting_date).toBeInstanceOf(Date);
   });
 
-  test("an older card lands on an earlier posting_date than a fresher one", async () => {
+  test("an older card ends on an earlier posting_date than a fresher one", async () => {
     const term = "Product Design";
     const fresh = dribbbleCard({ id: 1, age: "Posted 1 day ago" });
     const older = dribbbleCard({ id: 2, age: "Posted 5 days ago" });
@@ -345,8 +345,8 @@ describe("a card becomes a job carrying the fields an aggregator link can supply
   });
 
   // AC 57, 58, 59. Dribbble hosts its own postings, so there is nowhere for
-  // resolution to walk to. Three of its listings were measured sharing one
-  // "View job" link, so walking them would hand three distinct jobs one
+  // resolution to follow. Three of its listings were measured sharing one
+  // "View job" link, so following them would hand three distinct jobs one
   // resolved URL and dedupe would read that as proof they are one job.
   test("is_resolved is true, because Dribbble hosts the posting itself", async () => {
     const term = "Product Design";

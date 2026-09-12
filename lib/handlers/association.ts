@@ -62,7 +62,7 @@ interface AssociateJobResult {
 interface CompanyMatch {
   company: CompanyRecord;
   reason: "matched_by_slug" | "matched_by_name" | "company_created";
-  // Only a slug match can land on a company that still holds no name — one
+  // Only a slug match can end on a company that still holds no name — one
   // found by name key, or one just created, already has one.
   matchedBySlug: boolean;
 }
@@ -177,7 +177,7 @@ export async function associateCompanies(
   const warnings: AssociationWarning[] = [];
 
   // Sequential and awaited, never Promise.all: two jobs naming the same
-  // absent employer must land on one company, which only holds if the
+  // absent employer must end on one company, which only holds if the
   // second job's lookup runs after the first job's create has finished.
   for (const job of jobs) {
     const { job: associatedJob, traceRows, warning } = await associateJob(job, companies);

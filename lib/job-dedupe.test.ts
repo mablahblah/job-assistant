@@ -202,7 +202,7 @@ describe("AC 57: a list holding no matches comes back untouched", () => {
   });
 });
 
-describe("AC 58: the merge pools the dates and dedupe stamps none of its own", () => {
+describe("AC 58: the merge pools the dates and dedupe writes none of its own", () => {
   test("the earliest becomes the posted date and the latest the updated one", () => {
     const result = fold([role("a"), role("b", { posting_date: JAN_25 })]);
 
@@ -239,7 +239,7 @@ describe("a fold names the partner it merged into at that moment", () => {
     ]);
   });
 
-  // Naming the last survivor would collapse the middle hop, and a flow
+  // Naming the last survivor would merge the middle page, and a flow
   // diagram is drawn from edges rather than from endpoints.
   test("the first fold does not name the survivor the chain ended on", () => {
     const result = fold(chain());

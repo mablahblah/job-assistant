@@ -1,6 +1,6 @@
 // Hosts a job is never worth following to — paywalled aggregators that hide the
 // posting behind a subscription, spam destinations that redirects commonly land
-// on, and spam sources that republish low-quality postings. A walk that reaches
+// on, and spam sources that republish low-quality postings. A job's resolution that reaches
 // one of these stops there and the job is dropped rather than resolved.
 export const BLACKLISTED_DOMAINS: readonly string[] = [
   // Paywalled aggregators

@@ -180,7 +180,7 @@ export function createSettingsService(db: PipelineDb): SettingsService {
       return value;
     },
 
-    // Zero is not a harmless stand-in here: a run walking no jobs at all
+    // Zero is not a harmless stand-in here: a run resolving no jobs at all
     // looks like a run that found none.
     async getResolutionConcurrency() {
       const row = await getSettingsRow(db);

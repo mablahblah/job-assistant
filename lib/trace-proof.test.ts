@@ -34,7 +34,7 @@ const repoRoot = resolve(libDir, "..");
 // ceiling rather than a budget.
 const CREATE_TIMEOUT_MS = 45_000;
 
-// The date every run here stamps into collected_at. Fixed, so a row written
+// The date every run here writes into collected_at. Fixed, so a row written
 // by one of these runs never depends on when the suite happened to run.
 const COLLECTED_AT = new Date("2026-09-01T10:00:00.000Z");
 
@@ -151,21 +151,21 @@ const greenhouseCollector: Collector = {
   },
 };
 
-// Three of the runs below ask a question about one collect-leg pass — how
+// Three of the runs below ask a question about one collect-step pass — how
 // titles normalized, how jobs reached their companies, what save did — so they
 // declare nothing left to resolve and take a browser that fails if anything
-// asks it to launch. The two runs asserting a whole run's step list walk for
-// real instead, because that claim covers both legs.
+// asks it to launch. The two runs asserting a whole run's step list resolve for
+// real instead, because that claim covers both steps.
 const NOTHING_TO_RESOLVE = { findUnresolved: async () => [] };
 
 const FORBIDDEN_BROWSER = async (): Promise<ResolutionBrowserSession> => {
   throw new Error("the run launched a browser with nothing to resolve");
 };
 
-// Walks every job to an employer posting of its own, so each one resolves and
-// no two land on the same URL for post-resolution dedupe to fold. The fake
+// Resolves every job to an employer posting of its own, so each one resolves and
+// no two end on the same URL for post-resolution dedupe to fold. The fake
 // page ignores the URL it is handed and serves the next script in order, and
-// these runs walk one job at a time, so script order is job order.
+// these runs resolve one job at a time, so script order is job order.
 function browserServing(): ResolutionBrowserFactory {
   let served = 0;
   return async () => ({
@@ -328,7 +328,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
 });
 
 // Three jobs, only one of which carries "designer" in its title, so this
-// collector's normalized and not-normalized counts land on different
+// collector's normalized and not-normalized counts end on different
 // numbers than the other collector's.
 const indeedCollector: Collector = {
   name: "indeed",
@@ -347,7 +347,7 @@ const indeedCollector: Collector = {
 
 // Four jobs, two carrying "designer". A different job count and a different
 // split from indeed's, so a query that ignores the collector column and
-// lumps every row together could not land on either collector's numbers.
+// lumps every row together could not end on either collector's numbers.
 const linkedinCollector: Collector = {
   name: "linkedin",
   async collect() {
@@ -380,7 +380,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
 
     await runJobSearch({
       openBrowser: browserServing(),
-      settle: async () => {},
+      waitForLoad: async () => {},
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
@@ -473,9 +473,9 @@ describe("with a real title vocabulary, the trace table answers how many titles 
       [runId]
     );
     const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
-    // One run id covers both legs, so this is the whole pipeline's row set.
+    // One run id covers both steps, so this is the whole pipeline's row set.
     //
-    // The collect leg: collection writes one "collected" row per job handed
+    // The collect step: collection writes one "collected" row per job handed
     // over, and none of the 3 + 4 = 7 jobs here fails the usability check, so
     // that step has no abandoned rows to add: 7. Normalization writes two rows
     // per surviving job, one for the title and one for the company name:
@@ -484,13 +484,13 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // because no two of these seven jobs are the same job, and a job it passed
     // through untouched leaves no row.
     //
-    // The resolution leg then finds all 7, because the collect leg saved them
-    // with no source URL. Resolution writes one row per job walked: 7. Each
-    // walk lands on an employer posting of its own, so no two jobs collide and
+    // The resolution step then finds all 7, because the collect step saved them
+    // with no source URL. Resolution writes one row per job resolved: 7. Each
+    // resolution ends on an employer posting of its own, so no two jobs collide and
     // post-resolution dedupe writes nothing either. Save meets all 7 again: 7.
     //
     // The steps sort alphabetically, which puts association first and the
-    // resolution walk last.
+    // resolution last.
     expect(totals).toEqual([
       { step: "collection", count: 7 },
       { step: "post_collection_association", count: 7 },
@@ -513,7 +513,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
 
   test("a title_normalized row's detail round-trips as JSON holding the raw title and the normalized one", async () => {
     // indeed carries exactly one title_normalized row, so filtering on
-    // collector, event and reason together, with no job id needed, lands on
+    // collector, event and reason together, with no job id needed, ends on
     // "Senior Designer" alone.
     const [row] = await queryTrace(
       url,
@@ -531,8 +531,8 @@ describe("with a real title vocabulary, the trace table answers how many titles 
 });
 
 // Four jobs covering the three cases worth proving: two naming one employer
-// nobody has yet, one whose slug lands on a company whose name is already
-// taken by another, and one whose slug lands on a company still waiting for
+// nobody has yet, one whose slug matches a company whose name is already
+// taken by another, and one whose slug matches a company still waiting for
 // a name.
 const associationCollector: Collector = {
   name: "lever",
@@ -823,7 +823,7 @@ describe("the trace table answers what save did to each job, across both passes"
     expect(Number(rows[0]?.["count"])).toBe(0);
   });
 
-  test("every saved row carries the collection date the caller stamped", async () => {
+  test("every saved row carries the collection date the caller written", async () => {
     const rows = await queryTrace(url, "SELECT DISTINCT collected_at FROM Job", []);
 
     expect(rows.length).toBe(1);
@@ -869,7 +869,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
     // Job and Company rows rather than objects in an array.
     report = await runJobSearch({
       openBrowser: browserServing(),
-      settle: async () => {},
+      waitForLoad: async () => {},
       jobService: createJobService(built.db),
       collectedAt: COLLECTED_AT,
       settings: fakeSettingsService(RESOLVING_SETTINGS),
@@ -891,16 +891,16 @@ describe("the trace table answers what dedupe merged away, and what save then di
     );
     const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
 
-    // The collect leg: all three jobs are usable, so collection writes 3 and
+    // The collect step: all three jobs are usable, so collection writes 3 and
     // normalization writes 2 rows each: 6. Association writes one per job: 3.
     // Dedupe folds the pair and writes one row, for the entry that left. Save
     // meets all three entries the step handed back — two survivors it creates,
     // and the marked loser it can find no row for: 3.
     //
-    // The resolution leg then finds 2 rather than 3, which is the whole point
+    // The resolution step then finds 2 rather than 3, which is the whole point
     // of reading its list out of the database: the folded duplicate never
-    // became a row, so there is nothing to walk for it. Resolution writes one
-    // row per job walked: 2. Both land on postings of their own, so
+    // became a row, so there is nothing to resolve for it. Resolution writes one
+    // row per job resolved: 2. Both end on postings of their own, so
     // post-resolution dedupe writes nothing. Save meets both again: 2.
     expect(totals).toEqual([
       { step: "collection", count: 3 },
@@ -921,7 +921,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
     );
 
     expect(row?.["event"]).toBe("abandoned");
-    // Neither copy carries a posting date, so their pooled dates land on the
+    // Neither copy carries a posting date, so their pooled dates end on the
     // same value and the gap between them is nothing at all.
     expect(row?.["reason"]).toBe("hard_match_in_list");
   });
@@ -937,7 +937,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
     expect(detail["clause"]).toBe("original_url");
     expect(detail["company"]).toBe("Fabrikam");
     // The id it became belongs to a job the run kept, which is what lets the
-    // pair be drawn as one hop rather than a dead end.
+    // pair be drawn as one page rather than a dead end.
     expect(report.jobs.map((job) => job.id)).toContain(detail["became"]);
   });
 

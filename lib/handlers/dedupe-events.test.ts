@@ -149,10 +149,10 @@ describe("an entry that left the list for a stored row", () => {
   });
 
   // Phase 7 AC 68 and 70, superseding the earlier reading. abandoned is the
-  // word for a job's journey through the pipeline ending, and it makes no
+  // word for a job's path through the pipeline ending, and it makes no
   // claim about whether a row existed. Whether a row was actually deleted is
   // save's to say, at the step that carries the delete out, so dedupe saying
-  // it here would be guessing at a delete the active-status guard can still
+  // it here would be guessing at a delete the active-status guardrail can still
   // refuse.
   test("an entry that already held a row reads abandoned too", async () => {
     const trace = createFakeTraceService();
@@ -262,7 +262,7 @@ describe("what a losing row's detail carries", () => {
   });
 
   // AC 82. Each fold is one edge, and the chain draws as a flow from those
-  // edges, so a middle link naming the final survivor would lose the hop.
+  // edges, so a middle link naming the final survivor would lose the page.
   test("each row of a chain names its immediate partner", async () => {
     const trace = createFakeTraceService();
     // Three entries chained on one link, folded in two steps.

@@ -251,7 +251,7 @@ describe("written-through fields skip the contest", () => {
 });
 
 describe("the row records which side won", () => {
-  test("the better-ranked side's collector and parser land on the row", () => {
+  test("the better-ranked side's collector and parser end on the row", () => {
     const result = merge({ ...ADZUNA, title: "a" }, { ...GREENHOUSE, title: "b" });
     expect(result.collector).toBe("greenhouse");
     expect(result.parser).toBe("greenhouse");
@@ -263,7 +263,7 @@ describe("the row records which side won", () => {
     expect(result.parser).toBe("greenhouse");
   });
 
-  test("an equal-rank contest stamps the arriving side", () => {
+  test("an equal-rank contest writes the arriving side", () => {
     const result = merge(
       { collector: "adzuna", parser: undefined },
       { collector: "adzuna", parser: "greenhouse" }
@@ -354,7 +354,7 @@ describe("what the merge never writes", () => {
   });
 });
 
-// Dedupe collapses two job list entries through this same rule, and neither
+// Dedupe merges two job list entries through this same rule, and neither
 // may carry a database row.
 describe("two job list entries with no id between them", () => {
   test("the merge runs unchanged", () => {

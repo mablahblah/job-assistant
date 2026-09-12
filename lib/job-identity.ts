@@ -17,7 +17,7 @@ const COMPANY_AND_TITLE_WINDOW_MS = COMPANY_AND_TITLE_WINDOW_DAYS * ONE_DAY_IN_M
 // two absent links are never a match.
 //
 // The key is built from the link rather than read off the entry's match-key
-// column, because the job service stamps that column at write time and an
+// column, because the job service writes that column at write time and an
 // entry fresh from a collector has not been written yet.
 function linksMatch(a: string | null | undefined, b: string | null | undefined): boolean {
   if (a == null || b == null) return false;

@@ -432,7 +432,7 @@ describe("a poor extraction yield records a warning with the proportion", () => 
 
   test("the check runs once over the whole search's totals, not once per page", async () => {
     // Page two looks bad alone at one card out of three matched. Added to
-    // page one's perfect page the search-wide total lands on exactly half,
+    // page one's perfect page the search-wide total ends on exactly half,
     // which is the boundary that does not warn. A per-page check would warn.
     const reader = scriptedReader([pageOf([card("1 day ago")], 1), pageOf([card("2 days ago")], 3)]);
     const advance = scriptedAdvance([true, false]);

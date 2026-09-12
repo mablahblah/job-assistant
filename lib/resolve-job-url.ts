@@ -1,4 +1,4 @@
-// Walks one job link toward the employer's own posting: loads a page, judges what it
+// Follows one job link toward the employer's own posting: loads a page, judges what it
 // offers, and either follows a link or stops. It is handed a browser page and returns
 // what happened — it opens nothing, stores nothing, and knows nothing about jobs.
 
@@ -32,7 +32,7 @@ export type ResolutionOutcome =
 
 export interface ResolveJobUrlOptions {
   maxPages?: number;
-  settle?: (page: ResolutionPage) => Promise<void>;
+  waitForLoad?: (page: ResolutionPage) => Promise<void>;
   timeoutMs?: number;
 }
 
@@ -62,14 +62,14 @@ export async function resolveJobUrl(
   options?: ResolveJobUrlOptions,
 ): Promise<ResolutionOutcome> {
   const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
-  const settle = options?.settle ?? waitForPageToLoad;
+  const waitForLoad = options?.waitForLoad ?? waitForPageToLoad;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   let currentUrl = startUrl;
-  // Where the walk stood before this hop, so a hop can be undone after the fact.
+  // Where resolution stood before this page, so a page can be undone after the fact.
   let previousUrl: string | undefined;
 
-  for (let hop = 0; hop < maxPages; hop++) {
+  for (let pagesOpened = 0; pagesOpened < maxPages; pagesOpened++) {
     const recorded: ResolutionResponse[] = [];
     const record = (response: ResolutionResponse): void => {
       recorded.push(response);
@@ -91,7 +91,7 @@ export async function resolveJobUrl(
         return { outcome: "failed", reason: "page_load_failed" };
       }
 
-      await settle(page);
+      await waitForLoad(page);
       finalUrl = page.url();
       status = statusOfFinalPage(recorded, finalUrl, gotoResponse);
     } finally {
@@ -102,15 +102,15 @@ export async function resolveJobUrl(
       return { outcome: "failed", reason: "page_unavailable" };
     }
 
-    // Judged on where the page settled, not where the hop aimed.
+    // Judged on where the page settled, not where the page aimed.
     if (isBlacklistedUrl(finalUrl)) {
       return { outcome: "blacklisted" };
     }
 
     const html = await page.content();
     if (detectDeadEndSignals(html).isDeadEnd) {
-      // A hop that stayed on the same host led to an application form, so the page
-      // before it is the posting. An off-host hop came from an aggregator, and
+      // A page that stayed on the same host led to an application form, so the page
+      // before it is the posting. An off-host page came from an aggregator, and
       // stepping back there gains nothing.
       if (previousUrl !== undefined && isSameDomain(previousUrl, finalUrl)) {
         return {
@@ -130,12 +130,12 @@ export async function resolveJobUrl(
     );
     const applyLinks: ApplyLink[] = filterApplyLinks(rawLinks);
 
-    // Budget remains while one more page still fits inside the ceiling.
-    const pagesLeft = hop + 1 < maxPages;
+    // There is room for one more page inside the limit.
+    const pagesLeft = pagesOpened + 1 < maxPages;
     const decision = decideNextAction(applyLinks, pagesLeft);
 
     if (decision.action === "follow") {
-      // Followed blind — the host comparison only happens once the page has landed.
+      // Followed blind — the host comparison only happens once the page has finished loading.
       previousUrl = finalUrl;
       currentUrl = decision.nextUrl;
       continue;
@@ -143,14 +143,14 @@ export async function resolveJobUrl(
 
     if (decision.action === "budget_spent") {
       // The unfollowed link decides: same host means it was the application form and
-      // the walk already stands on the posting; a different host means the posting
-      // sits somewhere the walk never reached.
+      // resolution already stands on the posting; a different host means the posting
+      // sits somewhere resolution never reached.
       return isSameDomain(decision.unfollowedUrl, finalUrl)
         ? { outcome: "resolved", resolvedUrl: finalUrl, reason: "page_limit_reached" }
         : { outcome: "failed", reason: "page_limit_reached" };
     }
 
-    // Nothing worth following here, so this is the end of the walk.
+    // Nothing worth following here, so this is the end of resolution.
     if (previousUrl === undefined) {
       return { outcome: "resolved", resolvedUrl: finalUrl, reason: "no_apply_links" };
     }
@@ -164,6 +164,6 @@ export async function resolveJobUrl(
     return { outcome: "resolved", resolvedUrl: finalUrl, reason: "link_left_site" };
   }
 
-  // Unreachable: the last hop never follows a link, because its budget is spent.
+  // Unreachable: the last page never follows a link, because its budget is spent.
   return { outcome: "failed", reason: "page_limit_reached" };
 }

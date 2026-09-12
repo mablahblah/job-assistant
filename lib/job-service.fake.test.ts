@@ -215,7 +215,7 @@ describe("overrides", () => {
 // database, so anything the real service derives at write time the fake has to
 // derive the same way. Where the two disagree, every test trusting the fake is
 // worthless.
-describe("stamping the link match keys", () => {
+describe("writing the link match keys", () => {
   // AC 21.
   test("a created job carries both keys built from its links", async () => {
     const jobs: JobListEntry[] = [];
@@ -237,7 +237,7 @@ describe("stamping the link match keys", () => {
   });
 
   // AC 21. Resolution fills resolved_url long after the job first appeared.
-  test("an update writing a link for the first time stamps its key", async () => {
+  test("an update writing a link for the first time writes its key", async () => {
     const jobs: JobListEntry[] = [storedJob("fake-keys-update", { collector: "greenhouse" })];
     const service = fakeJobService(jobs);
 
@@ -273,7 +273,7 @@ describe("the timestamps the database would set", () => {
     const jobs: JobListEntry[] = [];
     const service = fakeJobService(jobs);
 
-    await service.update({ id: "fake-stamps", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "fake-writes", collected_at: COLLECTED_AT }, PRIORITY_LIST);
 
     expect(jobs[0]?.created_at).toBeInstanceOf(Date);
     expect(jobs[0]?.modified_at).toBeInstanceOf(Date);
@@ -342,9 +342,9 @@ describe("the timestamps the database would set", () => {
 
 describe("a key follows the link that won the merge", () => {
   // AC 21. greenhouse outranks adzuna, so the held link stands and its key
-  // has to stand with it. Stamping from the arriving link instead would leave
+  // has to stand with it. Writing from the arriving link instead would leave
   // the winning link sitting beside the losing link's key.
-  test("a losing link does not stamp its key over the winning link's", async () => {
+  test("a losing link does not write its key over the winning link's", async () => {
     const jobs: JobListEntry[] = [
       storedJob("fake-keys-contest", {
         collector: "greenhouse",
@@ -445,7 +445,7 @@ describe("the resolution job list", () => {
   });
 
   // AC 2. Nothing narrows the list to one run. A job collected weeks ago and
-  // never resolved is still waiting for the walk.
+  // never resolved is still waiting for resolution.
   test("holds a job collected during an earlier run", async () => {
     const service = fakeJobService([
       storedJob("list-earlier", { collected_at: new Date("2025-06-01T00:00:00.000Z") }),
@@ -481,7 +481,7 @@ describe("the resolution job list", () => {
     expect(entry).not.toHaveProperty("is_classified");
   });
 
-  // AC 4. The walk needs the id to write back and the collector to know
+  // AC 4. Resolution needs the id to write back and the collector to know
   // whether a blacklisted job may be dropped, and dedupe reads created_at as
   // the sign that an entry already holds a database row.
   test("carries the id, the collector and the created_at", async () => {
@@ -498,7 +498,7 @@ describe("the resolution job list", () => {
   });
 
   // The fake's other lookups read the caller's array directly. This one hands
-  // back copies, so a walk writing to an entry cannot reach into the held job
+  // back copies, so a job's resolution writing to an entry cannot reach into the held job
   // behind the service's back.
   test("hands back a copy rather than the held job", async () => {
     const jobs = [storedJob("list-copy")];

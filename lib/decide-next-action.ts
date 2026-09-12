@@ -1,9 +1,9 @@
 import type { ApplyLink } from "./apply-links";
 
 // The decision made at one page while resolving a job link toward its
-// employer posting: resolve here, follow a link, or stop because the hop
+// employer posting: resolve here, follow a link, or stop because the page
 // budget ran out. A stop names the link it did not follow, which is the
-// link it would have followed with budget left — the walk reads it to tell
+// link it would have followed with budget left — resolution reads it to tell
 // a posting it never reached from an apply form it was right to stop short
 // of.
 export type NextAction =
@@ -13,18 +13,18 @@ export type NextAction =
 
 // A modal trigger is an apply link with nothing real behind it: no href,
 // a bare "#", or javascript: code meant to pop a dialog rather than
-// navigate anywhere. Following one would not move the walk forward.
+// navigate anywhere. Following one would not move resolution forward.
 function isModalTrigger(href: string): boolean {
   return href === "" || href === "#" || href.startsWith("javascript:");
 }
 
-// The one decision made at each hop of the resolver's walk: whether the
+// The one decision made at each page of resolution: whether the
 // page in hand is already the resolution, whether to follow its first
-// real apply link onward, or whether the hop budget has run out. It only
+// real apply link onward, or whether the page limit has run out. It only
 // looks at the links already collected and the budget flag handed to it,
 // so it can be tested without a browser and reused for every source.
 //
-// It never compares hosts itself. Whether a hop stayed on its own host is
+// It never compares hosts itself. Whether a page stayed on its own host is
 // judged after the browser lands, because a link's href can redirect
 // elsewhere and reading the href here would misjudge those.
 export function decideNextAction(

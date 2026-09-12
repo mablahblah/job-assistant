@@ -107,7 +107,7 @@ describe("AC 33: the first acceptable link wins, whatever host it points at", ()
   });
 });
 
-describe("AC 41: with no budget left the walk ends where it stands", () => {
+describe("AC 41: with no budget left resolution ends where it stands", () => {
   test("a link worth following is not followed once the budget is spent", () => {
     const links: ApplyLink[] = [{ href: "https://employer.example/careers/9", text: "Apply" }];
 
@@ -134,7 +134,7 @@ describe("AC 41: with no budget left the walk ends where it stands", () => {
   });
 });
 
-describe("the link the budget stopped the walk reaching is named", () => {
+describe("the link the budget stopped resolution reaching is named", () => {
   test("modal triggers are stepped over to name the first real link", () => {
     const links: ApplyLink[] = [
       { href: "#", text: "Apply" },

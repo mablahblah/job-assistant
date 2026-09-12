@@ -6,7 +6,7 @@
 //
 // It reaches the job table only through the service it is handed, so it opens
 // no database of its own and a fake serves its tests. Every rule about what a
-// write does — the merge, the active-status freeze, the delete guard — lives
+// write does — the merge, the active-status freeze, the delete guardrail — lives
 // in that service. This step is the loop that asks it and records the answer.
 import type { JobService, JobWriteOutcome } from "../job-service";
 import type { DeleteRefusedDetail, TraceDetail, TraceService } from "../trace-service";
@@ -38,7 +38,7 @@ interface TraceRowInput {
 }
 
 // A SaveWarning without its collector. The per-entry work does not know which
-// collector produced the job, so the loop stamps it on.
+// collector produced the job, so the loop writes it on.
 type WarningInput =
   | { kind: "delete_refused"; entry: JobListEntry; blockedBy: JobListEntry }
   | { kind: "db_write_failed"; entry: JobListEntry; thrown: unknown };
@@ -80,7 +80,7 @@ async function deleteEntry(
   }
 
   if (result.blockedBy) {
-    // The row holds a status the user has acted on, so the guard refused and
+    // The row holds a status the user has acted on, so the guardrail refused and
     // both rows stand. The entry stays in the list because its row is still
     // there, and the user is told so they can reconcile the pair by hand.
     // The row names which job blocked the delete and what status blocked it,
@@ -147,9 +147,9 @@ export async function saveJobs(
 
   // Sequential and awaited, never Promise.all: these are writes to one table
   // through one service, and two entries pointing at the same row have to
-  // settle in the order they arrived.
+  // waitForLoad in the order they arrived.
   for (const entry of jobs) {
-    // The orchestrator stamps a collector onto every job, so the fallback is
+    // The orchestrator writes a collector onto every job, so the fallback is
     // never reached by a job a real run produced.
     const collector = entry.collector ?? "unknown";
     const { job, traceRow, warning } = await saveEntry(entry, jobService, priorityList);

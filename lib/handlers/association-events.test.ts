@@ -240,10 +240,10 @@ describe("the step contract", () => {
 
   test("every row carries the run, the step and the collector its caller set", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "stamped-board")]);
+    const companies = fakeCompanyService([slugCompany("c1", "written-board")]);
 
     await associateCompanies(
-      [baseJob({ collector: "lever", raw_company_slug: "stamped-board" })],
+      [baseJob({ collector: "lever", raw_company_slug: "written-board" })],
       { companies, trace, runId: RUN_ID, step: STEP }
     );
 

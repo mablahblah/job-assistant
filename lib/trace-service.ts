@@ -21,7 +21,7 @@ export type DedupeTraceDetail = {
   posting_date: string;
 };
 
-// What save writes when the active-status guard refuses a delete: the row
+// What save writes when the active-status guardrail refuses a delete: the row
 // that blocked it and the status that made it block, so the pair can be
 // reconciled without going back to the table for a second look.
 export type DeleteRefusedDetail = {
@@ -80,7 +80,7 @@ export function createTraceService(db: PipelineDb): TraceService {
         // each collector call, where a throw reads as a collector failure
         // and costs every remaining job from that source. Losing a trace
         // row is better than losing the rest of the run, so the failure is
-        // swallowed and counted instead.
+        // ignored and counted instead.
         failures += 1;
       }
     },

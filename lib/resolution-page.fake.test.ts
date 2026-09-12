@@ -2,10 +2,10 @@ import { describe, expect, test } from "vitest";
 import type { ResolutionPage, ResolutionResponse } from "./resolution-page";
 import { fakeResolutionPage } from "./resolution-page.fake";
 
-// How the walk reads a page's links: every anchor, with its href resolved the
+// How resolution reads a page's links: every anchor, with its href resolved the
 // way a browser resolves it and its text trimmed. It reads `href` rather than
 // the href attribute because a browser resolves the first and leaves the
-// second relative, and the walk compares hosts.
+// second relative, and resolution compares hosts.
 function readLinks(page: ResolutionPage) {
   return page.$$eval("a", (elements) =>
     elements.map((element) => ({
@@ -15,14 +15,14 @@ function readLinks(page: ResolutionPage) {
   );
 }
 
-describe("the fake satisfies the interface the walk is written against", () => {
+describe("the fake satisfies the interface resolution is written against", () => {
   test("it is a ResolutionPage", () => {
     const page: ResolutionPage = fakeResolutionPage([{ url: "https://example.com/a" }]);
     expect(page).toBeTypeOf("object");
   });
 });
 
-describe("the script is walked one page per goto, in order", () => {
+describe("the script is resolved one page per goto, in order", () => {
   test("the first goto serves the first scripted page", async () => {
     const page = fakeResolutionPage([
       { url: "https://board.example/listing/1" },
@@ -58,7 +58,7 @@ describe("the script is walked one page per goto, in order", () => {
 });
 
 describe("the settled URL is the one the page reports", () => {
-  test("a page that jumps client-side reports where it landed, not where it was sent", async () => {
+  test("a page that jumps client-side reports where it ended, not where it was sent", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://employer.example/careers/9",
@@ -233,8 +233,8 @@ describe("the page's links are read out of its HTML", () => {
   });
 });
 
-describe("a hop can change between reads, the way a page finishes rendering", () => {
-  test("advancing serves the hop's next render", async () => {
+describe("a page can change between reads, the way a page finishes rendering", () => {
+  test("advancing serves the page's next render", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://board.example/listing/1",

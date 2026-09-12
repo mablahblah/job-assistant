@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import { fakeResolutionPage } from "./resolution-page.fake";
 import { resolveJobUrl } from "./resolve-job-url";
 
-// Settling is its own module with its own tests. Most walks here are scripted
-// as already-finished pages, so the walk is handed a settle that does nothing
+// Settling is its own module with its own tests. Most resolutions here are scripted
+// as already-finished pages, so resolution is handed a waitForLoad that does nothing
 // and each test says only what it is about.
 const NO_WAIT = async () => {};
 
@@ -19,7 +19,7 @@ describe("AC 6, 22, 25: a page offering nothing to follow is the resolution", ()
     ]);
 
     expect(
-      await resolveJobUrl("https://employer.example/careers/9", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://employer.example/careers/9", page, { waitForLoad: NO_WAIT }),
     ).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://employer.example/careers/9",
@@ -28,8 +28,8 @@ describe("AC 6, 22, 25: a page offering nothing to follow is the resolution", ()
   });
 });
 
-describe("AC 7, 8, 9, 11: a hop that does not succeed is never a destination", () => {
-  test("a 403 fails the walk rather than resolving it", async () => {
+describe("AC 7, 8, 9, 11: a page that does not succeed is never a destination", () => {
+  test("a 403 fails resolution rather than resolving it", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://board.example/listing/1",
@@ -38,11 +38,11 @@ describe("AC 7, 8, 9, 11: a hop that does not succeed is never a destination", (
     ]);
 
     expect(
-      await resolveJobUrl("https://board.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "failed", reason: "page_unavailable" });
   });
 
-  test("a 404 fails the walk even where the page still renders a job title", async () => {
+  test("a 404 fails resolution even where the page still renders a job title", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://board.example/listing/1",
@@ -52,24 +52,24 @@ describe("AC 7, 8, 9, 11: a hop that does not succeed is never a destination", (
     ]);
 
     expect(
-      await resolveJobUrl("https://board.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "failed", reason: "page_unavailable" });
   });
 });
 
-describe("AC 10: a hop the browser cannot load at all", () => {
+describe("AC 10: a page the browser cannot load at all", () => {
   test("a goto that throws is a load failure rather than a bad status", async () => {
     const page = fakeResolutionPage([
       { url: "https://board.example/listing/1", failsToLoad: true },
     ]);
 
     expect(
-      await resolveJobUrl("https://board.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "failed", reason: "page_load_failed" });
   });
 });
 
-describe("AC 11a: the status read is the status of the page landed on", () => {
+describe("AC 11a: the status read is the status of the page ended on", () => {
   test("a page that loads and then jumps to one that refuses takes the refusal", async () => {
     const page = fakeResolutionPage([
       {
@@ -82,21 +82,21 @@ describe("AC 11a: the status read is the status of the page landed on", () => {
     ]);
 
     expect(
-      await resolveJobUrl("https://redirector.example/out", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://redirector.example/out", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "failed", reason: "page_unavailable" });
   });
 });
 
 describe("AC 16, 17, 21, 21a: the blacklist is checked on the settled URL", () => {
-  test("a walk reaching a blacklisted host is marked blacklisted", async () => {
+  test("a job's resolution reaching a blacklisted host is marked blacklisted", async () => {
     const page = fakeResolutionPage([{ url: "https://jobleads.com/job/1" }]);
 
     expect(
-      await resolveJobUrl("https://jobleads.com/job/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://jobleads.com/job/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "blacklisted" });
   });
 
-  test("a page that jumps to a blacklisted host while settling is caught", async () => {
+  test("a page that jumps to a blacklisted host while waiting for the page to load is caught", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://board.example/listing/1",
@@ -106,7 +106,7 @@ describe("AC 16, 17, 21, 21a: the blacklist is checked on the settled URL", () =
 
     expect(
       await resolveJobUrl("https://board.example/listing/1", page, {
-        settle: async () => {
+        waitForLoad: async () => {
           page.advance();
         },
       }),
@@ -119,12 +119,12 @@ describe("AC 16, 17, 21, 21a: the blacklist is checked on the settled URL", () =
     ]);
 
     expect(
-      await resolveJobUrl("https://jobleads.com/job/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://jobleads.com/job/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "blacklisted" });
   });
 });
 
-describe("AC 26, 27, 28, 30: a same-host hop that ends the walk is discarded", () => {
+describe("AC 26, 27, 28, 30: a same-host page that ends resolution is discarded", () => {
   test("a same-host apply link is followed rather than treated as an arrival", async () => {
     const page = fakeResolutionPage([
       {
@@ -135,7 +135,7 @@ describe("AC 26, 27, 28, 30: a same-host hop that ends the walk is discarded", (
     ]);
 
     expect(
-      await resolveJobUrl("https://employer.example/careers/9", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://employer.example/careers/9", page, { waitForLoad: NO_WAIT }),
     ).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://employer.example/careers/9",
@@ -143,7 +143,7 @@ describe("AC 26, 27, 28, 30: a same-host hop that ends the walk is discarded", (
     });
   });
 
-  test("a same-host hop landing on a dead end is discarded too", async () => {
+  test("a same-host page landing on a dead end is discarded too", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://employer.example/careers/9",
@@ -153,7 +153,7 @@ describe("AC 26, 27, 28, 30: a same-host hop that ends the walk is discarded", (
     ]);
 
     expect(
-      await resolveJobUrl("https://employer.example/careers/9", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://employer.example/careers/9", page, { waitForLoad: NO_WAIT }),
     ).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://employer.example/careers/9",
@@ -162,8 +162,8 @@ describe("AC 26, 27, 28, 30: a same-host hop that ends the walk is discarded", (
   });
 });
 
-describe("AC 29: a same-host hop that leads onward keeps its place", () => {
-  test("the hop stands and the walk carries on from where it landed", async () => {
+describe("AC 29: a same-host page that leads onward keeps its place", () => {
+  test("the page stands and resolution carries on from where it ended", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://aggregator.example/listing/1",
@@ -177,7 +177,7 @@ describe("AC 29: a same-host hop that leads onward keeps its place", () => {
     ]);
 
     expect(
-      await resolveJobUrl("https://aggregator.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://aggregator.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://employer.example/careers/9",
@@ -186,7 +186,7 @@ describe("AC 29: a same-host hop that leads onward keeps its place", () => {
   });
 });
 
-describe("AC 31, 32: a hop is judged by where it landed, not by its href", () => {
+describe("AC 31, 32: a page is judged by where it ended, not by its href", () => {
   test("a same-host href that redirects away is judged off-host", async () => {
     const page = fakeResolutionPage([
       {
@@ -197,7 +197,7 @@ describe("AC 31, 32: a hop is judged by where it landed, not by its href", () =>
     ]);
 
     expect(
-      await resolveJobUrl("https://board.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://employer.example/careers/9",
@@ -215,7 +215,7 @@ describe("AC 31, 32: a hop is judged by where it landed, not by its href", () =>
     ]);
 
     expect(
-      await resolveJobUrl("https://board.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://board.example/listing/1",
@@ -224,8 +224,8 @@ describe("AC 31, 32: a hop is judged by where it landed, not by its href", () =>
   });
 });
 
-describe("AC 34, 35: an off-host hop that dead-ends is a failure", () => {
-  test("the walk fails rather than stepping back to the aggregator", async () => {
+describe("AC 34, 35: an off-host page that dead-ends is a failure", () => {
+  test("resolution fails rather than stepping back to the aggregator", async () => {
     const page = fakeResolutionPage([
       {
         url: "https://board.example/listing/1",
@@ -235,15 +235,15 @@ describe("AC 34, 35: an off-host hop that dead-ends is a failure", () => {
     ]);
 
     expect(
-      await resolveJobUrl("https://board.example/listing/1", page, { settle: NO_WAIT }),
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
     ).toEqual({ outcome: "failed", reason: "dead_end" });
   });
 });
 
-describe("AC 41, 42, 43: the four-hop ceiling", () => {
+describe("AC 41, 42, 43: the four-page limit", () => {
   // Four pages, each on its own host, each offering a link to the next. The
   // script holds exactly four, so a fifth goto would throw — which is how the
-  // test proves the walk loaded no more than four pages.
+  // test proves resolution loaded no more than four pages.
   const fourSiteLinkChain = () => [
     { url: "https://a.example/1", html: applyLink("https://b.example/1") },
     { url: "https://b.example/1", html: applyLink("https://c.example/1") },
@@ -251,21 +251,21 @@ describe("AC 41, 42, 43: the four-hop ceiling", () => {
     { url: "https://d.example/1", html: applyLink("https://e.example/1") },
   ];
 
-  test("a walk loads no more than four pages, and an unreached off-host link fails it", async () => {
+  test("a job's resolution loads no more than four pages, and an unreached off-host link fails it", async () => {
     const page = fakeResolutionPage(fourSiteLinkChain());
 
-    expect(await resolveJobUrl("https://a.example/1", page, { settle: NO_WAIT })).toEqual({
+    expect(await resolveJobUrl("https://a.example/1", page, { waitForLoad: NO_WAIT })).toEqual({
       outcome: "failed",
       reason: "page_limit_reached",
     });
   });
 
-  test("a same-host link left unfollowed at the ceiling resolves where the walk stands", async () => {
+  test("a same-host link left unfollowed at the ceiling resolves where resolution stands", async () => {
     const script = fourSiteLinkChain();
     script[3] = { url: "https://d.example/1", html: applyLink("https://d.example/1/apply") };
     const page = fakeResolutionPage(script);
 
-    expect(await resolveJobUrl("https://a.example/1", page, { settle: NO_WAIT })).toEqual({
+    expect(await resolveJobUrl("https://a.example/1", page, { waitForLoad: NO_WAIT })).toEqual({
       outcome: "resolved",
       resolvedUrl: "https://d.example/1",
       reason: "page_limit_reached",

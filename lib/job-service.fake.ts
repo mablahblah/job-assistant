@@ -14,7 +14,7 @@ import { urlMatchKey } from "./url-match-key";
 // mentions leaves the held key standing — setting it would wipe a good key on
 // a write that says nothing about that link. "Mentioned" is judged against the
 // arriving entry, but the key is built from the link that won, so a link that
-// lost the merge never stamps its key over the winner's.
+// lost the merge never writes its key over the winner's.
 function writeLinkMatchKey(
   target: JobListEntry,
   keyField: "original_url_match_key" | "resolved_url_match_key",
@@ -51,14 +51,14 @@ export function fakeJobService(
         );
       }
       const job: JobListEntry = { ...incoming };
-      // delete_on_save is not a column and must never land on a held job.
+      // delete_on_save is not a column and must never end on a held job.
       delete job.delete_on_save;
       // The schema defaults status to backlog on a real insert, so a fake
       // holding plain objects has to supply that default itself.
       if (job.status === undefined) job.status = "backlog";
       writeLinkMatchKey(job, "original_url_match_key", entry.original_url, job.original_url);
       writeLinkMatchKey(job, "resolved_url_match_key", entry.resolved_url, job.resolved_url);
-      // The database stamps both timestamps on an insert.
+      // The database writes both timestamps on an insert.
       const now = new Date();
       job.created_at = now;
       job.modified_at = now;

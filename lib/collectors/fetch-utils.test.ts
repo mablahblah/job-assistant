@@ -69,7 +69,7 @@ describe("fetchWithTimeout", () => {
   });
 
   test("an aborted request becomes an error naming the timeout", async () => {
-    // Standing in for a fetch that never settles. Rather than waiting out a
+    // Standing in for a fetch that never finishes. Rather than waiting out a
     // real timer, the stand-in rejects with the error an abort produces.
     globalThis.fetch = async () => {
       throw new DOMException("aborted", "AbortError");

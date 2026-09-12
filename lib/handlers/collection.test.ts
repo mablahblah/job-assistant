@@ -100,7 +100,7 @@ const emptyResult: CollectorResult = { jobs: [], errors: [], warnings: [] };
 // AC 3. Collection is the handler that builds the first job list, so what it
 // returns is what every later handler is handed.
 describe("collection runs its collectors and returns what they found", () => {
-  test("a collector's job comes back stamped with the collector and the date", async () => {
+  test("a collector's job comes back written with the collector and the date", async () => {
     const collector = makeCollector("lever", {
       jobs: [makeJob("Designer")],
       errors: [],
@@ -296,7 +296,7 @@ describe("AC 20: collectors that fail in different ways travel one channel", () 
 
   test("the degraded collector's job is still in the report", () => {
     // objectContaining ignores the id the orchestrator mints; every other
-    // field, including the collector stamp, still has to match exactly.
+    // field, including the collector write, still has to match exactly.
     expect(report.jobs).toContainEqual(
       expect.objectContaining({ ...makeJob("Designer"), collector: "degraded" })
     );
@@ -406,7 +406,7 @@ describe("AC 24: a limit of 1 reaches every collector", () => {
 });
 
 describe("AC 25: every job carries the collector that produced it", () => {
-  test("a job that left collector unset is stamped with the collector's name", async () => {
+  test("a job that left collector unset is written with the collector's name", async () => {
     const collector = makeCollector("lever", {
       jobs: [makeJob("Designer")],
       errors: [],

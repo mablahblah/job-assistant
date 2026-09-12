@@ -207,7 +207,7 @@ describe("a write records exactly what the caller passed", () => {
 // The writer runs inside the collection orchestrator's try block around each
 // collector call, where a throw is read as a collector failure and costs every
 // remaining job from that source.
-describe("a failing write is swallowed and counted", () => {
+describe("a failing write is ignored and counted", () => {
   let dir: string;
   let db: PipelineDb;
   let url: string;

@@ -291,7 +291,7 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
     expect(setting.expiry_threshold).toBe(EXPECTED_EXPIRY_THRESHOLD);
   });
 
-  test("writes how many jobs resolution walks at a time", () => {
+  test("writes how many jobs resolution resolves at a time", () => {
     expect(setting.resolution_concurrency).toBe(EXPECTED_RESOLUTION_CONCURRENCY);
   });
 

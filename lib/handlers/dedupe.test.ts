@@ -35,7 +35,7 @@ function storedRow(id: string, overrides: JobListEntry = {}): JobListEntry {
   };
 }
 
-// A link and the key the job service would have stamped beside it. The lookup
+// A link and the key the job service would have written beside it. The lookup
 // reads the key column and the identity rules rebuild the key from the link,
 // so a row has to carry both for the two to agree.
 function withOriginalUrl(url: string): JobListEntry {
@@ -351,7 +351,7 @@ describe("the database compare", () => {
   });
 
   // AC 68. Dedupe works on the list it is handed plus one lookup per entry,
-  // and never sweeps the table for two stored rows matching each other.
+  // and never searches the table for two stored rows matching each other.
   test("leaves two matching stored rows alone where no entry reaches them", async () => {
     const rows = [
       storedRow("row-1", withOriginalUrl("https://example.com/1")),
@@ -482,7 +482,7 @@ describe("the trace it is handed", () => {
   });
 });
 
-// AC 61, 62. Resolution marks a job whose walk reached a blacklisted host for
+// AC 61, 62. Resolution marks a job whose resolution reached a blacklisted host for
 // deletion before dedupe ever sees it. mergeJobs never carries delete_on_save
 // onto a merged entry, so an entry that won a fold would come out of dedupe
 // with its mark gone and its row left standing.

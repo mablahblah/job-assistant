@@ -1,14 +1,14 @@
 // Runs the job search, calling one handler after another and handing each the
-// run id, the collection date and the services they share. Two legs run in
+// run id, the collection date and the services they share. Two steps run in
 // sequence, and each ends in a database write, so a run's work outlives the
-// run whether or not the next leg gets to it. The collect leg is collection,
-// normalization, association, dedupe and save. The resolution leg then reads
+// run whether or not the next step gets to it. The collect step is collection,
+// normalization, association, dedupe and save. The resolution step then reads
 // its own list of jobs still needing a source URL — nothing upstream hands it
-// work, because the database is the only handoff between legs — walks them
+// work, because the database is the only handoff between steps — resolves them
 // behind one shared browser, then dedupes and saves what came back.
 //
 // A throw anywhere in that chain stops the run where it happened rather than
-// escaping to the caller. Every leg has already written to the database by
+// escaping to the caller. Every step has already written to the database by
 // the time a later one can fail, so the run's finished work survives, and the
 // report carries it along with the spot that threw and the reason.
 import type { CollectionIssue } from "../collection-issue";
@@ -76,22 +76,22 @@ export interface RunJobSearchOptions {
   // found nothing also looks like.
   jobService: JobService;
   // Required, not optional, for the same reason again: a caller that omitted
-  // it would have the resolution leg silently skip, which reads the same as a
+  // it would have the resolution step silently skip, which reads the same as a
   // run that had nothing left to resolve.
   openBrowser: ResolutionBrowserFactory;
-  // The seam that lets the resolution leg be tested offline against scripted
-  // pages. Left out, the walk settles a page the way it does in a browser.
-  settle?: (page: ResolutionPage) => Promise<void>;
-  // The date stamped into every job's collected_at. It arrives as an
+  // The substitution point that lets the resolution step be tested offline against scripted
+  // pages. Left out, resolution settles a page the way it does in a browser.
+  waitForLoad?: (page: ResolutionPage) => Promise<void>;
+  // The date written into every job's collected_at. It arrives as an
   // argument so the orchestrator reads no clock, which is what lets one run
-  // share a single stamp and a test pin it to a fixed date.
+  // share a single write and a test pin it to a fixed date.
   collectedAt: Date;
   // Identifies one job search so every trace event it produces can be
   // grouped and compared against other searches. Minted by the caller;
   // the orchestrator never generates one itself.
   runId: string;
   // Records each job's path through collection. Never throws: a failed write
-  // is swallowed and counted rather than allowed to cancel a run over a row
+  // is ignored and counted rather than allowed to cancel a run over a row
   // of diagnostics.
   trace: TraceService;
   // How many jobs each collector stops after. Omitted means unlimited.
@@ -165,9 +165,9 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       removalWords: await options.settings.getTitleRemovalWords(),
     }));
 
-    // Read here for the same reason, and read once for the whole run: both legs
-    // hand it to their dedupe and save calls, so merging the legs removes the
-    // resolution leg's own second read of the same list.
+    // Read here for the same reason, and read once for the whole run: both steps
+    // hand it to their dedupe and save calls, so merging the steps removes the
+    // resolution step's own second read of the same list.
     const priorityList = await at("source_priority_list", () =>
       options.settings.getSourcePriorityList()
     );
@@ -215,7 +215,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     report.warnings.push(...deduped.warnings);
 
     // Save writes what survives into rows and deletes what dedupe marked, so
-    // the collect leg ends in the database rather than in a list nothing
+    // the collect step ends in the database rather than in a list nothing
     // outlives.
     const saved = await handler("post_collection_save", () =>
       saveJobs(report.jobs, {
@@ -229,15 +229,15 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     report.jobs = saved.jobs;
     report.warnings.push(...saved.warnings);
 
-    // The resolution leg takes no job list from the collect leg — it queries
+    // The resolution step takes no job list from the collect step — it queries
     // the database for whatever still needs a source URL, which is what lets
-    // this leg run over jobs collected by any earlier run as well. A collect
-    // leg that threw never arrives here, because the throw has already left
+    // this step run over jobs collected by any earlier run as well. A collect
+    // step that threw never arrives here, because the throw has already left
     // for the catch below.
     const unresolved = await at("unresolved_lookup", () => options.jobService.findUnresolved());
 
     // A headed browser holds the machine for as long as it runs, so a list with
-    // nothing to walk must never reach the point of launching one.
+    // nothing to resolve must never reach the point of launching one.
     if (unresolved.length > 0) {
       // Read before the browser is launched, deliberately: a missing setting
       // throws, and throwing here costs no browser rather than opening one for
@@ -253,7 +253,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
           resolveJobs(unresolved, {
             openPage: browser.openPage,
             concurrency,
-            settle: options.settle,
+            waitForLoad: options.waitForLoad,
             trace: options.trace,
             runId: options.runId,
             step: "resolution",
@@ -276,7 +276,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
         report.warnings.push(...resolvedDeduped.warnings);
 
         // Save writes what survives and deletes what dedupe marked, so the
-        // resolution leg also ends in the database rather than in a list
+        // resolution step also ends in the database rather than in a list
         // nothing outlives.
         const resolvedSaved = await handler("post_resolution_save", () =>
           saveJobs(resolvedDeduped.jobs, {
@@ -289,8 +289,8 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
         );
         report.warnings.push(...resolvedSaved.warnings);
 
-        // The report lists every job the run acted on, so the two legs' saved
-        // lists are joined on id. The resolution leg's version wins, because it
+        // The report lists every job the run acted on, so the two steps' saved
+        // lists are joined on id. The resolution step's version wins, because it
         // ran later and its fields are newer. A job carrying no id is appended
         // rather than matched: save itself treats a missing id as possible, and
         // two jobs without one are two jobs rather than one seen twice.
@@ -305,7 +305,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
           }
         }
       } finally {
-        // A throw from anywhere in this leg must still close the browser it
+        // A throw from anywhere in this step must still close the browser it
         // opened, and the close is named in its own right so a browser that
         // will not shut is not reported as whatever ran before it.
         await at("browser_close", () => browser.close());
@@ -313,14 +313,14 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     }
   } catch {
     // Nothing to read off the throw here: `at` named the spot and wrote the
-    // reason on its way past. Swallowing it is what turns a run that fell
+    // reason on its way past. Ignoring it is what turns a run that fell
     // over into a report rather than an exception the caller has to catch to
-    // see any of the work the finished legs already wrote.
+    // see any of the work the finished steps already wrote.
   }
 
   // Read once the run is over, whether it finished or stopped partway, so a
-  // write either leg lost is reflected in the total rather than checked leg
-  // by leg.
+  // write either step lost is reflected in the total rather than checked step
+  // by step.
   report.traceFailures = options.trace.failureCount();
 
   return report;

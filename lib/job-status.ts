@@ -14,7 +14,7 @@ export const ACTIVE_STATUSES = [
 ] as const;
 
 // True when a status is one of the active ones. A caller holding a status
-// that might be absent guards it before asking.
+// that might be absent guardrails it before asking.
 export function isActiveStatus(status: string): boolean {
   return (ACTIVE_STATUSES as readonly string[]).includes(status);
 }

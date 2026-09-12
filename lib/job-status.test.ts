@@ -35,7 +35,7 @@ describe("isActiveStatus", () => {
     expect(isActiveStatus(status)).toBe(false);
   });
 
-  // A status the list has never seen is not active. Save's guard freezes a
+  // A status the list has never seen is not active. Save's guardrail freezes a
   // row it reports active, so guessing yes here would freeze a row on a
   // typo.
   test("a status not on either list is not active", () => {

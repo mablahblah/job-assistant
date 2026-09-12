@@ -4,7 +4,7 @@ import { saveWarnings, type SaveWarning } from "./save-warnings";
 
 // Save raises two kinds of warning and folds neither. A refused delete is a
 // fact about two specific job rows the user has to open and reconcile by
-// hand, and a failed write is one job that never landed — a count of either
+// hand, and a failed write is one job that never arrived — a count of either
 // tells the user nothing they can act on. This is the deliberate opposite of
 // lib/normalization-warnings.ts, which folds because one broken collector
 // would otherwise print a line for every one of ~1,800 jobs.
@@ -15,7 +15,7 @@ function job(id: string, title: string, extra: JobListEntry = {}): JobListEntry 
 
 // AC 53. The user has to find both rows to reconcile them, so the message
 // identifies the arriving duplicate and the active row that refused to go.
-describe("a delete the active guard refused", () => {
+describe("a delete the active guardrail refused", () => {
   const warning: SaveWarning = {
     kind: "delete_refused",
     collector: "greenhouse",
@@ -228,8 +228,8 @@ describe("the two kinds together", () => {
   });
 });
 
-// AC 64, 65. Resolution marks a job for deletion when its walk reaches a
-// blacklisted site, and the same active-status guard can refuse that delete.
+// AC 64, 65. Resolution marks a job for deletion when its resolution reaches a
+// blacklisted site, and the same active-status guardrail can refuse that delete.
 // The row that refuses is the job's own, not a duplicate's, so the dedupe
 // wording would name one job twice and blame a match that never happened.
 describe("a delete refused on a job that reached a blacklisted site", () => {

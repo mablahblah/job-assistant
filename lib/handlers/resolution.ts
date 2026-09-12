@@ -1,6 +1,6 @@
-// Walks every job on the resolution list toward the employer's own posting,
-// writes what each walk found back onto its entry, and hands the list on. The
-// walk itself is resolveJobUrl; this is the step that runs it over a list,
+// Resolves every job on the resolution list toward the employer's own posting,
+// writes what each job's resolution found back onto its entry, and hands the list on. The
+// resolution itself is resolveJobUrl; this is the step that runs it over a list,
 // several jobs at a time, and records what each one turned out to be.
 //
 // It is handed a page factory rather than a browser, so it launches nothing of
@@ -14,7 +14,7 @@ import type { TraceService } from "../trace-service";
 export interface ResolveJobsOptions {
   openPage: ResolutionPageFactory;
   concurrency: number;
-  settle?: (page: ResolutionPage) => Promise<void>;
+  waitForLoad?: (page: ResolutionPage) => Promise<void>;
   trace?: TraceService;
   runId?: string;
   step?: string;
@@ -25,8 +25,8 @@ export interface ResolveJobsResult {
   warnings: CollectionIssue[];
 }
 
-// One job after its walk: the entry to return, and the row the walk earned.
-// A walk that wrote nothing worth recording carries no event.
+// One job after its resolution: the entry to return, and the row resolution earned.
+// A job's resolution that wrote nothing worth recording carries no event.
 interface FollowedEntry {
   job: JobListEntry;
   event?: string;
@@ -34,7 +34,7 @@ interface FollowedEntry {
 }
 
 // Nothing found, nothing claimed. Dedupe reads a shared resolved URL as proof
-// that two jobs are one, so a page the walk only passed through must never be
+// that two jobs are one, so a page resolution only passed through must never be
 // written as an answer.
 function markUnresolvable(job: JobListEntry): JobListEntry {
   return { ...job, is_resolved: false, resolved_url: null, status: "unresolvable" };
@@ -71,23 +71,23 @@ function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): FollowedEn
 async function followJobLink(
   job: JobListEntry,
   openPage: ResolutionPageFactory,
-  settle?: (page: ResolutionPage) => Promise<void>
+  waitForLoad?: (page: ResolutionPage) => Promise<void>
 ): Promise<FollowedEntry> {
-  // A walk needs somewhere to start. An entry holding no link is handed back
-  // untouched rather than walked from a made-up URL.
+  // A job's resolution needs somewhere to start. An entry holding no link is handed back
+  // untouched rather than resolved from a made-up URL.
   if (!job.original_url) return { job };
 
   try {
-    const lease = await openPage();
+    const opened = await openPage();
 
     try {
-      // Handed no settle of its own, the walk uses its own default.
-      const outcome = await resolveJobUrl(job.original_url, lease.page, settle ? { settle } : {});
+      // Handed no waitForLoad of its own, resolution uses its own default.
+      const outcome = await resolveJobUrl(job.original_url, opened.page, waitForLoad ? { waitForLoad } : {});
       return applyOutcome(job, outcome);
     } finally {
       // One site's cookies and consent state must never reach the next job's
-      // walk, so the lease closes however the walk ended.
-      await lease.close();
+      // resolution, so the open page closes however resolution ended.
+      await opened.close();
     }
   } catch {
     // The browser failed here, not the posting. The entry is returned exactly
@@ -103,13 +103,13 @@ export async function resolveJobs(
   jobs: JobListEntry[],
   options: ResolveJobsOptions
 ): Promise<ResolveJobsResult> {
-  const { openPage, concurrency, settle, trace, runId, step } = options;
+  const { openPage, concurrency, waitForLoad, trace, runId, step } = options;
 
-  // Seeded with the list as it arrived, so order survives however the walks
-  // interleaved and a job whose walk threw is already sitting there untouched.
+  // Seeded with the list as it arrived, so order survives however the resolutions
+  // interleaved and a job whose resolution threw is already sitting there untouched.
   const resolvedJobs: JobListEntry[] = jobs.slice();
 
-  // Concurrent, unlike association: every walk is its own page on its own
+  // Concurrent, unlike association: every job's resolution is its own page on its own
   // site, waiting on the network and sharing nothing with the others. A headed
   // browser holds the machine for as long as the run lasts, so shortening the
   // run is the whole point. The worker count is the ceiling on how many pages
@@ -122,30 +122,30 @@ export async function resolveJobs(
       next += 1;
 
       const job = jobs[index];
-      const walked = await followJobLink(job, openPage, settle);
-      resolvedJobs[index] = walked.job;
+      const followed = await followJobLink(job, openPage, waitForLoad);
+      resolvedJobs[index] = followed.job;
 
       // A trace row is keyed by job id and collector, so a job carrying
       // neither has nothing to key its record on. All three of trace, runId
       // and step are needed as well: a step handed only some of them still
       // does its work and stays silent, which is what lets the same function
       // run outside a job search.
-      if (!walked.event || !job.id || !job.collector) continue;
+      if (!followed.event || !job.id || !job.collector) continue;
 
       if (trace && runId !== undefined && step !== undefined) {
         await trace.write({
           run_id: runId,
           job_id: job.id,
           step,
-          event: walked.event,
+          event: followed.event,
           collector: job.collector,
-          reason: walked.reason,
+          reason: followed.reason,
         });
       }
     }
   }
 
-  // One worker per lane, never more than there are jobs to walk.
+  // One worker per lane, never more than there are jobs to resolve.
   const workerCount = Math.max(1, Math.min(concurrency, jobs.length));
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 

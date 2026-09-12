@@ -94,7 +94,7 @@ async function seedCompany(id: string): Promise<void> {
 }
 
 // Hands back whatever a call threw. Prisma quotes the surrounding source
-// lines inside its own error messages, so a guard's wording can appear in an
+// lines inside its own error messages, so a guardrail's wording can appear in an
 // error the service never raised — the tests below check the error's name as
 // well, which is "Error" for the service's own and something Prisma-specific
 // for one raised on the way past.
@@ -256,7 +256,7 @@ describe("a row the user has applied to", () => {
   });
 });
 
-// AC 51, 51a and 52. Deleting is how dedupe's merges land, and the guard is
+// AC 51, 51a and 52. Deleting is how dedupe's merges land, and the guardrail is
 // what stops one destroying an application the user is in the middle of.
 describe("deleting a row", () => {
   test("removes a row in a non-active status", async () => {
@@ -292,7 +292,7 @@ describe("deleting a row", () => {
 // Every write to Job shapes its data through toColumnData, which builds each
 // link's match key from the link standing beside it. Dedupe looks jobs up by
 // those keys, so a link and its key must never drift apart.
-describe("stamping the link match keys", () => {
+describe("writing the link match keys", () => {
   // AC 15.
   test("a created row's original_url_match_key holds that link's key", async () => {
     await service.update(
@@ -324,8 +324,8 @@ describe("stamping the link match keys", () => {
   });
 
   // AC 17. Resolution fills resolved_url long after the row was created, so
-  // the update path has to stamp the key the create path never could.
-  test("an update writing resolved_url for the first time stamps its key", async () => {
+  // the update path has to write the key the create path never could.
+  test("an update writing resolved_url for the first time writes its key", async () => {
     await seedRow("keys-update-resolved", { collector: "greenhouse" });
 
     await service.update(
@@ -342,7 +342,7 @@ describe("stamping the link match keys", () => {
 
   // AC 18. greenhouse outranks adzuna, so the arriving link wins the contest
   // and the stored key has to move with it.
-  test("an update changing original_url through a merge stamps the new link's key", async () => {
+  test("an update changing original_url through a merge writes the new link's key", async () => {
     await seedRow("keys-update-original", {
       collector: "adzuna",
       original_url: "https://www.adzuna.com/land/ad/111?se=old",
@@ -365,10 +365,10 @@ describe("stamping the link match keys", () => {
 
   // AC 18 the other way round. There the arriving link won; here the held one
   // does, and its key has to stay put. The merge picks the winner before the
-  // key is computed, so stamping from the arriving link would leave the
+  // key is computed, so writing from the arriving link would leave the
   // winning link sitting beside the losing link's key — a row dedupe would
   // then match on a link it does not hold.
-  test("a losing link does not stamp its key over the winning link's", async () => {
+  test("a losing link does not write its key over the winning link's", async () => {
     await seedRow("keys-update-losing", {
       collector: "greenhouse",
       original_url: "https://boards.greenhouse.io/acme/jobs/999",
@@ -512,7 +512,7 @@ describe("the resolution job list", () => {
   });
 
   // AC 2. Nothing narrows the list to one run. A job collected weeks ago and
-  // never resolved is still waiting for the walk.
+  // never resolved is still waiting for resolution.
   test("holds a job collected during an earlier run", async () => {
     await seedRow("list-earlier-run", { collected_at: new Date("2025-06-01T00:00:00.000Z") });
 
@@ -534,7 +534,7 @@ describe("the resolution job list", () => {
     expect(entry).not.toHaveProperty("is_classified");
   });
 
-  // AC 4. The walk needs the id to write back and the collector to know
+  // AC 4. Resolution needs the id to write back and the collector to know
   // whether a blacklisted job may be dropped, and dedupe reads created_at as
   // the sign that an entry already holds a database row.
   test("carries the id, the collector and the created_at", async () => {

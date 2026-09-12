@@ -232,7 +232,7 @@ function selectRoleIndex(vocab: CompiledVocabularies, segments: Segment[]): numb
 // The first contiguous run of level words in a segment, wherever it sits. A
 // second run later in the same segment is left alone — the word there is the
 // job itself rather than its seniority, as in the "Director" of "Senior
-// Technical Director". The run steps over a two-word entry in one hop, so
+// Technical Director". The run steps over a two-word entry in one page, so
 // "entry level" is taken whole rather than leaving "level" behind.
 function findLevelRun(
   vocab: CompiledVocabularies,

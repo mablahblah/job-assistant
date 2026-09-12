@@ -34,7 +34,7 @@ const VOCABULARIES: TitleVocabularies = {
 };
 
 describe("normalizeJob: title", () => {
-  test("raw_title is run through normalizeTitle and the result lands on title", () => {
+  test("raw_title is run through normalizeTitle and the result ends on title", () => {
     const job: JobListEntry = { raw_title: "Senior UX Designer" };
     expect(normalizeJob(job, VOCABULARIES).job.title).toBe("Sr. UX Designer");
   });

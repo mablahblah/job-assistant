@@ -55,7 +55,7 @@ export const DEDUPE_REASONS: readonly DedupeReason[] = DEDUPE_TRACE_REASONS.filt
 );
 
 // Every reason a step can mark an entry away for: dedupe's three, plus the one
-// resolution adds when a walk reaches a blacklisted host and the row has to go.
+// resolution adds when a job's resolution reaches a blacklisted host and the row has to go.
 // Dedupe gains no right to write that word — DedupeReason stays the narrower
 // type its own code is held to.
 export type DeleteOnSaveReason = DedupeReason | "blacklisted_url";

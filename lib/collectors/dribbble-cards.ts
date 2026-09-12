@@ -29,7 +29,7 @@ function isAdvertisement(element: CardElement): boolean {
   return element.className.includes("job-list-item--");
 }
 
-// Every read is funnelled through here to land on a trimmed string, so a
+// Every read is funnelled through here to end on a trimmed string, so a
 // missing element reads the same as one whose text is blank.
 function trimmedText(value: string | null | undefined): string {
   return (value ?? "").trim();

@@ -1,7 +1,7 @@
-// Gives a newly-loaded page time to finish rendering before the walk judges
+// Gives a newly-loaded page time to finish rendering before resolution judges
 // it. A page "looks finished" once it carries enough anchors and a real
 // title; until then this polls at a fixed interval until either condition is
-// met or the time budget runs out. It never throws — the walk reads the page
+// met or the time budget runs out. It never throws — resolution reads the page
 // itself once this returns, however the page ended up.
 
 import type { ResolutionPage } from "./resolution-page";
@@ -67,5 +67,5 @@ export async function waitForPageToLoad(
       return;
     }
   }
-  // Budget spent without settling — the walk judges the page as it stands.
+  // Budget spent without waiting for the page to load — resolution judges the page as it stands.
 }

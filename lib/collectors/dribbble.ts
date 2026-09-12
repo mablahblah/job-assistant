@@ -1,7 +1,7 @@
 // The Dribbble job collector. It runs every search term twice — once
 // anchored to the user's location, once anywhere — reads the result cards
 // off each search, and turns each into a job list entry ready for parsing —
-// resolution has nowhere to walk, because Dribbble hosts the posting the card
+// resolution has nothing to resolve, because Dribbble hosts the posting the card
 // points at. Dribbble sends a finished page, so a request and a parse do
 // everything a browser would without starting one.
 import type { JobListEntry } from "../job-list-entry";
@@ -51,9 +51,9 @@ function buildSearches(searchTerms: string[], location: string): Search[] {
 // never reaches one leaves the backlog before anything needs them.
 //
 // The card's link is the posting itself, so the job is marked resolved here
-// and resolution never walks it, the way the ATS collectors do. That is not
+// and resolution never touches it, the way the ATS collectors do. That is not
 // just a page load saved: three listings were measured sharing one "View job"
-// link, so walking them would hand three different jobs one resolved link,
+// link, so following them would hand three different jobs one resolved link,
 // which dedupe reads as proof that they are one job.
 function cardToJob(card: ResultCard): JobListEntry {
   // The card states an age rather than a date. The collector reads it either

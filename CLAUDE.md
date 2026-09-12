@@ -15,7 +15,7 @@ A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, t
 
 ## Branch: unified pipeline rebuild
 
-**No bleed-through.** New code imports nothing from `legacy/`. Anything worth keeping is copied out, so shipping means deleting that folder in one move.
+**No importing old code.** New code imports nothing from `legacy/`. Anything worth keeping is copied out, so shipping means deleting that folder in one move.
 
 Real job searches run on `main`, where the old pipeline is untouched. The database is untracked and survives branch switches; `dev.db` at the repo root is the live one.
 

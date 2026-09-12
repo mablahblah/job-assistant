@@ -97,7 +97,7 @@ function makeTraceService(failures = 0): FakeTraceService {
 
 const emptyResult: CollectorResult = { jobs: [], errors: [], warnings: [] };
 
-// Every test below that is about the collect leg says so by declaring nothing
+// Every test below that is about the collect step says so by declaring nothing
 // left to resolve, and is handed a browser that fails the test if anything asks
 // it to launch. Criterion 6 is then asserted by the fake rather than by
 // counting launches after the run.
@@ -191,7 +191,7 @@ describe("normalization writes its own trace events after collection", () => {
   });
 
   test("each one shares the job_id of that job's collected event", async () => {
-    // What lets one job's whole path be read back as a single journey.
+    // What lets one job's whole path be read back as a single path.
     const trace = makeTraceService();
     const collector = makeCollector("lever", {
       jobs: [makeJob("Designer")],
@@ -522,7 +522,7 @@ describe("association covers surviving jobs from every collector", () => {
     expect(report.jobs).toHaveLength(2);
     expect(report.jobs[0]?.company_id).toBeTruthy();
     expect(report.jobs[1]?.company_id).toBeTruthy();
-    // Two different employers must not collapse onto the same company.
+    // Two different employers must not merge onto the same company.
     expect(report.jobs[0]?.company_id).not.toBe(report.jobs[1]?.company_id);
   });
 });
@@ -585,7 +585,7 @@ describe("a run limited to zero jobs never touches the company service", () => {
 // Every trace row association writes must be attributable to the right step
 // and the right run, or a query grouped by step would miss the whole pass.
 describe("association's trace rows carry the right step name and run id", () => {
-  test("association events are stamped post_collection_association with the caller's run id", async () => {
+  test("association events are written post_collection_association with the caller's run id", async () => {
     const companies: CompanyRecord[] = [];
     const trace = makeTraceService();
     const job = { ...makeJob("Product Designer"), raw_company_name: "Brightwave Labs" };
@@ -760,10 +760,10 @@ describe("AC 61: save's warnings are in the report", () => {
   });
 });
 
-// AC 62. Decision of 2026-09-05: collected_at is stamped by the orchestrator
+// AC 62. Decision of 2026-09-05: collected_at is written by the orchestrator
 // on the line beside collector, and is never overwritten once set.
-describe("AC 62: collected_at is stamped beside collector", () => {
-  test("a saved job carries both the collector and the stamp date", async () => {
+describe("AC 62: collected_at is written beside collector", () => {
+  test("a saved job carries both the collector and the value date", async () => {
     const rows: JobListEntry[] = [];
     const collector = makeCollector("greenhouse", {
       jobs: [makeJob("Designer")],
@@ -786,7 +786,7 @@ describe("AC 62: collected_at is stamped beside collector", () => {
     expect(rows[0]?.collected_at).toEqual(stubCollectedAt);
   });
 
-  test("every job in the run takes the same stamp", async () => {
+  test("every job in the run takes the same write", async () => {
     const rows: JobListEntry[] = [];
     const first = makeCollector("greenhouse", {
       jobs: [makeJob("Designer")],
@@ -811,8 +811,8 @@ describe("AC 62: collected_at is stamped beside collector", () => {
 });
 
 // AC 63. Taking the date as an argument is what keeps the orchestrator off
-// the clock, so a test can pin it and a whole run shares one stamp.
-describe("AC 63: the stamp date arrives as an argument", () => {
+// the clock, so a test can pin it and a whole run shares one write.
+describe("AC 63: the value date arrives as an argument", () => {
   test("the date the caller passed is the date that lands, not today's", async () => {
     const rows: JobListEntry[] = [];
     const longAgo = new Date("1999-12-31T23:59:59.000Z");
@@ -904,7 +904,7 @@ describe("the source priority list reaches save", () => {
 // AC 72. Dedupe runs between association and save: association gives a job
 // the company identity dedupe matches on, and save writes what survives.
 describe("dedupe runs after association and before save", () => {
-  test("its trace rows are stamped post_collection_dedupe with the caller's run id", async () => {
+  test("its trace rows are written post_collection_dedupe with the caller's run id", async () => {
     const trace = makeTraceService();
     // Two jobs on one link, so the list compare has a match to fold.
     const collector = makeCollector("greenhouse", {
@@ -991,7 +991,7 @@ describe("dedupe runs after association and before save", () => {
   });
 });
 
-// A row already on file, the way the resolution leg finds one when it queries
+// A row already on file, the way the resolution step finds one when it queries
 // for jobs still needing a source URL.
 function unresolvedRow(id: string, fields: Partial<JobListEntry> = {}): JobListEntry {
   return {
@@ -1036,14 +1036,14 @@ function browserFor(
   };
 }
 
-// Settling is its own module with its own tests, so every walk here is
+// Settling is its own module with its own tests, so every job's resolution here is
 // scripted as an already-finished page.
 const NO_WAIT = async () => {};
 
-// AC 7. Collection found nothing this run, and the leg still runs, because the
-// list it walks comes out of the database rather than from collection.
-describe("AC 7: the resolution leg runs over whatever the database says needs it", () => {
-  test("a job on file is walked and the run reports it with its source URL", async () => {
+// AC 7. Collection found nothing this run, and the step still runs, because the
+// list it resolves comes out of the database rather than from collection.
+describe("AC 7: the resolution step runs over whatever the database says needs it", () => {
+  test("a job on file is resolved and the run reports it with its source URL", async () => {
     const rows = [unresolvedRow("a")];
     const log = { launches: 0, closes: 0 };
 
@@ -1062,7 +1062,7 @@ describe("AC 7: the resolution leg runs over whatever the database says needs it
         [[{ url: "https://employer.example/9", html: "<p>A job posting</p>" }]],
         log
       ),
-      settle: NO_WAIT,
+      waitForLoad: NO_WAIT,
     });
 
     expect(log.launches).toBe(1);
@@ -1077,15 +1077,15 @@ function applyLink(href: string): string {
   return `<a href="${href}">Apply</a>`;
 }
 
-// A walk that arrives at the employer's own posting.
+// A job's resolution that arrives at the employer's own posting.
 function arrivesAt(url: string): ScriptedPage[] {
   return [{ url, html: "<p>A job posting</p>" }];
 }
 
-// The resolution leg end to end, reached through the orchestrator with no
-// collectors, so the collect leg contributes nothing and what the report
-// carries is what this leg did. The caller supplies the rows on file and the
-// walk each job takes; the rest is the same every time.
+// The resolution step end to end, reached through the orchestrator with no
+// collectors, so the collect step contributes nothing and what the report
+// carries is what this step did. The caller supplies the rows on file and the
+// resolution each job takes; the rest is the same every time.
 function resolutionStepOver(
   rows: JobListEntry[],
   scripts: ScriptedPage[][],
@@ -1109,7 +1109,7 @@ function resolutionStepOver(
     collectedAt: stubCollectedAt,
     runId: stubRunId,
     trace,
-    settle: NO_WAIT,
+    waitForLoad: NO_WAIT,
   });
   return { rows, trace, log, report };
 }
@@ -1130,7 +1130,7 @@ describe("AC 5: a run with nothing to resolve costs no browser", () => {
   });
 });
 
-describe("AC 74, 75: the leg runs its four parts in order", () => {
+describe("AC 74, 75: the step runs its four parts in order", () => {
   test("queries, resolves, dedupes and saves, in that order", async () => {
     const { trace, report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
 
@@ -1157,7 +1157,7 @@ describe("AC 74, 75: the leg runs its four parts in order", () => {
   });
 });
 
-describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
+describe("AC 76, 77, 81: what the rows hold once the step has run", () => {
   test("a job that resolved carries its URL and is marked resolved", async () => {
     const rows = [unresolvedRow("a")];
     const { report } = resolutionStepOver(rows, [arrivesAt("https://employer.example/9")]);
@@ -1197,7 +1197,7 @@ describe("AC 76, 77, 81: what the rows hold once the leg has run", () => {
 });
 
 describe("AC 78: a blacklisted job leaves no row behind", () => {
-  test("its row is gone once the leg has run", async () => {
+  test("its row is gone once the step has run", async () => {
     const rows = [unresolvedRow("a")];
     const { report } = resolutionStepOver(rows, [arrivesAt("https://www.jobleads.com/jobs/1")]);
 
@@ -1240,7 +1240,7 @@ describe("AC 79: two jobs that resolved to one posting leave one row", () => {
   });
 });
 
-describe("AC 80: what the leg hands back", () => {
+describe("AC 80: what the step hands back", () => {
   test("returns the job list along with the warnings its steps raised", async () => {
     const { report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")]);
 
@@ -1262,7 +1262,7 @@ describe("AC 80: what the leg hands back", () => {
 });
 
 describe("the browser the run launched", () => {
-  test("is shut down once the leg is finished", async () => {
+  test("is shut down once the step is finished", async () => {
     const log = { launches: 0, closes: 0 };
     const { report } = resolutionStepOver([unresolvedRow("a")], [arrivesAt("https://employer.example/9")], log);
 

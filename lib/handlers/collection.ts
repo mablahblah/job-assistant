@@ -14,16 +14,16 @@ import type { TraceService } from "../trace-service";
 export interface CollectJobsOptions {
   settings: SettingsService;
   collectors: Collector[];
-  // The date stamped into every job's collected_at. It arrives as an argument
+  // The date written into every job's collected_at. It arrives as an argument
   // so collection reads no clock, which is what lets one run share a single
-  // stamp and a test pin it to a fixed date.
+  // write and a test pin it to a fixed date.
   collectedAt: Date;
   // Identifies one job search so every trace event it produces can be grouped
   // and compared against other searches. Minted by the caller; collection
   // never generates one itself.
   runId: string;
   // Records each job's path through collection. Never throws: a failed write
-  // is swallowed and counted rather than allowed to cancel a run over a row of
+  // is ignored and counted rather than allowed to cancel a run over a row of
   // diagnostics.
   trace: TraceService;
   // How many jobs each collector stops after. Omitted means unlimited.
@@ -112,16 +112,16 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
         }
 
         // Collection is the authority on which collector found a job, so it
-        // stamps the name onto a copy rather than trusting the field or
+        // writes the name onto a copy rather than trusting the field or
         // editing what the collector handed back. The date this pipeline
-        // first saw the job is stamped on the same line, because no later
+        // first saw the job is written on the same line, because no later
         // sighting improves on it and no collector can supply it.
-        const stamped: JobListEntry = {
+        const written: JobListEntry = {
           ...identified,
           collector: collector.name,
           collected_at: options.collectedAt,
         };
-        result.jobs.push(stamped);
+        result.jobs.push(written);
         kept += 1;
       }
       for (const message of collectorResult.errors) {

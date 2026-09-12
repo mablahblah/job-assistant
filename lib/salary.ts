@@ -57,7 +57,7 @@ export function normalizeSalary(raw: unknown): NormalizedSalary {
 
   // A source publishing minor units marks it with salary_unit: "cents". The
   // figures are divided down before they are rounded, so a fractional cent
-  // total such as 14000001 lands on a whole unit rather than leaving a
+  // total such as 14000001 ends on a whole unit rather than leaving a
   // fraction that only fails at save time.
   const divisor = raw.salary_unit === "cents" ? 100 : 1;
 

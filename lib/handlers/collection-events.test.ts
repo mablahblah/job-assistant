@@ -334,7 +334,7 @@ describe("every trace event collection writes carries the collection step", () =
       trace,
       collectors: [collector],
     });
-    // Normalization writes its own events at a different step, so the sweep
+    // Normalization writes its own events at a different step, so the cleanup
     // is scoped to the two events collection itself is responsible for.
     const collectionEvents = trace.events.filter(
       (event) => event.event === "collected" || event.event === "abandoned"

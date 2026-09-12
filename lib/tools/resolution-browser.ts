@@ -23,8 +23,8 @@ import type {
 export const HEADED_LAUNCH_OPTIONS = { headless: false } as const;
 
 // A context is one job's slice of the browser: its own cookies, its own
-// consent state. Closing it is how one job's walk avoids leaving anything
-// behind for the next job's walk to inherit.
+// consent state. Closing it is how one job's resolution avoids leaving anything
+// behind for the next job's resolution to inherit.
 export interface LaunchedContext {
   newPage(): Promise<ResolutionPage>;
   close(): Promise<void>;
@@ -51,7 +51,7 @@ export type BrowserLauncher = () => Promise<LaunchedBrowser>;
 // serve as the default `launch`.
 const defaultLaunch: BrowserLauncher = () => chromium.launch(HEADED_LAUNCH_OPTIONS);
 
-// Builds the session a resolution run walks in. `launch` is optional and
+// Builds the session a resolution run resolves in. `launch` is optional and
 // defaults to a real Chromium launch, which is what lets this function
 // satisfy `ResolutionBrowserFactory` — the orchestrator calls it with no
 // arguments in a real run, and a test calls it with its own launcher.
@@ -59,18 +59,18 @@ export async function createResolutionBrowser(
   launch: BrowserLauncher = defaultLaunch
 ): Promise<ResolutionBrowserSession> {
   // The browser is launched once, here, for the whole run — not once per
-  // job — so however many jobs get walked, only one Chromium process opens.
+  // job — so however many jobs gets resolved, only one Chromium process opens.
   const browser = await launch();
 
   return {
     async openPage(): Promise<OpenPage> {
       // A fresh context per job is the whole point: it starts with no
-      // cookies and no consent state from whatever job was walked before it.
+      // cookies and no consent state from whatever job was resolved before it.
       const context = await browser.newContext();
       const page = await context.newPage();
       return {
         page,
-        // Closing the lease closes this job's context, not the browser —
+        // Closing it closes this job's context, not the browser —
         // the browser stays open for the jobs still waiting their turn.
         close: () => context.close(),
       };

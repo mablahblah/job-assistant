@@ -171,7 +171,7 @@ describe("finding a company by its match key", () => {
 });
 
 // AC 30. Creating writes the key alongside the name, so the next job spelling
-// that employer differently still lands on this row.
+// that employer differently still ends on this row.
 describe("creating a company", () => {
   test("writes the name and the key built from it", async () => {
     const result = await service.create({ name: "Created By Name" });

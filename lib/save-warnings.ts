@@ -4,8 +4,8 @@
 // normalization-warnings.ts. That helper collapses ~1,800 jobs' worth of
 // repeated field problems down to a count per collector, because one broken
 // collector would otherwise bury every other warning. Here each warning is
-// already a fact about specific database rows — a delete the active guard
-// refused, or a job whose write threw and never landed. The user has to open
+// already a fact about specific database rows — a delete the active guardrail
+// refused, or a job whose write threw and never arrived. The user has to open
 // those exact rows to fix them, and a count would only hide which rows they
 // are. So one warning in, one line out, in the order they arrived.
 import type { CollectionIssue } from "./collection-issue";
@@ -34,7 +34,7 @@ export function saveWarnings(warnings: SaveWarning[]): CollectionIssue[] {
   return warnings.map((warning) => {
     switch (warning.kind) {
       case "delete_refused":
-        // Two steps mark an entry for deletion and the same guard refuses
+        // Two steps mark an entry for deletion and the same guardrail refuses
         // both, so the reason the entry was marked is the only thing telling
         // them apart. Resolution's mark sits on the job's own row rather than
         // a duplicate's, so entry and blockedBy are one row here and the
@@ -44,7 +44,7 @@ export function saveWarnings(warnings: SaveWarning[]): CollectionIssue[] {
         if (warning.entry.delete_on_save === "blacklisted_url") {
           return {
             collector: warning.collector,
-            message: `Delete refused: ${labelJob(warning.blockedBy)} was marked for removal because its walk reached a blacklisted site, but the row is already at status "${warning.blockedBy.status}". The row was kept — delete it by hand if you do not want it.`,
+            message: `Delete refused: ${labelJob(warning.blockedBy)} was marked for removal because its resolution reached a blacklisted site, but the row is already at status "${warning.blockedBy.status}". The row was kept — delete it by hand if you do not want it.`,
           };
         }
 

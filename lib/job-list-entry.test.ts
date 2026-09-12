@@ -138,7 +138,7 @@ describe("AC 60: delete_on_save admits a resolution reason as well as dedupe's",
   test("the reasons the field admits are dedupe's three plus blacklisted_url", () => {
     // DEDUPE_REASONS stays the narrower list of what dedupe itself may set.
     // This is the wider one the field accepts, which resolution adds to when a
-    // walk reaches a blacklisted host and the row has to go.
+    // resolution reaches a blacklisted host and the row has to go.
     expect([...DELETE_ON_SAVE_REASONS]).toEqual([...DEDUPE_REASONS, "blacklisted_url"]);
 
     // Assigning each one is what puts the widened type under tsc, which is the

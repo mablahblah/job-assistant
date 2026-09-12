@@ -191,7 +191,7 @@ describe("AC 9: an unseeded database throws instead of returning something empty
     await expect(service.getExpiryThreshold()).rejects.toThrow(/expiry_threshold/);
   });
 
-  // Zero would mean no job is walked at all, which reads as a run that found
+  // Zero would mean no job is resolved at all, which reads as a run that found
   // nothing rather than as a setting nobody filled.
   test("getResolutionConcurrency throws rather than returning zero", async () => {
     await expect(service.getResolutionConcurrency()).rejects.toThrow(/resolution_concurrency/);

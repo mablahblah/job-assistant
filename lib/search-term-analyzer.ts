@@ -8,7 +8,7 @@ import { stemmer } from "stemmer";
 // some of them into other real words — stemmer("uxs") returns "ux" — which
 // would make every "UxS" title match the search term "UX". The cutoff is
 // three or fewer rather than under three, because "uxs" is exactly three
-// characters and an "under three" guard would let it through.
+// characters and an "under three" guardrail would let it through.
 function stemToken(token: string): string {
   return token.length <= 3 ? token : stemmer(token);
 }

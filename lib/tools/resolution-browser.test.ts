@@ -72,12 +72,12 @@ describe("AC 14: the resolution browser launches once and gives each job its own
     expect(record.contextsOpened).toBe(2);
   });
 
-  test("closing one job's lease closes that job's context and leaves the browser open", async () => {
+  test("closing one job's page closes that job's context and leaves the browser open", async () => {
     const record = recordingLauncher();
     const session = await createResolutionBrowser(record.launch);
 
-    const lease = await session.openPage();
-    await lease.close();
+    const opened = await session.openPage();
+    await opened.close();
 
     expect(record.contextsClosed).toBe(1);
     expect(record.browsersClosed).toBe(0);
@@ -92,15 +92,15 @@ describe("AC 14: the resolution browser launches once and gives each job its own
     expect(record.browsersClosed).toBe(1);
   });
 
-  test("the lease hands back the page the context opened", async () => {
+  test("the open page hands back the page the context opened", async () => {
     const record = recordingLauncher();
     const session = await createResolutionBrowser(record.launch);
 
-    const lease = await session.openPage();
-    const response = await lease.page.goto("https://example.com/anything");
+    const opened = await session.openPage();
+    const response = await opened.page.goto("https://example.com/anything");
 
     expect(response?.status()).toBe(200);
-    expect(lease.page.url()).toBe("https://example.com/job");
+    expect(opened.page.url()).toBe("https://example.com/job");
   });
 
   // The mode is deliberately not configurable: measured, Adzuna's redirector

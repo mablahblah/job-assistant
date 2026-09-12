@@ -69,7 +69,7 @@ model Job {
   normalized_mode_list   Json?
   // Which collector produced it.
   collector              String?
-  // When this pipeline first saw the posting, stamped once by the
+  // When this pipeline first saw the posting, written once by the
   // orchestrator beside collector. A later sighting is not better
   // information the way a later salary is, so nothing overwrites this
   // and no default could supply it.
@@ -96,7 +96,7 @@ model Job {
   // Dedupe's two link clauses look a match up on these keys, so each is
   // indexed rather than scanned. Neither is unique: two rows for one posting
   // hold the same key from the moment both are saved until the pass that
-  // collapses them, and a merge the active guard refuses leaves that pair
+  // collapses them, and a merge the active guardrail refuses leaves that pair
   // standing for good.
   @@index([original_url_match_key])
   @@index([resolved_url_match_key])
@@ -168,9 +168,9 @@ model Setting {
   // db:seed appends any missing registry name to the bottom and never
   // reorders or removes.
   source_priority_list   Json?
-  // How many jobs resolution walks at a time. A headed browser holds focus
+  // How many jobs resolution resolves at a time. A headed browser holds focus
   // for as long as it runs, so the machine is unusable while a run lasts and
-  // shortening that is what raising this buys. The four-hop ceiling is not a
+  // shortening that is what raising this buys. The four-page limit is not a
   // setting beside it: it stays a constant in code, changed against real
   // numbers rather than turned up in the moment.
   resolution_concurrency Int?
@@ -178,9 +178,9 @@ model Setting {
   modified_at            DateTime @updatedAt
 }
 
-// One row per event in a job's journey through the pipeline. A job enters at
+// One row per event in a job's path through the pipeline. A job enters at
 // collection, passes through each step, and either reaches the end or hits a
-// dead end recording when and why. This is a journey funnel, not validation,
+// dead end recording when and why. This is a record of each job's path, not validation,
 // not source-health monitoring, not run reporting. Only a job search writes
 // traces.
 //
@@ -208,19 +208,19 @@ model Setting {
 // a row that dedupe marked for removal is deleted. It reuses collection's
 // abandoned for a write that throws, so the entry never lands; step and
 // reason are what tell the two abandoned populations apart. Save also writes
-// job_dbrow_delete_refused, where the active guard kept a row dedupe had
+// job_dbrow_delete_refused, where the active guardrail kept a row dedupe had
 // marked. Dedupe writes abandoned for every entry it marks away, whether or
 // not that entry held a row, and writes added_to_job_list where a stored row
 // joined this run's list; that row's job_id and collector both come from the
 // stored row, because that row is the job the event describes. Resolution
-// writes job_resolved where a walk reached a page the rules accepted and
+// writes job_resolved where a job's resolution reached a page the rules accepted and
 // resolution_failed where it did not, and reuses abandoned where a collected
-// job's walk reached a blacklisted host.
+// job's resolution reached a blacklisted host.
 //
-// abandoned ends a job's journey through the pipeline and makes no claim
+// abandoned ends a job's path through the pipeline and makes no claim
 // about whether a row existed. What became of the row is a separate event:
 // job_dbrow_deleted where save carried the delete out, or
-// job_dbrow_delete_refused where the active guard kept it. A job taking a
+// job_dbrow_delete_refused where the active guardrail kept it. A job taking a
 // disqualifying status is not abandoned, because it keeps its row and can be
 // repaired.
 //
@@ -272,16 +272,16 @@ model Setting {
 //
 // Resolution writes eight. Four sit under job_resolved and name the rule that
 // accepted the page: no_apply_links, where the page offered nowhere further
-// to go; link_left_site, where the walk left the host and arrived;
-// stayed_on_site, where it hopped within a host, never left, and
-// the hop was dropped; and page_limit_reached, where the ceiling was reached
+// to go; link_left_site, where resolution left the host and arrived;
+// stayed_on_site, where it stayed within the same site, never left, and
+// the page was dropped; and page_limit_reached, where the ceiling was reached
 // with a same-host link left unfollowed. Three sit only under
 // resolution_failed: dead_end, for a login wall, signup wall or paywall;
-// page_unavailable, where a hop's response was not a success; and
-// page_load_failed, where the browser could not load a hop at all.
+// page_unavailable, where a page's response was not a success; and
+// page_load_failed, where the browser could not load a page at all.
 // page_limit_reached sits there too, for a ceiling reached with an off-host
 // link left unfollowed — one population split by outcome, which is what lets
-// a single query answer how often four hops is the binding constraint. The
+// a single query answer how often four pages is the binding constraint. The
 // eighth, blacklisted_url, sits under resolution_failed for a hand-entered
 // job and under abandoned for a collected one, whose row is marked for
 // deletion instead.

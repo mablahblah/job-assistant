@@ -11,7 +11,7 @@ export function extractDomain(url: string): string {
 
 // Compares two URLs by their exact hostname. A subdomain is treated as a
 // different host: boards.greenhouse.io is not the same as greenhouse.io. This
-// is what resolution asks after each hop, to know whether the walk left the
+// is what resolution asks after each page, to know whether resolution left the
 // host it came from.
 export function isSameDomain(url1: string, url2: string): boolean {
   return extractDomain(url1) === extractDomain(url2);

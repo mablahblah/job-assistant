@@ -387,7 +387,7 @@ describe("normalizeTitle: compounds and stray levels", () => {
   });
 });
 
-describe("normalizeTitle: the full sweep", () => {
+describe("normalizeTitle: the full test suite", () => {
   test("one title carrying every effect the rule can have on a role", () => {
     // Brackets go as punctuation. 14503 goes as digits alone. m/w/d goes as
     // single letters joined by slashes. UX/UI stays because a slashed token

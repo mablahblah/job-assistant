@@ -6,7 +6,7 @@ import type { PageAnchor, ResolutionPage, ResolutionResponse } from "./resolutio
 // `npm run lint` runs `tsc --noEmit`, and a shape that drifts fails there. The
 // run-time bodies exist only so the file is a test file like any other.
 
-describe("ResolutionPage names every method the walk calls", () => {
+describe("ResolutionPage names every method resolution calls", () => {
   test("the interface carries the whole set", () => {
     type CarriesEveryMethod = ResolutionPage extends {
       goto: (url: string, options?: { timeout?: number }) => Promise<ResolutionResponse | null>;
@@ -25,7 +25,7 @@ describe("ResolutionPage names every method the walk calls", () => {
   });
 });
 
-describe("ResolutionResponse names every method the walk calls", () => {
+describe("ResolutionResponse names every method resolution calls", () => {
   test("the interface carries the whole set", () => {
     type CarriesEveryMethod = ResolutionResponse extends {
       status: () => number;
@@ -39,7 +39,7 @@ describe("ResolutionResponse names every method the walk calls", () => {
   });
 });
 
-describe("a real Playwright page can be handed straight to the walk", () => {
+describe("a real Playwright page can be handed straight to resolution", () => {
   test("Playwright's Page satisfies ResolutionPage", () => {
     const asResolutionPage = (page: Page): ResolutionPage => page;
     expect(asResolutionPage).toBeTypeOf("function");
