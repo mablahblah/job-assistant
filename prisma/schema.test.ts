@@ -846,6 +846,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "page_unavailable",
       "page_load_failed",
       "blacklisted_url",
+      "posting_gone",
       "collector_provided",
     ];
     for (const reason of reasons) {

@@ -285,8 +285,11 @@ model Setting {
 // the page was dropped; and page_limit_reached, where the ceiling was reached
 // with a same-host link left unfollowed. Three sit only under
 // resolution_failed: dead_end, for a login wall, signup wall or paywall;
-// page_unavailable, where a page's response was not a success; and
-// page_load_failed, where the browser could not load a page at all.
+// page_unavailable, where a page's response was not a success;
+// page_load_failed, where the browser could not load a page at all; and
+// posting_gone, where a page answered successfully while its own address
+// carried an error flag, which is how a board redirects a dead job id to its
+// whole listing.
 // page_limit_reached sits there too, for a ceiling reached with an off-host
 // link left unfollowed — one population split by outcome, which is what lets
 // a single query answer how often four pages is the binding constraint. The

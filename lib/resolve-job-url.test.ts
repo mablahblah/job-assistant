@@ -272,3 +272,46 @@ describe("AC 41, 42, 43: the four-page limit", () => {
     });
   });
 });
+
+// Measured on a real run: a job from uiuxjobsboard ended on
+// https://job-boards.greenhouse.io/gusto?error=true, which answers 200 and
+// renders Gusto's whole board — 95 jobs on one page. It was saved as the
+// posting. The address is the only host-free evidence that the job id is gone,
+// so the rule reads the address rather than naming a board.
+describe("a page whose own address says the posting is gone is not a destination", () => {
+  test("an off-site page carrying an error flag fails rather than resolving", async () => {
+    const page = fakeResolutionPage([
+      { url: "https://board.example/listing/1", html: applyLink("https://ats.example/acme/1") },
+      { url: "https://ats.example/acme?error=true", html: "<p>95 jobs</p>" },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({ outcome: "failed", reason: "posting_gone" });
+  });
+
+  test("the same address without the flag resolves as it did before", async () => {
+    const page = fakeResolutionPage([
+      { url: "https://board.example/listing/1", html: applyLink("https://ats.example/acme/1") },
+      { url: "https://ats.example/acme/1", html: "<p>One posting</p>" },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://board.example/listing/1", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({
+      outcome: "resolved",
+      resolvedUrl: "https://ats.example/acme/1",
+      reason: "link_left_site",
+    });
+  });
+
+  test("the first page carrying the flag fails too, before anything is followed", async () => {
+    const page = fakeResolutionPage([
+      { url: "https://ats.example/acme?error=true", html: applyLink("https://ats.example/apply") },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://ats.example/acme?error=true", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({ outcome: "failed", reason: "posting_gone" });
+  });
+});

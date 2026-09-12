@@ -10,6 +10,7 @@ import { decideNextAction } from "./decide-next-action";
 import type { ResolutionPage, ResolutionResponse } from "./resolution-page";
 import { waitForPageToLoad } from "./wait-for-page-to-load";
 import { isSameDomain } from "./url-domain";
+import { urlAnnouncesError } from "./url-error-flag";
 
 const DEFAULT_MAX_PAGES = 4;
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -26,7 +27,12 @@ export type ResolutionOutcome =
     }
   | {
       outcome: "failed";
-      reason: "page_unavailable" | "page_load_failed" | "dead_end" | "page_limit_reached";
+      reason:
+        | "page_unavailable"
+        | "page_load_failed"
+        | "dead_end"
+        | "page_limit_reached"
+        | "posting_gone";
     }
   | { outcome: "blacklisted" };
 
@@ -100,6 +106,15 @@ export async function resolveJobUrl(
 
     if (status !== undefined && !isSuccessStatus(status)) {
       return { outcome: "failed", reason: "page_unavailable" };
+    }
+
+    // Read straight after the status, because a page can answer 200 while its
+    // own address says the job id is gone. Measured on a real run: a board
+    // redirected a dead posting to the employer's whole listing, 95 jobs on
+    // one page, and it saved as the posting. The address is the only evidence
+    // there, so it is read before anything looks at the page itself.
+    if (urlAnnouncesError(finalUrl)) {
+      return { outcome: "failed", reason: "posting_gone" };
     }
 
     // Judged on where the page settled, not where the page aimed.
