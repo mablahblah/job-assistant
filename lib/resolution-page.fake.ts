@@ -6,13 +6,27 @@
 import { parseHTML } from "linkedom";
 import type { PageAnchor, ResolutionPage, ResolutionResponse } from "./resolution-page";
 
+// One response a scripted page produced. A real page load fires many — the
+// document itself, plus its images, scripts and advertising pixels — and
+// resolution counts a refusal only on the ones the browser navigated to. A
+// tracker that answers 403 is a response, not evidence the source turned us
+// away, so a test needs to be able to script the difference.
+interface ScriptedResponse {
+  url: string;
+  status: number;
+  // Left out means the browser navigated to it. That is the default because
+  // every response scripted across the suite is a page response, and a test
+  // wanting a subresource is the rarer thing that should have to say so.
+  isNavigation?: boolean;
+}
+
 export interface ScriptedPage {
   // The address the page ends on — what url() reports once this page is done.
   url: string;
   // The responses this page produced, in the order they arrived. The first is
   // what goto hands back; the last is the page actually ended on. Defaults to
   // a single 200 at `url`.
-  responses?: { url: string; status: number }[];
+  responses?: ScriptedResponse[];
   // The page's HTML. Defaults to an empty string.
   html?: string;
   // The page's title. Defaults to an empty string.
@@ -34,15 +48,14 @@ interface PageRender {
   title?: string;
 }
 
-// Wraps one scripted { url, status } pair as the ResolutionResponse shape
-// resolution expects.
-function toResolutionResponse(response: {
-  url: string;
-  status: number;
-}): ResolutionResponse {
+// Wraps one scripted response as the ResolutionResponse shape resolution
+// expects.
+function toResolutionResponse(response: ScriptedResponse): ResolutionResponse {
+  const isNavigation = response.isNavigation ?? true;
   return {
     status: () => response.status,
     url: () => response.url,
+    request: () => ({ isNavigationRequest: () => isNavigation }),
   };
 }
 

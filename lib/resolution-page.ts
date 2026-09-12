@@ -10,6 +10,14 @@ export interface ResolutionResponse {
   status(): number;
   // The address this response came from.
   url(): string;
+  // Whether the browser navigated to this response, which is what separates a
+  // document from a subresource. One measured page load fired 69 responses:
+  // the posting plus its images, scripts and advertising pixels. A refused
+  // pixel says nothing about whether the source is turning us away, so only a
+  // navigation counts as a refusal. Every hop of a redirect chain is one,
+  // which is how a refusal the source then redirects away from is still seen.
+  // Narrowed to this one question so a real Playwright Request satisfies it.
+  request(): { isNavigationRequest(): boolean };
 }
 
 // One anchor element, as far as resolution needs to see it. href is the

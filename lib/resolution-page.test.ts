@@ -37,6 +37,21 @@ describe("ResolutionResponse names every method resolution calls", () => {
     const carriesEveryMethod: CarriesEveryMethod = true;
     expect(carriesEveryMethod).toBe(true);
   });
+
+  // A page load fires the posting plus its images, scripts and advertising
+  // pixels — about 69 requests on one measured Adzuna page. A refusal only
+  // counts where the browser navigated to it, so resolution has to be able to
+  // tell a document from a tracker.
+  test("the interface says whether the browser navigated to this response", () => {
+    type CarriesNavigationSignal = ResolutionResponse extends {
+      request: () => { isNavigationRequest: () => boolean };
+    }
+      ? true
+      : false;
+
+    const carriesNavigationSignal: CarriesNavigationSignal = true;
+    expect(carriesNavigationSignal).toBe(true);
+  });
 });
 
 describe("a real Playwright page can be handed straight to resolution", () => {

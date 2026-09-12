@@ -121,6 +121,29 @@ describe("the responses a page fetches for itself reach a listener", () => {
     expect(seen).toEqual([200, 403]);
   });
 
+  // A real page load fires the document plus its images, scripts and
+  // advertising pixels. Resolution counts a refusal only on a document, so a
+  // scripted response has to be able to say which it was.
+  test("a scripted response is a navigation unless it says otherwise", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://employer.example/careers/9",
+        responses: [
+          { url: "https://employer.example/careers/9", status: 200 },
+          { url: "https://tracker.example/pixel.gif", status: 403, isNavigation: false },
+        ],
+      },
+    ]);
+    const seen: boolean[] = [];
+    page.on("response", (response: ResolutionResponse) =>
+      seen.push(response.request().isNavigationRequest()),
+    );
+
+    await page.goto("https://employer.example/careers/9");
+
+    expect(seen).toEqual([true, false]);
+  });
+
   test("a handler removed with off hears nothing further", async () => {
     const page = fakeResolutionPage([
       { url: "https://a.example/1" },

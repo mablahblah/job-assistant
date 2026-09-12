@@ -73,6 +73,21 @@ function statusOfFinalPage(
   return gotoResponse?.status();
 }
 
+// Whether any page the browser navigated to was refused, wherever in the chain
+// it sat. Reading only the settled address is not enough: measured on
+// 2026-09-12, an aggregator redirected a job link to a token-bearing address
+// that answered 403 and then bounced on to a page that answered 200, and a
+// whole run of that source recorded not one refusal while full-page 403s were
+// watched going past. Only a navigation counts. One measured page load fired
+// about 69 responses — the posting plus its images, scripts and advertising
+// pixels — and a refused tracker says nothing about whether the source is
+// turning us away.
+function chainWasRefused(recorded: ResolutionResponse[]): boolean {
+  return recorded.some(
+    (response) => response.request().isNavigationRequest() && isRefusalStatus(response.status()),
+  );
+}
+
 export async function resolveJobUrl(
   startUrl: string,
   page: ResolutionPage,
@@ -113,6 +128,14 @@ export async function resolveJobUrl(
       status = statusOfFinalPage(recorded, finalUrl, gotoResponse);
     } finally {
       page.off("response", record);
+    }
+
+    // Asked of the whole chain rather than of where it settled: a refusal
+    // earlier on does not un-happen because the source then sent the browser
+    // somewhere that answered. A redirect is a navigation but is not a
+    // refusal, so an ordinary chain passes straight through.
+    if (chainWasRefused(recorded)) {
+      return { outcome: "failed", reason: "page_refused" };
     }
 
     if (status !== undefined && !isSuccessStatus(status)) {

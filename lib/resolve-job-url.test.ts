@@ -354,3 +354,76 @@ describe("a page whose own address says the posting is gone is not a destination
     ).toEqual({ outcome: "failed", reason: "posting_gone" });
   });
 });
+
+// Phase 8b, AC 48, 49, 50. Found live on 2026-09-12: a run recorded no refusal
+// for Adzuna while full-page 403s were watched going past on screen. An Adzuna
+// link redirects at once to a second address carrying a token, that address
+// answers 403, and the browser is then sent somewhere that answers 200.
+// Reading only the address the page settled on misses the refusal entirely, so
+// the host is never slowed down.
+describe("phase 8b AC 48, 49, 50: a refusal partway through the chain", () => {
+  test("a chain refused before it settles somewhere successful is still a refusal", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://www.adzuna.example/details/1",
+        html: "<p>A job posting</p>",
+        responses: [
+          { url: "https://www.adzuna.example/land/ad/1", status: 303 },
+          { url: "https://www.adzuna.example/1?aztt=token", status: 403 },
+          { url: "https://www.adzuna.example/details/1", status: 200 },
+        ],
+      },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://www.adzuna.example/land/ad/1", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({ outcome: "failed", reason: "page_refused" });
+  });
+
+  // One measured page load fired 69 responses, most of them trackers and
+  // images. Counting any of those would send a working host to the slow lane
+  // over an advertising pixel nobody needs.
+  test("a refused response the browser never navigated to is not a refusal", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://employer.example/careers/9",
+        html: "<p>A job posting</p>",
+        responses: [
+          { url: "https://employer.example/careers/9", status: 200 },
+          { url: "https://tracker.example/pixel.gif", status: 403, isNavigation: false },
+        ],
+      },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://employer.example/careers/9", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({
+      outcome: "resolved",
+      resolvedUrl: "https://employer.example/careers/9",
+      reason: "no_apply_links",
+    });
+  });
+
+  // A 404 partway through is not a refusal: the source answered, it simply had
+  // nothing at that address. The address the page settled on still decides.
+  test("a chain carrying no refused navigation is decided by where it settled", async () => {
+    const page = fakeResolutionPage([
+      {
+        url: "https://employer.example/careers/9",
+        html: "<p>A job posting</p>",
+        responses: [
+          { url: "https://redirector.example/gone", status: 404 },
+          { url: "https://employer.example/careers/9", status: 200 },
+        ],
+      },
+    ]);
+
+    expect(
+      await resolveJobUrl("https://redirector.example/gone", page, { waitForLoad: NO_WAIT }),
+    ).toEqual({
+      outcome: "resolved",
+      resolvedUrl: "https://employer.example/careers/9",
+      reason: "no_apply_links",
+    });
+  });
+});
