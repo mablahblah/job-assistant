@@ -855,6 +855,26 @@ describe("Trace: the model comment carries both vocabularies", () => {
     }
   });
 
+  // Parsing writes two events of its own. It reuses nothing, because reading a
+  // posting is not something any earlier step does.
+  test("parsing's events are listed", () => {
+    const comment = traceComment();
+    for (const event of ["job_parsed", "parse_failed"]) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("parsing's reason codes are listed", () => {
+    // None of the three is a substring of another or of a reason already in
+    // the comment. no_parser_for_domain shares no prefix with collection's
+    // no_original_url beyond the no_ every dead end starts with.
+    const comment = traceComment();
+    const reasons = ["no_parser_for_domain", "parser_errored", "nothing_parsed"];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
+    }
+  });
+
   // AC 67's schema half. A job merged away takes abandoned whether or not it
   // held a row, so the comment may no longer tie the word to a row's absence.
   test("the comment ties abandoned to the path ending rather than to a missing row", () => {

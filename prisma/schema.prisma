@@ -190,9 +190,10 @@ model Setting {
 // post_resolution_dedupe, post_resolution_save, parsing,
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
 // post_parsing_save, classification, post_classification_save, scoring.
-// Collection, the normalization pass after it, the association pass after
-// that, the dedupe pass after that, and save write today; each later phase
-// adds its own values once it exists, the way Job.status grows its comment.
+// Everything from collection through the save after parsing writes today;
+// backlog_cleanup, classification, post_classification_save and scoring are
+// what each later phase adds once it exists, the way Job.status grows its
+// comment.
 //
 // event names what happened. Collection writes collected and abandoned;
 // normalization writes job_updated where a field was normalized and
@@ -218,6 +219,10 @@ model Setting {
 // job's resolution reached a blacklisted host. Collection writes job_resolved
 // too, for a job a self-resolving collector handed over already pointing at
 // the employer's own posting; step and reason tell the two populations apart.
+// Parsing writes job_parsed where a parser read the employer's own posting
+// and came back with at least one field, and parse_failed where it did not.
+// It reuses no earlier step's event, because reading a posting is not
+// something any earlier step does.
 //
 // abandoned ends a job's path through the pipeline and makes no claim
 // about whether a row existed. What became of the row is a separate event:
@@ -307,6 +312,18 @@ model Setting {
 // cannot bloat this table in the run someone needs to read. A company name's
 // from is the only surviving record of the spelling the source published,
 // since the cleaned name overwrites it in place.
+//
+// Parsing writes three, all sitting under parse_failed.
+// no_parser_for_domain, where no parser owns the domain the resolved link
+// belongs to, or the link yields no owned domain at all; the job takes
+// unparseable, because a later run would reach the same verdict.
+// parser_errored, where the parser threw or its source refused the request;
+// and nothing_parsed, where the parser ran and returned no field at all.
+// Those last two keep the job in the backlog, because both describe an
+// outage rather than a verdict on the job, and the next run tries again. A
+// parse_failed row also carries the owned domain in the domain column and the
+// full resolved link in detail, so a failing platform can be counted and any
+// one failure chased back to the exact address it happened on.
 //
 // Each later phase adds its own reasons once it exists.
 model Trace {
