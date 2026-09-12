@@ -48,6 +48,15 @@ A tool wraps something outside the app behind a narrow interface. It owns no tab
 - The interface it satisfies is declared where its consumer needs it, not in its own file
 - Fake: `fake{Subject}()` in `{subject}.fake.ts`
 
+## Parsers
+
+A parser reads one source's job posting and returns the fields it found. Like a collector it is the differentiated code a handler runs.
+
+- File: `lib/parsers/{subject}.ts`, named for the source it reads — `greenhouse.ts`, `dribbble.ts`
+- Value: `{subject}Parser` — `export const greenhouseParser: Parser`
+- Its `name` field matches its filename — `name: "greenhouse"` in `greenhouse.ts`
+- It joins the pipeline by being listed in `lib/parsers/registry.ts`, keyed by the domain its source owns
+
 ## Utils
 
 A util takes values, returns values, and reaches no database.
