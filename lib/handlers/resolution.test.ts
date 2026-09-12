@@ -429,13 +429,15 @@ describe("a host that refuses us is moved to the slow lane", () => {
     };
   }
 
-  test("the job that was refused is tried again in the slow lane", async () => {
+  // Two jobs reach the slow lane, so exactly one pause separates them. A
+  // count rather than a floor, because pausing before the first job too
+  // would still leave every pause the right length.
+  test("the slow lane pauses between its jobs and not before its first", async () => {
     const waits: number[] = [];
 
-    const result = await resolveJobs(threeJobs(), laneOptions(waits));
+    await resolveJobs(threeJobs(), laneOptions(waits));
 
-    expect(waits.length).toBeGreaterThan(0);
-    expect(waits.every((ms) => ms === 12_000)).toBe(true);
+    expect(waits).toEqual([12_000]);
   });
 
   // The refusal was about the moment, not the job, so a1 keeps its place.
@@ -467,6 +469,28 @@ describe("a host that refuses us is moved to the slow lane", () => {
     const result = await resolveJobs(threeJobs(), laneOptions([]));
 
     expect(result.jobs.map((entry) => entry.id)).toEqual(["a1", "a2", "b1"]);
+  });
+
+  // A job deferred by the fast lane is resolved by the slow one, and only one
+  // of the two may speak for it.
+  test("a job carried into the slow lane writes one trace row, not two", async () => {
+    const written: { job_id: string; event: string; reason?: string }[] = [];
+
+    await resolveJobs(threeJobs(), {
+      ...laneOptions([]),
+      trace: {
+        write: async (row) => {
+          written.push({ job_id: row.job_id, event: row.event, reason: row.reason });
+        },
+        failureCount: () => 0,
+        countsForRun: async () => [],
+      },
+      runId: "run-1",
+      step: "resolution",
+    });
+
+    expect(written.map((row) => row.job_id).sort()).toEqual(["a1", "a2", "b1"]);
+    expect(written.find((row) => row.job_id === "a1")?.reason).toBe("page_refused");
   });
 
   // A 404 is the same answer every run, so it says nothing about the host.
@@ -515,4 +539,56 @@ describe("a host that refuses us is moved to the slow lane", () => {
 
     expect(waits).toEqual([]);
   });
+});
+
+// Only one of the permanent failures was ever proven to park a job. If any of
+// the others quietly became retryable, nothing would have caught it.
+describe("every permanent failure parks the job", () => {
+  const permanent: { reason: string; script: ScriptedPage[] }[] = [
+    {
+      reason: "page_unavailable",
+      script: [
+        {
+          url: "https://board.example/listing/1",
+          responses: [{ url: "https://board.example/listing/1", status: 404 }],
+        },
+      ],
+    },
+    {
+      reason: "dead_end",
+      script: [
+        { url: "https://board.example/listing/1", html: applyLink("https://elsewhere.example/7") },
+        {
+          url: "https://elsewhere.example/7",
+          html: '<form><input type="password" name="pw" /></form>',
+        },
+      ],
+    },
+    {
+      reason: "posting_gone",
+      script: [{ url: "https://board.example/listing/1?error=job_not_found" }],
+    },
+    {
+      reason: "page_limit_reached",
+      script: [
+        { url: "https://a.example/1", html: applyLink("https://b.example/2") },
+        { url: "https://b.example/2", html: applyLink("https://c.example/3") },
+        { url: "https://c.example/3", html: applyLink("https://d.example/4") },
+        { url: "https://d.example/4", html: applyLink("https://e.example/5") },
+      ],
+    },
+  ];
+
+  for (const { reason, script } of permanent) {
+    test(`${reason} takes the job out of the backlog`, async () => {
+      const result = await resolveJobs([job("a", script[0]!.url)], {
+        openPage: factoryFor(script),
+        fastConcurrency: 1,
+        waitForLoad: NO_WAIT,
+      });
+
+      expect(result.jobs[0]?.status).toBe("unresolvable");
+      expect(result.jobs[0]?.is_resolved).toBe(false);
+    });
+  }
 });

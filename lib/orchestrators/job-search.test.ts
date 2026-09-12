@@ -1,7 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
 import type { ResolutionBrowserSession } from "../resolution-page";
 import { runJobSearch } from "./job-search";
+import { resolveJobs } from "../handlers/resolution";
 import type { Collector, CollectorContext, CollectorResult } from "../collectors/types";
 import type { JobListEntry } from "../job-list-entry";
 import type { SettingsService } from "../settings-service";
@@ -12,6 +13,14 @@ import { fakeJobService } from "../job-service.fake";
 import type { JobService } from "../job-service";
 import type { Parser } from "../parsers/types";
 import type { CompanyRecord } from "../company-service";
+
+// The resolution step is wrapped in a spy that still runs the real thing, so
+// every test below behaves exactly as it did while one test can also read the
+// options the orchestrator handed down.
+vi.mock("../handlers/resolution", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../handlers/resolution")>();
+  return { ...actual, resolveJobs: vi.fn(actual.resolveJobs) };
+});
 
 // Carries the default vocabularies and priority list, which is all the
 // orchestrator reads off settings. A test needing a title to actually reshape
@@ -1488,5 +1497,40 @@ describe("the parsing step", () => {
     const report = await runJobSearch(baseOptions(jobService, NO_PARSERS));
 
     expect(report.failure).toBeNull();
+  });
+});
+
+// The pause is stored in seconds and handed over in milliseconds. Every other
+// test stubs it to zero, and zero times a thousand is zero, so nothing else
+// here can tell a working conversion from a missing one.
+describe("the slow lane's pause reaches resolution in milliseconds", () => {
+  test("twelve seconds of setting arrives as twelve thousand", async () => {
+    vi.mocked(resolveJobs).mockClear();
+
+    await runJobSearch({
+      settings: fakeSettingsService({
+        getResolutionFastConcurrency: async () => 3,
+        getResolutionSlowConcurrency: async () => 2,
+        getResolutionSlowPauseSeconds: async () => 12,
+        getSourcePriorityList: async () => ["collector:adzuna"],
+      }),
+      collectors: [],
+      companies: fakeCompanyService([]),
+      jobService: fakeJobService([unresolvedRow("a")]),
+      collectedAt: stubCollectedAt,
+      runId: stubRunId,
+      trace: makeTraceService(),
+      openBrowser: browserFor(
+        [[{ url: "https://board.example/listing/a", html: "<p>A job posting</p>" }]],
+        { launches: 0, closes: 0 }
+      ),
+      waitForLoad: async () => {},
+    });
+
+    const handed = vi.mocked(resolveJobs).mock.calls[0]?.[1];
+
+    expect(handed?.slowPauseMs).toBe(12_000);
+    expect(handed?.fastConcurrency).toBe(3);
+    expect(handed?.slowConcurrency).toBe(2);
   });
 });

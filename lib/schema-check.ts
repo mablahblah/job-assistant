@@ -18,6 +18,12 @@ export interface SchemaProbe {
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
+// Every model this check covers. Named here rather than only inside the
+// probes below so a test can read it against the models in schema.prisma: a
+// hand-kept list going stale is the exact failure this whole file exists to
+// catch, and this file must not be the one that goes stale.
+export const CHECKED_MODELS = ["Job", "Company", "Setting", "Trace"] as const;
+
 // One probe per model. A findFirst on an empty table still asks for every
 // column, so this catches a mismatch on a database holding no rows at all.
 export function schemaProbesFor(db: PipelineDb): SchemaProbe[] {
