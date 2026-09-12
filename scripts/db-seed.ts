@@ -4,6 +4,7 @@
 import { createPipelineDb } from "../lib/pipeline-db";
 import { createCompanyService, type CompanyService } from "../lib/company-service";
 import { COLLECTORS } from "../lib/collectors/registry";
+import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
 
 const SETTING_DEFAULTS = {
   search_terms: ["Product Design", "UX", "Founding Design"],
@@ -78,8 +79,20 @@ const SLUGS_BY_PLATFORM: Record<string, string[]> = {
 // collector:user is not in the registry. It is a fixed entry standing for a
 // job the user typed in by hand, and it leads so such a job outranks every
 // collected copy of the same posting.
+//
+// Every parser outranks every collector, because a parser read the employer's
+// own posting while a collector read an aggregator's copy of it. Only
+// collector:user beats a parser, since a job the user typed in is the one
+// source nothing automated should be allowed to overwrite.
+//
+// The parser registry is keyed by owned domain, so one parser could in
+// principle be reached by two domains. The names are deduplicated, keeping
+// the order the registry lists them in.
 const SOURCE_PRIORITY_DEFAULTS: string[] = [
   "collector:user",
+  ...Array.from(new Set(Object.values(PARSERS_BY_DOMAIN).map((parser) => parser.name))).map(
+    (name) => `parser:${name}`
+  ),
   ...COLLECTORS.map((collector) => `collector:${collector.name}`),
 ];
 

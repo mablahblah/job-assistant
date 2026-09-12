@@ -611,6 +611,10 @@ describe("the title vocabularies are seeded and then left alone", () => {
 // An independent copy is what proves the round trip through the database.
 const EXPECTED_PRIORITY_LIST = [
   "collector:user",
+  "parser:greenhouse",
+  "parser:lever",
+  "parser:ashby",
+  "parser:dribbble",
   "collector:adzuna",
   "collector:jsearch",
   "collector:greenhouse",
@@ -642,6 +646,25 @@ describe("AC26: seeding a fresh database builds the source priority list", () =>
 
   test("every collector in the registry follows it, in registry order", () => {
     expect(setting.source_priority_list).toEqual(EXPECTED_PRIORITY_LIST);
+  });
+
+  // AC53. A parser read the employer's own posting, so where it disagrees
+  // with an aggregator's copy of the same job the parser is the one telling
+  // the truth. Only a job the user typed in by hand outranks it.
+  test("every parser sits below collector:user and above every collector", () => {
+    const list = setting.source_priority_list ?? [];
+    const parserRanks = list
+      .map((name, index) => ({ name, index }))
+      .filter((entry) => entry.name.startsWith("parser:"))
+      .map((entry) => entry.index);
+    const collectorRanks = list
+      .map((name, index) => ({ name, index }))
+      .filter((entry) => entry.name.startsWith("collector:") && entry.name !== "collector:user")
+      .map((entry) => entry.index);
+
+    expect(parserRanks).toHaveLength(4);
+    expect(Math.min(...parserRanks)).toBeGreaterThan(list.indexOf("collector:user"));
+    expect(Math.max(...parserRanks)).toBeLessThan(Math.min(...collectorRanks));
   });
 });
 
@@ -689,6 +712,10 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "collector:greenhouse",
       "collector:user",
       "collector:adzuna",
+      "parser:greenhouse",
+      "parser:lever",
+      "parser:ashby",
+      "parser:dribbble",
       "collector:jsearch",
       "collector:lever",
       "collector:ashby",
