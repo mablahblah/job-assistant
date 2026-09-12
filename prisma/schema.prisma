@@ -215,7 +215,9 @@ model Setting {
 // stored row, because that row is the job the event describes. Resolution
 // writes job_resolved where a job's resolution reached a page the rules accepted and
 // resolution_failed where it did not, and reuses abandoned where a collected
-// job's resolution reached a blacklisted host.
+// job's resolution reached a blacklisted host. Collection writes job_resolved
+// too, for a job a self-resolving collector handed over already pointing at
+// the employer's own posting; step and reason tell the two populations apart.
 //
 // abandoned ends a job's path through the pipeline and makes no claim
 // about whether a row existed. What became of the row is a separate event:
@@ -269,6 +271,12 @@ model Setting {
 // job_dbrow_deleted where it already held a row of its own.
 // matched_list_entry sits under added_to_job_list, on the stored row that
 // joined the list.
+//
+// Collection writes one reason under job_resolved: collector_provided, where
+// an ATS board or Dribbble hosted the posting and supplied its url, so the job
+// never reaches resolution. It is recorded rather than worked out afterwards,
+// because jobs saved minus jobs resolved counts two different populations —
+// resolution also processes jobs an earlier run collected.
 //
 // Resolution writes eight. Four sit under job_resolved and name the rule that
 // accepted the page: no_apply_links, where the page offered nowhere further

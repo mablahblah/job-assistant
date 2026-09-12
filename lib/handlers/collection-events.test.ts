@@ -350,3 +350,98 @@ describe("every trace event collection writes carries the collection step", () =
     }
   });
 });
+
+// The ATS collectors and Dribbble hand over jobs already pointing at the
+// employer's own posting, so resolution never sees them. Recording that at
+// collection is what lets the run summary say how many jobs arrived needing
+// nothing. Inferring it instead — jobs saved minus jobs resolved — mixes two
+// different populations, because resolution also picks up jobs collected by
+// earlier runs.
+describe("a collector that resolved a job itself says so", () => {
+  test("a job arriving with is_resolved true gets its own trace row", async () => {
+    const trace = makeTraceService();
+    await collectJobs({
+      settings: fakeSettingsService(),
+      collectors: [
+        makeCollector("ashby", {
+          jobs: [
+            {
+              original_url: "https://jobs.ashbyhq.com/acme/1",
+              raw_title: "Designer",
+              raw_company_name: "Acme",
+              is_resolved: true,
+              resolved_url: "https://jobs.ashbyhq.com/acme/1",
+            },
+          ],
+          errors: [],
+          warnings: [],
+        }),
+      ],
+      collectedAt: stubCollectedAt,
+      runId: stubRunId,
+      trace,
+    });
+
+    const resolved = trace.events.filter((event) => event.event === "job_resolved");
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]).toMatchObject({
+      step: "collection",
+      collector: "ashby",
+      reason: "collector_provided",
+    });
+  });
+
+  test("a job arriving unresolved gets no such row", async () => {
+    const trace = makeTraceService();
+    await collectJobs({
+      settings: fakeSettingsService(),
+      collectors: [
+        makeCollector("adzuna", {
+          jobs: [
+            {
+              original_url: "https://adzuna.example/1",
+              raw_title: "Designer",
+              raw_company_name: "Acme",
+            },
+          ],
+          errors: [],
+          warnings: [],
+        }),
+      ],
+      collectedAt: stubCollectedAt,
+      runId: stubRunId,
+      trace,
+    });
+
+    expect(trace.events.filter((event) => event.event === "job_resolved")).toHaveLength(0);
+  });
+
+  test("the row names the same job the collected row named", async () => {
+    const trace = makeTraceService();
+    await collectJobs({
+      settings: fakeSettingsService(),
+      collectors: [
+        makeCollector("ashby", {
+          jobs: [
+            {
+              original_url: "https://jobs.ashbyhq.com/acme/2",
+              raw_title: "Designer",
+              raw_company_name: "Acme",
+              is_resolved: true,
+              resolved_url: "https://jobs.ashbyhq.com/acme/2",
+            },
+          ],
+          errors: [],
+          warnings: [],
+        }),
+      ],
+      collectedAt: stubCollectedAt,
+      runId: stubRunId,
+      trace,
+    });
+
+    const collected = trace.events.find((event) => event.event === "collected");
+    const resolved = trace.events.find((event) => event.event === "job_resolved");
+    expect(resolved?.job_id).toBe(collected?.job_id);
+  });
+});

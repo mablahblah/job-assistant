@@ -121,6 +121,23 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
           collector: collector.name,
           collected_at: options.collectedAt,
         };
+
+        // Some collectors host the posting themselves and already know its
+        // real address, so the job never reaches resolution at all. That
+        // number cannot be read otherwise: jobs saved minus jobs resolved
+        // counts two different populations, because resolution also processes
+        // jobs an earlier run collected.
+        if (written.is_resolved) {
+          await options.trace.write({
+            run_id: options.runId,
+            job_id: id,
+            step: "collection",
+            event: "job_resolved",
+            collector: collector.name,
+            reason: "collector_provided",
+          });
+        }
+
         result.jobs.push(written);
         kept += 1;
       }
