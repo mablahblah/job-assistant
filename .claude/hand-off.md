@@ -17,7 +17,7 @@
 
 Discovery is finished and the stress test is finished. Every decision either reached the decision log or the phase r&d file. What is missing is the phase spec, which has never been written.
 
-**Thirty-six acceptance criteria were drafted in conversation and never reviewed.** They were not written to any file, so they are gone. They have to be drafted again from the stories and the settled decisions, both of which are on disk.
+**Thirty-six acceptance criteria were drafted and never reviewed.** They are written out below, under *Acceptance criteria drafted, not reviewed*. They are a draft: the user has not agreed to them, and they go into the phase spec only after review.
 
 No code changed this session. The working tree is clean and the remote matches `b221bbf`.
 
@@ -61,6 +61,67 @@ The ones that shape the build most:
 
 **The salary reader's shape does not fit its field.** `readSalaryFromText` returns `salary_low` and `salary_high`; `raw_salary` holds `salary_min` and `salary_max`. TypeScript catches a direct assignment, so this is a gap in the plan rather than a shipping bug. The round trip is safe — with no unit set the normalizer reads whole currency units, and every period word the reader emits is one it already accepts.
 
+### Acceptance criteria drafted, not reviewed
+
+Drafted 2026-09-12 from the eleven phase-8 stories and the settled decisions. The user never reviewed them, so they are a starting point rather than an agreed list. Numbering is this phase's own.
+
+**Matching a job to a parser**
+
+1. Given a resolved link whose registrable domain is `greenhouse.io`, When parsing runs, Then the Greenhouse parser reads it.
+2. Given a resolved link whose registrable domain is `lever.co`, `ashbyhq.com` or `dribbble.com`, When parsing runs, Then that source's own parser reads it.
+3. Given the committed fixture of every distinct resolved-link host in `dev.db`, When each is matched, Then all three Greenhouse hosts reach the Greenhouse parser and no host reaches a parser that does not serve it.
+4. Given a resolved link on `adzuna.com`, When parsing runs, Then no parser reads it.
+5. Given a resolved link that does not parse as a URL, When parsing runs, Then the job takes `unparseable` and the handler does not throw.
+
+**Reading a job**
+
+6. Given any parser reading its source, When it runs, Then it opens no browser.
+7. Given a parser fetching a web page, When the request is sent, Then it carries a browser user agent.
+8. Given a Greenhouse, Lever or Ashby response, When the collector and the parser each map it, Then both call one shared mapper.
+9. Given that shared mapper, When it returns, Then it carries no link and no phase gate.
+10. Given a Lever or Ashby job carrying a slug and no employer name, When the parser runs, Then it reads the name from the board page title.
+11. Given a board page that answers with an error status, When the parser runs, Then no employer name is written.
+12. Given an Ashby job, When the parser finds its posting in the board response, Then it matches on the link match key rather than exact text.
+13. Given a Dribbble job, When the parser runs, Then it writes `description`.
+
+**Reading a description**
+
+14. Given a posting whose source published a salary field, When the parser runs, Then the description is not read for a salary.
+15. Given a posting with no salary field whose description states pay, When the parser runs, Then `raw_salary` carries those figures as `salary_min` and `salary_max`.
+16. Given a posting whose source published a work mode field, When the parser runs, Then the description is not read for a work mode, and where that field is absent the description fills it.
+17. Given a description read as `in-person`, When normalization runs again, Then the job's normalized mode list holds `in-person`.
+18. Given a job no parser covered, When parsing runs, Then no salary and no work mode are read from its description.
+
+**Failing to parse**
+
+19. Given a job whose registrable domain no parser covers, When parsing runs, Then it takes `unparseable` and its parsed flag stays false.
+20. Given a parser that threw or whose source refused the request, When parsing runs, Then the job keeps `backlog` and its parsed flag stays false.
+21. Given a parser that returned no fields at all, When parsing runs, Then the job keeps `backlog` and its parsed flag stays false.
+22. Given a parser that returned at least one field, When parsing runs, Then the parsed flag is true.
+23. Given a job that took `unparseable` on an earlier run, When a later run gathers the parsing list, Then that job is not on it.
+24. Given a job that kept `backlog` after failing to parse, When a later run gathers the parsing list, Then that job is on it.
+25. Given one job whose parse throws, When parsing runs over the list, Then every other job on the list is still parsed.
+
+**Tracing**
+
+26. Given a job a parser read, When parsing runs, Then a `job_parsed` row is written.
+27. Given the three failure kinds, When each happens, Then a `parse_failed` row carries `no_parser_for_domain`, `parser_errored` or `nothing_parsed`.
+28. Given any `parse_failed` row, When it is written, Then it carries the registrable domain in its own column and the full resolved link in `detail`.
+29. Given a resolved link yielding no registrable domain, When the row is written, Then that column is empty and nothing throws.
+
+**The run summary**
+
+30. Given a finished run, When the summary prints, Then it names how many jobs parsed, zero included.
+31. Given a run where jobs failed to parse, When the summary prints, Then it names how many, and lists at most five domains with a count each.
+32. Given a listed domain, When it prints, Then it carries either `no parser` or `parser failed`.
+33. Given two domains with equal counts, When the list prints, Then they order alphabetically.
+34. Given a run where every job parsed, When the summary prints, Then no domain list prints.
+
+**The rest of the step**
+
+35. Given the parsed list, When the step continues, Then it runs normalization, association, dedupe and save in that order.
+36. Given the four parsers, When `npm run db:seed` runs, Then each has a priority list entry above every collector and below `collector:user`.
+
 ### Findings raised and dismissed — do not re-raise these
 
 Four stress-test findings did not survive checking. They are recorded with their reasons in `phase-08-stress-test.md` so the next stress test does not surface them again.
@@ -91,7 +152,7 @@ Four stress-test findings did not survive checking. They are recorded with their
 
 ## Next Steps
 
-1. **Redraft the acceptance criteria for phase 8.** Work from the eleven stories, which are in this session's transcript only, and from the settled decisions in the phase r&d file. The stories cover parsing a job, failing to parse, and knowing what parser to build next. Roughly 36 criteria, Given/When/Then, covering: matching a link to a parser by registrable domain, no browser, the shared field mapper, the board-page name read, the published-field-beats-prose rule, the three failure kinds and which one sets a status, the trace rows and the new domain column, and the summary's Parsing block.
+1. **Put the drafted acceptance criteria below to the user for review.** They are written out in this document and need no redrafting. Ask what is missing and what they disagree with, then revise.
 2. **Write `phase-08-parsers-spec.md`** beside the r&d file — What We're Building, User Stories, Edge Cases, Acceptance Criteria, Tasks, Approach. A task is one unit of code together with its tests, never split in two.
 3. **Run `spec-review` on it.**
 4. **Check off "Plan phase 8"** in `docs/CURRENT-FEATURE.md` and put the task list under its build item.
