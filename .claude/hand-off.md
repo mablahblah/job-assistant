@@ -13,85 +13,113 @@
 
 ## Current Task
 
-**Phase 8 is built. Phase 8b is built and specified. Neither is closed.**
+**Phases 8 and 8b are both closed. Phase 8a is next and not yet planned.**
 
-The user's words for what comes next: *"I want to pick back up on 8b, so i can finish this review and close it, then close 8, then do 8a quickly."*
+Verified at session end: **2,229 tests pass across 97 files. `npm run lint` exits 0.** Working tree clean, everything pushed to `feature/unified-pipeline`.
 
-Verified at session end: **2,219 tests pass across 97 files, `npm run lint` exits 0.** Working tree clean, nothing uncommitted, no unfixed failures.
-
-Phase 8b was built before it was specified — a live test run of phase 8 exposed three faults serious enough to fix on the spot. Its spec is now on disk at [phase-08b-resolution-pacing-spec.md](../docs/features/unified-pipeline/phases/phase-08b-resolution-pacing-spec.md) with 47 acceptance criteria, written from what was built and what was measured.
+Phase 8a sorts `lib/`. Forty-three files sit flat at the top of it while every kind that earned a folder has one. Sorting them rewrites an import path in all forty-three. The user wants this done "quickly".
 
 ## Completed This Session
 
-**Phase 8 tasks 19 to 22, finishing its build.**
+**Phase 8b's outstanding review, against its 47 acceptance criteria.** Four problems found and fixed, in commit `97d62d3`.
 
-- The run summary gained a Parsing block: how many parsed, how many did not, and the top five failing domains with a count and a label each.
-- The four parsers joined the seeded source priority list.
-- Parsing's vocabulary went into the `Trace` model comment and `trace-events.md`.
-- `.claude/rules/naming.md` gained a Parsers section.
+- Criterion 45's test proved nothing. It left the three lane settings at their defaults, then checked they still held the defaults, so it passed whether or not the seed overwrote them.
+- Criteria 14, 15 and 16 had no test at all. Nothing checked what a run does when the database does not match the code.
+- Criterion 39 had none either.
+- `scripts/.experiment.tmp.ts` had been committed. Its own first line said "Throwaway".
 
-**Phase 8b, all of it.** Three faults, each fixed:
+Each new test was proven to catch its fault. The code it guards was broken on purpose, the test watched to fail, then the code restored.
 
-1. **Every resolution failure parked its job** as `unresolvable`, which takes it off the queue for good. A live run had parked **100 of 334 jobs** that way — 47 Adzuna, 47 JSearch, 6 UIUXJobsBoard. Now `page_refused` and `page_load_failed` keep the job; everything else still parks it. `page_unavailable` split in two to make that distinction possible.
-2. **A whole run's trace was lost silently.** `Trace` gained a `domain` column in phase 8 and the live database never got it, so every trace write failed, was caught, counted, and reported only in a line at the end that a stopped run never reaches. `lib/schema-check.ts` now stops a run before anything else when the two disagree.
-3. **Nothing paced our requests.** Resolution now runs two lanes, with the queue dealt round-robin by host in `lib/interleave-by-host.ts`.
+**A real bug, found by the user watching a live run.** Fixed in commit `2ff5859`.
 
-**Reviewed as if it had been planned.** Two stress agents attacked the design and checked every criterion against the tests. Three false claims in the spec were corrected and five test gaps closed. A technical writer then graded the spec against the rubric, and its findings were resolved.
+A full job search collected 398 jobs. During resolution the user saw full-page 403s from Adzuna going past. The database recorded zero refusals for Adzuna.
 
-Thirteen commits, `30f3854` to `6ddcb59`.
+The cause came from a console line the user pasted. Adzuna redirects a job link to a second address carrying a token. That address answers 403. Adzuna then sends the browser somewhere that answers 200. `lib/resolve-job-url.ts` read only the status of the address the page settled on, so the refusal was invisible and the host was never slowed down.
+
+The fix spans three files, each built through `crowd-code` with two competing writers.
+
+- `lib/resolution-page.ts` — `ResolutionResponse` gained `request(): { isNavigationRequest(): boolean }`.
+- `lib/resolution-page.fake.ts` — a `ScriptedResponse` type whose `isNavigation` defaults to true.
+- `lib/resolve-job-url.ts` — `chainWasRefused`, checked before the settled-page status check.
+
+Only a page the browser navigated to counts. One measured page load fires about 69 responses, mostly images, scripts and advertising pixels. Criteria 48 to 51 were added to the 8b spec.
+
+**A second run proved it works.** Run with `npm run job-search -- --limit 0`, which skips collection and resolves the 209 jobs already stored.
+
+| Host | Resolved | Final refusals |
+| --- | --- | --- |
+| uiuxjobsboard | 84 of 91 | 0 |
+| Adzuna | 57 of 61 | 0 |
+| LinkedIn | 0 of 37 | 0, all login walls |
+| ZipRecruiter | 1 of 7 | 6 |
+| CareerBuilder | 0 of 6 | 6 |
+
+149 resolved, 60 failed. **Adzuna resolved 57 of 61, against 19 of 66 before the fix.** It refused us again, was moved to the slow lane, and finished nearly everything. Three hosts were caught and slowed rather than spent.
+
+Parsing: 173 parsed, 91 not. The domains with no parser are Workday 22, Workable 16, SmartRecruiters 9, `join.com` 5, Adzuna 4.
+
+**Both closes.** The architecture doc gained nine missing parts, a rewritten Status section, updated Data Model rows, and phase 8's ported-from-legacy row. The `Trace` comment's own counts were stale and now read correctly — resolution has ten reasons, not eight. The decision log gained six entries. `docs/CURRENT-FEATURE.md` has both closes ticked and phase 8's 22 sub-tasks collapsed into one line.
+
+**Backlog changes, all approved by the user.**
+
+- **Item 1, Unified Pipeline Tech Debt** — new, at the top. A running list for real but non-critical defects found mid-phase.
+- **Item 27, Resolver Refinements** — its circuit breaker is retired, because phase 8b built it as the two lanes. It gained the JSearch question instead.
+- **Item 28, Lean Resolution Page Loads** — new. One page visit costs 69 requests against a ceiling of roughly 25.
+
+Every existing item shifted down one. Four documents naming a backlog number were updated. Meeting notes keep their original numbers, being dated records.
 
 ## Decisions & Context
 
 ### What the user decided
 
-Four entries appended to `docs/features/unified-pipeline/decision-log.md`, all dated 2026-09-12. Read them there. In short: a failure that describes the moment keeps the job; no retry limit; a run stops when the database and code disagree; resolution runs two lanes.
+Six entries were appended to `docs/features/unified-pipeline/decision-log.md`. Read them there. In short: a refusal is read from any page the browser navigated to; a refused tracker is not a refusal; the fast lane stays unpaced because the slow lane exists so it need not be; cutting what a page visit costs becomes its own backlog item; and a non-critical defect goes on the tech debt list.
 
-**The two-lane decision is the one that constrains future work.** Giving each host its own pace was rejected as routing by URL — domain-specific judgement belongs in collectors and parsers and nowhere else.
+**The fast-lane question is now closed, not deferred.** The 8b spec previously said it was "to be decided against a run of the shipped code". That run happened. The user's words: _"this is why we built the slow lane, so we didnt have to slow the fast lane."_
 
-### Dropped as work-documentation, not decisions
+### Rejected — do not re-raise
 
-- **The three lane settings.** The reason is self-evident, so the entry would read the same without it.
-- **Rebuilding the database rather than un-parking 100 jobs.** A one-time cleanup that constrains nothing later.
-- **The source priority order.** The user was explicit: *"this is not a decision, there is no decision about order."* Only two things are true, and both are already in the 2026-09-06 entry — new sources get added to the list, and the list is theirs to reorder.
+**Flagging the over-merge query as owed.** The user's words: _"not sure this is a worry of mine, borrowing a problem from the future."_
+
+### The subtlety that will mislead the next session
+
+**A job deferred to the slow lane writes no trace row in the fast lane.** This is by design, so each job earns exactly one row.
+
+So a host being refused looks like **zero `page_refused` rows, plus that host disappearing from the browser**. A monitor watching for refusal rows to detect a block is watching the wrong signal. This session built exactly that monitor and it reported "adzuna refusals=0" throughout, while the slow lane was working perfectly.
+
+What actually reveals a deferral is a host stopping partway through its queue with no failure recorded.
 
 ### Measured facts — do not re-measure
 
-- **Adzuna allows roughly 20-25 page visits per five minutes and refuses at about 30.** Measured three ways over 66 jobs. The full tables are in the spec's "What was measured".
-- **One at a time resolved 46 of 66. Every 7s resolved 34. Every 5s resolved 31.** The shipped 3-at-a-time-with-no-delay resolved 19.
-- **The block lifts on its own** after a few minutes. Every paced run recovered for stretches of 8 to 13 clean requests.
-- **JSearch's 51 jobs point at 36 LinkedIn, 10 ZipRecruiter, 5 CareerBuilder.** LinkedIn's login wall reads as `dead_end`, correctly. Its parked jobs are mostly right and pacing will not change them.
-- **A refused page burns the full 15-second settling budget** before its status is read, because a 403 page carries too few links to look finished.
+- **One Adzuna page visit fires about 69 responses.** The posting, plus images, scripts, fonts and advertising pixels — `us.creativecdn.com`, `px.ads.linkedin.com`, `linkedin.com/px` among them. This is what backlog item 28 exists to cut.
+- **Adzuna's block lifts on its own.** A three-link probe mid-session returned three clean 200s and resolved all three.
+- **A three-request probe proves nothing about a rate limit.** The ceiling needs roughly thirty visits in five minutes. The user's words: _"you probably didnt hit the limit."_
+- **LinkedIn is not a refusal case.** Its 37 JSearch jobs end at a login wall, recorded as `dead_end`. That is correct and pacing will not change it.
 
-### Known limit, recorded in the spec
+### Calls made while building
 
-**The fast lane has no pacing at all.** A host above roughly a sixth of the queue still breaks through; Adzuna is 30%. The two lanes cut the cost of a block, they do not prevent one. Whether the fast lane should be paced is the next iteration, to be decided against a run of the shipped code rather than in advance.
+- **The collector fixture HTML files were reverted.** A real run refreshes `lib/collectors/fixtures/dribbble.html` and `uiuxjobsboard.html`. They are unrelated to a bug fix and should not be swept into one.
+- **The second test run skipped collection.** `--limit 0` reaches no job site, so resolution ran against the 209 jobs already stored. This isolated the fix from another collection pass.
+- **New criteria were appended as 48 to 51.** The 8b spec's own rule is that numbering never shifts.
 
 ### Gotchas discovered
 
-- **`npm run db:seed` appends to the bottom and never reorders.** Running it on a database that already holds a priority list will not fix that list's order.
-- **The database was rebuilt from scratch this session** and holds no jobs.
-- **The scripted resolution page fake ignores the URL it is handed** and serves its pages in order. A test covering several jobs on different hosts needs `factoryByUrl`, added in `lib/handlers/resolution.test.ts`.
-- **`pkill -f "scripts/job-search.ts"` does not always take the Playwright browser with it.** `pkill -f "playwright_chromiumdev_profile"` finishes the job.
+- **`pkill -f "scripts/job-search.ts"` did not stop the run.** The processes survived it. `kill -9` on the listed PIDs was needed.
+- **The pipeline database is `pipeline.db` at the repo root**, reached through `PIPELINE_DATABASE_URL`. `dev.db` beside it belongs to the old pipeline.
+- **`sqlite3` is available on this machine** and is far cheaper than spawning `npx tsx` to query the database.
 
-### Two review findings the user dismissed — do not re-raise
+### Open question, unanswered
 
-- **The run-summary constraint.** Every phase is supposed to add a summary block; 8b adds none. The user's words: *"This isn't true."*
-- **A claimed contradiction with the seed.** The grader read the hand-written ranking as overturning a signed-off decision. Checked against the code: the seed still appends to the bottom and never reorders. No contradiction.
-
-### Open question, unanswered for two sessions
-
-**Should the Tools section of `.claude/rules/naming.md` record that a tool holding no state can be a plain function rather than a `create{Subject}()` builder?** The page-fetcher is such a tool, and the decision is already in the log, but the rule does not mention the exception.
+**Should the Future Ideas list in `docs/BACKLOG.md` be renumbered?** It numbers itself from 26 upward and now collides with the Upcoming list's 26, 27 and 28. The overlap existed before this session at one number and is now three.
 
 ### Still open from earlier hand-offs
 
-1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are tracked and pushed.** A `git add -A` swept them in. Unanswered for twelve sessions.
-2. **The over-merge query backlog entry 26 owes has not been run.** Its trigger, the first real run, has happened.
-3. **Whether resolution should stop on its own aggregator** is still undecided.
+1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are tracked and pushed.** Unanswered for thirteen sessions.
+2. **Whether resolution should stop on its own aggregator** is still undecided.
+3. **Whether `.claude/rules/naming.md`'s Tools section should record that a stateless tool can be a plain function**, rather than a `create{Subject}()` builder. The page fetcher is such a tool and the decision is already logged, but the rule does not mention the exception.
 
 ## Next Steps
 
-1. **Finish reviewing phase 8b.** The spec is on disk with 47 criteria. A code review of the build against those criteria has not been run — that is the one review step still outstanding.
-2. **Close phase 8b** — architecture doc, and any `BACKLOG.md` change presented for approval. The decision log is already done.
-3. **Close phase 8** — same. The source priority ranking work belongs to this close rather than to 8b, which is why 8b's spec carries none of it.
-4. **Phase 8a, sorting `lib/`.** Plan it, then build it. Forty-three files sit flat at the top of `lib/`, and sorting them rewrites an import path in all forty-three. The user wants this done "quickly".
-5. **Rerun the Adzuna measurement against the shipped two-lane code**, to see whether it beats 19 of 66. The database holds no jobs, so this needs a collection run first.
+1. **Plan phase 8a, sorting `lib/`.** Follow the phase planning procedure. Forty-three files sit flat at the top of `lib/`, and sorting them rewrites an import path in all forty-three. The user wants it done quickly.
+2. **Build phase 8a**, then close it.
+3. **Answer the Future Ideas numbering question** before the next backlog change, since another insertion widens the collision.
+4. **When a non-critical defect turns up, add it to backlog item 1** rather than fixing it mid-phase or carrying it in a hand-off. Its first entry is the lost trace row: `lib/trace-service.ts` counts a failed write and throws the error away, so the one row lost on 2026-09-13 cannot be explained. The leading suspicion is SQLite write contention between the three fast-lane workers.
