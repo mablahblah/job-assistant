@@ -3,13 +3,13 @@
 // the legacy Ashby parser used Playwright to scrape a React data blob out of
 // the rendered page; this one reads api.ashbyhq.com instead, the same
 // endpoint the Ashby collector reads. No browser is opened anywhere here.
-import { jobFieldsFromAshbyPosting, type AshbyJobBoardResponse } from "../ashby-fields";
-import { nameFromBoardTitle, titleFromHtml } from "../board-title-name";
-import { fetchWithTimeout, httpError, safeJson } from "../collectors/fetch-utils";
-import { withFieldsFromDescription } from "../description-fallback";
+import { jobFieldsFromAshbyPosting, type AshbyJobBoardResponse } from "../utils/ashby-fields";
+import { nameFromBoardTitle, titleFromHtml } from "../utils/board-title-name";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { withFieldsFromDescription } from "../utils/description-fallback";
 import { BROWSER_USER_AGENT, fetchPageHtml } from "../tools/page-fetcher";
-import { urlMatchKey } from "../url-match-key";
-import type { Parser } from "./types";
+import { urlMatchKey } from "../utils/url-match-key";
+import type { Parser } from "./parser";
 
 const postingUrl = (slug: string) =>
   `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`;

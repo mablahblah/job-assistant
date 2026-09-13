@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
-import type { ResolutionPage, ResolutionResponse, OpenPage } from "../resolution-page";
-import type { JobListEntry } from "../job-list-entry";
+import { fakeResolutionPage, type ScriptedPage } from "../tools/resolution-page.fake";
+import type { ResolutionPage, ResolutionResponse, OpenPage } from "../tools/resolution-page";
+import type { JobListEntry } from "../types/job-list-entry";
 import { resolveJobs } from "./resolution";
 
 // Settling is its own module with its own tests. The resolutions here are scripted

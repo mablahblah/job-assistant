@@ -3,10 +3,10 @@
 // parser of four that reads a rendered page. A plain fetch and a parse do
 // everything a browser would here, so no browser is opened.
 import { parseHTML } from "linkedom";
-import { withFieldsFromDescription } from "../description-fallback";
-import type { MappedJobFields } from "../job-list-entry";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import type { MappedJobFields } from "../types/job-list-entry";
 import { fetchPageHtml } from "../tools/page-fetcher";
-import type { Parser } from "./types";
+import type { Parser } from "./parser";
 
 // The fields read out of Dribbble.JobListing.initialize({...})'s
 // trackingProperties sub-object.

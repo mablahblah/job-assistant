@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { associateCompanies } from "./association";
-import { fakeCompanyService } from "../company-service.fake";
-import { companyMatchKey } from "../company-match-key";
-import type { CompanyRecord } from "../company-service";
-import type { JobListEntry } from "../job-list-entry";
-import type { TraceEvent, TraceService } from "../trace-service";
+import { fakeCompanyService } from "../services/company-service.fake";
+import { companyMatchKey } from "../utils/company-match-key";
+import type { CompanyRecord } from "../services/company-service";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { TraceEvent, TraceService } from "../services/trace-service";
 
 // Covers only the trace rows the step writes. What it decides and what it
 // warns about keep their own coverage in association.test.ts and are

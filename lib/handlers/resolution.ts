@@ -5,12 +5,12 @@
 //
 // It is handed a page factory rather than a browser, so it launches nothing of
 // its own and a scripted fake stands in for Playwright in its tests.
-import type { CollectionIssue } from "../collection-issue";
-import type { JobListEntry } from "../job-list-entry";
-import type { ResolutionPage, ResolutionPageFactory } from "../resolution-page";
-import { interleaveByHost } from "../interleave-by-host";
-import { resolveJobUrl, type ResolutionOutcome } from "../resolve-job-url";
-import type { TraceService } from "../trace-service";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { ResolutionPage, ResolutionPageFactory } from "../tools/resolution-page";
+import { interleaveByHost } from "../utils/interleave-by-host";
+import { resolveJobUrl, type ResolutionOutcome } from "../resolvers/resolve-job-url";
+import type { TraceService } from "../services/trace-service";
 
 export interface ResolveJobsOptions {
   openPage: ResolutionPageFactory;

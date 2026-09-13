@@ -2,10 +2,10 @@
 // Every term folds into one query, so a run is always two requests — one for
 // remote work and one anchored to the user's location. Each is attempted on
 // its own, so a failure in one never costs the other its jobs.
-import type { JobListEntry, RawSalary } from "../job-list-entry";
-import { messageFromThrown } from "../thrown-message";
-import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
-import type { Collector, CollectorResult } from "./types";
+import type { JobListEntry, RawSalary } from "../types/job-list-entry";
+import { messageFromThrown } from "../utils/thrown-message";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
 const SEARCH_URL = "https://jsearch.p.rapidapi.com/search";
 const API_HOST = "jsearch.p.rapidapi.com";

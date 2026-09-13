@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { dedupeJobs } from "./dedupe";
-import { fakeJobService } from "../job-service.fake";
-import type { JobService } from "../job-service";
-import type { JobListEntry } from "../job-list-entry";
-import type { TraceEvent, TraceService } from "../trace-service";
+import { fakeJobService } from "../services/job-service.fake";
+import type { JobService } from "../services/job-service";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { TraceEvent, TraceService } from "../services/trace-service";
 
 // Covers only the trace rows the step writes. What it decides — which entries
 // survive and which are marked away — is covered in dedupe.test.ts.

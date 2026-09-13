@@ -3,12 +3,12 @@
 // folds whatever fields it finds onto the entry. A job with no covering
 // parser is set aside as unparseable rather than read blind, and one job's
 // read failing never stops the rest of the list from being tried.
-import type { CollectionIssue } from "../collection-issue";
-import type { JobListEntry } from "../job-list-entry";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { JobListEntry } from "../types/job-list-entry";
 import { parserForUrl } from "../parsers/registry";
-import type { Parser } from "../parsers/types";
-import { registrableDomainFromUrl } from "../registrable-domain";
-import type { TraceService } from "../trace-service";
+import type { Parser } from "../parsers/parser";
+import { registrableDomainFromUrl } from "../utils/registrable-domain";
+import type { TraceService } from "../services/trace-service";
 
 export interface ParseJobsOptions {
   // Substitution point that lets the step be tested offline against stand-in

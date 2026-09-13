@@ -14,24 +14,24 @@
 // escaping to the caller. Every step has already written to the database by
 // the time a later one can fail, so the run's finished work survives, and the
 // report carries it along with the spot that threw and the reason.
-import type { CollectionIssue } from "../collection-issue";
-import type { Collector } from "../collectors/types";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { Collector } from "../collectors/collector";
 import { associateCompanies } from "../handlers/association";
 import { collectJobs } from "../handlers/collection";
-import type { CompanyService } from "../company-service";
+import type { CompanyService } from "../services/company-service";
 import { dedupeJobs } from "../handlers/dedupe";
-import type { JobListEntry } from "../job-list-entry";
-import type { JobService } from "../job-service";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { JobService } from "../services/job-service";
 import { normalizeJobs } from "../handlers/normalization";
 import { parseJobs } from "../handlers/parsing";
 import { resolveJobs } from "../handlers/resolution";
-import type { Parser } from "../parsers/types";
-import type { ResolutionBrowserFactory, ResolutionPage } from "../resolution-page";
+import type { Parser } from "../parsers/parser";
+import type { ResolutionBrowserFactory, ResolutionPage } from "../tools/resolution-page";
 import { saveJobs } from "../handlers/save";
-import type { SettingsService } from "../settings-service";
-import { messageFromThrown } from "../thrown-message";
-import type { TitleVocabularies } from "../title";
-import type { TraceService } from "../trace-service";
+import type { SettingsService } from "../services/settings-service";
+import { messageFromThrown } from "../utils/thrown-message";
+import type { TitleVocabularies } from "../utils/title";
+import type { TraceService } from "../services/trace-service";
 
 export interface FinishedHandler {
   // The `Trace.step` name this handler ran under. The handler is not a step:

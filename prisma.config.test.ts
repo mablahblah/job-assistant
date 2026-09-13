@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { getPipelineDatabaseUrl } from "./lib/pipeline-env";
+import { getPipelineDatabaseUrl } from "./lib/db/pipeline-env";
 
 const repoRoot = dirname(fileURLToPath(import.meta.url));
 
@@ -20,7 +20,7 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = { ...envSnapshot };
-  vi.doUnmock("./lib/pipeline-env");
+  vi.doUnmock("./lib/db/pipeline-env");
   vi.resetModules();
 });
 
@@ -77,7 +77,7 @@ describe("AC2: the pipeline database url has no fallback", () => {
     // deleting the variable and re-importing, because that import would let
     // dotenv repopulate it from .env before the throw could fire.
     vi.resetModules();
-    vi.doMock("./lib/pipeline-env", () => ({
+    vi.doMock("./lib/db/pipeline-env", () => ({
       getPipelineDatabaseUrl: () => {
         throw new Error("PIPELINE_DATABASE_URL is not set.");
       },

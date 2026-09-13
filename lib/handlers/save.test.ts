@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { saveJobs } from "./save";
-import { fakeJobService } from "../job-service.fake";
-import type { JobListEntry } from "../job-list-entry";
+import { fakeJobService } from "../services/job-service.fake";
+import type { JobListEntry } from "../types/job-list-entry";
 
 // The save step is a loop, not a rule. Every decision about what a write
 // turns out to be lives in the job service, which has its own tests; what

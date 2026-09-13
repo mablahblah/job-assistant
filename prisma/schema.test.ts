@@ -6,8 +6,8 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { createPipelineDb } from "../lib/pipeline-db";
-import { DEDUPE_TRACE_REASONS } from "../lib/job-list-entry";
+import { createPipelineDb } from "../lib/db/pipeline-db";
+import { DEDUPE_TRACE_REASONS } from "../lib/types/job-list-entry";
 
 // This file lives in prisma/, so the repo root is one level up.
 const prismaDir = dirname(fileURLToPath(import.meta.url));

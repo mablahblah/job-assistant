@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { collectJobs } from "./collection";
-import type { Collector, CollectorContext, CollectorResult } from "../collectors/types";
-import type { JobListEntry } from "../job-list-entry";
-import type { SettingsService } from "../settings-service";
-import type { UnusableCode } from "../collectors/job-usable";
-import type { TraceEvent, TraceService } from "../trace-service";
-import { fakeSettingsService } from "../settings-service.fake";
+import type { Collector, CollectorContext, CollectorResult } from "../collectors/collector";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { SettingsService } from "../services/settings-service";
+import type { UnusableCode } from "../utils/job-usable";
+import type { TraceEvent, TraceService } from "../services/trace-service";
+import { fakeSettingsService } from "../services/settings-service.fake";
 
 // Collection only hands this to collectors, so no getter needs real behaviour.
 const stubSettings: SettingsService = fakeSettingsService();

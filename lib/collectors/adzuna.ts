@@ -2,10 +2,10 @@
 // term runs two searches — one nationwide for remote work, one anchored to the
 // user's location — because carrying a location into the remote search would
 // narrow it to the radius and defeat it.
-import type { JobListEntry, RawSalary } from "../job-list-entry";
-import { messageFromThrown } from "../thrown-message";
-import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
-import type { Collector, CollectorResult } from "./types";
+import type { JobListEntry, RawSalary } from "../types/job-list-entry";
+import { messageFromThrown } from "../utils/thrown-message";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
 const SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/us/search/1";
 

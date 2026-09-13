@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import type { JobListEntry } from "../job-list-entry";
-import type { Parser } from "../parsers/types";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { Parser } from "../parsers/parser";
 import { parseJobs } from "./parsing";
 
 const GREENHOUSE_LINK = "https://boards.greenhouse.io/acme/jobs/1";

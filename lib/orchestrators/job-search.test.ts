@@ -1,18 +1,18 @@
 import { describe, expect, test, vi } from "vitest";
-import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
-import type { ResolutionBrowserSession } from "../resolution-page";
+import { fakeResolutionPage, type ScriptedPage } from "../tools/resolution-page.fake";
+import type { ResolutionBrowserSession } from "../tools/resolution-page";
 import { runJobSearch } from "./job-search";
 import { resolveJobs } from "../handlers/resolution";
-import type { Collector, CollectorContext, CollectorResult } from "../collectors/types";
-import type { JobListEntry } from "../job-list-entry";
-import type { SettingsService } from "../settings-service";
-import type { TraceEvent, TraceService } from "../trace-service";
-import { fakeSettingsService } from "../settings-service.fake";
-import { fakeCompanyService } from "../company-service.fake";
-import { fakeJobService } from "../job-service.fake";
-import type { JobService } from "../job-service";
-import type { Parser } from "../parsers/types";
-import type { CompanyRecord } from "../company-service";
+import type { Collector, CollectorContext, CollectorResult } from "../collectors/collector";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { SettingsService } from "../services/settings-service";
+import type { TraceEvent, TraceService } from "../services/trace-service";
+import { fakeSettingsService } from "../services/settings-service.fake";
+import { fakeCompanyService } from "../services/company-service.fake";
+import { fakeJobService } from "../services/job-service.fake";
+import type { JobService } from "../services/job-service";
+import type { Parser } from "../parsers/parser";
+import type { CompanyRecord } from "../services/company-service";
 
 // The resolution step is wrapped in a spy that still runs the real thing, so
 // every test below behaves exactly as it did while one test can also read the

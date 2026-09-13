@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { fakeResolutionPage, type ScriptedPage } from "../resolution-page.fake";
-import type { OpenPage } from "../resolution-page";
-import type { JobListEntry } from "../job-list-entry";
-import type { TraceEvent, TraceService } from "../trace-service";
+import { fakeResolutionPage, type ScriptedPage } from "../tools/resolution-page.fake";
+import type { OpenPage } from "../tools/resolution-page";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { TraceEvent, TraceService } from "../services/trace-service";
 import { resolveJobs } from "./resolution";
 
 // Covers only the trace rows the step writes. What it writes back onto each

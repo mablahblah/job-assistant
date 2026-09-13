@@ -9,7 +9,7 @@ import { existsSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { getPipelineDatabaseUrl } from "../lib/pipeline-env";
+import { getPipelineDatabaseUrl } from "../lib/db/pipeline-env";
 
 // This script lives in scripts/, so the repo root is one level up. Prisma
 // resolves a relative database url from the directory holding

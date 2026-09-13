@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { messageFromThrown } from "../thrown-message";
+import { messageFromThrown } from "../utils/thrown-message";
 
 // Every warning is worded here, so its wording changes in one place.
 const WARNINGS = {

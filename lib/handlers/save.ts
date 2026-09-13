@@ -8,13 +8,13 @@
 // no database of its own and a fake serves its tests. Every rule about what a
 // write does — the merge, the active-status freeze, the delete guardrail — lives
 // in that service. This step is the loop that asks it and records the answer.
-import type { JobService, JobWriteOutcome } from "../job-service";
-import type { DeleteRefusedDetail, TraceDetail, TraceService } from "../trace-service";
-import type { CollectionIssue } from "../collection-issue";
-import type { JobListEntry } from "../job-list-entry";
-import { saveWarnings, type SaveWarning } from "../save-warnings";
-import { messageFromThrown } from "../thrown-message";
-import { truncateDetail } from "../trace-detail";
+import type { JobService, JobWriteOutcome } from "../services/job-service";
+import type { DeleteRefusedDetail, TraceDetail, TraceService } from "../services/trace-service";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { JobListEntry } from "../types/job-list-entry";
+import { saveWarnings, type SaveWarning } from "../utils/save-warnings";
+import { messageFromThrown } from "../utils/thrown-message";
+import { truncateDetail } from "../utils/trace-detail";
 
 export interface SaveJobsOptions {
   jobService: JobService;

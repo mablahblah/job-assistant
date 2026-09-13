@@ -3,7 +3,7 @@
 // ever left pointing at a company that is gone. The Setting row is never
 // touched, because any write to it — even writing back the same values —
 // would move modified_at.
-import { createPipelineDb } from "../lib/pipeline-db";
+import { createPipelineDb } from "../lib/db/pipeline-db";
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 

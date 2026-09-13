@@ -12,12 +12,12 @@
 // the one parser worth building. Collapsing to owned domain is what makes a
 // failing platform countable. This replaces a legacy registry that kept
 // hand-listed hosts plus a Greenhouse wildcard regex.
-import { registrableDomainFromUrl } from "../registrable-domain";
+import { registrableDomainFromUrl } from "../utils/registrable-domain";
 import { ashbyParser } from "./ashby";
 import { dribbbleParser } from "./dribbble";
 import { greenhouseParser } from "./greenhouse";
 import { leverParser } from "./lever";
-import type { Parser } from "./types";
+import type { Parser } from "./parser";
 
 export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
   "greenhouse.io": greenhouseParser,

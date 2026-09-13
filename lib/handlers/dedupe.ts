@@ -8,18 +8,18 @@
 // writes or deletes a row, so it opens no database of its own and a fake
 // serves its tests. A loser rides the returned list carrying delete_on_save,
 // and the save step downstream is what removes it.
-import { mergeMatchingJobs } from "../job-dedupe";
-import { matchingClause } from "../job-identity";
-import { mergeJobs, pickWinner } from "../job-merge";
-import { urlMatchKey } from "../url-match-key";
-import { dedupeWarnings } from "../dedupe-warnings";
-import type { DedupeWarning } from "../dedupe-warnings";
-import type { JobIdentityClause } from "../job-identity";
-import type { JobService } from "../job-service";
-import type { DedupeTraceDetail, TraceService } from "../trace-service";
-import type { CollectionIssue } from "../collection-issue";
-import type { JobListEntry } from "../job-list-entry";
-import { truncateDetail } from "../trace-detail";
+import { mergeMatchingJobs } from "../utils/job-dedupe";
+import { matchingClause } from "../utils/job-identity";
+import { mergeJobs, pickWinner } from "../utils/job-merge";
+import { urlMatchKey } from "../utils/url-match-key";
+import { dedupeWarnings } from "../utils/dedupe-warnings";
+import type { DedupeWarning } from "../utils/dedupe-warnings";
+import type { JobIdentityClause } from "../utils/job-identity";
+import type { JobService } from "../services/job-service";
+import type { DedupeTraceDetail, TraceService } from "../services/trace-service";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { JobListEntry } from "../types/job-list-entry";
+import { truncateDetail } from "../utils/trace-detail";
 
 // The mark a job carries when it lost to a stored row, and the reason the
 // trace row gives for that departure.

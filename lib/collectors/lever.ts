@@ -1,12 +1,12 @@
 // Polls Lever's public postings API for jobs whose title matches the user's
 // search terms. Lever's API carries no employer name, so a job records the
 // slug of the board it came from and leaves the name to company association.
-import type { JobListEntry } from "../job-list-entry";
-import { jobFieldsFromLeverPosting, type LeverPosting } from "../lever-fields";
-import { matchesSearchTerms } from "../search-term-analyzer";
+import type { JobListEntry } from "../types/job-list-entry";
+import { jobFieldsFromLeverPosting, type LeverPosting } from "../utils/lever-fields";
+import { matchesSearchTerms } from "../utils/search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
-import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
-import type { Collector, CollectorResult } from "./types";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
 const PLATFORM = "lever";
 

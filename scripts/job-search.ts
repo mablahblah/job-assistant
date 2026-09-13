@@ -1,17 +1,17 @@
 // Starts a job search: builds what the whole run shares, calls the
 // orchestrator, and reports what came back. Which steps run, and in what order,
 // is the orchestrator's to know rather than this script's.
-import { createPipelineDb } from "../lib/pipeline-db";
-import { createCompanyService } from "../lib/company-service";
-import { createJobService } from "../lib/job-service";
-import { createSettingsService } from "../lib/settings-service";
-import type { CollectionIssue } from "../lib/collection-issue";
+import { createPipelineDb } from "../lib/db/pipeline-db";
+import { createCompanyService } from "../lib/services/company-service";
+import { createJobService } from "../lib/services/job-service";
+import { createSettingsService } from "../lib/services/settings-service";
+import type { CollectionIssue } from "../lib/types/collection-issue";
 import { runJobSearch } from "../lib/orchestrators/job-search";
 import { createResolutionBrowser } from "../lib/tools/resolution-browser";
-import { summaryFromTraceCounts } from "../lib/run-summary";
-import { createTraceService } from "../lib/trace-service";
+import { summaryFromTraceCounts } from "../lib/utils/run-summary";
+import { createTraceService } from "../lib/services/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
-import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/schema-check";
+import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
 
 // One line per issue, naming both the collector and its own message, since
 // that message is what names the board or search behind it.

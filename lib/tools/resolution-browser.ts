@@ -12,7 +12,7 @@ import type {
   ResolutionBrowserSession,
   ResolutionPage,
   OpenPage,
-} from "../resolution-page";
+} from "./resolution-page";
 
 // Resolution runs headed and the mode is deliberately not configurable.
 // Measured directly against Adzuna's `/land/ad/` redirector: 26 of 26

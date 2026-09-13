@@ -3,8 +3,8 @@
 // current page and a way to move to the next one, and this loop decides when
 // the search has gathered enough, run dry, or gone wrong.
 
-import { isPastThreshold, parseAgeToDays } from "../job-age";
-import { messageFromThrown } from "../thrown-message";
+import { isPastThreshold, parseAgeToDays } from "../utils/job-age";
+import { messageFromThrown } from "../utils/thrown-message";
 
 // One result card as a collector reads it off a page. company is empty when
 // the card names no employer: the card is still a card, and the job it becomes

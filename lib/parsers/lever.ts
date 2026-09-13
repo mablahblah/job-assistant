@@ -4,12 +4,12 @@
 // the employer's name: Lever's posting API never carries it, so this parser
 // makes one extra request for the board page and reads the name off its
 // <title>.
-import { nameFromBoardTitle, titleFromHtml } from "../board-title-name";
-import { fetchWithTimeout, httpError, safeJson } from "../collectors/fetch-utils";
-import { withFieldsFromDescription } from "../description-fallback";
-import { jobFieldsFromLeverPosting, type LeverPosting } from "../lever-fields";
+import { nameFromBoardTitle, titleFromHtml } from "../utils/board-title-name";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import { jobFieldsFromLeverPosting, type LeverPosting } from "../utils/lever-fields";
 import { BROWSER_USER_AGENT, fetchPageHtml } from "../tools/page-fetcher";
-import type { Parser } from "./types";
+import type { Parser } from "./parser";
 
 const postingUrl = (slug: string, postingId: string) =>
   `https://api.lever.co/v0/postings/${slug}/${postingId}`;

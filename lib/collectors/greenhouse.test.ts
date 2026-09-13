@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { greenhouseCollector } from "./greenhouse";
-import { jobFieldsFromGreenhousePosting } from "../greenhouse-fields";
-import type { AtsCompany, SettingsService } from "../settings-service";
-import { fakeSettingsService } from "../settings-service.fake";
+import { jobFieldsFromGreenhousePosting } from "../utils/greenhouse-fields";
+import type { AtsCompany, SettingsService } from "../services/settings-service";
+import { fakeSettingsService } from "../services/settings-service.fake";
 
 // The shared mapper is wrapped in a spy that still runs the real thing, so
 // every test below reads the same fields it always did while one test can
 // also check the collector went through the mapper rather than a copy of it.
-vi.mock("../greenhouse-fields", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../greenhouse-fields")>();
+vi.mock("../utils/greenhouse-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/greenhouse-fields")>();
   return { ...actual, jobFieldsFromGreenhousePosting: vi.fn(actual.jobFieldsFromGreenhousePosting) };
 });
 

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { normalizeJob } from "./normalization";
-import type { JobListEntry } from "../job-list-entry";
-import type { TitleVocabularies } from "../title";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { TitleVocabularies } from "../utils/title";
 
 // The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
 // so normalizeJob's title routing runs against what really ships. It moves
-// whenever SETTING_DEFAULTS does, as do the copies in lib/title.test.ts and
-// EXPECTED_TITLE_LEVELS in lib/settings-service.test.ts.
+// whenever SETTING_DEFAULTS does, as do the copies in lib/utils/title.test.ts and
+// EXPECTED_TITLE_LEVELS in lib/services/settings-service.test.ts.
 const VOCABULARIES: TitleVocabularies = {
   headNouns: [
     "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",

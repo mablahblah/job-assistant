@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { adzunaCollector } from "./adzuna";
-import type { SettingsService } from "../settings-service";
-import { fakeSettingsService } from "../settings-service.fake";
+import type { SettingsService } from "../services/settings-service";
+import { fakeSettingsService } from "../services/settings-service.fake";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.

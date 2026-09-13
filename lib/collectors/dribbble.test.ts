@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { SettingsService } from "../settings-service";
+import type { SettingsService } from "../services/settings-service";
 
 // The collector reaches a live site in production, so every test here stubs
 // the one function that does it. No request ever leaves the process.
-vi.mock("./fetch-page", () => ({
+vi.mock("../tools/fetch-page", () => ({
   fetchContainer: vi.fn(),
 }));
 
@@ -17,9 +17,9 @@ vi.mock("./fixture", async (importOriginal) => ({
 }));
 
 import { dribbbleCollector } from "./dribbble";
-import { fetchContainer } from "./fetch-page";
+import { fetchContainer } from "../tools/fetch-page";
 import { writeFixture } from "./fixture";
-import { fakeSettingsService } from "../settings-service.fake";
+import { fakeSettingsService } from "../services/settings-service.fake";
 
 type SearchMode = "location" | "remote";
 

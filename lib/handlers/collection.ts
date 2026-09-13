@@ -3,13 +3,13 @@
 // warning string all become the same shape, so one source dropping out never
 // costs the run the others. This is the one handler taking no job list,
 // because it builds the first one.
-import type { CollectionIssue } from "../collection-issue";
-import { unusableReason } from "../collectors/job-usable";
-import type { Collector } from "../collectors/types";
-import type { JobListEntry } from "../job-list-entry";
-import type { SettingsService } from "../settings-service";
-import { messageFromThrown } from "../thrown-message";
-import type { TraceService } from "../trace-service";
+import type { CollectionIssue } from "../types/collection-issue";
+import { unusableReason } from "../utils/job-usable";
+import type { Collector } from "../collectors/collector";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { SettingsService } from "../services/settings-service";
+import { messageFromThrown } from "../utils/thrown-message";
+import type { TraceService } from "../services/trace-service";
 
 export interface CollectJobsOptions {
   settings: SettingsService;

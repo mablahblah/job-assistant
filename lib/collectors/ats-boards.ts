@@ -1,4 +1,4 @@
-import type { AtsCompany, SettingsService } from "../settings-service";
+import type { AtsCompany, SettingsService } from "../services/settings-service";
 
 export interface AtsBoards {
   boards: AtsCompany[];

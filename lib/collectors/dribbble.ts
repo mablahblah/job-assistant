@@ -4,13 +4,13 @@
 // resolution has nothing to resolve, because Dribbble hosts the posting the card
 // points at. Dribbble sends a finished page, so a request and a parse do
 // everything a browser would without starting one.
-import type { JobListEntry } from "../job-list-entry";
-import { ageToDate } from "../job-age";
+import type { JobListEntry } from "../types/job-list-entry";
+import { ageToDate } from "../utils/job-age";
 import { DRIBBBLE_RESULTS_CONTAINER, readDribbbleCards } from "./dribbble-cards";
-import { fetchContainer } from "./fetch-page";
+import { fetchContainer } from "../tools/fetch-page";
 import { pickFixture, writeFixture, type FixtureCandidate } from "./fixture";
 import { noCardsWarnings, paginate, type PaginateResult, type ResultCard } from "./paginate";
-import type { Collector, CollectorResult } from "./types";
+import type { Collector, CollectorResult } from "./collector";
 
 const NAME = "dribbble";
 

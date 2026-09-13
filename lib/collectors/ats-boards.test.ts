@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { readAtsBoards } from "./ats-boards";
-import type { AtsCompany, SettingsService } from "../settings-service";
-import { fakeSettingsService } from "../settings-service.fake";
+import type { AtsCompany, SettingsService } from "../services/settings-service";
+import { fakeSettingsService } from "../services/settings-service.fake";
 
 // A settings-service stand-in. getAtsCompanies answers with whatever a test
 // set up for a platform and remembers every platform it was asked about, so a

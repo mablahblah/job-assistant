@@ -1,11 +1,11 @@
 // The Greenhouse job-posting parser. Greenhouse publishes a public JSON API
 // for each posting, so this reads that API directly rather than a rendered
 // page — no browser is opened, unlike the page-reading parsers.
-import { fetchWithTimeout, httpError, safeJson } from "../collectors/fetch-utils";
-import { withFieldsFromDescription } from "../description-fallback";
-import { jobFieldsFromGreenhousePosting, type GreenhousePosting } from "../greenhouse-fields";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import { jobFieldsFromGreenhousePosting, type GreenhousePosting } from "../utils/greenhouse-fields";
 import { BROWSER_USER_AGENT } from "../tools/page-fetcher";
-import type { Parser } from "./types";
+import type { Parser } from "./parser";
 
 // pay_transparency=true matters: without it the board withholds the pay field
 // even where one exists, so a parser that dropped the flag would read no pay

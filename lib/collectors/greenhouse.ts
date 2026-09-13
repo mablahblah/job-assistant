@@ -4,12 +4,12 @@ import {
   jobFieldsFromGreenhousePosting,
   type GreenhouseJobsResponse,
   type GreenhousePosting,
-} from "../greenhouse-fields";
-import type { JobListEntry } from "../job-list-entry";
-import { matchesSearchTerms } from "../search-term-analyzer";
+} from "../utils/greenhouse-fields";
+import type { JobListEntry } from "../types/job-list-entry";
+import { matchesSearchTerms } from "../utils/search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
-import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
-import type { Collector, CollectorResult } from "./types";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
 const PLATFORM = "greenhouse";
 

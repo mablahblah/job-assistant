@@ -19,15 +19,15 @@
 // what lets the same function serve the pass after collection and the pass
 // after parsing.
 
-import type { JobListEntry, RawSalary } from "../job-list-entry";
-import { normalizeTitle, type TitleVocabularies } from "../title";
-import { normalizeSalary } from "../salary";
-import { normalizeModeList } from "../work-mode-list";
-import { truncateDetail } from "../trace-detail";
-import { normalizeCompanyName } from "../company-name";
-import { summarizeNormalizationWarnings, type UnusableField } from "../normalization-warnings";
-import type { CollectionIssue } from "../collection-issue";
-import type { TraceService } from "../trace-service";
+import type { JobListEntry, RawSalary } from "../types/job-list-entry";
+import { normalizeTitle, type TitleVocabularies } from "../utils/title";
+import { normalizeSalary } from "../utils/salary";
+import { normalizeModeList } from "../utils/work-mode-list";
+import { truncateDetail } from "../utils/trace-detail";
+import { normalizeCompanyName } from "../utils/company-name";
+import { summarizeNormalizationWarnings, type UnusableField } from "../utils/normalization-warnings";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { TraceService } from "../services/trace-service";
 
 export interface NormalizationEvent {
   event: "job_updated" | "normalization_failed";

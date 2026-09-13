@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { UIUX_RESULTS_CONTAINER, readUiuxCards } from "./uiuxjobsboard-cards";
 import { readFixture } from "./fixture";
-import { parseAgeToDays } from "../job-age";
+import { parseAgeToDays } from "../utils/job-age";
 
 // The results list is built from small typed pieces rather than long
 // literals, so each test states only the one thing it is proving.

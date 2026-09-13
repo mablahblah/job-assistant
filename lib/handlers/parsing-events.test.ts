@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import type { JobListEntry } from "../job-list-entry";
-import type { Parser } from "../parsers/types";
-import type { TraceEvent, TraceService } from "../trace-service";
+import type { JobListEntry } from "../types/job-list-entry";
+import type { Parser } from "../parsers/parser";
+import type { TraceEvent, TraceService } from "../services/trace-service";
 import { parseJobs } from "./parsing";
 
 // Covers only the trace rows the step writes. What it writes back onto each

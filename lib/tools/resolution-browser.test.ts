@@ -6,7 +6,7 @@ import {
   type LaunchedBrowser,
   type LaunchedContext,
 } from "./resolution-browser";
-import { fakeResolutionPage } from "../resolution-page.fake";
+import { fakeResolutionPage } from "./resolution-page.fake";
 
 // A stand-in for what Playwright's chromium.launch hands back, recording what
 // the tool asked it to do. The real thing opens a window and holds the

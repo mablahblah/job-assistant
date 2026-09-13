@@ -7,13 +7,13 @@
 // opens no database of its own and a fake serves its tests. It recomputes on
 // every pass and never skips a job that already carries a company, which is
 // what lets a later parsing pass correct a company the first pass got wrong.
-import type { CompanyRecord, CompanyService } from "../company-service";
-import type { TraceService } from "../trace-service";
-import type { CollectionIssue } from "../collection-issue";
-import type { JobListEntry } from "../job-list-entry";
-import { companyMatchKey } from "../company-match-key";
-import { associationWarnings, type AssociationWarning } from "../association-warnings";
-import { truncateDetail } from "../trace-detail";
+import type { CompanyRecord, CompanyService } from "../services/company-service";
+import type { TraceService } from "../services/trace-service";
+import type { CollectionIssue } from "../types/collection-issue";
+import type { JobListEntry } from "../types/job-list-entry";
+import { companyMatchKey } from "../utils/company-match-key";
+import { associationWarnings, type AssociationWarning } from "../utils/association-warnings";
+import { truncateDetail } from "../utils/trace-detail";
 
 export interface AssociateCompaniesOptions {
   companies: CompanyService;

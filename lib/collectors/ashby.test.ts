@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { ashbyCollector } from "./ashby";
-import { jobFieldsFromAshbyPosting } from "../ashby-fields";
+import { jobFieldsFromAshbyPosting } from "../utils/ashby-fields";
 
 // The shared mapper is wrapped in a spy that still runs the real thing, so
 // every test below reads the same fields it always did while one test can
 // also check the collector went through the mapper rather than a copy of it.
-vi.mock("../ashby-fields", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../ashby-fields")>();
+vi.mock("../utils/ashby-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/ashby-fields")>();
   return { ...actual, jobFieldsFromAshbyPosting: vi.fn(actual.jobFieldsFromAshbyPosting) };
 });
-import type { AtsCompany, SettingsService } from "../settings-service";
-import { fakeSettingsService } from "../settings-service.fake";
+import type { AtsCompany, SettingsService } from "../services/settings-service";
+import { fakeSettingsService } from "../services/settings-service.fake";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.

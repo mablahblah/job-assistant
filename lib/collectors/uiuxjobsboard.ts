@@ -3,13 +3,13 @@
 // the site's category labels instead of being sent as a query. Each matched
 // category gets one search. The site sends finished html, so a request and a
 // parse do everything a browser would without starting one.
-import type { JobListEntry } from "../job-list-entry";
-import { ageToDate } from "../job-age";
-import { fetchContainer } from "./fetch-page";
+import type { JobListEntry } from "../types/job-list-entry";
+import { ageToDate } from "../utils/job-age";
+import { fetchContainer } from "../tools/fetch-page";
 import { pickFixture, writeFixture, type FixtureCandidate } from "./fixture";
-import { matchCategories, type Category } from "./match-categories";
+import { matchCategories, type Category } from "../utils/match-categories";
 import { noCardsWarnings, paginate, type PaginateResult, type ResultCard } from "./paginate";
-import type { Collector, CollectorResult } from "./types";
+import type { Collector, CollectorResult } from "./collector";
 import { UIUX_RESULTS_CONTAINER, readUiuxCards } from "./uiuxjobsboard-cards";
 
 const NAME = "uiuxjobsboard";

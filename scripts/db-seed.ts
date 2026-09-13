@@ -1,8 +1,8 @@
 // Seeds the pipeline database with the settings and ATS companies collection
 // needs. It fills what is absent and overwrites nothing, so running it after a
 // schema change adds the new setting and leaves everything else as it was.
-import { createPipelineDb } from "../lib/pipeline-db";
-import { createCompanyService, type CompanyService } from "../lib/company-service";
+import { createPipelineDb } from "../lib/db/pipeline-db";
+import { createCompanyService, type CompanyService } from "../lib/services/company-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
 
@@ -21,9 +21,9 @@ const SETTING_DEFAULTS = {
   ],
   // Each seniority spelling that gets stored, with every spelling a posting
   // might write for it. This is the real list — two tests restate it and move
-  // with it: EXPECTED_TITLE_LEVELS in lib/settings-service.test.ts, which has
+  // with it: EXPECTED_TITLE_LEVELS in lib/services/settings-service.test.ts, which has
   // to stay an independent copy to prove the round trip through the database,
-  // and VOCABULARIES in lib/title.test.ts, which mirrors it so the title tests
+  // and VOCABULARIES in lib/utils/title.test.ts, which mirrors it so the title tests
   // run against what really ships.
   title_levels: [
     { store: "Intern", match: ["intern"] },

@@ -5,12 +5,12 @@ import {
   jobFieldsFromAshbyPosting,
   type AshbyJobBoardResponse,
   type AshbyPosting,
-} from "../ashby-fields";
-import type { JobListEntry } from "../job-list-entry";
-import { matchesSearchTerms } from "../search-term-analyzer";
+} from "../utils/ashby-fields";
+import type { JobListEntry } from "../types/job-list-entry";
+import { matchesSearchTerms } from "../utils/search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
-import { fetchWithTimeout, httpError, safeJson } from "./fetch-utils";
-import type { Collector, CollectorResult } from "./types";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
 const PLATFORM = "ashby";
 
