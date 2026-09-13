@@ -9,8 +9,8 @@ import type { TitleVocabularies } from "../utils/title";
 
 // The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
 // so title routing runs against what really ships. It moves whenever
-// SETTING_DEFAULTS does, as do the copies in lib/normalizer.test.ts and
-// lib/utils/title.test.ts.
+// SETTING_DEFAULTS does, as do the copies in lib/handlers/normalization.test.ts,
+// lib/handlers/normalization-handler.test.ts and lib/utils/title.test.ts.
 const VOCABULARIES: TitleVocabularies = {
   headNouns: [
     "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",

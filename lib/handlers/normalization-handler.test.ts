@@ -13,8 +13,8 @@ import type { TraceEvent, TraceService } from "../services/trace-service";
 
 // The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
 // so title routing runs against what really ships. It moves whenever
-// SETTING_DEFAULTS does, as do the copies in lib/normalizer.test.ts,
-// lib/normalizer-events.test.ts and lib/utils/title.test.ts.
+// SETTING_DEFAULTS does, as do the copies in lib/handlers/normalization.test.ts,
+// lib/handlers/normalization-events.test.ts and lib/utils/title.test.ts.
 const VOCABULARIES: TitleVocabularies = {
   headNouns: [
     "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",
@@ -289,7 +289,7 @@ describe("normalizeJobs: a job missing the fields a trace row and a warning are 
 });
 
 describe("normalizeJobs: the reasons that never warn", () => {
-  // One known-good input per reason, lifted from lib/normalizer-events.test.ts,
+  // One known-good input per reason, lifted from lib/handlers/normalization-events.test.ts,
   // covering every reason except the two that do warn.
   const SILENT_REASON_CASES: Array<[reason: string, rawFields: Partial<JobListEntry>]> = [
     ["title_normalized", { raw_title: "Senior UX Designer" }],

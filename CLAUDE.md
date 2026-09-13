@@ -34,18 +34,38 @@ npm run test        # Vitest — legacy/ and docs/ are excluded
 
 ## Architecture
 
-Nothing is built yet. The target shape is a single pipeline whose only differentiated code is collectors and parsers, running four phases — Collection, Resolution, Parsing, Classification — each ending in a database write so no phase depends on the one before it.
+One pipeline whose only differentiated code is collectors and parsers. Collection, resolution and parsing are built and run end to end from `npm run job-search`; classification, scoring and the work log are not. Every step ends in a database write, so no step depends on another holding a list in memory.
+
+**[`architecture.md`](docs/features/unified-pipeline/architecture.md) describes the system as built — read it before changing code.**
+
+Every file in `lib/` sits in a folder named for the kind of thing it is, and `lib/` holds no file of its own. The map is in [`.claude/rules/naming.md`](.claude/rules/naming.md).
+
+| Folder               | Holds                                                          |
+| -------------------- | -------------------------------------------------------------- |
+| `lib/collectors/`    | The code that pulls a raw job list from one source              |
+| `lib/db/`            | The database connection, its environment, and the schema check  |
+| `lib/handlers/`      | The code that runs at one pipeline position                     |
+| `lib/orchestrators/` | The runner that calls every handler in order                    |
+| `lib/parsers/`       | The code that reads one source's job posting                    |
+| `lib/resolvers/`     | The code that follows a job link toward its source posting      |
+| `lib/services/`      | The code that owns one table or one row                         |
+| `lib/tools/`         | Wrappers around something outside the app, and their interfaces |
+| `lib/types/`         | Shapes shared across folders, holding no logic                  |
+| `lib/utils/`         | Plain functions taking values and returning values              |
 
 Planning lives in [`docs/features/unified-pipeline/`](docs/features/unified-pipeline/):
 
 | File                 | What it is                                                        |
 | -------------------- | ----------------------------------------------------------------- |
-| `decision-log.md`    | Signed-off decisions — read this first                            |
+| `architecture.md`    | The system as built — read this first                             |
+| `decision-log.md`    | Signed-off decisions                                              |
+| `feature_spec.md`    | What is being built, the phases, the working flow                 |
+| `phases/`            | An r&d file per phase, and a spec once the phase is planned       |
 | `feature_r&d.md`     | Brain dump, measured database facts, title-normalization research |
 | `db-entries.md`      | Field-by-field shape of the current Job and Company records       |
 | `location-research/` | Proposed `location_match` rule, tested against all 1,853 jobs     |
 
-Path-scoped rules describing the old architecture moved to `legacy/rules/`, so they no longer apply. New rules get written as the new pipeline takes shape.
+Path-scoped rules describing the old architecture moved to `legacy/rules/`, so they no longer apply. The rules that govern the new pipeline are `naming.md`, `handler-contract.md` and `source-registry.md` in `.claude/rules/`.
 
 ## Terminology
 
