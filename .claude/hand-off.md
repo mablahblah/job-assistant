@@ -13,113 +13,74 @@
 
 ## Current Task
 
-**Phases 8 and 8b are both closed. Phase 8a is next and not yet planned.**
+**Phase 8a is closed. Phase 9 is next and not yet planned.**
 
-Verified at session end: **2,229 tests pass across 97 files. `npm run lint` exits 0.** Working tree clean, everything pushed to `feature/unified-pipeline`.
+Verified at session end: **2,229 tests pass across 97 files. `npm run lint` exits 0.** Working tree clean.
 
-Phase 8a sorts `lib/`. Forty-three files sit flat at the top of it while every kind that earned a folder has one. Sorting them rewrites an import path in all forty-three. The user wants this done "quickly".
+**Two commits sit on `feature/unified-pipeline` and have not been pushed.** `50b51da` is the move, `16ac636` is the close. The user was asked whether to push and ended the session instead, so ask again before doing anything else.
 
 ## Completed This Session
 
-**Phase 8b's outstanding review, against its 47 acceptance criteria.** Four problems found and fixed, in commit `97d62d3`.
+**Phase 8a, planned, built and closed in one sitting.** The user's framing was "this is simple" and it was.
 
-- Criterion 45's test proved nothing. It left the three lane settings at their defaults, then checked they still held the defaults, so it passed whether or not the seed overwrote them.
-- Criteria 14, 15 and 16 had no test at all. Nothing checked what a run does when the database does not match the code.
-- Criterion 39 had none either.
-- `scripts/.experiment.tmp.ts` had been committed. Its own first line said "Throwaway".
+`lib/` held 56 loose files while collectors, handlers, orchestrators, parsers and tools each had a folder. It now holds ten folders and no file of its own.
 
-Each new test was proven to catch its fault. The code it guards was broken on purpose, the test watched to fail, then the code restored.
+| Folder | Source files |
+| --- | --- |
+| `collectors/` | 13 |
+| `db/` | 3 |
+| `handlers/` | 7 |
+| `orchestrators/` | 1 |
+| `parsers/` | 6 |
+| `resolvers/` | 2 |
+| `services/` | 6 |
+| `tools/` | 4 |
+| `types/` | 2 |
+| `utils/` | 42 |
 
-**A real bug, found by the user watching a live run.** Fixed in commit `2ff5859`.
+`lib/collectors/types.ts` and `lib/parsers/types.ts` became `collector.ts` and `parser.ts`.
 
-A full job search collected 398 jobs. During resolution the user saw full-page 403s from Adzuna going past. The database recorded zero refusals for Adzuna.
+Four files left `lib/collectors/` because they are not collector code: `fetch-utils.ts`, `job-usable.ts` and `match-categories.ts` to `lib/utils/`, and `fetch-page.ts` to `lib/tools/`.
 
-The cause came from a console line the user pasted. Adzuna redirects a job link to a second address carrying a token. That address answers 403. Adzuna then sends the browser somewhere that answers 200. `lib/resolve-job-url.ts` read only the status of the address the page settled on, so the refusal was invisible and the host was never slowed down.
+`.claude/rules/naming.md` was rewritten. It gained a Folders table, a Types section, and Database, Collectors and Resolvers sections. Collectors had no section before. Every other section now names the folder its kind lives in. The rules checklist was run against it and passed every check.
 
-The fix spans three files, each built through `crowd-code` with two competing writers.
-
-- `lib/resolution-page.ts` — `ResolutionResponse` gained `request(): { isNavigationRequest(): boolean }`.
-- `lib/resolution-page.fake.ts` — a `ScriptedResponse` type whose `isNavigation` defaults to true.
-- `lib/resolve-job-url.ts` — `chainWasRefused`, checked before the settled-page status check.
-
-Only a page the browser navigated to counts. One measured page load fires about 69 responses, mostly images, scripts and advertising pixels. Criteria 48 to 51 were added to the 8b spec.
-
-**A second run proved it works.** Run with `npm run job-search -- --limit 0`, which skips collection and resolves the 209 jobs already stored.
-
-| Host | Resolved | Final refusals |
-| --- | --- | --- |
-| uiuxjobsboard | 84 of 91 | 0 |
-| Adzuna | 57 of 61 | 0 |
-| LinkedIn | 0 of 37 | 0, all login walls |
-| ZipRecruiter | 1 of 7 | 6 |
-| CareerBuilder | 0 of 6 | 6 |
-
-149 resolved, 60 failed. **Adzuna resolved 57 of 61, against 19 of 66 before the fix.** It refused us again, was moved to the slow lane, and finished nearly everything. Three hosts were caught and slowed rather than spent.
-
-Parsing: 173 parsed, 91 not. The domains with no parser are Workday 22, Workable 16, SmartRecruiters 9, `join.com` 5, Adzuna 4.
-
-**Both closes.** The architecture doc gained nine missing parts, a rewritten Status section, updated Data Model rows, and phase 8's ported-from-legacy row. The `Trace` comment's own counts were stale and now read correctly — resolution has ten reasons, not eight. The decision log gained six entries. `docs/CURRENT-FEATURE.md` has both closes ticked and phase 8's 22 sub-tasks collapsed into one line.
-
-**Backlog changes, all approved by the user.**
-
-- **Item 1, Unified Pipeline Tech Debt** — new, at the top. A running list for real but non-critical defects found mid-phase.
-- **Item 27, Resolver Refinements** — its circuit breaker is retired, because phase 8b built it as the two lanes. It gained the JSearch question instead.
-- **Item 28, Lean Resolution Page Loads** — new. One page visit costs 69 requests against a ceiling of roughly 25.
-
-Every existing item shifted down one. Four documents naming a backlog number were updated. Meeting notes keep their original numbers, being dated records.
+The architecture doc, the decision log, `CLAUDE.md` and the phase spec were all updated. `CLAUDE.md`'s Architecture section had said "Nothing is built yet" since the branch opened.
 
 ## Decisions & Context
 
 ### What the user decided
 
-Six entries were appended to `docs/features/unified-pipeline/decision-log.md`. Read them there. In short: a refusal is read from any page the browser navigated to; a refused tracker is not a refusal; the fast lane stays unpaced because the slow lane exists so it need not be; cutting what a page visit costs becomes its own backlog item; and a non-critical defect goes on the tech debt list.
+Three entries were appended to `docs/features/unified-pipeline/decision-log.md`. Read them there. In short: every file in `lib/` sits in a folder named for its kind and `lib/` holds none of its own; a field mapper read by both a collector and a parser is a util; and "types" is a kind of file with a folder and a rule section of its own.
 
-**The fast-lane question is now closed, not deferred.** The 8b spec previously said it was "to be decided against a run of the shipped code". That run happened. The user's words: _"this is why we built the slow lane, so we didnt have to slow the fast lane."_
-
-### Rejected — do not re-raise
-
-**Flagging the over-merge query as owed.** The user's words: _"not sure this is a worry of mine, borrowing a problem from the future."_
-
-### The subtlety that will mislead the next session
-
-**A job deferred to the slow lane writes no trace row in the fast lane.** This is by design, so each job earns exactly one row.
-
-So a host being refused looks like **zero `page_refused` rows, plus that host disappearing from the browser**. A monitor watching for refusal rows to detect a block is watching the wrong signal. This session built exactly that monitor and it reported "adzuna refusals=0" throughout, while the slow lane was working perfectly.
-
-What actually reveals a deferral is a host stopping partway through its queue with no failure recorded.
-
-### Measured facts — do not re-measure
-
-- **One Adzuna page visit fires about 69 responses.** The posting, plus images, scripts, fonts and advertising pixels — `us.creativecdn.com`, `px.ads.linkedin.com`, `linkedin.com/px` among them. This is what backlog item 28 exists to cut.
-- **Adzuna's block lifts on its own.** A three-link probe mid-session returned three clean 200s and resolved all three.
-- **A three-request probe proves nothing about a rate limit.** The ceiling needs roughly thirty visits in five minutes. The user's words: _"you probably didnt hit the limit."_
-- **LinkedIn is not a refusal case.** Its 37 JSearch jobs end at a login wall, recorded as `dead_end`. That is correct and pacing will not change it.
+The user raised two of the three themselves. Their words: _"aren't mappers utils?"_ and _"That seems like a hole, lib/collectors/types and lib/parsers/types... is that redundant?"_ Both were right and both changed the plan.
 
 ### Calls made while building
 
-- **The collector fixture HTML files were reverted.** A real run refreshes `lib/collectors/fixtures/dribbble.html` and `uiuxjobsboard.html`. They are unrelated to a bug fix and should not be swept into one.
-- **The second test run skipped collection.** `--limit 0` reaches no job site, so resolution ran against the 209 jobs already stored. This isolated the fix from another collection pass.
-- **New criteria were appended as 48 to 51.** The 8b spec's own rule is that numbering never shifts.
+All three are written into `phase-08a-lib-sorting-spec.md`. `trace-proof.test.ts` has no source file of its own and moved to `lib/orchestrators/`, beside the runner it drives. Three fixture data files moved to `lib/utils/` with the tests that read them. `paginate.ts` and `fixture.ts` stayed in `lib/collectors/`.
 
-### Gotchas discovered
+### The four things that break a move like this, and none is caught by a typecheck
 
-- **`pkill -f "scripts/job-search.ts"` did not stop the run.** The processes survived it. `kill -9` on the listed PIDs was needed.
-- **The pipeline database is `pipeline.db` at the repo root**, reached through `PIPELINE_DATABASE_URL`. `dev.db` beside it belongs to the old pipeline.
-- **`sqlite3` is available on this machine** and is far cheaper than spawning `npx tsx` to query the database.
+A tidy-up that rewrites `import` lines passes `tsc` and still fails. Four kinds of path hide from it. All four bit this session.
 
-### Open question, unanswered
+- **`vi.mock("./fetch-page")`** — a mock target is a plain string. Two collector tests kept mocking a path that no longer existed, and 71 tests failed.
+- **A path handed to a subprocess.** `lib/services/settings-service.test.ts` builds a few lines of code as a string and runs them with `npx tsx -e`. Its two `require` paths were stale and the test file died whole.
+- **A path computed at run time.** Six tests reach the repo root with `resolve(libDir, "..")`. Each file went one level deeper, so each needed one more `".."`.
+- **A path in a comment.** Invisible to everything. Several named files that had not existed since phase 7a.
 
-**Should the Future Ideas list in `docs/BACKLOG.md` be renumbered?** It numbers itself from 26 upward and now collides with the Upcoming list's 26, 27 and 28. The overlap existed before this session at one number and is now three.
+### A dependency that pointed the wrong way
 
-### Still open from earlier hand-offs
+`lib/tools/page-fetcher.ts` was importing a helper out of `lib/collectors/`. A tool depending on collector code is backwards, and it is the same smell phase 3a fixed when a helper imported a step. Sorting by kind is what made it visible. The helper is now `lib/utils/fetch-utils.ts`.
 
-1. **`.claude/CLAUDE.md.bak` and `.claude/session-status.md` are tracked and pushed.** Unanswered for thirteen sessions.
-2. **Whether resolution should stop on its own aggregator** is still undecided.
-3. **Whether `.claude/rules/naming.md`'s Tools section should record that a stateless tool can be a plain function**, rather than a `create{Subject}()` builder. The page fetcher is such a tool and the decision is already logged, but the rule does not mention the exception.
+### Left alone on purpose
+
+**`lib/utils/` holds 42 source files.** That is worth watching and it is written into the spec's Out of Scope. A folder that is merely large is not yet a problem, and splitting it would have needed a second set of judgement calls on top of the first.
+
+**Docs for other features still name old `lib/` paths.** `docs/features/reliable-scraping-pipeline/`, `docs/features/security-hardening/` and others reference files that in most cases never existed on this branch. They belong to their own features.
+
+**Meeting notes and the decision log keep their original paths.** Both are dated records of what was true when written. This follows the call made last session about backlog numbers in meeting notes.
 
 ## Next Steps
 
-1. **Plan phase 8a, sorting `lib/`.** Follow the phase planning procedure. Forty-three files sit flat at the top of `lib/`, and sorting them rewrites an import path in all forty-three. The user wants it done quickly.
-2. **Build phase 8a**, then close it.
-3. **Answer the Future Ideas numbering question** before the next backlog change, since another insertion widens the collision.
-4. **When a non-critical defect turns up, add it to backlog item 1** rather than fixing it mid-phase or carrying it in a hand-off. Its first entry is the lost trace row: `lib/trace-service.ts` counts a failed write and throws the error away, so the one row lost on 2026-09-13 cannot be explained. The leading suspicion is SQLite write contention between the three fast-lane workers.
+1. **Ask whether to push `50b51da` and `16ac636`.** They are phase 8a and nothing else.
+2. **Plan phase 9 — backlog cleanup and classification.** Its r&d file is `docs/features/unified-pipeline/phases/phase-09-classification-r&d.md` and it carries four open questions this phase has to settle: what a cached distance measures from, whether expiry reads the posted date or the updated one, what expiry does with a job carrying no date, and what sets the repost flag and at what date gap. Follow `phase-planning-procedure.md`.
+3. **Reword the feature spec's dedupe story when phase 9 is planned.** It says a repost match "sets the repost flag", which the phase 9 r&d records as wrong.
