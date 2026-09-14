@@ -41,6 +41,7 @@ const EXPECTED_JOB_COLUMNS = [
   "is_classified",
   "status",
   "raw_location_list",
+  "normalized_location_list",
   "raw_mode_list",
   "normalized_mode_list",
   "collector",
@@ -51,6 +52,10 @@ const EXPECTED_JOB_COLUMNS = [
   "description",
   "collected_at",
   "parser",
+  "location_match",
+  "location_match_place",
+  "location_match_mode",
+  "is_repost",
 ];
 
 // match_key holds the company name squashed down for matching, so two
@@ -81,6 +86,7 @@ const EXPECTED_SETTING_COLUMNS = [
   "resolution_fast_concurrency",
   "resolution_slow_concurrency",
   "resolution_slow_pause_seconds",
+  "repost_gap_days",
   "created_at",
   "modified_at",
 ];

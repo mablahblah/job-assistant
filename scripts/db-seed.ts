@@ -50,6 +50,7 @@ const SETTING_DEFAULTS = {
   resolution_fast_concurrency: 3,
   resolution_slow_concurrency: 1,
   resolution_slow_pause_seconds: 12,
+  repost_gap_days: 3,
 };
 
 // The boards each ATS collector polls. A collector finds its work by asking
@@ -112,6 +113,7 @@ type SettingPatch = {
   resolution_fast_concurrency?: number;
   resolution_slow_concurrency?: number;
   resolution_slow_pause_seconds?: number;
+  repost_gap_days?: number;
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -151,6 +153,9 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   // exactly the kind of value a seed must never overwrite.
   if (existing.resolution_slow_pause_seconds === null) {
     patch.resolution_slow_pause_seconds = SETTING_DEFAULTS.resolution_slow_pause_seconds;
+  }
+  if (existing.repost_gap_days === null) {
+    patch.repost_gap_days = SETTING_DEFAULTS.repost_gap_days;
   }
 
   const filled = Object.keys(patch);

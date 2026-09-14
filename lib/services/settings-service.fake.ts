@@ -19,6 +19,7 @@ export function fakeSettingsService(overrides: Partial<SettingsService> = {}): S
     getResolutionFastConcurrency: async () => 0,
     getResolutionSlowConcurrency: async () => 0,
     getResolutionSlowPauseSeconds: async () => 0,
+    getRepostGapDays: async () => 0,
     ...overrides,
   };
 }

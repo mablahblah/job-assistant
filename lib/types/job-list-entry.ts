@@ -2,9 +2,10 @@
 // anything is saved. It maps one to one onto the Job database row, so a
 // collector and the row it eventually becomes never quietly disagree.
 //
-// raw_location_list, raw_mode_list, normalized_mode_list, and raw_salary are
-// typed here as a real array or object, not the Json column Prisma gives them,
-// so they replace Job's Json typing. delete_on_save is the one field that is
+// raw_location_list, normalized_location_list, raw_mode_list,
+// normalized_mode_list, and raw_salary are typed here as a real array or
+// object, not the Json column Prisma gives them, so they replace Job's Json
+// typing. delete_on_save is the one field that is
 // not a column: a later phase sets it on an entry it wants removed.
 //
 // Every field is optional because a collector fills only what its source
@@ -81,9 +82,14 @@ export type MappedJobFields = Omit<
 
 export type JobListEntry = Omit<
   Partial<Job>,
-  "raw_location_list" | "raw_mode_list" | "normalized_mode_list" | "raw_salary"
+  | "raw_location_list"
+  | "normalized_location_list"
+  | "raw_mode_list"
+  | "normalized_mode_list"
+  | "raw_salary"
 > & {
   raw_location_list?: string[] | null;
+  normalized_location_list?: string[] | null;
   raw_mode_list?: string[] | null;
   normalized_mode_list?: string[] | null;
   raw_salary?: RawSalary | null;
@@ -113,6 +119,7 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "is_classified",
   "status",
   "raw_location_list",
+  "normalized_location_list",
   "raw_mode_list",
   "normalized_mode_list",
   "collector",
@@ -123,5 +130,9 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "salary_high",
   "salary_period",
   "description",
+  "location_match",
+  "location_match_place",
+  "location_match_mode",
+  "is_repost",
   "delete_on_save",
 ] as const satisfies readonly (keyof JobListEntry)[];

@@ -22,6 +22,7 @@ const EXPECTED_EXPIRY_THRESHOLD = 8;
 const EXPECTED_FAST_CONCURRENCY = 3;
 const EXPECTED_SLOW_CONCURRENCY = 1;
 const EXPECTED_SLOW_PAUSE_SECONDS = 12;
+const EXPECTED_REPOST_GAP_DAYS = 3;
 
 const GREENHOUSE_SLUGS = [
   "gitlab",
@@ -52,6 +53,7 @@ interface SettingRow {
   resolution_fast_concurrency: number | null;
   resolution_slow_concurrency: number | null;
   resolution_slow_pause_seconds: number | null;
+  repost_gap_days: number | null;
   modified_at: string;
 }
 
@@ -135,6 +137,8 @@ async function readSetting(url: string): Promise<SettingRow> {
         row["resolution_slow_pause_seconds"] === null
           ? null
           : Number(row["resolution_slow_pause_seconds"]),
+      repost_gap_days:
+        row["repost_gap_days"] === null ? null : Number(row["repost_gap_days"]),
       modified_at: String(row["modified_at"]),
     };
   } finally {
@@ -311,6 +315,12 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
     expect(setting.resolution_slow_pause_seconds).toBe(EXPECTED_SLOW_PAUSE_SECONDS);
   });
 
+  // AC 104. Three days is what absorbs two collectors disagreeing by hours
+  // about one posting, which is the whole reason the gap exists.
+  test("writes the repost gap", () => {
+    expect(setting.repost_gap_days).toBe(EXPECTED_REPOST_GAP_DAYS);
+  });
+
   test("writes one company per ATS slug", () => {
     const slugs = companies.map((company) => company.ats_slug).sort();
     expect(slugs).toEqual([...ALL_ATS_SLUGS].sort());
@@ -328,6 +338,7 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
   const MY_FAST_CONCURRENCY = 5;
   const MY_SLOW_CONCURRENCY = 2;
   const MY_SLOW_PAUSE_SECONDS = 30;
+  const MY_REPOST_GAP_DAYS = 7;
 
   let dir: string;
   let setting: SettingRow;
@@ -340,8 +351,8 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
     ]);
     await runSql(
       temp.url,
-      "UPDATE Setting SET resolution_fast_concurrency = ?, resolution_slow_concurrency = ?, resolution_slow_pause_seconds = ? WHERE id = 1",
-      [MY_FAST_CONCURRENCY, MY_SLOW_CONCURRENCY, MY_SLOW_PAUSE_SECONDS]
+      "UPDATE Setting SET resolution_fast_concurrency = ?, resolution_slow_concurrency = ?, resolution_slow_pause_seconds = ?, repost_gap_days = ? WHERE id = 1",
+      [MY_FAST_CONCURRENCY, MY_SLOW_CONCURRENCY, MY_SLOW_PAUSE_SECONDS, MY_REPOST_GAP_DAYS]
     );
     runScript("db-seed.ts", temp.url);
     setting = await readSetting(temp.url);
@@ -374,6 +385,12 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
     expect(setting.resolution_fast_concurrency).toBe(MY_FAST_CONCURRENCY);
     expect(setting.resolution_slow_concurrency).toBe(MY_SLOW_CONCURRENCY);
     expect(setting.resolution_slow_pause_seconds).toBe(MY_SLOW_PAUSE_SECONDS);
+  });
+
+  // The gap is meant to be tuned against real runs, so a re-seed that reset it
+  // would undo the tuning every time.
+  test("keeps the repost gap I tuned", () => {
+    expect(setting.repost_gap_days).toBe(MY_REPOST_GAP_DAYS);
   });
 });
 

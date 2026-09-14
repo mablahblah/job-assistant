@@ -12,86 +12,107 @@ datasource db {
 // A single job posting. Collection fills what its source supplied and leaves
 // the rest empty, so a later phase can tell what still needs doing.
 model Job {
-  id                     String    @id @default(cuid())
+  id                       String    @id @default(cuid())
   // Which company this job belongs to. Company association decides it and
   // save writes the column.
-  company_id             String?
+  company_id               String?
   // The employer as the collector spelled it. The normalized name lives on
   // the company record.
-  raw_company_name       String?
+  raw_company_name         String?
   // The board slug an ATS collector polled. A stronger identity than a name,
   // and what company association looks up first.
-  raw_company_slug       String?
+  raw_company_slug         String?
   // The title as the source published it, kept exactly.
-  raw_title              String?
+  raw_title                String?
   // The title reshaped into one wording, as "{level} {role} - {team}",
   // built from raw_title. Two sources publishing the same role produce the
   // same title here.
-  title                  String?
+  title                    String?
   // The link the collector found, often an aggregator redirect.
-  original_url           String?
+  original_url             String?
   // original_url squashed down for matching: the scheme, the lowercased host,
   // and the path with any trailing slash dropped. The whole query string and
   // any fragment go, so a source minting a fresh token every request still
   // matches its own earlier link. The published link is never altered, since
   // stripping a query breaks it.
-  original_url_match_key String?
+  original_url_match_key   String?
   // The source posting, found by following original_url.
-  resolved_url           String?
+  resolved_url             String?
   // resolved_url squashed down the same way.
-  resolved_url_match_key String?
+  resolved_url_match_key   String?
   // When the source says the posting went live.
-  posting_date           DateTime?
+  posting_date             DateTime?
   // When the source says the posting last changed, where the source
   // distinguishes the two.
-  posting_updated_date   DateTime?
-  created_at             DateTime  @default(now())
-  modified_at            DateTime  @updatedAt
+  posting_updated_date     DateTime?
+  created_at               DateTime  @default(now())
+  modified_at              DateTime  @updatedAt
   // Phase gates. Each phase sets its own once it has handled the job.
-  is_resolved            Boolean   @default(false)
-  is_parsed              Boolean   @default(false)
-  is_classified          Boolean   @default(false)
+  is_resolved              Boolean   @default(false)
+  is_parsed                Boolean   @default(false)
+  is_classified            Boolean   @default(false)
   // Lifecycle state. The first seven are non-active. The last five are
   // what active means: the user has applied and has not been rejected,
   // and an active row stays frozen except for its status. All twelve, in
   // order: backlog, expired, too far, won't apply, unresolvable,
   // unparseable, rejected, app. sent, screening, interview, test, offer.
-  status                 String    @default("backlog")
+  status                   String    @default("backlog")
   // Every location collected, kept intact. Independent of the mode list,
   // not paired by position.
-  raw_location_list      Json?
+  raw_location_list        Json?
+  // Every raw_location_list entry cut into single places, with the words that
+  // surround a place rather than name one taken out. Normalization builds it,
+  // and classification judges each place on its own. A piece naming nothing on
+  // a map is kept, because a real place standing beside it still has to be
+  // judged.
+  normalized_location_list Json?
   // Every work mode collected, kept intact. Independent of the location
   // list, not paired by position.
-  raw_mode_list          Json?
+  raw_mode_list            Json?
   // Every entry in raw_mode_list translated into one of remote, hybrid, or
   // in-person, each held once. A source word outside those three is dropped
   // rather than guessed at.
-  normalized_mode_list   Json?
+  normalized_mode_list     Json?
   // Which collector produced it.
-  collector              String?
+  collector                String?
   // When this pipeline first saw the posting, written once by the
   // orchestrator beside collector. A later sighting is not better
   // information the way a later salary is, so nothing overwrites this
   // and no default could supply it.
-  collected_at           DateTime
+  collected_at             DateTime
   // Which parser read the posting, beside collector, which records which
   // collector produced it. When two copies of a job contest a field, the
   // winning side's collector and parser are both written onto the row.
-  parser                 String?
+  parser                   String?
   // Salary as the source published it, in a fixed five-key envelope whose
   // values are untouched: salary_min, salary_max, salary_period,
   // salary_currency, salary_unit. Normalization reshapes them.
-  raw_salary             Json?
+  raw_salary               Json?
   // The bottom of the published salary range, in whole currency units.
-  salary_low             Int?
+  salary_low               Int?
   // The top of the published salary range, in whole currency units.
-  salary_high            Int?
+  salary_high              Int?
   // What the salary figures are per: year, month, week, day, or hour.
-  salary_period          String?
+  salary_period            String?
   // The posting's own words, as the source supplied them. Scoring reads this
   // rather than reopening the posting to fetch them again.
-  description            String?
-  company                Company?  @relation(fields: [company_id], references: [id])
+  description              String?
+  // Whether any place and work mode pair put this job close enough to work.
+  // Three states rather than two: empty means no place on the job could be
+  // read at all, which is not the same answer as too far. A job sitting empty
+  // is left in the backlog for a later run to retry.
+  location_match           Boolean?
+  // The place text behind the pair that matched, and the work mode it was
+  // paired with. Where several pairs matched, the place whose centre is
+  // nearest is the one recorded, so a job passing on both a nearby city and a
+  // whole country shows the city.
+  location_match_place     String?
+  location_match_mode      String?
+  // Whether the posting's two dates sit further apart than the repost gap
+  // setting, which reads as the employer listing the role again rather than
+  // as two collectors disagreeing by hours about one posting.
+  is_repost                Boolean?
+  company                  Company?  @relation(fields: [company_id], references: [id])
 
   // Dedupe's two link clauses look a match up on these keys, so each is
   // indexed rather than scanned. Neither is unique: two rows for one posting
@@ -188,6 +209,11 @@ model Setting {
   // was refused, so twelve seconds sits just under the ceiling the strictest
   // host we have met was enforcing.
   resolution_slow_pause_seconds Int?
+  // How far apart a posting's two dates must be before the job counts as
+  // posted again rather than as one listing two collectors disagree about.
+  // Measured in days and compared as an exact duration, so the hours between
+  // two collectors seeing the same posting are absorbed rather than counted.
+  repost_gap_days               Int?
   created_at                    DateTime @default(now())
   modified_at                   DateTime @updatedAt
 }

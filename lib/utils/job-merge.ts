@@ -12,6 +12,7 @@ export const CONTESTED_FIELDS = [
   "original_url",
   "resolved_url",
   "raw_location_list",
+  "normalized_location_list",
   "raw_mode_list",
   "normalized_mode_list",
   "raw_salary",
@@ -28,6 +29,10 @@ export const WRITTEN_THROUGH_FIELDS = [
   "is_parsed",
   "is_classified",
   "status",
+  "location_match",
+  "location_match_place",
+  "location_match_mode",
+  "is_repost",
 ] as const;
 
 // The row's record of which side won the contest.

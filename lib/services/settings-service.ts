@@ -33,6 +33,7 @@ export interface SettingsService {
   getResolutionFastConcurrency(): Promise<number>;
   getResolutionSlowConcurrency(): Promise<number>;
   getResolutionSlowPauseSeconds(): Promise<number>;
+  getRepostGapDays(): Promise<number>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -208,6 +209,16 @@ export function createSettingsService(db: PipelineDb): SettingsService {
         throw missingSettingError("resolution_slow_pause_seconds");
       }
       return row.resolution_slow_pause_seconds;
+    },
+
+    // Zero would flag every job carrying two dates as posted again, so it
+    // cannot stand in for a gap nobody has set.
+    async getRepostGapDays() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.repost_gap_days === null) {
+        throw missingSettingError("repost_gap_days");
+      }
+      return row.repost_gap_days;
     },
   };
 }

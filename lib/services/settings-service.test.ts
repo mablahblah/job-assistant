@@ -215,6 +215,12 @@ describe("AC 9: an unseeded database throws instead of returning something empty
     );
   });
 
+  // Zero days would mean every job carrying two dates counts as posted again,
+  // which is the opposite of what an unfilled setting should do.
+  test("getRepostGapDays throws rather than returning zero", async () => {
+    await expect(service.getRepostGapDays()).rejects.toThrow(/repost_gap_days/);
+  });
+
   test("getSourcePriorityList throws rather than returning an empty list", async () => {
     await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
   });
@@ -239,13 +245,14 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the thirteen getters", () => {
+  test("exposes exactly the fourteen getters", () => {
     expect(Object.keys(service).sort()).toEqual(
       [
         "getAtsCompanies",
         "getExpiryThreshold",
         "getLocation",
         "getRadius",
+        "getRepostGapDays",
         "getResolutionFastConcurrency",
         "getResolutionSlowConcurrency",
         "getResolutionSlowPauseSeconds",
