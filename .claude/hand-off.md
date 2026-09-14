@@ -13,74 +13,59 @@
 
 ## Current Task
 
-**Phase 8a is closed. Phase 9 is next and not yet planned.**
+**Phase 9 is planned. Nothing is built. The next box is "Build phase 9" and its 19 tasks are listed under it in [`docs/CURRENT-FEATURE.md`](../docs/CURRENT-FEATURE.md).**
 
-Verified at session end: **2,229 tests pass across 97 files. `npm run lint` exits 0.** Working tree clean.
+Verified at session end: **2,229 tests pass across 97 files. `npm run lint` exits 0. Working tree clean. Nothing unpushed.**
 
-**Two commits sit on `feature/unified-pipeline` and have not been pushed.** `50b51da` is the move, `16ac636` is the close. The user was asked whether to push and ended the session instead, so ask again before doing anything else.
+Four commits went up this session, plus the three phase 8a commits the previous session left behind.
+
+The spec is [`phases/phase-09-classification-spec.md`](../docs/features/unified-pipeline/phases/phase-09-classification-spec.md) — 30 stories, 20 edge cases, 121 acceptance criteria, 19 tasks. **The r&d beside it no longer holds a second copy of the criteria.** It points at the spec, because the two had already diverged at 116 against 121 with different wording. The spec is the record; the r&d holds the reasoning, every finding raised and dropped, and what each grading pass changed.
 
 ## Completed This Session
 
-**Phase 8a, planned, built and closed in one sitting.** The user's framing was "this is simple" and it was.
+Planning only, end to end: brain dump, orientation, discovery, two spikes, 30 stories, two stress-test rounds across six sub-agents, six user decisions, a rubric grading, a coverage audit, two `spec-review` passes, the spec, meeting notes, 27 decision log entries, and eight out-of-scope items placed one at a time.
 
-`lib/` held 56 loose files while collectors, handlers, orchestrators, parsers and tools each had a folder. It now holds ten folders and no file of its own.
+**Two spikes are committed and rerun offline** at [`location-research/spike2/`](../docs/features/unified-pipeline/location-research/spike2/), with their own README and two geocode caches. `split.ts` is the shape task 5 builds from. Every measurement quoted in the spec comes from there.
 
-| Folder | Source files |
-| --- | --- |
-| `collectors/` | 13 |
-| `db/` | 3 |
-| `handlers/` | 7 |
-| `orchestrators/` | 1 |
-| `parsers/` | 6 |
-| `resolvers/` | 2 |
-| `services/` | 6 |
-| `tools/` | 4 |
-| `types/` | 2 |
-| `utils/` | 42 |
+**A new project rule**, [`.claude/rules/run-summary.md`](rules/run-summary.md), governs every run summary from now on.
 
-`lib/collectors/types.ts` and `lib/parsers/types.ts` became `collector.ts` and `parser.ts`.
-
-Four files left `lib/collectors/` because they are not collector code: `fetch-utils.ts`, `job-usable.ts` and `match-categories.ts` to `lib/utils/`, and `fetch-page.ts` to `lib/tools/`.
-
-`.claude/rules/naming.md` was rewritten. It gained a Folders table, a Types section, and Database, Collectors and Resolvers sections. Collectors had no section before. Every other section now names the folder its kind lives in. The rules checklist was run against it and passed every check.
-
-The architecture doc, the decision log, `CLAUDE.md` and the phase spec were all updated. `CLAUDE.md`'s Architecture section had said "Nothing is built yet" since the branch opened.
+**Two global files changed.** `~/.claude/rules/feature-specs.md` gained a "Naming things in a criterion" section. `~/.claude/references/rubrics/spec-rubric.md`'s implementation-detail check became "Words before names". Both were the user's call, and both change how any future spec is written and graded.
 
 ## Decisions & Context
 
-### What the user decided
+### The invariant that matters most
 
-Three entries were appended to `docs/features/unified-pipeline/decision-log.md`. Read them there. In short: every file in `lib/` sits in a folder named for its kind and `lib/` holds none of its own; a field mapper read by both a collector and a parser is a util; and "types" is a kind of file with a folder and a rule section of its own.
+**Expiry, promotion and the repost test read the posting's own dates and never the row's timestamps.** The user caught this and nothing had tested it. A rule reading the row's timestamp would promote every job the moment its own status was written — writing the status moves the timestamp, which qualifies the job for promotion, forever. Criteria 120 and 121 guard it.
 
-The user raised two of the three themselves. Their words: _"aren't mappers utils?"_ and _"That seems like a hole, lib/collectors/types and lib/parsers/types... is that redundant?"_ Both were right and both changed the plan.
+### Proven, and deliberately not fixed
 
-### Calls made while building
+A job a source lists again has all three phase marks cleared and goes round the pipeline again — a browser visit, a page fetch, a fresh judgement. Proven by running `mergeJobs` directly. Every collector writes the marks as false and the merge takes the newer value.
 
-All three are written into `phase-08a-lib-sorting-spec.md`. `trace-proof.test.ts` has no source file of its own and moved to `lib/orchestrators/`, beside the runner it drives. Three fixture data files moved to `lib/utils/` with the tests that read them. `paginate.ts` and `fixture.ts` stayed in `lib/collectors/`.
+**The user judged this the system working, not a defect.** A job that may have changed should be read again. Reducing what an unchanged job costs is backlog item 29.
 
-### The four things that break a move like this, and none is caught by a typecheck
+### What was measured rather than argued
 
-A tidy-up that rewrites `import` lines passes `tsc` and still fails. Four kinds of path hide from it. All four bit this session.
+Six questions were settled with numbers instead of debate, and each is reproducible:
 
-- **`vi.mock("./fetch-page")`** — a mock target is a plain string. Two collector tests kept mocking a path that no longer existed, and 71 tests failed.
-- **A path handed to a subprocess.** `lib/services/settings-service.test.ts` builds a few lines of code as a string and runs them with `npx tsx -e`. Its two `require` paths were stale and the test file died whole.
-- **A path computed at run time.** Six tests reach the repo root with `resolve(libDir, "..")`. Each file went one level deeper, so each needed one more `".."`.
-- **A path in a comment.** Invisible to everything. Several named files that had not existed since phase 7a.
+- Cutting a location at every delimiter gains 32 matches and loses none across 2,208 jobs.
+- Of 796 fragments, ten landed within thirty miles — every one a real Austin-area place. The feared false local signal never appeared.
+- Comparing place names put a job in Austin, Arkansas into the backlog. That is why containment became geometry.
+- Places repeat at 80%, so the cache earns its place.
+- Keeping the spike's place-and-mode pairing changes no verdict on any real job.
+- Adding distance to the remote test gains exactly one job and no false match.
 
-### A dependency that pointed the wrong way
+### Left stale on purpose
 
-`lib/tools/page-fetcher.ts` was importing a helper out of `lib/collectors/`. A tool depending on collector code is backwards, and it is the same smell phase 3a fixed when a helper imported a step. Sorting by kind is what made it visible. The helper is now `lib/utils/fetch-utils.ts`.
+**The architecture doc.** Its run diagram has no promotion step, and it says a fourth save point arrives with classification when Phase 9 adds two. The user's call: updating it now is getting ahead of ourselves. It updates at phase close.
 
-### Left alone on purpose
+**The four existing summary blocks.** Phase 9 builds three new blocks to the new rule while collection, dedupe, resolution and parsing keep the old shapes, so a run prints two shapes side by side until backlog item 30 is done. Not only formatting — those four write no trace row when a job passes through untouched, so their headings have nothing to count.
 
-**`lib/utils/` holds 42 source files.** That is worth watching and it is written into the spec's Out of Scope. A folder that is merely large is not yet a problem, and splitting it would have needed a second set of judgement calls on top of the first.
+### A gotcha that cost time twice
 
-**Docs for other features still name old `lib/` paths.** `docs/features/reliable-scraping-pipeline/`, `docs/features/security-hardening/` and others reference files that in most cases never existed on this branch. They belong to their own features.
-
-**Meeting notes and the decision log keep their original paths.** Both are dated records of what was true when written. This follows the call made last session about backlog numbers in meeting notes.
+**A markdown formatter collapses indented code blocks onto one line** in this repo's `.claude/rules/`. It destroyed the examples in the run-summary rule on first write. Fenced blocks survive; indented ones do not.
 
 ## Next Steps
 
-1. **Ask whether to push `50b51da` and `16ac636`.** They are phase 8a and nothing else.
-2. **Plan phase 9 — backlog cleanup and classification.** Its r&d file is `docs/features/unified-pipeline/phases/phase-09-classification-r&d.md` and it carries four open questions this phase has to settle: what a cached distance measures from, whether expiry reads the posted date or the updated one, what expiry does with a job carrying no date, and what sets the repost flag and at what date gap. Follow `phase-planning-procedure.md`.
-3. **Reword the feature spec's dedupe story when phase 9 is planned.** It says a repost match "sets the repost flag", which the phase 9 r&d records as wrong.
+1. **Build phase 9.** 19 tasks in `docs/CURRENT-FEATURE.md`, in order. Task 1 is the repost gap setting, task 2 the five new job columns. Each task is one unit of code with its tests.
+2. **Watch two things while building.** Nothing may read the row's timestamp for an age or repost judgement. And `npm run test` must stay off the network — the geocoder needs its fake before any test touches it, which is task 9.
+3. **Close phase 9** when it is built: architecture doc, decision log, and any backlog change presented for approval. The architecture doc's two known staleness points are listed above.
