@@ -29,14 +29,7 @@ vi.mock("../handlers/resolution", async (importOriginal) => {
 // Carries the default vocabularies and priority list, which is all the
 // orchestrator reads off settings. A test needing a title to actually reshape
 // uses settingsWithVocabularies() below instead.
-// The expiry threshold is a real number rather than the fake's zero, because
-// zero means every job is old enough to expire and backlog cleanup would sweep
-// away the jobs the tests below are about. The radius is real for the same
-// reason on the other side of the run.
-const stubSettings: SettingsService = fakeSettingsService({
-  getExpiryThreshold: async () => 30,
-  getRadius: async () => 30,
-});
+const stubSettings: SettingsService = fakeSettingsService();
 
 // A fixed stand-in for the UUID scripts/collect.ts mints for a real run.
 // These are unit tests, so the value is never parsed as a real UUID.
@@ -1002,7 +995,6 @@ describe("the source priority list reaches save", () => {
   // still reaches the caller.
   test("a settings service that throws for the list stops the run", async () => {
     const settings = fakeSettingsService({
-      getExpiryThreshold: async () => 30,
       getSourcePriorityList: async () => {
         throw new Error("source_priority_list is not set");
       },
@@ -1188,8 +1180,7 @@ describe("AC 7: the resolution step runs over whatever the database says needs i
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       settings: fakeSettingsService({
-        getExpiryThreshold: async () => 30,
-        getResolutionFastConcurrency: async () => 1,
+          getResolutionFastConcurrency: async () => 1,
         getResolutionSlowConcurrency: async () => 1,
         getResolutionSlowPauseSeconds: async () => 0,
         getSourcePriorityList: async () => ["collector:adzuna"],
@@ -1250,7 +1241,6 @@ function resolutionStepOver(
     // the resolution assertions would be counting two steps' work.
     jobService: fakeJobService(rows, { findUnparsed: async () => [] }),
     settings: fakeSettingsService({
-      getExpiryThreshold: async () => 30,
       getResolutionFastConcurrency: async () => 1,
       getResolutionSlowConcurrency: async () => 1,
       getResolutionSlowPauseSeconds: async () => 0,
@@ -1644,8 +1634,7 @@ describe("the slow lane's pause reaches resolution in milliseconds", () => {
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       settings: fakeSettingsService({
-        getExpiryThreshold: async () => 30,
-        getResolutionFastConcurrency: async () => 3,
+          getResolutionFastConcurrency: async () => 3,
         getResolutionSlowConcurrency: async () => 2,
         getResolutionSlowPauseSeconds: async () => 12,
         getSourcePriorityList: async () => ["collector:adzuna"],
