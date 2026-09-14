@@ -13,59 +13,92 @@
 
 ## Current Task
 
-**Phase 9 is planned. Nothing is built. The next box is "Build phase 9" and its 19 tasks are listed under it in [`docs/CURRENT-FEATURE.md`](../docs/CURRENT-FEATURE.md).**
+**Building phase 9. Tasks 1 to 12 of 19 are done. Task 13 is next.** The task list is in [`docs/CURRENT-FEATURE.md`](../docs/CURRENT-FEATURE.md) under "Build phase 9", and each finished one is ticked there.
 
-Verified at session end: **2,229 tests pass across 97 files. `npm run lint` exits 0. Working tree clean. Nothing unpushed.**
+The spec is [`phases/phase-09-classification-spec.md`](../docs/features/unified-pipeline/phases/phase-09-classification-spec.md). Read it before building anything — it holds the 121 criteria each task is built against.
 
-Four commits went up this session, plus the three phase 8a commits the previous session left behind.
+Verified at session end: **2,431 tests pass across 105 files. `npm run lint` exits 0. Working tree clean. Eleven commits are unpushed.**
 
-The spec is [`phases/phase-09-classification-spec.md`](../docs/features/unified-pipeline/phases/phase-09-classification-spec.md) — 30 stories, 20 edge cases, 121 acceptance criteria, 19 tasks. **The r&d beside it no longer holds a second copy of the criteria.** It points at the spec, because the two had already diverged at 116 against 121 with different wording. The spec is the record; the r&d holds the reasoning, every finding raised and dropped, and what each grading pass changed.
+Every task followed the `crowd-code` process: a failing test first, then two sub-agents writing the same change in parallel, then one result picked or the two combined.
 
 ## Completed This Session
 
-Planning only, end to end: brain dump, orientation, discovery, two spikes, 30 stories, two stress-test rounds across six sub-agents, six user decisions, a rubric grading, a coverage audit, two `spec-review` passes, the spec, meeting notes, 27 decision log entries, and eight out-of-scope items placed one at a time.
+Twelve tasks, one commit each.
 
-**Two spikes are committed and rerun offline** at [`location-research/spike2/`](../docs/features/unified-pipeline/location-research/spike2/), with their own README and two geocode caches. `split.ts` is the shape task 5 builds from. Every measurement quoted in the spec comes from there.
+**The pieces the judging steps are built from.** A setting for the repost gap. Five new columns on a job. A table remembering every place looked up on a map. One age measurement. A splitter cutting a location into single places. A widened work-mode translator. A containment test. A geocoder and its test stand-in. A place service and its stand-in. The rule deciding whether a job is close enough.
 
-**A new project rule**, [`.claude/rules/run-summary.md`](rules/run-summary.md), governs every run summary from now on.
+**One existing step changed.** Normalization now cuts every location into places and lifts any work mode out of the text.
 
-**Two global files changed.** `~/.claude/rules/feature-specs.md` gained a "Naming things in a criterion" section. `~/.claude/references/rubrics/spec-rubric.md`'s implementation-detail check became "Words before names". Both were the user's call, and both change how any future spec is written and graded.
+**Three new job lists** on the job service, one per judging step.
 
 ## Decisions & Context
 
-### The invariant that matters most
+### The user's decision
 
-**Expiry, promotion and the repost test read the posting's own dates and never the row's timestamps.** The user caught this and nothing had tested it. A rule reading the row's timestamp would promote every job the moment its own status was written — writing the status moves the timestamp, which qualifies the job for promotion, forever. Criteria 120 and 121 guard it.
+**Every code change goes through `crowd-code`, including small pattern copies.** Asked whether the two-writer tournament could be skipped for changes that only copy a pattern already in the file — a seven-line getter beside six identical ones. The answer was no. So a one-line addition to a test stand-in still went to two sub-agents.
 
-### Proven, and deliberately not fixed
+### Names the plan described but did not give
 
-A job a source lists again has all three phase marks cleared and goes round the pipeline again — a browser visit, a page fetch, a fresh judgement. Proven by running `mergeJobs` directly. Every collector writes the marks as false and the merge takes the newer value.
+The spec said what each column holds without naming it. These are the names chosen:
 
-**The user judged this the system working, not a defect.** A job that may have changed should be read again. Reducing what an unchanged job costs is backlog item 29.
+- `normalized_location_list` — the location cut into single places
+- `location_match` — whether the job is close enough. Empty means no place could be read, which is a different answer from too far
+- `location_match_place` and `location_match_mode` — which place and work mode won
+- `is_repost` — whether the employer listed the role again
+- `Place.lookup_text` — the text that produced a place, and its whole identity
 
-### What was measured rather than argued
+### Calls made while building
 
-Six questions were settled with numbers instead of debate, and each is reproducible:
+**Where each new column sits in the merge.** The place list is contested between sources, beside the mode list it mirrors. The other four are written through, because classification owns them and a collector's fresh copy carries the key absent rather than null — so re-collecting a job cannot wipe its verdict.
 
-- Cutting a location at every delimiter gains 32 matches and loses none across 2,208 jobs.
-- Of 796 fragments, ten landed within thirty miles — every one a real Austin-area place. The feared false local signal never appeared.
-- Comparing place names put a job in Austin, Arkansas into the backlog. That is why containment became geometry.
-- Places repeat at 80%, so the cache earns its place.
-- Keeping the spike's place-and-mode pairing changes no verdict on any real job.
-- Adding distance to the remote test gains exactly one job and no false match.
+**A reset keeps the place table.** A place costs a paced request and is not job data, so wiping it would make every reset expensive for nothing. `scripts/db-reset.test.ts` hardcodes the table list and was updated.
 
-### Left stale on purpose
+**The age measurement joined `lib/utils/job-age.ts`** rather than taking a new file. That file already reads "3 days ago" off a job card, which is the same subject seen from the collector's side.
 
-**The architecture doc.** Its run diagram has no promotion step, and it says a fourth save point arrives with classification when Phase 9 adds two. The user's call: updating it now is getting ahead of ourselves. It updates at phase close.
+**Age is an exact duration, not a count of calendar days.** The repost gap is explicitly a duration in the spec, and using one rule for both is simpler.
 
-**The four existing summary blocks.** Phase 9 builds three new blocks to the new rule while collection, dedupe, resolution and parsing keep the old shapes, so a run prints two shapes side by side until backlog item 30 is done. Not only formatting — those four write no trace row when a job passes through untouched, so their headings have nothing to count.
+**The promotion list filters by age inside the service, not in the handler.** The spec's example summary shows promotion's heading equalling its promoted count, so the list handed to the step must already be only jobs it can promote. `findExpiredWithin(thresholdDays, now)` takes the run's date so the whole run measures against one moment.
 
-### A gotcha that cost time twice
+**Normalization writes no success row for a location.** The spec's trace table names only `location_unusable`, and adding a success reason would change normalization's summary block, which is out of scope. `location_unusable` is a trace row only, not a user warning.
 
-**A markdown formatter collapses indented code blocks onto one line** in this repo's `.claude/rules/`. It destroyed the examples in the run-summary rule on first write. Fenced blocks survive; indented ones do not.
+**The geocoder throws on a missing api key.** The old client logged and returned nothing, which made every job fail to classify silently. It also does not retry a refusal: a run resolving hundreds of places cannot afford to wait, and the place is tried again next run.
+
+**The geocoder's pacing timer belongs to the geocoder, not the module.** The old one kept it in module state and needed a reset hook to be testable. This one does not.
+
+### Gotchas that cost time
+
+**`dev.db` is the old database with the old schema.** Its location column is `Job.location`, a plain string — not `raw_location_list`. It holds 2,202 jobs and 772 distinct location strings, which is what `lib/utils/locations.fixture.json` was built from. The 2,208 and 796 figures quoted in the spec come from the spike's own counting, not from this column.
+
+**Two test suites running at once report a false error.** One run took sixteen minutes and ended with "1 error" and no detail. Run the suite once at a time.
+
+**The Prisma client is generated to `generated/pipeline/client`, not `@prisma/client`.** Both sub-agents got this wrong on the place service and it had to be corrected by hand.
+
+**A script using top-level `await` fails under tsx.** Wrap it in an `async function main()`. A script also has to live inside the repo for its imports to resolve.
+
+**Two shell hooks block common shapes.** `sleep N; command` is refused — use `until <check>; do sleep 2; done`. And reading a file over 2048 bytes with `cat` is refused — use the Read tool or `sed -n 'START,ENDp'`.
+
+### Sub-agent answers rejected, and why
+
+**An index signature on the age type.** One writer added `[key: string]: unknown` so a test could pass an object carrying extra keys. That accepts any field at all. The test was fixed instead, to hold whole records in variables the way a real caller does.
+
+**Throwing away a geocoded place missing its name or type.** One writer rejected any result without `addresstype` and `display_name`. Only the coordinates and the outline decide a match, so those are stored empty and the place is kept.
+
+**Defaulting a missing collection date to now.** One writer did this in the job service stand-in, which would silently promote a job nothing is known about. It is left off the list instead.
+
+### Still open
+
+**Three checks the spec says must be run against the live map service, not in the suite.** That the service still returns an outline for a country, a state and a county. That the simplification really does shrink a country's outline. That the pacing holds across twenty lookups.
+
+**The architecture doc is still stale**, deliberately. It updates at phase close, which is the box after "Build phase 9".
 
 ## Next Steps
 
-1. **Build phase 9.** 19 tasks in `docs/CURRENT-FEATURE.md`, in order. Task 1 is the repost gap setting, task 2 the five new job columns. Each task is one unit of code with its tests.
-2. **Watch two things while building.** Nothing may read the row's timestamp for an age or repost judgement. And `npm run test` must stay off the network — the geocoder needs its fake before any test touches it, which is task 9.
-3. **Close phase 9** when it is built: architecture doc, decision log, and any backlog change presented for approval. The architecture doc's two known staleness points are listed above.
+1. **Task 13** — `lib/handlers/backlog-cleanup.ts` and its trace rows. Every backlog job is read, one past the age limit takes the status `expired`, the rest are untouched.
+2. **Task 14** — `lib/handlers/promotion.ts` and its trace rows.
+3. **Task 15** — `lib/handlers/classification.ts`: the repost check, then the age check, then the match, with one guard per job so a single failing lookup costs one job rather than the rest of the list.
+4. **Tasks 16 and 17** — turn the user's location into coordinates once per run, and wire the three steps into the run with a save each.
+5. **Task 18** — three summary blocks, to [`.claude/rules/run-summary.md`](rules/run-summary.md).
+6. **Task 19** — this phase's vocabulary into the `Trace` comment, `trace-events.md` and the schema test.
+7. **Close phase 9** — architecture doc, decision log, and any backlog change presented for approval.
+
+**Two things to watch while building.** Nothing may read a row's own timestamp for an age or repost judgement. And `npm run test` must stay off the network — use `fakeGeocoder`.
