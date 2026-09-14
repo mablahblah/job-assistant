@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { ageToDate, isPastThreshold, parseAgeToDays } from "./job-age";
+import {
+  ageToDate,
+  isPastThreshold,
+  jobAgeInDays,
+  parseAgeToDays,
+  type JobAgeFields,
+} from "./job-age";
 
 // A fixed instant, so nothing here depends on the wall clock. Vitest runs
 // with TZ set to UTC, which is why these can be asserted to the millisecond.
@@ -189,5 +195,92 @@ describe("ageToDate: the reference date defaults to now", () => {
     // rather than freezing the clock.
     expect(result!.getTime()).toBeGreaterThanOrEqual(before - dayMs);
     expect(result!.getTime()).toBeLessThanOrEqual(after - dayMs);
+  });
+});
+
+// A day in milliseconds, so the fixtures below read as durations rather than
+// as arithmetic the reader has to do.
+const DAY_MS = 86400000;
+
+function daysBefore(days: number): Date {
+  return new Date(REFERENCE.getTime() - days * DAY_MS);
+}
+
+describe("jobAgeInDays: the newer of the posting's own two dates is measured", () => {
+  // Criterion 3.
+  test("a job carrying an updated date is measured from it", () => {
+    const age = jobAgeInDays(
+      {
+        posting_date: daysBefore(30),
+        posting_updated_date: daysBefore(2),
+        collected_at: daysBefore(1),
+      },
+      REFERENCE
+    );
+    expect(age).toBe(2);
+  });
+
+  // Criterion 4.
+  test("a job carrying no updated date is measured from its posted date", () => {
+    const age = jobAgeInDays(
+      { posting_date: daysBefore(5), posting_updated_date: null, collected_at: daysBefore(1) },
+      REFERENCE
+    );
+    expect(age).toBe(5);
+  });
+
+  // Criterion 119. Save fills the posted date from the day the pipeline first
+  // saw the posting, but a job judged before it was ever saved has neither.
+  test("a job carrying no date at all is measured from the day it was first seen", () => {
+    const age = jobAgeInDays(
+      { posting_date: null, posting_updated_date: null, collected_at: daysBefore(9) },
+      REFERENCE
+    );
+    expect(age).toBe(9);
+  });
+
+  // The hours between two collectors seeing one posting are real, so the
+  // measurement is a duration rather than a count of calendar days.
+  test("part of a day counts toward the age", () => {
+    const age = jobAgeInDays(
+      { posting_date: new Date(REFERENCE.getTime() - DAY_MS * 2.5), collected_at: REFERENCE },
+      REFERENCE
+    );
+    expect(age).toBe(2.5);
+  });
+
+  // Criterion 120. Writing a row moves its own timestamp, so a rule reading
+  // that timestamp would make every job look newly posted the moment its
+  // status was written.
+  test("neither the row's own timestamps nor the reference date change the age", () => {
+    // Held as whole records rather than trimmed-down literals, because that is
+    // what a step really hands in: a row carrying its own timestamps too.
+    const untouched: JobAgeFields & { modified_at: Date } = {
+      posting_date: daysBefore(12),
+      collected_at: daysBefore(12),
+      modified_at: daysBefore(11),
+    };
+    const justWritten: JobAgeFields & { modified_at: Date } = {
+      ...untouched,
+      modified_at: REFERENCE,
+    };
+    expect(jobAgeInDays(justWritten, REFERENCE)).toBe(jobAgeInDays(untouched, REFERENCE));
+  });
+
+  // Criterion 5. All three steps hand the same job and the same date in, so
+  // none of them can drift from the others.
+  test("the same job and the same date always give the same number", () => {
+    const job = { posting_date: daysBefore(4), collected_at: daysBefore(4) };
+    expect(jobAgeInDays(job, REFERENCE)).toBe(jobAgeInDays(job, REFERENCE));
+  });
+
+  // A posting dated in the future is not older than nothing, and a negative
+  // age would read as past no threshold at all.
+  test("a date ahead of the reference reads as no age rather than a negative one", () => {
+    const age = jobAgeInDays(
+      { posting_date: new Date(REFERENCE.getTime() + DAY_MS), collected_at: REFERENCE },
+      REFERENCE
+    );
+    expect(age).toBe(0);
   });
 });

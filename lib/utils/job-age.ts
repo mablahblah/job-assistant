@@ -1,6 +1,19 @@
 // Reads the relative age strings job cards carry, so "3 days ago" and "1mo"
 // mean the same thing to every collector. A browser collector uses this to
 // decide when a listing is old enough to stop paginating.
+//
+// It also holds the one measurement of a saved job's age, which backlog
+// cleanup, promotion and classification all call, so the clock cannot drift
+// between them.
+import type { JobDateFields } from "./job-dates";
+
+// collected_at is always present once a job is saved, unlike the two date
+// fields it joins — this is the shape a caller measuring age actually holds.
+export interface JobAgeFields extends JobDateFields {
+  collected_at: Date;
+}
+
+const DAY_MS = 86400000;
 
 // Every unit below captures its number in the first group, so pulling that
 // number out lives here rather than at each match.
@@ -56,4 +69,24 @@ export function ageToDate(age: string, now: Date = new Date()): Date | null {
   const days = parseAgeToDays(age);
   if (days === null) return null;
   return new Date(now.getTime() - days * 86400000);
+}
+
+// The date a source last changed a posting is closer to its real age than the
+// date it went live, which is why an update beats a posted date. The day this
+// pipeline first saw the job is only a fallback for a posting carrying
+// neither, since a source's own dates outrank our bookkeeping.
+//
+// Neither the row's modified_at nor its created_at is read. Writing a status
+// moves modified_at, so a rule reading it would make every job look freshly
+// posted the instant its status was written.
+//
+// The answer is an exact duration rather than a count of calendar days, and
+// the reference instant is handed in rather than read from the clock, because
+// a whole run measures against the instant it started with.
+export function jobAgeInDays(job: JobAgeFields, referenceInstant: Date): number {
+  const anchor = job.posting_updated_date ?? job.posting_date ?? job.collected_at;
+  const ageInDays = (referenceInstant.getTime() - anchor.getTime()) / DAY_MS;
+  // A posting dated after the reference instant is not old at all, rather
+  // than owing a negative age no threshold could read.
+  return Math.max(0, ageInDays);
 }
