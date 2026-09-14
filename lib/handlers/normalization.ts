@@ -1,7 +1,7 @@
 // Turns each raw_* field a collector wrote into the tidied shape the rest of
 // the app reads, by routing it through the normalizer that already owns that
-// field. It is the only place the four are called together, so a caller
-// reaches for one function rather than remembering all four.
+// field. It is the only place the five are called together, so a caller
+// reaches for one function rather than remembering all five.
 //
 // Every present field is recomputed from its raw source on every call, with
 // no check for whether its target is already filled in. That is what makes a
@@ -23,6 +23,8 @@ import type { JobListEntry, RawSalary } from "../types/job-list-entry";
 import { normalizeTitle, type TitleVocabularies } from "../utils/title";
 import { normalizeSalary } from "../utils/salary";
 import { normalizeModeList } from "../utils/work-mode-list";
+import { splitLocation } from "../utils/split-location";
+import type { WorkMode } from "../utils/work-mode";
 import { truncateDetail } from "../utils/trace-detail";
 import { normalizeCompanyName } from "../utils/company-name";
 import { summarizeNormalizationWarnings, type UnusableField } from "../utils/normalization-warnings";
@@ -39,7 +41,7 @@ export function normalizeJob(
   job: JobListEntry,
   vocabularies: TitleVocabularies
 ): { job: JobListEntry; events: NormalizationEvent[] } {
-  // A shallow copy: the four routes below only ever reassign a target field
+  // A shallow copy: the five routes below only ever reassign a target field
   // on this copy, so the job passed in is never touched.
   const result: JobListEntry = { ...job };
   const events: NormalizationEvent[] = [];
@@ -103,28 +105,79 @@ export function normalizeJob(
     }
   }
 
-  // A missing, null or empty list has no modes in it to translate.
-  if (job.raw_mode_list && job.raw_mode_list.length > 0) {
-    const normalized = normalizeModeList(job.raw_mode_list);
-    result.normalized_mode_list = normalized;
+  // Cutting a location into places is one job and judging those places against
+  // a map is another; this route only cuts. A work mode named inside a
+  // location is carried down to the mode route below rather than judged here.
+  const liftedModes: WorkMode[] = [];
+
+  // A missing, null or empty list has no locations in it to cut.
+  if (job.raw_location_list && job.raw_location_list.length > 0) {
+    const places: string[] = [];
+    const seen = new Set<string>();
+
+    for (const raw of job.raw_location_list) {
+      const split = splitLocation(raw);
+      for (const place of split.places) {
+        // Two locations can name one place with different casing, and the
+        // pooled list holds it once, spelled the way it was first seen.
+        const key = place.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        places.push(place);
+      }
+      liftedModes.push(...split.modes);
+    }
+
+    // Rebuilt, never appended to: normalization runs again after parsing, and
+    // a second pass over unchanged raw locations has to land on the same list.
+    result.normalized_location_list = places;
+
+    // Locations have a failure row and no success row: the trace vocabulary
+    // for this phase names only the failure.
+    if (places.length === 0) {
+      events.push({
+        event: "normalization_failed",
+        reason: "location_unusable",
+        detail: {
+          from: truncateDetail(JSON.stringify(job.raw_location_list)),
+          to: truncateDetail(JSON.stringify(places)),
+        },
+      });
+    }
+  }
+
+  const rawModeList = job.raw_mode_list ?? [];
+
+  // A mode lifted out of a location is a mode the job has, so it lands even
+  // when the source published no mode words of its own. With neither to work
+  // from there is nothing to translate, and a list an earlier pass wrote stays.
+  if (rawModeList.length > 0 || liftedModes.length > 0) {
+    result.normalized_mode_list = normalizeModeList([...rawModeList, ...liftedModes]);
+  }
+
+  // The rows below weigh only what the source published as modes. A mode
+  // lifted out of a location was never one of these words, and counting it
+  // would make an unusable raw list read as partly usable.
+  if (rawModeList.length > 0) {
+    const normalized = normalizeModeList(rawModeList);
 
     // Counted against recognised raw entries, not output length: two raw
     // spellings of the same mode merge into one output entry, and that
     // still counts as both having been recognised rather than one going
     // missing. Recognition is asked of normalizeModeList itself rather than a
     // second copy of its word list.
-    const recognizedCount = job.raw_mode_list.filter(
+    const recognizedCount = rawModeList.filter(
       (word) => normalizeModeList([word]).length > 0
     ).length;
 
     const detail = {
-      from: truncateDetail(JSON.stringify(job.raw_mode_list)),
+      from: truncateDetail(JSON.stringify(rawModeList)),
       to: truncateDetail(JSON.stringify(normalized)),
     };
 
     if (recognizedCount === 0) {
       events.push({ event: "normalization_failed", reason: "work_mode_unusable", detail });
-    } else if (recognizedCount === job.raw_mode_list.length) {
+    } else if (recognizedCount === rawModeList.length) {
       events.push({ event: "job_updated", reason: "work_mode_normalized", detail });
     } else {
       events.push({ event: "job_updated", reason: "work_mode_partially_normalized", detail });

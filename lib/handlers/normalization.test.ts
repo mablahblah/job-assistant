@@ -137,6 +137,108 @@ describe("normalizeJob: work mode list", () => {
   });
 });
 
+describe("normalizeJob: location list", () => {
+  // Criterion 40. A posting naming several places is judged on each one, so
+  // the cutting up happens here rather than in the step that judges.
+  test("each place a location names becomes its own entry", () => {
+    const job: JobListEntry = { raw_location_list: ["Bee Cave, Travis County"] };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_location_list).toEqual([
+      "Bee Cave",
+      "Travis County",
+    ]);
+  });
+
+  test("several locations pool into one place list", () => {
+    const job: JobListEntry = { raw_location_list: ["Austin, TX", "Dallas"] };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_location_list).toEqual([
+      "Austin",
+      "TX",
+      "Dallas",
+    ]);
+  });
+
+  test("one place named by two locations is held once", () => {
+    const job: JobListEntry = { raw_location_list: ["Austin, TX", "Austin"] };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_location_list).toEqual(["Austin", "TX"]);
+  });
+
+  test.each([
+    ["missing", undefined],
+    ["null", null],
+    ["an empty list", []],
+  ])("raw_location_list that is %s leaves normalized_location_list untouched", (_label, raw) => {
+    const job: JobListEntry = {
+      raw_location_list: raw,
+      normalized_location_list: ["Austin"],
+    };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_location_list).toEqual(["Austin"]);
+  });
+
+  // Criterion 50. A location that tidies away to nothing writes a row, the
+  // way every other field normalization fails on does.
+  test("a location yielding no places writes a failure row", () => {
+    const job: JobListEntry = { raw_location_list: ["office"] };
+    const { events } = normalizeJob(job, VOCABULARIES);
+    expect(events).toContainEqual({
+      event: "normalization_failed",
+      reason: "location_unusable",
+      detail: { from: JSON.stringify(["office"]), to: JSON.stringify([]) },
+    });
+  });
+
+  test("a location yielding places writes no failure row", () => {
+    const job: JobListEntry = { raw_location_list: ["Austin"] };
+    const { events } = normalizeJob(job, VOCABULARIES);
+    expect(events.filter((event) => event.reason === "location_unusable")).toEqual([]);
+  });
+});
+
+describe("normalizeJob: a work mode named inside a location", () => {
+  // Criterion 44. Without this a job whose location reads only Remote carries
+  // no work mode at all.
+  test("the mode joins the job's mode list", () => {
+    const job: JobListEntry = { raw_location_list: ["Remote"] };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["remote"]);
+  });
+
+  // Criterion 47.
+  test("a job whose source published no modes still gets the lifted one", () => {
+    const job: JobListEntry = { raw_location_list: ["Austin (Hybrid)"], raw_mode_list: [] };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["hybrid"]);
+  });
+
+  // Criterion 46.
+  test("a published mode and a lifted one both land", () => {
+    const job: JobListEntry = {
+      raw_location_list: ["Austin (Hybrid)"],
+      raw_mode_list: ["Remote"],
+    };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["remote", "hybrid"]);
+  });
+
+  test("a mode published and named in the location is held once", () => {
+    const job: JobListEntry = {
+      raw_location_list: ["Remote"],
+      raw_mode_list: ["Remote"],
+    };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["remote"]);
+  });
+
+  // Criterion 43. The mode word is lifted out of the place text, not copied.
+  test("the mode word is gone from the place text", () => {
+    const job: JobListEntry = { raw_location_list: ["Austin (Hybrid)"] };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_location_list).toEqual(["Austin"]);
+  });
+
+  test("a location naming no mode leaves the mode list untouched", () => {
+    const job: JobListEntry = {
+      raw_location_list: ["Austin"],
+      normalized_mode_list: ["hybrid"],
+    };
+    expect(normalizeJob(job, VOCABULARIES).job.normalized_mode_list).toEqual(["hybrid"]);
+  });
+});
+
 describe("normalizeJob: company name", () => {
   test("raw_company_name is cleaned in place, overwriting itself", () => {
     // There is no second column — the cleaned spelling replaces the source's
@@ -192,6 +294,7 @@ describe("normalizeJob: running it twice over unchanged raw fields", () => {
       raw_title: "Senior UX Designer",
       raw_salary: { salary_min: 85000, salary_max: 115000 },
       raw_mode_list: ["Remote", "remote", "flexible"],
+      raw_location_list: ["Bee Cave, Travis County", "Austin (Hybrid)"],
       raw_company_name: "Meta Platforms, Inc. ",
     };
     const first = normalizeJob(job, VOCABULARIES).job;
