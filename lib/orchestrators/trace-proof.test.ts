@@ -23,6 +23,10 @@ import { fakeResolutionPage } from "../tools/resolution-page.fake";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { SettingsService } from "../services/settings-service";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import { fakePlaceService } from "../services/place-service.fake";
+import type { PlaceService } from "../services/place-service";
+import { fakeGeocoder } from "../tools/geocoder.fake";
+import type { Geocoder } from "../tools/geocoder";
 import { fakeCompanyService } from "../services/company-service.fake";
 import { fakeJobService } from "../services/job-service.fake";
 
@@ -158,6 +162,29 @@ const greenhouseCollector: Collector = {
 // real instead, because that claim covers both steps.
 const NOTHING_TO_RESOLVE = { findUnresolved: async () => [] };
 
+// Answers every place lookup, so this proof never reaches a mapping service
+// and the run always has a home point to measure against.
+function stubPlaces(): PlaceService {
+  return fakePlaceService([], {
+    async findByText(text: string) {
+      return {
+        lookup_text: text,
+        latitude: 30.2672,
+        longitude: -97.7431,
+        place_type: "city",
+        display_name: "Austin, Texas",
+        outline: null,
+      };
+    },
+  });
+}
+
+// Paired with stubPlaces above, which answers every lookup, so this is never
+// asked anything.
+function stubGeocoder(): Geocoder {
+  return fakeGeocoder();
+}
+
 const FORBIDDEN_BROWSER = async (): Promise<ResolutionBrowserSession> => {
   throw new Error("the run launched a browser with nothing to resolve");
 };
@@ -215,6 +242,8 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: stubSettings,
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
       runId: runIdAlpha,
       trace: built.writer,
       collectors: [adzunaCollector, greenhouseCollector],
@@ -226,6 +255,8 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       collectedAt: COLLECTED_AT,
       companies: fakeCompanyService([]),
       settings: stubSettings,
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
       runId: runIdBeta,
       trace: built.writer,
       collectors: [adzunaCollector, greenhouseCollector],
@@ -381,6 +412,8 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     runId = "run-gamma";
 
     await runJobSearch({
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
       openBrowser: browserServing(),
       waitForLoad: async () => {},
       jobService: fakeJobService([]),
@@ -593,6 +626,8 @@ describe("the trace table answers how each job reached its company, across both 
       jobService: { ...createJobService(built.db), ...NOTHING_TO_RESOLVE },
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
       runId,
       trace: built.writer,
       companies,
@@ -753,6 +788,8 @@ describe("the trace table answers what save did to each job, across both passes"
       jobService,
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
       runId,
       trace: built.writer,
       companies: createCompanyService(built.db),
@@ -881,6 +918,8 @@ describe("the trace table answers what dedupe merged away, and what save then di
     // Real services throughout, so the rows this asserts on sit behind real
     // Job and Company rows rather than objects in an array.
     report = await runJobSearch({
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
       openBrowser: browserServing(),
       waitForLoad: async () => {},
       jobService: createJobService(built.db),

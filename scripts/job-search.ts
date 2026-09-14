@@ -4,10 +4,12 @@
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { createCompanyService } from "../lib/services/company-service";
 import { createJobService } from "../lib/services/job-service";
+import { createPlaceService } from "../lib/services/place-service";
 import { createSettingsService } from "../lib/services/settings-service";
 import type { CollectionIssue } from "../lib/types/collection-issue";
 import { runJobSearch } from "../lib/orchestrators/job-search";
 import { createResolutionBrowser } from "../lib/tools/resolution-browser";
+import { createGeocoder } from "../lib/tools/geocoder";
 import { summaryFromTraceCounts } from "../lib/utils/run-summary";
 import { createTraceService } from "../lib/services/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
@@ -65,6 +67,12 @@ async function main(): Promise<void> {
     // The one way anything reaches the Job table, so saving stays in one
     // place instead of leaking into collectors and parsers.
     const jobService = createJobService(prisma);
+    // The one way anything reaches the Place table, so a place looked up once
+    // is reused by every later run instead of being paid for again.
+    const places = createPlaceService(prisma);
+    // Holds its own pacing timer, so the one-lookup-a-second limit is kept by
+    // the tool rather than by every caller remembering to wait.
+    const geocoder = createGeocoder();
     // Names this job search so every trace event it produces can be grouped
     // and compared against other searches.
     const runId = crypto.randomUUID();
@@ -81,6 +89,8 @@ async function main(): Promise<void> {
       // a resolution browser session, which is exactly what openBrowser is
       // asked for, so it is handed over by name rather than wrapped.
       openBrowser: createResolutionBrowser,
+      places,
+      geocoder,
       collectedAt,
       runId,
       limit,

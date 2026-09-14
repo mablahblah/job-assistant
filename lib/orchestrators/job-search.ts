@@ -17,6 +17,9 @@
 import type { CollectionIssue } from "../types/collection-issue";
 import type { Collector } from "../collectors/collector";
 import { associateCompanies } from "../handlers/association";
+import { cleanBacklogJobs } from "../handlers/backlog-cleanup";
+import { classifyJobs } from "../handlers/classification";
+import { promoteJobs } from "../handlers/promotion";
 import { collectJobs } from "../handlers/collection";
 import type { CompanyService } from "../services/company-service";
 import { dedupeJobs } from "../handlers/dedupe";
@@ -28,6 +31,8 @@ import { resolveJobs } from "../handlers/resolution";
 import type { Parser } from "../parsers/parser";
 import type { ResolutionBrowserFactory, ResolutionPage } from "../tools/resolution-page";
 import { saveJobs } from "../handlers/save";
+import type { PlaceService } from "../services/place-service";
+import type { Geocoder } from "../tools/geocoder";
 import type { SettingsService } from "../services/settings-service";
 import { messageFromThrown } from "../utils/thrown-message";
 import type { TitleVocabularies } from "../utils/title";
@@ -91,9 +96,16 @@ export interface RunJobSearchOptions {
   // against stand-in parsers. Left out, parsing looks a parser up in the real
   // registry.
   parserFor?: (url: string) => Parser | null;
-  // The date written into every job's collected_at. It arrives as an
-  // argument so the orchestrator reads no clock, which is what lets one run
-  // share a single write and a test pin it to a fixed date.
+  // Required, not optional, for the same reason again: classification needs a
+  // place to look coordinates up in and a mapping service to fill it, and a
+  // caller that omitted either would have the run judge nothing, which reads
+  // the same as a run that had nothing left to judge.
+  places: PlaceService;
+  geocoder: Geocoder;
+  // The date written into every job's collected_at. It is also the instant
+  // every age in the run is measured against, so a run that spends half an
+  // hour in a browser judges its last job against the same moment as its
+  // first. It arrives as an argument so the orchestrator reads no clock.
   collectedAt: Date;
   // Identifies one job search so every trace event it produces can be
   // grouped and compared against other searches. Minted by the caller;
@@ -147,6 +159,44 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
   }
 
   try {
+    // Read once for the whole run, because backlog cleanup, promotion and
+    // classification all judge age, and a run where they disagreed about what
+    // counts as expired would contradict itself.
+    const expiryThresholdDays = await at("expiry_threshold", () =>
+      options.settings.getExpiryThreshold()
+    );
+
+    // Read here rather than after collection, because the backlog cleanup save
+    // below is now the run's first write and every later save reuses it.
+    const priorityList = await at("source_priority_list", () =>
+      options.settings.getSourcePriorityList()
+    );
+
+    // Cleanup opens the run, so the backlog collection is about to add to has
+    // already been swept rather than being judged a step behind.
+    const backlog = await at("backlog_lookup", () => options.jobService.findBacklog());
+
+    const cleanedBacklog = await handler("backlog_cleanup", () =>
+      cleanBacklogJobs(backlog, {
+        expiryThresholdDays,
+        referenceInstant: options.collectedAt,
+        trace: options.trace,
+        runId: options.runId,
+        step: "backlog_cleanup",
+      })
+    );
+
+    const backlogSaved = await handler("post_backlog_cleanup_save", () =>
+      saveJobs(cleanedBacklog.jobs, {
+        jobService: options.jobService,
+        priorityList,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_backlog_cleanup_save",
+      })
+    );
+    report.warnings.push(...backlogSaved.warnings);
+
     // The collection handler owns the collectors, the job ids and the usability
     // check, and hands back the first job list of the run.
     const collected = await handler("collection", () =>
@@ -162,7 +212,9 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     );
     report.jobs = collected.jobs;
     report.errors = collected.errors;
-    report.warnings = collected.warnings;
+    // Pushed, never assigned: the backlog cleanup save above has already
+    // raised warnings of its own, and assigning here would throw them away.
+    report.warnings.push(...collected.warnings);
 
     // Read before the handlers run, deliberately: a missing title vocabulary
     // means the settings service throws, and that has to stop the whole run
@@ -173,13 +225,6 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       suffixes: await options.settings.getTitleSuffixes(),
       removalWords: await options.settings.getTitleRemovalWords(),
     }));
-
-    // Read here for the same reason, and read once for the whole run: both steps
-    // hand it to their dedupe and save calls, so merging the steps removes the
-    // resolution step's own second read of the same list.
-    const priorityList = await at("source_priority_list", () =>
-      options.settings.getSourcePriorityList()
-    );
 
     // One call with every collector's surviving jobs, which is what a handler
     // is handed. It writes its own trace rows and hands back the warnings it
@@ -393,6 +438,90 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       })
     );
     report.warnings.push(...parsedSaved.warnings);
+
+    // The point every job is measured against is settled once per run. The
+    // coordinates are looked up the way any place is — ask the place service
+    // first, and only pay the mapping service when it has never seen this text.
+    // A location that cannot be placed on a map ends the run, because measuring
+    // against nothing would mark every job as not matching.
+    const area = await at("home_location", async () => {
+      const locationText = await options.settings.getLocation();
+      const radiusMiles = await options.settings.getRadius();
+
+      const known = await options.places.findByText(locationText);
+      if (known) {
+        return { home: { latitude: known.latitude, longitude: known.longitude }, radiusMiles };
+      }
+
+      const found = await options.geocoder.lookUp(locationText);
+      // The service stores nothing for an empty answer, so an unplaceable
+      // location is tried again next run rather than remembered as a dead end.
+      await options.places.store(locationText, found);
+      if (!found) {
+        throw new Error(`The location setting "${locationText}" has no coordinates`);
+      }
+      return { home: { latitude: found.latitude, longitude: found.longitude }, radiusMiles };
+    });
+
+    const repostGapDays = await at("repost_gap", () => options.settings.getRepostGapDays());
+
+    // Promotion closes the run rather than opening it: an expired job only
+    // earns a fresh date once collection has found the new listing and dedupe
+    // has merged it in, so running it earlier would find nothing to promote.
+    const promotable = await at("promotion_lookup", () =>
+      options.jobService.findExpiredWithin(expiryThresholdDays, options.collectedAt)
+    );
+
+    const promoted = await handler("promotion", () =>
+      promoteJobs(promotable, {
+        trace: options.trace,
+        runId: options.runId,
+        step: "promotion",
+      })
+    );
+
+    const promotionSaved = await handler("post_promotion_save", () =>
+      saveJobs(promoted.jobs, {
+        jobService: options.jobService,
+        priorityList,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_promotion_save",
+      })
+    );
+    report.warnings.push(...promotionSaved.warnings);
+
+    // Read after promotion's save, so the jobs promotion just returned to the
+    // backlog are judged by this run rather than waiting for the next one.
+    const unclassified = await at("classification_lookup", () =>
+      options.jobService.findUnclassified()
+    );
+
+    const classified = await handler("classification", () =>
+      classifyJobs(unclassified, {
+        repostGapDays,
+        expiryThresholdDays,
+        referenceInstant: options.collectedAt,
+        home: area.home,
+        radiusMiles: area.radiusMiles,
+        places: options.places,
+        geocoder: options.geocoder,
+        trace: options.trace,
+        runId: options.runId,
+        step: "classification",
+      })
+    );
+
+    const classificationSaved = await handler("post_classification_save", () =>
+      saveJobs(classified.jobs, {
+        jobService: options.jobService,
+        priorityList,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_classification_save",
+      })
+    );
+    report.warnings.push(...classificationSaved.warnings);
 
     // The report lists every job the run acted on, so the parsing step's saved
     // list is joined on id, the same way the resolution step's list before it
