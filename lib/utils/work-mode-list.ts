@@ -8,14 +8,22 @@
 import type { WorkMode } from "./work-mode";
 
 // Every spelling a source is known to send, plus the words the description
-// reader can return. A word not in this table has no match, so a lookup
-// naturally drops it rather than guessing at a mode.
+// reader can return, plus every spelling the location splitter recognises, so
+// the two cannot drift apart. A word not in this table has no match, so a
+// lookup naturally drops it rather than guessing at a mode.
 const RECOGNISED_MODES: Record<string, WorkMode> = {
   remote: "remote",
+  "fully remote": "remote",
   hybrid: "hybrid",
   onsite: "in-person",
   "on-site": "in-person",
+  "on site": "in-person",
+  "in-office": "in-person",
+  inoffice: "in-person",
+  "in office": "in-person",
   "in-person": "in-person",
+  inperson: "in-person",
+  "in person": "in-person",
 };
 
 export function normalizeModeList(raw: string[]): WorkMode[] {

@@ -88,3 +88,27 @@ describe("every word the description reader can return survives normalization", 
     }
   );
 });
+
+// Criterion 45. The splitter lifts a work mode out of a location, so every
+// spelling it recognises has to survive this translation too. Listed here
+// rather than imported, so widening one without the other is caught.
+describe("every spelling the location splitter recognises", () => {
+  test.each([
+    ["remote", "remote"],
+    ["Remote", "remote"],
+    ["fully remote", "remote"],
+    ["Fully Remote", "remote"],
+    ["hybrid", "hybrid"],
+    ["on-site", "in-person"],
+    ["onsite", "in-person"],
+    ["on site", "in-person"],
+    ["in-office", "in-person"],
+    ["inoffice", "in-person"],
+    ["in office", "in-person"],
+    ["in-person", "in-person"],
+    ["inperson", "in-person"],
+    ["in person", "in-person"],
+  ])("%s gives %s", (word, expected) => {
+    expect(normalizeModeList([word])).toEqual([expected]);
+  });
+});
