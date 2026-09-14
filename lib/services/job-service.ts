@@ -10,6 +10,7 @@ import type { JobListEntry } from "../types/job-list-entry";
 import { isActiveStatus } from "../utils/job-status";
 import { mergeJobs, WRITE_ONCE_FIELDS } from "../utils/job-merge";
 import { urlMatchKey } from "../utils/url-match-key";
+import { isPastThreshold, jobAgeInDays } from "../utils/job-age";
 
 // What the write turned out to be, so a caller can trace it without working
 // it out again from the row it got back.
@@ -49,6 +50,31 @@ export interface JobService {
   // an earlier run, such as unparseable. The four phase gates are left off
   // every row for the same reason as above.
   findUnparsed(): Promise<JobListEntry[]>;
+  // Backlog cleanup reads its list here. It runs before any collector and
+  // sweeps the whole backlog rather than one run's worth, because a job that
+  // went stale weeks ago is as old today as one collected this morning. How
+  // far through the pipeline a job has come makes no difference to how old it
+  // is, so a resolved, parsed and judged job sits on this list beside one
+  // nothing has touched yet. The four phase gates are left off every row,
+  // because an entry carried on to a save should hold no stale copy of a flag
+  // another phase owns.
+  findBacklog(): Promise<JobListEntry[]>;
+  // Promotion reads its list here, and returns these jobs to the backlog
+  // because an employer that lists a role again gives it a fresh date, which
+  // pulls its age back inside the threshold. The age rule lives in one
+  // function the whole pipeline shares, and SQL cannot ask it anything, so the
+  // expired rows come back whole and the narrowing happens in code. The
+  // reference instant is handed in rather than read off the clock, because a
+  // run can spend half an hour in a browser between its first age check and
+  // its last, and every job on one run is measured against the same moment.
+  // The four phase gates are left off every row for the same reason as above.
+  findExpiredWithin(thresholdDays: number, now: Date): Promise<JobListEntry[]>;
+  // Classification reads its list here. A job only qualifies once resolution
+  // and parsing have both finished with it, since there is nothing to judge
+  // before then, and once judged it is done, so an already-classified job and
+  // one that took a status removing it from the queue are both left off. The
+  // four phase gates are left off every row for the same reason as above.
+  findUnclassified(): Promise<JobListEntry[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -219,6 +245,39 @@ export function createJobService(db: PipelineDb): JobService {
     async findUnparsed() {
       const rows = await db.job.findMany({
         where: { status: "backlog", is_resolved: true, is_parsed: false },
+        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+      });
+      return rows.map((row) => row as unknown as JobListEntry);
+    },
+
+    // The same narrowing as findUnresolved, with nothing beyond the status
+    // asked of the row, because cleanup judges the whole backlog in one pass.
+    async findBacklog() {
+      const rows = await db.job.findMany({
+        where: { status: "backlog" },
+        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+      });
+      return rows.map((row) => row as unknown as JobListEntry);
+    },
+
+    // The age check runs on the row as the database hands it back, before the
+    // cast below loosens every field, because an age can only be measured from
+    // a date that is really there. A job inside the threshold is one that is
+    // not past it.
+    async findExpiredWithin(thresholdDays, now) {
+      const rows = await db.job.findMany({
+        where: { status: "expired" },
+        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+      });
+      return rows
+        .filter((row) => !isPastThreshold(jobAgeInDays(row, now), thresholdDays))
+        .map((row) => row as unknown as JobListEntry);
+    },
+
+    // The same narrowing as findUnparsed, one step further along the pipeline.
+    async findUnclassified() {
+      const rows = await db.job.findMany({
+        where: { status: "backlog", is_resolved: true, is_parsed: true, is_classified: false },
         omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
       });
       return rows.map((row) => row as unknown as JobListEntry);

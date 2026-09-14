@@ -96,8 +96,8 @@ function countingJobService(
       calls.push("findByCompanyAndTitle");
       return service.findByCompanyAndTitle(companyId, title);
     },
-    // Resolution's own read, and parsing's. Dedupe never calls either, which
-    // is exactly what the call list is here to prove.
+    // The reads the other steps own. Dedupe never calls any of them, which is
+    // exactly what the call list is here to prove.
     async findUnresolved() {
       calls.push("findUnresolved");
       return service.findUnresolved();
@@ -105,6 +105,18 @@ function countingJobService(
     async findUnparsed() {
       calls.push("findUnparsed");
       return service.findUnparsed();
+    },
+    async findBacklog() {
+      calls.push("findBacklog");
+      return service.findBacklog();
+    },
+    async findExpiredWithin(thresholdDays, now) {
+      calls.push("findExpiredWithin");
+      return service.findExpiredWithin(thresholdDays, now);
+    },
+    async findUnclassified() {
+      calls.push("findUnclassified");
+      return service.findUnclassified();
     },
   };
 }

@@ -8,6 +8,7 @@ import type { JobListEntry } from "../types/job-list-entry";
 import type { DeleteResult, JobService, UpdateResult } from "./job-service";
 import { isActiveStatus } from "../utils/job-status";
 import { urlMatchKey } from "../utils/url-match-key";
+import { isPastThreshold, jobAgeInDays } from "../utils/job-age";
 
 // A link's match key travels with the link: a string link gets a freshly
 // computed key, a null link clears its key too, and a link this write never
@@ -156,6 +157,39 @@ export function fakeJobService(
       .map(withoutGateFields);
   }
 
+  async function findBacklog(): Promise<JobListEntry[]> {
+    return jobs.filter((job) => (job.status ?? "backlog") === "backlog").map(withoutGateFields);
+  }
+
+  // A job with no collection date cannot have its age measured at all, so it
+  // is left off rather than given a made-up one. A stored row always carries
+  // the date, so only a hand-built job in a test can reach this.
+  function hasCollectedAt(job: JobListEntry): job is JobListEntry & { collected_at: Date } {
+    return job.collected_at instanceof Date;
+  }
+
+  async function findExpiredWithin(thresholdDays: number, now: Date): Promise<JobListEntry[]> {
+    return jobs
+      .filter((job) => job.status === "expired")
+      .filter(hasCollectedAt)
+      .filter((job) => !isPastThreshold(jobAgeInDays(job, now), thresholdDays))
+      .map(withoutGateFields);
+  }
+
+  // Backlog and untouched by classification, but only once resolution and
+  // parsing have both already happened.
+  async function findUnclassified(): Promise<JobListEntry[]> {
+    return jobs
+      .filter(
+        (job) =>
+          (job.status ?? "backlog") === "backlog" &&
+          !!job.is_resolved &&
+          !!job.is_parsed &&
+          !job.is_classified
+      )
+      .map(withoutGateFields);
+  }
+
   return {
     update,
     delete: deleteJob,
@@ -164,6 +198,9 @@ export function fakeJobService(
     findByCompanyAndTitle,
     findUnresolved,
     findUnparsed,
+    findBacklog,
+    findExpiredWithin,
+    findUnclassified,
     ...overrides,
   };
 }

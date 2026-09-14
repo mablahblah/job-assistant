@@ -606,3 +606,166 @@ describe("the parsing job list", () => {
     expect(entry?.resolved_url).toBe("https://boards.greenhouse.io/acme/jobs/1");
   });
 });
+
+// The run's own date, so an age never depends on when the suite happens to
+// run. Thirty days before COLLECTED_AT, so a job seeded with no posting date
+// reads as thirty days old.
+const RUN_DATE = new Date("2026-01-31T00:00:00.000Z");
+
+describe("the backlog cleanup job list", () => {
+  function onlyMine(jobs: JobListEntry[], prefix: string): JobListEntry[] {
+    return jobs.filter((job) => (job.id ?? "").startsWith(prefix));
+  }
+
+  // Criterion 10. Backlog cleanup sweeps the backlog and nothing else.
+  test("holds every backlog job, whatever else it has been through", async () => {
+    await seedRow("sweep-plain");
+    await seedRow("sweep-resolved", { is_resolved: true });
+    await seedRow("sweep-judged", { is_resolved: true, is_parsed: true, is_classified: true });
+    await seedRow("sweep-expired", { status: "expired" });
+    await seedRow("sweep-too-far", { status: "too far" });
+
+    const found = onlyMine(await service.findBacklog(), "sweep-");
+
+    expect(found.map((job) => job.id).sort()).toEqual([
+      "sweep-judged",
+      "sweep-plain",
+      "sweep-resolved",
+    ]);
+  });
+
+  test("leaves the four gate fields behind", async () => {
+    await seedRow("sweep-fields");
+    const [entry] = onlyMine(await service.findBacklog(), "sweep-fields");
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+
+  // Backlog cleanup judges age, so the dates have to come across.
+  test("carries the dates an age is measured from", async () => {
+    await seedRow("sweep-dates", { posting_date: new Date("2025-12-01T00:00:00.000Z") });
+    const [entry] = onlyMine(await service.findBacklog(), "sweep-dates");
+    expect(entry?.posting_date).toEqual(new Date("2025-12-01T00:00:00.000Z"));
+    expect(entry?.collected_at).toEqual(COLLECTED_AT);
+  });
+});
+
+describe("the promotion job list", () => {
+  function onlyMine(jobs: JobListEntry[], prefix: string): JobListEntry[] {
+    return jobs.filter((job) => (job.id ?? "").startsWith(prefix));
+  }
+
+  // Criterion 108.
+  test("holds only jobs whose status is expired", async () => {
+    await seedRow("promote-expired", {
+      status: "expired",
+      posting_date: new Date("2026-01-30T00:00:00.000Z"),
+    });
+    await seedRow("promote-backlog", { posting_date: new Date("2026-01-30T00:00:00.000Z") });
+    await seedRow("promote-too-far", {
+      status: "too far",
+      posting_date: new Date("2026-01-30T00:00:00.000Z"),
+    });
+
+    const found = onlyMine(await service.findExpiredWithin(8, RUN_DATE), "promote-");
+
+    expect(found.map((job) => job.id)).toEqual(["promote-expired"]);
+  });
+
+  // Criterion 17 and 121. A job backlog cleanup expired moments ago is past
+  // the threshold, so promotion never sees it.
+  test("leaves out an expired job still past the threshold", async () => {
+    await seedRow("promote-old", {
+      status: "expired",
+      posting_date: new Date("2025-06-01T00:00:00.000Z"),
+    });
+    const found = onlyMine(await service.findExpiredWithin(8, RUN_DATE), "promote-old");
+    expect(found).toEqual([]);
+  });
+
+  // Criterion 3. The date the source last changed the posting is what the age
+  // is measured from, which is how a re-listed job comes back.
+  test("an updated date brings a long-posted job back inside the threshold", async () => {
+    await seedRow("promote-relisted", {
+      status: "expired",
+      posting_date: new Date("2025-06-01T00:00:00.000Z"),
+      posting_updated_date: new Date("2026-01-30T00:00:00.000Z"),
+    });
+    const found = onlyMine(await service.findExpiredWithin(8, RUN_DATE), "promote-relisted");
+    expect(found.map((job) => job.id)).toEqual(["promote-relisted"]);
+  });
+
+  // Criterion 6. The threshold is a setting, so the list moves with it.
+  test("a wider threshold takes in more jobs", async () => {
+    await seedRow("promote-threshold", {
+      status: "expired",
+      posting_date: new Date("2026-01-20T00:00:00.000Z"),
+    });
+    expect(onlyMine(await service.findExpiredWithin(8, RUN_DATE), "promote-threshold")).toEqual([]);
+    const wider = onlyMine(await service.findExpiredWithin(30, RUN_DATE), "promote-threshold");
+    expect(wider.map((job) => job.id)).toEqual(["promote-threshold"]);
+  });
+
+  test("leaves the four gate fields behind", async () => {
+    await seedRow("promote-fields", {
+      status: "expired",
+      posting_date: new Date("2026-01-30T00:00:00.000Z"),
+    });
+    const [entry] = onlyMine(await service.findExpiredWithin(8, RUN_DATE), "promote-fields");
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+});
+
+describe("the classification job list", () => {
+  function onlyMine(jobs: JobListEntry[], prefix: string): JobListEntry[] {
+    return jobs.filter((job) => (job.id ?? "").startsWith(prefix));
+  }
+
+  const READY = { is_resolved: true, is_parsed: true };
+
+  // Criteria 18 and 19.
+  test("holds only backlog jobs that are resolved, parsed and not yet judged", async () => {
+    await seedRow("judge-ready", READY);
+    await seedRow("judge-unresolved", { is_parsed: true });
+    await seedRow("judge-unparsed", { is_resolved: true });
+    await seedRow("judge-done", { ...READY, is_classified: true });
+    await seedRow("judge-expired", { ...READY, status: "expired" });
+
+    const found = onlyMine(await service.findUnclassified(), "judge-");
+
+    expect(found.map((job) => job.id)).toEqual(["judge-ready"]);
+  });
+
+  test("leaves the four gate fields behind", async () => {
+    await seedRow("judge-fields", READY);
+    const [entry] = onlyMine(await service.findUnclassified(), "judge-fields");
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+
+  // Criterion 51. The places were cut out during normalization, so
+  // classification reads them off the row rather than cutting them again.
+  test("carries the place list and the mode list the match needs", async () => {
+    await seedRow("judge-lists", {
+      ...READY,
+      normalized_location_list: ["Austin", "Travis County"],
+      normalized_mode_list: ["remote"],
+    });
+    const [entry] = onlyMine(await service.findUnclassified(), "judge-lists");
+    expect(entry?.normalized_location_list).toEqual(["Austin", "Travis County"]);
+    expect(entry?.normalized_mode_list).toEqual(["remote"]);
+  });
+
+  // Classification judges age and reposts, so both dates have to come across.
+  test("carries both posting dates", async () => {
+    await seedRow("judge-dates", {
+      ...READY,
+      posting_date: new Date("2025-12-01T00:00:00.000Z"),
+      posting_updated_date: new Date("2026-01-30T00:00:00.000Z"),
+    });
+    const [entry] = onlyMine(await service.findUnclassified(), "judge-dates");
+    expect(entry?.posting_date).toEqual(new Date("2025-12-01T00:00:00.000Z"));
+    expect(entry?.posting_updated_date).toEqual(new Date("2026-01-30T00:00:00.000Z"));
+  });
+});

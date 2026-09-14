@@ -535,3 +535,99 @@ describe("the fake's parsing job list", () => {
     expect(entry).not.toHaveProperty("is_classified");
   });
 });
+
+// Thirty days after COLLECTED_AT, so a job seeded with no posting date reads
+// as thirty days old.
+const RUN_DATE = new Date("2026-01-31T00:00:00.000Z");
+
+describe("the fake's backlog cleanup job list", () => {
+  test("holds every backlog job, whatever else it has been through", async () => {
+    const service = fakeJobService([
+      storedJob("plain"),
+      storedJob("resolved", { is_resolved: true }),
+      storedJob("judged", { is_resolved: true, is_parsed: true, is_classified: true }),
+      storedJob("expired", { status: "expired" }),
+      storedJob("too-far", { status: "too far" }),
+    ]);
+
+    const found = await service.findBacklog();
+
+    expect(found.map((job) => job.id)).toEqual(["plain", "resolved", "judged"]);
+  });
+
+  test("leaves the four gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([storedJob("plain")]);
+    const [entry] = await service.findBacklog();
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+});
+
+describe("the fake's promotion job list", () => {
+  test("holds only expired jobs whose age is back inside the threshold", async () => {
+    const service = fakeJobService([
+      storedJob("relisted", {
+        status: "expired",
+        posting_date: new Date("2026-01-30T00:00:00.000Z"),
+      }),
+      storedJob("still-old", {
+        status: "expired",
+        posting_date: new Date("2025-06-01T00:00:00.000Z"),
+      }),
+      storedJob("in-backlog", { posting_date: new Date("2026-01-30T00:00:00.000Z") }),
+    ]);
+
+    const found = await service.findExpiredWithin(8, RUN_DATE);
+
+    expect(found.map((job) => job.id)).toEqual(["relisted"]);
+  });
+
+  test("measures from the updated date when the source published one", async () => {
+    const service = fakeJobService([
+      storedJob("relisted", {
+        status: "expired",
+        posting_date: new Date("2025-06-01T00:00:00.000Z"),
+        posting_updated_date: new Date("2026-01-30T00:00:00.000Z"),
+      }),
+    ]);
+
+    const found = await service.findExpiredWithin(8, RUN_DATE);
+
+    expect(found.map((job) => job.id)).toEqual(["relisted"]);
+  });
+
+  test("leaves the four gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([
+      storedJob("relisted", {
+        status: "expired",
+        posting_date: new Date("2026-01-30T00:00:00.000Z"),
+      }),
+    ]);
+    const [entry] = await service.findExpiredWithin(8, RUN_DATE);
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+});
+
+describe("the fake's classification job list", () => {
+  test("holds only backlog jobs that are resolved, parsed and not yet judged", async () => {
+    const service = fakeJobService([
+      storedJob("ready", { is_resolved: true, is_parsed: true }),
+      storedJob("unresolved", { is_parsed: true }),
+      storedJob("unparsed", { is_resolved: true }),
+      storedJob("done", { is_resolved: true, is_parsed: true, is_classified: true }),
+      storedJob("expired", { is_resolved: true, is_parsed: true, status: "expired" }),
+    ]);
+
+    const found = await service.findUnclassified();
+
+    expect(found.map((job) => job.id)).toEqual(["ready"]);
+  });
+
+  test("leaves the four gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([storedJob("ready", { is_resolved: true, is_parsed: true })]);
+    const [entry] = await service.findUnclassified();
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_classified");
+  });
+});
