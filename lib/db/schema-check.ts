@@ -22,7 +22,7 @@ type PipelineDb = ReturnType<typeof createPipelineDb>;
 // probes below so a test can read it against the models in schema.prisma: a
 // hand-kept list going stale is the exact failure this whole file exists to
 // catch, and this file must not be the one that goes stale.
-export const CHECKED_MODELS = ["Job", "Company", "Setting", "Trace"] as const;
+export const CHECKED_MODELS = ["Job", "Company", "Place", "Setting", "Trace"] as const;
 
 // One probe per model. A findFirst on an empty table still asks for every
 // column, so this catches a mismatch on a database holding no rows at all.
@@ -30,6 +30,7 @@ export function schemaProbesFor(db: PipelineDb): SchemaProbe[] {
   return [
     { name: "Job", read: () => db.job.findFirst() },
     { name: "Company", read: () => db.company.findFirst() },
+    { name: "Place", read: () => db.place.findFirst() },
     { name: "Setting", read: () => db.setting.findFirst() },
     { name: "Trace", read: () => db.trace.findFirst() },
   ];

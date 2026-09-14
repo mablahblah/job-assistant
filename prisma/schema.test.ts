@@ -91,6 +91,20 @@ const EXPECTED_SETTING_COLUMNS = [
   "modified_at",
 ];
 
+// One row per place the mapping service was asked about. lookup_text is the
+// location fragment that was looked up, and the whole identity: a place is
+// found again by the same text rather than by a name the service chose.
+const EXPECTED_PLACE_COLUMNS = [
+  "id",
+  "lookup_text",
+  "latitude",
+  "longitude",
+  "place_type",
+  "display_name",
+  "outline",
+  "created_at",
+];
+
 // One row per event in a job's path through the pipeline. job_id names the
 // job an event describes but carries no foreign key, so a trace outlives the
 // job it was written for.
@@ -305,6 +319,10 @@ describe("AC4: the create command builds every table collection needs", () => {
     expect(await columnNames(url, "Trace")).not.toEqual([]);
   });
 
+  test("creates the Place table", async () => {
+    expect(await columnNames(url, "Place")).not.toEqual([]);
+  });
+
   // Every other test hands the url to the command directly. Running it the way
   // a user does means the url comes from .env instead, so the command has to
   // load .env itself.
@@ -415,6 +433,10 @@ describe("AC5: recreating after a schema change matches the new schema", () => {
     expect(await columnNames(url, "Trace")).toEqual([...EXPECTED_TRACE_COLUMNS].sort());
   });
 
+  test("Place holds exactly the columns a looked-up place needs", async () => {
+    expect(await columnNames(url, "Place")).toEqual([...EXPECTED_PLACE_COLUMNS].sort());
+  });
+
   test.skipIf(!devDbExisted)("dev.db is byte-for-byte unchanged", () => {
     expect(hashFile(devDbPath)).toBe(devDbHashBefore);
   });
@@ -488,6 +510,10 @@ describe("AC26: a job list entry maps one to one onto the Job row", () => {
 
   test("Trace holds exactly the fields tracing needs", async () => {
     expect(await columnNames(url, "Trace")).toEqual([...EXPECTED_TRACE_COLUMNS].sort());
+  });
+
+  test("Place holds exactly the columns a looked-up place needs", async () => {
+    expect(await columnNames(url, "Place")).toEqual([...EXPECTED_PLACE_COLUMNS].sort());
   });
 
   test("the schema declares no @map, so field names match column names", () => {

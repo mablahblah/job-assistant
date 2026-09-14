@@ -186,6 +186,6 @@ describe("db-reset", () => {
   // Criterion 75.
   test("no table was dropped", () => {
     expect(tablesAfter).toEqual(tablesBefore);
-    expect(tablesBefore).toEqual(["Company", "Job", "Setting", "Trace"]);
+    expect(tablesBefore).toEqual(["Company", "Job", "Place", "Setting", "Trace"]);
   });
 });

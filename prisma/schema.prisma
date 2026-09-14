@@ -154,6 +154,35 @@ model Company {
 // Single-row configuration. A seed script fills whatever is absent and
 // overwrites nothing; the settings service reads only and throws when a
 // setting is missing, so an empty default never reaches a collector.
+// One row per place the mapping service was asked about, so a run only pays
+// for places it has never seen. Across the current database 3,975 lookups
+// resolve to 789 distinct places, because postings name the same cities over
+// and over.
+//
+// Only a place that resolved is stored. A text the service found nothing for
+// writes no row, so the same text is tried again next run — what changes
+// between runs is how locations are cut up, not the map.
+model Place {
+  id           String   @id @default(cuid())
+  // The location fragment that was looked up, and the whole identity here. A
+  // place is found again by the text that produced it rather than by the name
+  // the service chose, because the text is what the next job will carry.
+  lookup_text  String   @unique
+  latitude     Float
+  longitude    Float
+  // What the service called the place and what kind of thing it is — a city,
+  // a county, a country, a road. Kept for reading a stored row back, not for
+  // judging: no allow list and no block list reads this.
+  place_type   String
+  display_name String
+  // The place's own shape on the map, which is what decides whether the user
+  // stands inside it. Absent where the service returned a line or a single
+  // point, and those fall back on distance, because only an area can contain
+  // anything.
+  outline      Json?
+  created_at   DateTime @default(now())
+}
+
 model Setting {
   id                            Int      @id @default(1)
   // The terms every collector searches for.
