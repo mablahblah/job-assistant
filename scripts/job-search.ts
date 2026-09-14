@@ -123,7 +123,10 @@ async function main(): Promise<void> {
     // by the time runJobSearch returns.
     const counts = await trace.countsForRun(runId);
     const collectorNames = COLLECTORS.map((collector) => collector.name);
-    for (const line of summaryFromTraceCounts(counts, collectorNames)) {
+    // Where the run stopped, so the step it died inside says so in its heading
+    // rather than printing a partial block that reads as a complete one.
+    const stoppedAt = report.failure?.at ?? null;
+    for (const line of summaryFromTraceCounts(counts, collectorNames, stoppedAt)) {
       console.log(line);
     }
 

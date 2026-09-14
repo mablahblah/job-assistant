@@ -263,3 +263,85 @@ describe("one job reads as one job", () => {
     expect(lines).toContain("  - ashby collected 0 jobs");
   });
 });
+
+// Phase 9. Three blocks following .claude/rules/run-summary.md: a heading
+// carrying what entered, outcome lines that sum to it, and notes that do not.
+describe("the three judging steps each print a block", () => {
+  function entered(step: string, n: number): TraceRunCount {
+    return count(step, "job_entered", "greenhouse", n);
+  }
+
+  test("backlog cleanup names what it swept and what it kept", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        entered("backlog_cleanup", 412),
+        count("backlog_cleanup", "job_kept", "greenhouse", 375),
+        count("backlog_cleanup", "job_expired", "greenhouse", 37, "past_expiry_threshold"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Backlog cleanup (412 jobs)");
+    expect(lines).toContain("  375 jobs kept");
+    expect(lines).toContain("   37 jobs expired (reason: past_expiry_threshold)");
+  });
+
+  test("promotion says its jobs came from the backlog rather than this run", () => {
+    const lines = summaryFromTraceCounts(
+      [entered("promotion", 61), count("promotion", "job_promoted", "greenhouse", 61)],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Promotion (61 jobs)");
+    expect(lines).toContain("  61 jobs promoted into the pipeline");
+    expect(lines).toContain("  Note: these came from the backlog, not from this run's collection");
+  });
+
+  test("classification names each way a job left it", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        entered("classification", 157),
+        count("classification", "job_classified", "greenhouse", 64),
+        count("classification", "job_expired", "greenhouse", 32, "past_expiry_threshold"),
+        count("classification", "classification_failed", "greenhouse", 48, "no_location_match"),
+        count("classification", "classification_failed", "greenhouse", 13, "location_unreadable"),
+        count("classification", "job_reposted", "greenhouse", 12),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Classification (157 jobs)");
+    expect(lines).toContain("   64 jobs were close enough");
+    expect(lines).toContain("   32 jobs expired (reason: past_expiry_threshold)");
+    expect(lines).toContain("   48 jobs too far (reason: no_location_match)");
+    expect(lines).toContain("   13 jobs could not be judged (reason: location_unreadable)");
+    expect(lines).toContain("  Note: 12 of these were also flagged as reposts");
+  });
+
+  // A missing block reads as a step that never ran, which is a different thing
+  // from a step that ran and was handed nothing.
+  test("a step handed no jobs still shows its heading and its zero", () => {
+    const lines = summaryFromTraceCounts([], COLLECTORS);
+
+    expect(lines).toContain("Backlog cleanup (0 jobs)");
+    expect(lines).toContain("Promotion (0 jobs)");
+    expect(lines).toContain("Classification (0 jobs)");
+  });
+
+  // A partial block is otherwise indistinguishable from a complete one.
+  test("the step a run died inside says so in its heading", () => {
+    const lines = summaryFromTraceCounts(
+      [entered("classification", 157), count("classification", "job_classified", "greenhouse", 40)],
+      COLLECTORS,
+      "classification"
+    );
+
+    expect(lines).toContain("Classification (157 jobs) — stopped early");
+  });
+
+  test("a run that finished marks no step as stopped early", () => {
+    const lines = summaryFromTraceCounts([entered("classification", 157)], COLLECTORS, null);
+
+    expect(lines).toContain("Classification (157 jobs)");
+  });
+});

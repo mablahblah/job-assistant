@@ -69,11 +69,89 @@ function topFailedDomains(
     .slice(0, 5);
 }
 
+// The three judging steps print one shape: a heading sized to how many jobs
+// entered, one right-aligned line per way a job left, and any notes below a
+// blank line. The shape lives here once, so each block below only says what is
+// different about its own step.
+interface StepOutcome {
+  event: string;
+  reason?: string;
+  label: string;
+}
+
+// The counts are right-aligned to the width of the heading's own count rather
+// than to a width shared across steps, because the lines beneath a heading are
+// read as summing to it and to nothing else.
+function stepBlock(
+  heading: string,
+  step: string,
+  counts: TraceRunCount[],
+  outcomes: StepOutcome[],
+  notes: string[],
+  stoppedAt?: string | null
+): string[] {
+  const entered = total(counts, (row) => row.step === step && row.event === "job_entered");
+  const width = String(entered).length;
+
+  // A partial block is otherwise indistinguishable from a complete one. This
+  // is a fact about the run rather than a way any one job left the step, so it
+  // sits on the heading instead of earning a line of its own.
+  const stoppedSuffix = stoppedAt === step ? " \u2014 stopped early" : "";
+  const lines: string[] = [`${heading} (${jobs(entered)})${stoppedSuffix}`];
+
+  for (const outcome of outcomes) {
+    const count = total(
+      counts,
+      (row) =>
+        row.step === step && row.event === outcome.event && row.reason === (outcome.reason ?? null)
+    );
+    // A zero is the absence of a way out rather than a way out nobody took, so
+    // it earns no line. The heading still prints at zero, because a missing
+    // block reads as a step that never ran.
+    if (count === 0) continue;
+
+    // jobs() already carries the word after the number, so the padding only
+    // has to put the spaces in front of it.
+    const pad = " ".repeat(2 + width - String(count).length);
+    const reasonClause = outcome.reason ? ` (reason: ${outcome.reason})` : "";
+    lines.push(`${pad}${jobs(count)} ${outcome.label}${reasonClause}`);
+  }
+
+  // A note about no jobs at all says nothing, so a step handed nothing shows
+  // its heading and stops there.
+  if (entered > 0 && notes.length > 0) {
+    lines.push("", ...notes.map((note) => `  Note: ${note}`));
+  }
+
+  return lines;
+}
+
 export function summaryFromTraceCounts(
   counts: TraceRunCount[],
-  collectors: string[]
+  collectors: string[],
+  // Where the run stopped, or null when nothing threw. Optional because the
+  // four blocks below do not read it, so a caller with no failure to report
+  // should not have to say so.
+  stoppedAt?: string | null
 ): string[] {
   const lines: string[] = [];
+
+  // Backlog cleanup opens the run, so it opens the summary too — the reader
+  // meets the jobs in the order the run met them.
+  lines.push(
+    ...stepBlock(
+      "Backlog cleanup",
+      "backlog_cleanup",
+      counts,
+      [
+        { event: "job_kept", label: "kept" },
+        { event: "job_expired", reason: "past_expiry_threshold", label: "expired" },
+      ],
+      [],
+      stoppedAt
+    ),
+    ""
+  );
 
   // A headline number, printed even at zero, because a run that collected
   // nothing is exactly what the reader needs told rather than left to infer
@@ -175,6 +253,47 @@ export function summaryFromTraceCounts(
       lines.push(`    - ${domain}: ${jobs(count)} (${label})`);
     }
   }
+
+  // Promotion and classification close the run, so they close the summary.
+  lines.push(
+    "",
+    ...stepBlock(
+      "Promotion",
+      "promotion",
+      counts,
+      [{ event: "job_promoted", label: "promoted into the pipeline" }],
+      ["these came from the backlog, not from this run's collection"],
+      stoppedAt
+    ),
+    ""
+  );
+
+  // A repost is something true about jobs already counted above rather than a
+  // way one left the step, so it is a note and never sums into the heading.
+  const reposted = total(
+    counts,
+    (row) => row.step === "classification" && row.event === "job_reposted"
+  );
+
+  lines.push(
+    ...stepBlock(
+      "Classification",
+      "classification",
+      counts,
+      [
+        { event: "job_classified", label: "were close enough" },
+        { event: "job_expired", reason: "past_expiry_threshold", label: "expired" },
+        { event: "classification_failed", reason: "no_location_match", label: "too far" },
+        {
+          event: "classification_failed",
+          reason: "location_unreadable",
+          label: "could not be judged",
+        },
+      ],
+      reposted > 0 ? [`${reposted} of these were also flagged as reposts`] : [],
+      stoppedAt
+    )
+  );
 
   return lines;
 }
