@@ -678,6 +678,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
   test("the step vocabulary is listed in pipeline order", () => {
     const steps = [
       "backlog_cleanup",
+      "post_backlog_cleanup_save",
       "collection",
       "post_collection_normalization",
       "post_collection_association",
@@ -691,6 +692,8 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "post_parsing_association",
       "post_parsing_dedupe",
       "post_parsing_save",
+      "promotion",
+      "post_promotion_save",
       "classification",
       "post_classification_save",
       "scoring",
@@ -737,6 +740,10 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "work_mode_partially_normalized",
       "work_mode_unusable",
       "company_name_normalized",
+      // The tenth, added with locations. It is not a substring of any name
+      // above: work_mode_unusable and salary_unusable both spell a different
+      // field before the shared _unusable suffix.
+      "location_unusable",
     ];
     for (const reason of reasons) {
       expect(comment).toContain(reason);
@@ -821,6 +828,37 @@ describe("Trace: the model comment carries both vocabularies", () => {
     ];
     for (const event of events) {
       expect(comment).toContain(event);
+    }
+  });
+
+  test("the judging steps' events are listed", () => {
+    // job_expired is not a substring of any other name here, and is the one
+    // event two of the three steps share — backlog cleanup and classification
+    // both write it, and step is what tells the two populations apart.
+    const comment = traceComment();
+    const events = [
+      "job_entered",
+      "job_kept",
+      "job_expired",
+      "job_promoted",
+      "job_reposted",
+      "job_classified",
+      "classification_failed",
+    ];
+    for (const event of events) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("the judging steps' reason codes are listed", () => {
+    // None of the three is a substring of another or of a reason already in
+    // the comment: no_location_match and location_unreadable diverge from
+    // normalization's location_unusable straight after the shared location
+    // stem, and one of them spells that stem second rather than first.
+    const comment = traceComment();
+    const reasons = ["past_expiry_threshold", "no_location_match", "location_unreadable"];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
     }
   });
 

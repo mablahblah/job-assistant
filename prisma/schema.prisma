@@ -253,16 +253,21 @@ model Setting {
 // not source-health monitoring, not run reporting. Only a job search writes
 // traces.
 //
-// step names the pipeline stage, in order: backlog_cleanup, collection,
-// post_collection_normalization, post_collection_association,
-// post_collection_dedupe, post_collection_save, resolution,
-// post_resolution_dedupe, post_resolution_save, parsing,
+// step names the pipeline stage, in order: backlog_cleanup,
+// post_backlog_cleanup_save, collection, post_collection_normalization,
+// post_collection_association, post_collection_dedupe, post_collection_save,
+// resolution, post_resolution_dedupe, post_resolution_save, parsing,
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
-// post_parsing_save, classification, post_classification_save, scoring.
-// Everything from collection through the save after parsing writes today;
-// backlog_cleanup, classification, post_classification_save and scoring are
-// what each later phase adds once it exists, the way Job.status grows its
-// comment.
+// post_parsing_save, promotion, post_promotion_save, classification,
+// post_classification_save, scoring.
+// Everything from backlog cleanup through the save after classification
+// writes today; scoring is what the next phase adds once it exists, the way
+// Job.status grows its comment.
+//
+// Backlog cleanup opens the run, before any collector, so the backlog being
+// added to has already been swept. Promotion and classification close it,
+// because an expired job only gains a fresh date once collection has found
+// the new listing and dedupe has merged it in.
 //
 // event names what happened. Collection writes collected and abandoned;
 // normalization writes job_updated where a field was normalized and
@@ -293,6 +298,19 @@ model Setting {
 // It reuses no earlier step's event, because reading a posting is not
 // something any earlier step does.
 //
+// The three judging steps write seven between them, and each writes
+// job_entered as a job arrives, so a summary heading can say what a step was
+// handed even where the step later died. Backlog cleanup then writes job_kept
+// for a job it left alone and job_expired for one past the threshold.
+// Promotion writes job_promoted. Classification writes job_reposted for a job
+// whose two posting dates sit further apart than the repost gap, then exactly
+// one outcome: job_classified where a place and work mode pair put the job
+// close enough, job_expired where it was too old to judge, or
+// classification_failed where it was too far away or unreadable. The repost
+// row is written before the outcome row, so a job's fate still reads off its
+// latest row. Classification reuses backlog cleanup's job_expired, and step is
+// what tells the two populations apart.
+//
 // abandoned ends a job's path through the pipeline and makes no claim
 // about whether a row existed. What became of the row is a separate event:
 // job_dbrow_deleted where save carried the delete out, or
@@ -317,7 +335,11 @@ model Setting {
 // salary_unusable; work_mode_normalized, work_mode_partially_normalized and
 // work_mode_unusable; and company_name_normalized, which has no failure
 // twin because a cosmetic tidy cannot fail. salary_unusable and
-// work_mode_unusable are the two that warn at the end of a run.
+// work_mode_unusable are the two that warn at the end of a run. Locations add
+// a tenth, location_unusable, sitting under normalization_failed where every
+// location a job carried cut away to no place at all. It has no success twin,
+// because a summary block counting successful cuts would say nothing, and it
+// warns nobody: a posting naming no readable place is the source's doing.
 //
 // Company association writes six. Three sit under company_associated and say
 // how the company was reached: matched_by_slug, matched_by_name, and
@@ -403,7 +425,18 @@ model Setting {
 // full resolved link in detail, so a failing platform can be counted and any
 // one failure chased back to the exact address it happened on.
 //
-// Each later phase adds its own reasons once it exists.
+// The judging steps write three. past_expiry_threshold sits under job_expired
+// at backlog cleanup and again at classification, naming the one rule both
+// apply. no_location_match sits under classification_failed where every place
+// and work mode pair was too far away, and location_unreadable sits under it
+// where no place on the job could be read at all — a job we could not place is
+// left in the backlog for a later run, so the two are never merged. A refused
+// map request is recorded as location_unreadable too, because from the job's
+// point of view that is exactly what happened. job_entered, job_kept,
+// job_promoted, job_classified and job_reposted carry no reason, because one
+// population needs nothing to group by.
+//
+// Scoring adds its own reasons once it exists.
 model Trace {
   // An auto-incrementing integer key, so two events landing in the same
   // millisecond still have a reliable order.
