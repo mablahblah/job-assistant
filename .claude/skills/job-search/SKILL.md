@@ -8,9 +8,7 @@ disable-model-invocation: true
 
 Follow the steps explicitly to search for job opportunities a user can apply for.
 
-## Instructions
-
-### Step 1: Run the pipeline
+## Phase 1: Run the pipeline
 
 1. Run the one command:
 
@@ -24,7 +22,7 @@ npm run job-search
 
 2. Progress lines appear on stderr while the run is in flight. They are for watching, not for reporting.
 
-### Step 2: Read the output
+## Phase 2: Read the output
 
 The output arrives on stdout in this order.
 
@@ -53,7 +51,7 @@ Resolved: 55 jobs
 
 A line with nothing to report is left out. A collector that found nothing still gets its line, so a quiet source is visible rather than missing.
 
-### Step 3: Report back
+## Phase 3: Report what the pipeline did
 
 1. Report every error and every warning first, and report all of them. Several sources can fail in one run and the run continues past each. Each line reads `collector: message`. The message names the board or the search behind it, so report it as written and never reword it.
 
@@ -61,9 +59,20 @@ A line with nothing to report is left out. A collector that found nothing still 
 
 3. Otherwise report the summary. Lead with how many jobs were collected and how many resolved.
 
-4. IF nothing was collected and nothing was resolved: report "No new jobs found" and STOP.
+4. IF nothing was collected and nothing was resolved: say "No new jobs found", then carry on to the next phase. A quiet collection run does not mean there is nothing to score — the backlog holds whatever earlier runs left unscored.
+
+## Phase 4: Score what is in the backlog
+
+1. Invoke the `score-backlog` skill. It judges how well each job fits and researches each employer behind those jobs.
+2. Report what it reports.
+
+## Phase 5: Show the results
+
+1. Invoke the `serve` skill to start the viewing server.
+2. Give the user the address it prints.
 
 ## Notes
 
 - The command exits non-zero when the run stopped early. Read the exit code rather than guessing from the text.
 - Do not pass `--limit` unless the user asks for a short run. It exists for testing.
+- The pipeline and the scoring are two separate commands because an agent has to do the scoring. One command cannot pause while an agent thinks.

@@ -1,74 +1,126 @@
 ---
-name: score-companies
-description: Automatically score any unscored companies in the backlog.
+name: score-backlog
+description: Scores every backlog job against the job alignment rubric and researches every employer behind those jobs against the company rubric, then saves both. Use when the user asks to score the backlog, score jobs, or score companies, and when a job search has just finished.
 ---
 
-# Score Companies
+# Score Backlog
 
-Score unscored companies in the backlog against the rubric.
+# Execution Policy
 
-## Instructions
+- Do NOT run any collector, resolver, parser or classifier. This skill judges what is already in the database.
+- Do NOT run the `serve` skill. The caller decides whether to start the viewing server.
+- Do NOT score a company yourself. Every company goes to a helper of its own.
+- Do NOT check a job posting against a blocked-website list. A posting the pipeline already resolved is one to read.
+- Do NOT set a company aside for being a job board rather than the employer. Score it like any other company.
+- ASK the user before deviating from any step.
 
-### Step 1: Gather Companies to Score
+## Phase 1: Gather what needs scoring
 
-1. Get the list of companies to score:
-
-```bash
-npx tsx scripts/cli.ts unscored
-```
-
-### Step 2: Score Companies
-
-For each company:
-
-1. Evaluate the company
-
-### If company is an aggregator and the job posting is not for said company:
-
-2a. Add it to the Aggregator Table:
+1. Pick a scratch file path for this run, `{work_file}`, outside the project folder.
+2. Run the gather command:
 
 ```bash
-npx tsx scripts/cli.ts add-aggregator "Company Name"
+npm run score:gather -- --out {work_file}
 ```
 
-### Otherwise:
+   If the user handed you a run identifier from a job search that just finished, add `--run-id {run_id}` so this scoring joins that run's records.
 
-2b. Score each metric _that has not been scored already_ on a 1 - 5 basis.
+3. Read `{work_file}`. It holds:
+   - `runId` — the identifier every record this run writes will carry
+   - `jobs` — every backlog job with no alignment score
+   - `companies` — every employer behind one of those jobs that is missing a score
+   - `warnings` — anything the user needs to know
+   - `failure` — where the gather stopped, or `null`
 
-- Score Employee Satisfaction (ES) using a web search for Glassdoor/Blind Ratings and qualitative reviews.
-  - **5** = high recommendation rate (85%+), low turnover signals, fair treatment reported
-  - **3** = middle of the road OR insufficient Glassdoor data
-  - **1** = toxic management, high turnover, layoffs as performance management
+4. If `failure` is not `null`: report where it stopped and why, then STOP.
+5. If both lists are empty: report "Nothing to score" and STOP.
 
-- Score Customer Satisfaction (CS) using a web search for Trustpilot, BBB, and app store ratings.
-  - **5** = fair treatment, transparent practices, no dark patterns
-  - **3** = middle of the road OR no ratings found
-  - **1** = dark patterns, hidden fees, consumer complaints/lawsuits
+## Phase 2: Score every company
 
-- Score Work/Life Balance (W/L) using a web search.
-  - **5** = respects employee time, no overtime expectation, mental health valued
-  - **3** = middle of the road OR no public info
-  - **1** = "we're a family" culture, long hours expected, hustle rewarded
+1. Read `company-rubric.md` in this skill's directory.
+2. Send one helper per company. One company is one helper, because scoring a company means live web research.
+3. Give each helper the company's `name`, the rubric, and the list of categories that company is missing — the ones reading `null` on its record.
 
-- Score Political Alignment (PA) using a web search.
-  - **5** = progressive beyond legal requirements, strong DEI, no conservative donations
-  - **3** = middle of the road OR no public info
-  - **1** = only legally compliant, rolled back DEI, conservative-leaning donations
+**Company scoring helper** task prompt:
 
-3b. Write a 2-3 sentence note explaining rationale behind scores.
+> Research the employer {company_name} and score it on each of these categories: {missing_categories}.
+>
+> The rubric:
+>
+> {company_rubric}
+>
+> Return one JSON object and nothing else:
+>
+> `{"id": "{company_id}", "scores": {"{category}": {"score": 1-5, "rationale": "2-3 sentences", "guessed": true or false}}}`
+>
+> Set `guessed` to true where you found nothing public and awarded a 3 by the rubric's own rule.
+>
+> If the company has no name to research, return `{"id": "{company_id}", "failure": "company_unnamed"}` instead.
 
-4b. Save scores to DB:
+4. Collect every helper's answer.
+
+## Phase 3: Score every job
+
+1. Read `job-alignment.md` in this skill's directory.
+2. Split the jobs into two groups:
+   - Jobs carrying `description` — the posting's own words.
+   - Jobs carrying no `description`.
+3. Send jobs carrying the posting's words to helpers **10 at a time**. Change that number here if a helper is being given too much or too little.
+4. Send each job carrying no posting words to a helper of its own, because that helper has to open the posting and read it first.
+
+**Job alignment helper** task prompt:
+
+> Score each of these jobs for how well it fits, using the rubric below.
+>
+> The rubric:
+>
+> {job_alignment_rubric}
+>
+> The jobs:
+>
+> {jobs}
+>
+> Where a job carries no `description`, open the page at its `resolved_url` and read the posting before scoring it.
+>
+> Return one JSON array and nothing else, one object per job:
+>
+> `{"id": "{job_id}", "alignment_score": 1-5, "alignment_rationale": "2-3 sentences"}`
+>
+> Where a job carries no `description` and no `resolved_url`, return `{"id": "{job_id}", "failure": "no_posting_url"}`.
+> Where the page at `resolved_url` will not open, return `{"id": "{job_id}", "failure": "posting_unreadable"}`.
+
+5. Collect every helper's answer.
+
+## Phase 4: Save the scores
+
+1. Write an answer file, `{answer_file}`, shaped:
+
+```json
+{
+  "runId": "{run_id_from_the_work_file}",
+  "jobs": [],
+  "companies": []
+}
+```
+
+2. Save each batch as it comes back, rather than holding every score until the end. A run that stops halfway keeps the research it already paid for.
 
 ```bash
-npx tsx scripts/cli.ts score "Company Name" {es} {cs} {wl} {pa} "Note text"
+npm run score:save -- --in {answer_file}
 ```
 
-5b. Read `job-alignment.md` (in this skill's directory) and evaluate each job posting against the rubric.
-
-6b. Save all job alignment scores at once:
+3. On the last batch, ask for the summary as well:
 
 ```bash
-npx tsx scripts/cli.ts alignment <<'EOF'
-[{"jobId":"{id}","score":{1-5}}, ...]
-EOF
+npm run score:save -- --in {answer_file} --summary
 ```
+
+4. Report to the user, in this order:
+   - Every warning, as written.
+   - `Run stopped at ...`, if it is there, and then STOP.
+   - The summary. Lead with how many jobs were scored and how many companies.
+
+## Notes
+
+- The save command exits non-zero when the save stopped early. Read the exit code rather than guessing from the text.
+- A helper that comes back with nothing is recorded as a failure and the run carries on. Leave that job or company out of the answer file, or give it no score — either way the save records it.
