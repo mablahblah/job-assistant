@@ -39,7 +39,7 @@ The three steps that judge a job: backlog cleanup sweeps the backlog before any 
 
 **A repost flagged from two sources disagreeing is the pipeline working, not a defect.** An aggregator listed a job as posted today while the employer's own posting said three weeks ago. The spec defines a repost as two posting dates further apart than the gap, so the flag is correct. This was raised as a bug and was wrong to call one.
 
-**The database was rebuilt rather than backfilled.** The old `pipeline.db` held 174 jobs ready for classification, none carrying the split place list, because that column is new. Filling old rows is Phase 12's job.
+**The database was rebuilt rather than backfilled.** The old `pipeline.db` held 174 jobs ready for classification, none carrying the split place list, because that column is new. Filling old rows is Phase 13's job.
 
 **The settings test stand-in answers real seeded values.** Zero is not a blank for these settings — a zero expiry threshold expires every job. The four title vocabularies stay empty, because their seeded values are long lists already hand-copied into two other test files.
 
