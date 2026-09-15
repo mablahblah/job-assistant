@@ -34,7 +34,7 @@ npm run test        # Vitest — legacy/ and docs/ are excluded
 
 ## Architecture
 
-One pipeline whose only differentiated code is collectors and parsers. Collection, resolution and parsing are built and run end to end from `npm run job-search`; classification, scoring and the work log are not. Every step ends in a database write, so no step depends on another holding a list in memory.
+One pipeline whose only differentiated code is collectors and parsers. Every deterministic step, from backlog cleanup through classification, is built and runs end to end from `npm run job-search`; scoring and the work log are not. Every step ends in a database write, so no step depends on another holding a list in memory.
 
 **[`architecture.md`](docs/features/unified-pipeline/architecture.md) describes the system as built — read it before changing code.**
 
