@@ -6,92 +6,81 @@
 >
 > 1. Read `CLAUDE.md` and `docs/APP.md` for project context and conventions.
 > 2. Read the **Current Task** section below to understand what's in progress.
-> 3. Read the **Decisions & Context** section for reasoning that isn't captured elsewhere.
+> 3. Read the **Session Context** section for reasoning that isn't captured elsewhere. The decisions the user made are not in this document — read [the feature decision log](../docs/features/unified-pipeline/decision-log.md) for those.
 > 4. Read the **Next Steps** section and confirm your understanding before proceeding.
 >
 > Do not re-discover what's already documented here. Ask if anything is unclear.
 
 ## Current Task
 
-**Phase 9 is built, closed and verified. Nothing is in progress.** The next unit of work is planning phase 10, Scoring.
+**Phase 10, Scoring, is planned. No code was written. Nothing is in progress.** The next unit of work is building it, starting at task 1.
 
-Verified at session end: **2,509 tests pass across 112 files. `npm run lint` exits 0. Working tree clean. 23 commits are unpushed, 11 of them from this session.**
+Verified at session end: **2,509 tests pass across 112 files. `npm run lint` exits 0. The working tree is clean and everything is pushed.** Four commits this session, plus the 23 that were already waiting.
 
-The phase 9 task list has moved out of `docs/CURRENT-FEATURE.md` and back into its spec, which is the record of what was built. `docs/features/unified-pipeline/architecture.md` now describes the three judging steps as built.
+The 24 build tasks are in [the phase spec](../docs/features/unified-pipeline/phases/phase-10-scoring-spec.md#tasks) and mirrored in `docs/CURRENT-FEATURE.md`.
 
 ## Completed This Session
 
-**Phase 9's last seven tasks, one commit each.**
+**Phase 10 planned end to end.** A brain dump, 22 questions settled with the user, a four-agent stress test, a two-agent platform check, and four rounds of grading the criteria and the assembled spec.
 
-The three steps that judge a job: backlog cleanup sweeps the backlog before any collector runs, promotion returns jobs an employer listed again, and classification decides repost, age and distance. All three are wired into the orchestrator, each with its own save. The user's location becomes coordinates once per run. Three summary blocks follow the run-summary rule. This phase's vocabulary is written into the `Trace` model comment, `trace-events.md` and the schema test.
+**The spec holds 120 acceptance criteria, 24 tasks, 22 edge cases and 16 stories.** Every criterion is claimed by a task, and every task traces to criteria.
 
-**Phase 9 closed.** The architecture doc gained the three steps, the `Place` table, ten new parts, and what did not port from the old geocoding code.
+**The phases were renumbered.** The Web UI is now 12 and the switch over is 13. Two r&d files were renamed and 22 files updated.
 
-**One fix outside the phase.** The settings test stand-in answers the real seeded values instead of zeroes.
+**Three backlog items** were added, and four documents were corrected where they had stopped being true.
 
-**Two live job searches**, which verified the pipeline end to end through classification.
+## Session Context
 
-## Decisions & Context
+The decisions the user made are in the feature decision log, dated 2026-09-15. Twenty entries. One older entry, from 2026-08-26, was removed because this session replaced it.
 
-### The user's decisions
+### The three things that changed shape while planning
 
-**The expiry threshold stays at 8 days.** The first live run expired 24 of 34 jobs, the youngest 9 days old. Asked whether to raise it; the answer was no.
+These matter most to whoever builds.
 
-**A repost flagged from two sources disagreeing is the pipeline working, not a defect.** An aggregator listed a job as posted today while the employer's own posting said three weeks ago. The spec defines a repost as two posting dates further apart than the gap, so the flag is correct. This was raised as a bug and was wrong to call one.
+**The ATS board lists move out of the company record.** `ats_platform` and `ats_slug` are deleted. A table of its own replaces them: one row per slug, the slug unique across the table, holding the slug, the company, the parser that read it, and a collector. Company matching writes the row after a posting is read, with no collector. Promotion adds the collector, and adding it is what puts a company on a polling list.
 
-**The database was rebuilt rather than backfilled.** The old `pipeline.db` held 174 jobs ready for classification, none carrying the split place list, because that column is new. Filling old rows is Phase 13's job.
+That separates two facts the old columns forced together: that a company posts on Greenhouse, and that we poll it every run.
 
-**The settings test stand-in answers real seeded values.** Zero is not a blank for these settings — a zero expiry threshold expires every job. The four title vocabularies stay empty, because their seeded values are long lists already hand-copied into two other test files.
+**The real size of that change was three times what planning first recorded.** Four call sites were named; a repo-wide count found 24 files and 220 references. One was `scripts/db-reset.ts:23`, which deletes every company whose slug is empty in order to spare polled boards. Nobody had named it, probably because `db:reset` is not in the commands table in `CLAUDE.md`.
 
-**A single shared copy of the seeded defaults was declined.** Moving `SETTING_DEFAULTS` into `lib/` so the seeder, the stand-in and three tests all read one copy was offered and turned down.
+**Scoring is one orchestrator file with two starting points.** One gathers the work, the other saves the results. `runJobSearch` runs every step in one pass and returns at the end — it cannot pause while an agent thinks, and a command run through an agent's shell cannot be fed a result after it has returned. The saving command is called more than once, so scores land as they are produced rather than being held until the end.
 
-### Calls made while building
+**A handler may be handed any list.** The contract said a job list, with collection as the only exception. Clearing company scores has no job list. Rather than a second exception, the rule widens. `saveCompanies` joins `saveJobs`.
 
-**A map lookup that throws is recorded as `location_unreadable`**, the same as a place that could not be read. From the job's point of view they are the same thing, and it keeps every job to exactly one outcome row.
+### Gotchas discovered
 
-**A home location that cannot be placed on a map stops the run.** Measuring against nothing would mark every job as not matching.
+**`dev.db` at the repo root is main's database, on the old schema.** It holds real job history and is genuinely useful for measuring real-world questions with `sqlite3`. It is not the new pipeline database. Querying it settled one planning question in a minute: of 483 companies with ATS jobs, only two had jobs on two systems, and both turned out to be mid-migration rather than using both at once.
 
-**Promotion's note is hidden when the step has no jobs.** Reading the real output afterwards, this looks wrong: `Promotion (0 jobs)` alone does not say what promotion is, and the note is what explains it. Unresolved.
-
-**A summary line's count is right-aligned to the width of its own heading's count.** That is what the spec's worked example does, and it makes the lines read as summing to the heading.
-
-**Every age in a run measures against `collectedAt`**, the one date the caller hands the run.
-
-**Two reads moved earlier in the orchestrator.** The source priority list is now read before collection, because the backlog save is the run's first write. The expiry threshold is read once and shared by all three steps.
-
-**Collection now adds its warnings to the report rather than replacing it.** Both sub-agents caught this: the old line would have thrown away the backlog save's warnings.
-
-### Gotchas that cost time
-
-**Tool output does not reach the user's terminal.** A run started through the Bash tool prints its summary to the agent, not to the user. Paste the summary into the reply, or tell the user to run `! npm run job-search -- --limit 10` so it prints in their session.
-
-**A live run rewrites two collector fixtures.** `dribbble.html` and `uiuxjobsboard.html` are captured from the live site as the collector runs. The suite passed against the new copies and they were committed.
-
-**`npx prisma db push` is additive and safe.** Run against the old database it added the `Place` table and five nullable `Job` columns while keeping all 325 rows. `npm run db:create` deletes the file first; `db push` alone does not.
-
-**`scripts/db-seed.ts` runs `main()` at import**, so `SETTING_DEFAULTS` cannot be imported from it. That is why the test stand-in hand-copies the values.
-
-**A script must live inside the repo for its imports to resolve.** One written to the scratchpad could not find `@libsql/client`. Use `sqlite3` directly for quick database questions.
+**Tool output does not reach the user's terminal.** A command run through the agent's shell prints to the agent. Paste the summary into the reply, or have the user run it with a `!` prefix.
 
 **Two test suites running at once report a false error.** Run the suite once at a time.
 
-### Sub-agent answers rejected, and why
+**Word choice is load-bearing here.** A grader caught the spec using "step" for the code that runs at a pipeline position. This project calls that a handler and reserves "step" for the position itself — the value a trace row stores. The first fix pass missed eight instances.
 
-**An unsafe cast from `JobListEntry` to the age type.** One writer cast the whole job rather than naming the three fields, which would crash on a job carrying no date at all.
+### Approaches tried and abandoned
 
-**`.js` import extensions.** Both orchestrator writers added them; the codebase uses none.
+**A slug row keyed by collector.** The first shape tied every row to the collector that polls it. The user rejected it: the collector only matters once a company is being polled, so it cannot be part of the row's identity.
 
-**A comment claiming an unresolvable place is remembered as unfindable.** The place service stores nothing for an empty answer, which is the opposite — the text is tried again next run.
+**A duplicate-slug warning.** Designed, then dropped. Nothing can trigger it — a second job carrying an existing slug matches that slug's company at association and never reaches the point of writing a row.
 
-### Still open
+**A count of failed board polls.** Agreed, then dropped once demotion moved to the backlog. Nothing this phase builds would read it. The existing warning already names the company slug behind a dead board.
 
-**Two checks the spec says must run against the live map service.** The live run covered outlines for five countries, two states, five cities, a province and a postcode — all present. Not covered: a county, and proof that the outline simplification really shrinks a country's outline.
+**Sweeping empty company rows.** Left the phase entirely. An orphan company costs one unused row that nothing reads.
 
-**Promotion's note at zero**, described above.
+### Open questions
+
+**Two employers whose names produce the same board slug.** Deliberately unsolved until it is seen happening. The failure it would cause is a job quietly joined to the wrong company, because `lib/handlers/association.ts:84` tries a slug before a name. The fix, if ever needed, is to match on the parser and the slug together.
+
+**Promotion's note when the step has no jobs.** Carried over unresolved from phase 9.
+
+**Two live map-service checks outstanding from phase 9** — a county, and proof that outline simplification shrinks a country's outline.
+
+**Backlog items 6 and 7 are largely superseded by phase 10.** Company Scoring Improvements has five tasks and this phase builds four of them. ATS Company Graduation is this phase's headline. Both were deliberately left for the backlog sweep that runs after the feature ships.
+
+**`CLAUDE.md` line 37** was corrected this session for classification, which has been running end to end since phase 9. Task 24 adds scoring when it ships.
 
 ## Next Steps
 
-1. **Plan phase 10 — Scoring.** Follow the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). Its r&d file sits in `docs/features/unified-pipeline/phases/`.
-2. Phase 10 also owns the four company cleanup rules moved out of phase 9: the ninety-day score removal, the scored date, sweeping companies with no score and no jobs, and the ATS slug exemption. All four read a score column phase 10 creates.
-3. Decide whether promotion's note prints when the step has no jobs.
-4. Run the two outstanding live map-service checks, if they are still wanted.
+1. **Build phase 10, starting at task 1** — the schema gains the ATS slug table. Follow the `start-work-session` build loop. Tasks 1 to 7 are all schema and its guardrails, and several have hard test gates that fail the moment a column is added: the merge test asserts every job column is named as merged or excluded, and the schema test asserts the checked-model list matches the schema.
+2. **Expect task 3 to be the big one** — deleting the two company columns touches 24 files.
+3. **Read the spec's Approach section before task 18.** The orchestrator's two starting points are unlike every other orchestrator in the project.
