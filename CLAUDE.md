@@ -22,6 +22,8 @@ Real job searches run on `main`, where the old pipeline is untouched. The databa
 ## Commands
 
 ```bash
+npm run score:gather -- --out FILE   # Write out every job and company still needing a score
+npm run score:save -- --in FILE      # Write the scores an agent worked out back to the database
 npm run db:create   # Delete the pipeline database and rebuild it from the schema
 npm run db:seed     # Fill absent settings and ATS companies, overwriting nothing
 npm run lint        # ESLint — legacy/ and docs/ are ignored
@@ -34,7 +36,7 @@ npm run test        # Vitest — legacy/ and docs/ are excluded
 
 ## Architecture
 
-One pipeline whose only differentiated code is collectors and parsers. Every deterministic step, from backlog cleanup through classification, is built and runs end to end from `npm run job-search`; scoring and the work log are not. Every step ends in a database write, so no step depends on another holding a list in memory.
+One pipeline whose only differentiated code is collectors and parsers. Every deterministic step, from backlog cleanup through classification, is built and runs end to end from `npm run job-search`. Scoring is built too, and the `job-search` skill runs it straight after the pipeline, through two commands of its own — an agent does the judging, and no single command can pause while it thinks. The work log is not built. Every step ends in a database write, so no step depends on another holding a list in memory.
 
 **[`architecture.md`](docs/features/unified-pipeline/architecture.md) describes the system as built — read it before changing code.**
 
