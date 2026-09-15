@@ -44,11 +44,21 @@ interface PromotedJob {
   events: PromotionEvent[];
 }
 
-// A copy, so the job handed in is never touched. Only the two fields that
-// record where the job sits and whether it has been judged move.
+// A copy, so the job handed in is never touched. Only the fields recording
+// where the job sits and what has been judged about it move.
+//
+// The alignment score goes with them. A promoted job was posted again, so the
+// posting it was judged against is not the one now on offer, and the next run
+// picks it up because it carries no score.
 function promoteJob(job: JobListEntry): PromotedJob {
   return {
-    job: { ...job, status: "backlog", is_classified: false },
+    job: {
+      ...job,
+      status: "backlog",
+      is_classified: false,
+      alignment_score: null,
+      alignment_rationale: null,
+    },
     events: [{ event: "job_entered" }, { event: "job_promoted" }],
   };
 }

@@ -12,7 +12,9 @@ import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
 import type { Collector, CollectorResult } from "./collector";
 
-const PLATFORM = "ashby";
+// The collector's own name, which is what a slug row carries when its board
+// is on this collector's polling list.
+const COLLECTOR = "ashby";
 
 const jobBoardUrl = (slug: string) =>
   `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`;
@@ -38,8 +40,8 @@ function toJobListEntry(posting: AshbyPosting, slug: string): JobListEntry {
 export const ashbyCollector: Collector = {
   name: "ashby",
 
-  async collect({ settings, limit }): Promise<CollectorResult> {
-    const { boards, warnings } = await readAtsBoards(settings, PLATFORM);
+  async collect({ settings, atsSlugs, limit }): Promise<CollectorResult> {
+    const { boards, warnings } = await readAtsBoards(atsSlugs, COLLECTOR);
     if (boards.length === 0) {
       return { jobs: [], errors: [], warnings };
     }

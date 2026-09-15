@@ -1,78 +1,96 @@
 import { describe, expect, test } from "vitest";
-import { readAtsBoards } from "./ats-boards";
-import type { AtsCompany, SettingsService } from "../services/settings-service";
-import { fakeSettingsService } from "../services/settings-service.fake";
+import { readAtsBoards, type AtsBoard } from "./ats-boards";
+import type { AtsSlugRecord, AtsSlugService } from "../services/ats-slug-service";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
 
-// A settings-service stand-in. getAtsCompanies answers with whatever a test
-// set up for a platform and remembers every platform it was asked about, so a
-// test can check the request without a mocking library.
-interface FakeSettings extends SettingsService {
-  platformsAsked: string[];
+// A slug-service stand-in. It answers with whatever rows a test set up and
+// remembers every collector it was asked about, so a test can check the
+// request without a mocking library.
+interface FakeSlugs extends AtsSlugService {
+  collectorsAsked: string[];
 }
 
-function makeSettings(companiesByPlatform: Record<string, AtsCompany[]>): FakeSettings {
-  const platformsAsked: string[] = [];
+function row(slug: string, collector: string | null): AtsSlugRecord {
+  return { id: `row-${slug}`, slug, company_id: `company-${slug}`, parser: "greenhouse", collector };
+}
+
+function makeSlugs(rows: AtsSlugRecord[]): FakeSlugs {
+  const collectorsAsked: string[] = [];
+  const service = fakeAtsSlugService(rows);
   return {
-    ...fakeSettingsService({
-      async getAtsCompanies(platform: string) {
-        platformsAsked.push(platform);
-        return companiesByPlatform[platform] ?? [];
-      },
-    }),
-    platformsAsked,
+    ...service,
+    async listForCollector(collector: string) {
+      collectorsAsked.push(collector);
+      return service.listForCollector(collector);
+    },
+    collectorsAsked,
   };
 }
 
-const stripe: AtsCompany = { ats_slug: "stripe" };
-const figma: AtsCompany = { ats_slug: "figma" };
+const stripe: AtsBoard = { ats_slug: "stripe" };
+const figma: AtsBoard = { ats_slug: "figma" };
 
-describe("AC 76: a platform with companies returns exactly those boards", () => {
-  test("boards are the companies the settings service holds for that platform", async () => {
-    const settings = makeSettings({ greenhouse: [stripe, figma] });
-    const result = await readAtsBoards(settings, "greenhouse");
+describe("AC 76: a collector with boards returns exactly those boards", () => {
+  test("boards are the slug rows carrying that collector", async () => {
+    const slugs = makeSlugs([row("stripe", "greenhouse"), row("figma", "greenhouse")]);
+    const result = await readAtsBoards(slugs, "greenhouse");
     expect(result.boards).toEqual([stripe, figma]);
   });
 
   test("no warning is recorded", async () => {
-    const settings = makeSettings({ greenhouse: [stripe] });
-    const result = await readAtsBoards(settings, "greenhouse");
+    const slugs = makeSlugs([row("stripe", "greenhouse")]);
+    const result = await readAtsBoards(slugs, "greenhouse");
     expect(result.warnings).toEqual([]);
+  });
+
+  // A row with no collector records only that a company posts on a hiring
+  // system. Nothing polls that board until promotion fills the collector in.
+  test("a row carrying no collector is not a board", async () => {
+    const slugs = makeSlugs([row("stripe", null)]);
+    const result = await readAtsBoards(slugs, "greenhouse");
+    expect(result.boards).toEqual([]);
   });
 });
 
-describe("AC 76: a platform with no boards warns rather than staying silent", () => {
+describe("AC 76: a collector with no boards warns rather than staying silent", () => {
   test("boards is empty", async () => {
-    const settings = makeSettings({});
-    const result = await readAtsBoards(settings, "lever");
+    const slugs = makeSlugs([]);
+    const result = await readAtsBoards(slugs, "lever");
     expect(result.boards).toEqual([]);
   });
 
   test("exactly one warning is recorded", async () => {
-    const settings = makeSettings({});
-    const result = await readAtsBoards(settings, "lever");
+    const slugs = makeSlugs([]);
+    const result = await readAtsBoards(slugs, "lever");
     expect(result.warnings).toHaveLength(1);
   });
 
-  test("the warning names the platform", async () => {
-    // The wording is free to change; naming the platform is the part that
+  test("the warning names the collector", async () => {
+    // The wording is free to change; naming the collector is the part that
     // makes the warning actionable.
-    const settings = makeSettings({});
-    const result = await readAtsBoards(settings, "lever");
+    const slugs = makeSlugs([]);
+    const result = await readAtsBoards(slugs, "lever");
     expect(result.warnings[0]).toContain("lever");
   });
 
   test("readAtsBoards resolves rather than rejecting", async () => {
-    // An emptied platform is how that platform is switched off, so it is a
+    // An emptied collector is how that collector is switched off, so it is a
     // real answer rather than a broken database.
-    const settings = makeSettings({});
-    await expect(readAtsBoards(settings, "lever")).resolves.toBeDefined();
+    const slugs = makeSlugs([]);
+    await expect(readAtsBoards(slugs, "lever")).resolves.toBeDefined();
   });
 });
 
-describe("AC 76: readAtsBoards asks for the platform it was given", () => {
-  test("only the requested platform is asked for", async () => {
-    const settings = makeSettings({ greenhouse: [stripe], lever: [figma] });
-    await readAtsBoards(settings, "greenhouse");
-    expect(settings.platformsAsked).toEqual(["greenhouse"]);
+describe("AC 76: readAtsBoards asks for the collector it was given", () => {
+  test("only the requested collector is asked for", async () => {
+    const slugs = makeSlugs([row("stripe", "greenhouse"), row("figma", "lever")]);
+    await readAtsBoards(slugs, "greenhouse");
+    expect(slugs.collectorsAsked).toEqual(["greenhouse"]);
+  });
+
+  test("a board on another collector's list is left off", async () => {
+    const slugs = makeSlugs([row("stripe", "greenhouse"), row("figma", "lever")]);
+    const result = await readAtsBoards(slugs, "greenhouse");
+    expect(result.boards).toEqual([stripe]);
   });
 });

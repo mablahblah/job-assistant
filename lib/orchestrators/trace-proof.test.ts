@@ -16,6 +16,7 @@ import { runJobSearch, type RunJobSearchResult } from "./job-search";
 import { associateCompanies } from "../handlers/association";
 import { saveJobs } from "../handlers/save";
 import { createCompanyService } from "../services/company-service";
+import { createAtsSlugService } from "../services/ats-slug-service";
 import { createJobService } from "../services/job-service";
 import type { Collector } from "../collectors/collector";
 import type { ResolutionBrowserFactory, ResolutionBrowserSession } from "../tools/resolution-page";
@@ -28,6 +29,7 @@ import type { PlaceService } from "../services/place-service";
 import { fakeGeocoder } from "../tools/geocoder.fake";
 import type { Geocoder } from "../tools/geocoder";
 import { fakeCompanyService } from "../services/company-service.fake";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
 import { fakeJobService } from "../services/job-service.fake";
 
 // This file lives in lib/, so the repo root is one level up.
@@ -240,7 +242,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: COLLECTED_AT,
-      companies: fakeCompanyService([]),
+      atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(),
@@ -253,7 +255,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: COLLECTED_AT,
-      companies: fakeCompanyService([]),
+      atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(),
@@ -418,7 +420,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
       waitForLoad: async () => {},
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
-      companies: fakeCompanyService([]),
+      atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: fakeSettingsService({
         getTitleHeadNouns: async () => ["designer"],
         getTitleLevels: async () => [{ store: "Sr.", match: ["senior"] }],
@@ -618,11 +620,17 @@ describe("the trace table answers how each job reached its company, across both 
     // job will try to write onto a different company, which is what makes
     // the clash real rather than contrived.
     await companies.create({ name: "Acme" });
-    await companies.create({ ats_platform: "greenhouse", ats_slug: "acme-boards" });
-    await companies.create({ ats_platform: "greenhouse", ats_slug: "fabrikam-boards" });
+    // Two companies met only as boards. The slug rows beside them are what a
+    // job carrying a slug is matched through.
+    const atsSlugs = createAtsSlugService(built.db);
+    for (const slug of ["acme-boards", "fabrikam-boards"]) {
+      const company = await companies.createNameless();
+      await atsSlugs.record({ slug, company_id: company.id, parser: "greenhouse" });
+    }
 
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
+      atsSlugs: createAtsSlugService(built.db),
       jobService: { ...createJobService(built.db), ...NOTHING_TO_RESOLVE },
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
@@ -703,11 +711,17 @@ describe("the trace table answers how each job reached its company, across both 
 
     // Only one company by that name exists in the table, so the two jobs'
     // association rows above can only both be pointing at it.
-    const company = await queryTrace(url, "SELECT id, ats_slug FROM Company WHERE name = ?", [
+    const company = await queryTrace(url, "SELECT id FROM Company WHERE name = ?", [
       "Northwind Traders",
     ]);
     expect(company.length).toBe(1);
-    expect(company[0]?.["ats_slug"]).toBeNull();
+
+    // A company met by name posts on no board we know of, so no slug row
+    // names it.
+    const boards = await queryTrace(url, "SELECT slug FROM AtsSlug WHERE company_id = ?", [
+      String(company[0]?.["id"]),
+    ]);
+    expect(boards).toEqual([]);
   });
 
   test("records the name clash on both passes without ever retracting it", async () => {
@@ -785,6 +799,7 @@ describe("the trace table answers what save did to each job, across both passes"
 
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
+      atsSlugs: createAtsSlugService(built.db),
       jobService,
       collectedAt: COLLECTED_AT,
       settings: stubSettings,
@@ -918,6 +933,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
     // Real services throughout, so the rows this asserts on sit behind real
     // Job and Company rows rather than objects in an array.
     report = await runJobSearch({
+      atsSlugs: createAtsSlugService(built.db),
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       openBrowser: browserServing(),

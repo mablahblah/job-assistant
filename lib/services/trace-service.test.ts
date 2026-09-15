@@ -204,6 +204,59 @@ describe("a write records exactly what the caller passed", () => {
   });
 });
 
+// Scoring judges an employer rather than a posting, so its rows name a
+// company. There is no job behind such a row and no collector produced it.
+describe("a company's event names the company and nothing else", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let url: string;
+  let writer: TraceService;
+
+  beforeAll(() => {
+    const temp = createDb("pipeline-trace-company-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, writer } = buildWriter(url));
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  const companyEvent: TraceEvent = {
+    run_id: "run-company",
+    company_id: "company-1",
+    step: "scoring",
+    event: "company_entered",
+  };
+
+  test("the row names the company", async () => {
+    await writer.write(companyEvent);
+
+    const [row] = await queryTrace(url, "SELECT * FROM Trace WHERE company_id = ?", ["company-1"]);
+    expect(row?.["company_id"]).toBe("company-1");
+  });
+
+  test("the row carries no job", async () => {
+    const [row] = await queryTrace(url, "SELECT * FROM Trace WHERE company_id = ?", ["company-1"]);
+    expect(row?.["job_id"]).toBeNull();
+  });
+
+  test("the row carries no collector", async () => {
+    const [row] = await queryTrace(url, "SELECT * FROM Trace WHERE company_id = ?", ["company-1"]);
+    expect(row?.["collector"]).toBeNull();
+  });
+
+  // A job's row is unchanged by the widening: it still names a job and the
+  // collector that produced it, and names no company.
+  test("a job's row carries no company", async () => {
+    await writer.write(collectedEvent("job-beside-company"));
+
+    const [row] = await queryTrace(url, "SELECT * FROM Trace WHERE job_id = ?", [
+      "job-beside-company",
+    ]);
+    expect(row?.["company_id"]).toBeNull();
+  });
+});
+
 // The writer runs inside the collection orchestrator's try block around each
 // collector call, where a throw is read as a collector failure and costs every
 // remaining job from that source.

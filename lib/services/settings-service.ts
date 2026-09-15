@@ -5,13 +5,6 @@
 import type { createPipelineDb } from "../db/pipeline-db";
 import { parsePriorityEntry } from "../utils/source-priority";
 
-// A board an ATS collector polls. The slug is the whole identity: the seed
-// creates these companies with a slug and no name, and the three ATS
-// collectors poll by slug, so a name here would have no reader.
-export interface AtsCompany {
-  ats_slug: string;
-}
-
 // One seniority spelling that gets stored, plus every spelling a posting
 // might write for it, so `senior`, `sr` and `sr.` all end up as `Sr.`.
 export interface TitleLevel {
@@ -24,7 +17,6 @@ export interface SettingsService {
   getLocation(): Promise<string>;
   getRadius(): Promise<number>;
   getExpiryThreshold(): Promise<number>;
-  getAtsCompanies(platform: string): Promise<AtsCompany[]>;
   getTitleHeadNouns(): Promise<string[]>;
   getTitleLevels(): Promise<TitleLevel[]>;
   getTitleSuffixes(): Promise<string[]>;
@@ -34,6 +26,9 @@ export interface SettingsService {
   getResolutionSlowConcurrency(): Promise<number>;
   getResolutionSlowPauseSeconds(): Promise<number>;
   getRepostGapDays(): Promise<number>;
+  getPromotionThreshold(): Promise<number>;
+  getScoreExpiryDays(): Promise<number>;
+  getGuessedScoreExpiryDays(): Promise<number>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -138,20 +133,6 @@ export function createSettingsService(db: PipelineDb): SettingsService {
       return row.expiry_threshold;
     },
 
-    // A platform with no boards returns an empty list rather than throwing,
-    // because emptying a platform is how it is switched off.
-    async getAtsCompanies(platform: string) {
-      const companies = await db.company.findMany({
-        where: { ats_platform: platform, ats_slug: { not: null } },
-        select: { ats_slug: true },
-      });
-      // The where clause already excludes null slugs, but ats_slug's static
-      // type stays nullable. flatMap narrows it without a cast: a company
-      // that somehow still has a null slug is dropped rather than trusted.
-      return companies.flatMap((company) =>
-        company.ats_slug === null ? [] : [{ ats_slug: company.ats_slug }]
-      );
-    },
 
     async getTitleHeadNouns() {
       return getWordVocabulary("title_head_nouns");
@@ -219,6 +200,30 @@ export function createSettingsService(db: PipelineDb): SettingsService {
         throw missingSettingError("repost_gap_days");
       }
       return row.repost_gap_days;
+    },
+
+    async getPromotionThreshold() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.promotion_threshold === null) {
+        throw missingSettingError("promotion_threshold");
+      }
+      return row.promotion_threshold;
+    },
+
+    async getScoreExpiryDays() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.score_expiry_days === null) {
+        throw missingSettingError("score_expiry_days");
+      }
+      return row.score_expiry_days;
+    },
+
+    async getGuessedScoreExpiryDays() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.guessed_score_expiry_days === null) {
+        throw missingSettingError("guessed_score_expiry_days");
+      }
+      return row.guessed_score_expiry_days;
     },
   };
 }

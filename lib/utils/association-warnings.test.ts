@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { CompanyRecord } from "../services/company-service";
+import { unscoredCompany } from "../services/company-service.fake";
 import { associationWarnings, type AssociationWarning } from "./association-warnings";
 
 // Association raises two kinds of warning and folds neither. A clash is a
@@ -8,12 +9,19 @@ import { associationWarnings, type AssociationWarning } from "./association-warn
 // design because one broken collector would otherwise print 1,800 lines.
 
 function namedCompany(id: string, name: string): CompanyRecord {
-  return { id, name, match_key: name.toLowerCase(), ats_platform: null, ats_slug: null };
+  return unscoredCompany({ id, name, match_key: name.toLowerCase() });
 }
 
+// The real service reaches a company by board slug through the ATS slug
+// table. There is no such table behind the fake, so each fixture below
+// registers its slug here and the lookup is answered from this map.
+const COMPANY_BY_SLUG: Record<string, string> = {};
+
 function slugCompany(id: string, slug: string): CompanyRecord {
-  return { id, name: null, match_key: null, ats_platform: "ashby", ats_slug: slug };
+  COMPANY_BY_SLUG[slug] = id;
+  return unscoredCompany({ id });
 }
+
 
 // AC 54. A slug that matched nothing on a job carrying no name means a board
 // is producing jobs with no employer, which is worth the user's attention.
@@ -41,6 +49,7 @@ describe("a company name another company already holds", () => {
     collector: "adzuna",
     name: "Acme",
     target: slugCompany("target-id", "acme-boards"),
+    targetSlug: "acme-boards",
     heldBy: namedCompany("holder-id", "Acme"),
   };
 

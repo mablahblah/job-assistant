@@ -40,18 +40,38 @@ export type TraceDetail =
   | DedupeTraceDetail
   | DeleteRefusedDetail;
 
-export interface TraceEvent {
+// What every row carries, whether it describes a job or a company.
+interface TraceEventBase {
   run_id: string;
-  job_id: string;
   step: string;
   event: string;
-  collector: string;
   reason?: string;
   // The owned domain a failing source is counted under. Only the events that
   // blame a source fill it.
   domain?: string;
   detail?: TraceDetail;
 }
+
+// A job's event. It names the job and the collector that produced it, and
+// never a company.
+interface JobTraceEvent extends TraceEventBase {
+  job_id: string;
+  collector: string;
+  company_id?: never;
+}
+
+// A company's event, which scoring writes. It names the company and nothing
+// else: a company score has no posting behind it, so there is no job to name,
+// and no collector produced it either. Spelling both as never is what makes a
+// row carrying a job and a company fail to compile.
+interface CompanyTraceEvent extends TraceEventBase {
+  company_id: string;
+  job_id?: never;
+  collector?: never;
+}
+
+// One row describes a job or a company, never both.
+export type TraceEvent = JobTraceEvent | CompanyTraceEvent;
 
 // One group's tally from a run: every row sharing a step, event, reason,
 // collector and domain, collapsed to a count. reason and domain stay nullable
@@ -61,7 +81,8 @@ export interface TraceRunCount {
   step: string;
   event: string;
   reason: string | null;
-  collector: string;
+  // Empty on a company event's group, which has no collector behind it.
+  collector: string | null;
   domain: string | null;
   count: number;
 }
@@ -84,6 +105,7 @@ export function createTraceService(db: PipelineDb): TraceService {
           data: {
             run_id: event.run_id,
             job_id: event.job_id,
+            company_id: event.company_id,
             step: event.step,
             event: event.event,
             collector: event.collector,

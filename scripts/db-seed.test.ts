@@ -23,6 +23,11 @@ const EXPECTED_FAST_CONCURRENCY = 3;
 const EXPECTED_SLOW_CONCURRENCY = 1;
 const EXPECTED_SLOW_PAUSE_SECONDS = 12;
 const EXPECTED_REPOST_GAP_DAYS = 3;
+// A flat 3 everywhere is what the company rubric awards when nothing public
+// was found, so the bar sits above it: a company is never promoted on guesses.
+const EXPECTED_PROMOTION_THRESHOLD = 3.5;
+const EXPECTED_SCORE_EXPIRY_DAYS = 90;
+const EXPECTED_GUESSED_SCORE_EXPIRY_DAYS = 30;
 
 const GREENHOUSE_SLUGS = [
   "gitlab",
@@ -54,15 +59,19 @@ interface SettingRow {
   resolution_slow_concurrency: number | null;
   resolution_slow_pause_seconds: number | null;
   repost_gap_days: number | null;
+  promotion_threshold: number | null;
+  score_expiry_days: number | null;
+  guessed_score_expiry_days: number | null;
   modified_at: string;
 }
 
-interface CompanyRow {
+interface BoardRow {
   // Nullable, because a company seeded from a board slug is created without a
   // name and nothing invents one for it.
   name: string | null;
-  ats_platform: string | null;
-  ats_slug: string | null;
+  collector: string | null;
+  slug: string;
+  parser: string;
   // Nullable, because it is built from the name. A nameless company has to
   // store null rather than an empty string: match_key is unique, and SQLite
   // treats two nulls as different but two empty strings as the same.
@@ -139,6 +148,14 @@ async function readSetting(url: string): Promise<SettingRow> {
           : Number(row["resolution_slow_pause_seconds"]),
       repost_gap_days:
         row["repost_gap_days"] === null ? null : Number(row["repost_gap_days"]),
+      promotion_threshold:
+        row["promotion_threshold"] === null ? null : Number(row["promotion_threshold"]),
+      score_expiry_days:
+        row["score_expiry_days"] === null ? null : Number(row["score_expiry_days"]),
+      guessed_score_expiry_days:
+        row["guessed_score_expiry_days"] === null
+          ? null
+          : Number(row["guessed_score_expiry_days"]),
       modified_at: String(row["modified_at"]),
     };
   } finally {
@@ -146,19 +163,22 @@ async function readSetting(url: string): Promise<SettingRow> {
   }
 }
 
-async function readCompanies(url: string): Promise<CompanyRow[]> {
+// Reads one row per board, joined to the company it names, which is the
+// shape the two columns on Company used to hold.
+async function readBoards(url: string): Promise<BoardRow[]> {
   const client = createClient({ url });
   try {
     const result = await client.execute(
-      "SELECT name, ats_platform, ats_slug, match_key FROM Company"
+      "SELECT Company.name, Company.match_key, AtsSlug.slug, AtsSlug.parser, " +
+        "AtsSlug.collector FROM AtsSlug JOIN Company ON Company.id = AtsSlug.company_id"
     );
     return result.rows.map((row) => {
       const record = row as unknown as Record<string, unknown>;
       return {
         name: record["name"] === null ? null : String(record["name"]),
-        ats_platform:
-          record["ats_platform"] === null ? null : String(record["ats_platform"]),
-        ats_slug: record["ats_slug"] === null ? null : String(record["ats_slug"]),
+        collector: record["collector"] === null ? null : String(record["collector"]),
+        slug: String(record["slug"]),
+        parser: String(record["parser"]),
         match_key: record["match_key"] === null ? null : String(record["match_key"]),
       };
     });
@@ -193,21 +213,21 @@ async function runSql(
 
 // The slugs a collector would poll for one platform, which is how a collector
 // finds its boards: the companies carrying that platform and a slug.
-function slugsFor(companies: CompanyRow[], platform: string): string[] {
+function slugsFor(companies: BoardRow[], platform: string): string[] {
   return companies
-    .filter((company) => company.ats_platform === platform)
-    .map((company) => company.ats_slug ?? "")
+    .filter((board) => board.collector === platform)
+    .map((board) => board.slug)
     .sort();
 }
 
-describe("AC17: a seeded ATS company carries its platform and slug and no name", () => {
+describe("AC17: a seeded board names a collector and its company has no name", () => {
   let dir: string;
-  let companies: CompanyRow[];
+  let companies: BoardRow[];
 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-ac17-");
     dir = temp.dir;
-    companies = await readCompanies(temp.url);
+    companies = await readBoards(temp.url);
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
@@ -215,7 +235,7 @@ describe("AC17: a seeded ATS company carries its platform and slug and no name",
   });
 
   // Without this the two tests below would pass over an empty table.
-  test("one company is seeded per ATS slug", () => {
+  test("one board row is seeded per ATS slug", () => {
     expect(companies).toHaveLength(ALL_ATS_SLUGS.length);
   });
 
@@ -224,18 +244,23 @@ describe("AC17: a seeded ATS company carries its platform and slug and no name",
     expect(named).toEqual([]);
   });
 
-  test("every seeded company carries a platform and a slug", () => {
-    const incomplete = companies.filter(
-      (company) => company.ats_platform === null || company.ats_slug === null
-    );
-    expect(incomplete).toEqual([]);
+  // A seeded board is one we poll every run, so its row carries a collector
+  // from the start. A row written later by company matching carries none.
+  test("every seeded board carries a collector", () => {
+    const unpolled = companies.filter((board) => board.collector === null);
+    expect(unpolled).toEqual([]);
+  });
+
+  test("every seeded board names the parser that reads it", () => {
+    const unparsed = companies.filter((board) => board.parser === "");
+    expect(unparsed).toEqual([]);
   });
 });
 
 describe("AC18: a slug another company already holds is warned about, not seeded again", () => {
   let dir: string;
   let output: string;
-  let figma: CompanyRow[];
+  let figma: BoardRow[];
 
   beforeAll(async () => {
     const temp = makeTempDb("pipeline-seed-ac18-");
@@ -246,25 +271,31 @@ describe("AC18: a slug another company already holds is warned about, not seeded
     // insert has to supply it.
     await runSql(
       temp.url,
-      "INSERT INTO Company (id, name, match_key, ats_platform, ats_slug, created_at, modified_at) " +
-        "VALUES ('squatter', 'Figma Squatter', 'figmasquatter', 'lever', 'figma', " +
+      "INSERT INTO Company (id, name, match_key, created_at, modified_at) " +
+        "VALUES ('squatter', 'Figma Squatter', 'figmasquatter', " +
+        "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    );
+    await runSql(
+      temp.url,
+      "INSERT INTO AtsSlug (id, slug, company_id, parser, collector, created_at, modified_at) " +
+        "VALUES ('squatter-board', 'figma', 'squatter', 'lever', 'lever', " +
         "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
     );
     output = runScriptForOutput("db-seed.ts", temp.url);
-    const companies = await readCompanies(temp.url);
-    figma = companies.filter((company) => company.ats_slug === "figma");
+    const companies = await readBoards(temp.url);
+    figma = companies.filter((board) => board.slug === "figma");
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("only one company holds the clashing slug", () => {
+  test("only one row holds the clashing slug", () => {
     expect(figma).toHaveLength(1);
   });
 
-  test("the company already holding it is left as it was", () => {
-    expect(figma[0]?.ats_platform).toBe("lever");
+  test("the row already holding it is left as it was", () => {
+    expect(figma[0]?.collector).toBe("lever");
   });
 
   test("the seed warns, naming the slug", () => {
@@ -280,13 +311,13 @@ describe("AC18: a slug another company already holds is warned about, not seeded
 describe("AC6: seeding a fresh database fills every setting collection needs", () => {
   let dir: string;
   let setting: SettingRow;
-  let companies: CompanyRow[];
+  let companies: BoardRow[];
 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-ac6-");
     dir = temp.dir;
     setting = await readSetting(temp.url);
-    companies = await readCompanies(temp.url);
+    companies = await readBoards(temp.url);
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
@@ -321,8 +352,21 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
     expect(setting.repost_gap_days).toBe(EXPECTED_REPOST_GAP_DAYS);
   });
 
+  // Criterion 94. Without a bar to clear, nothing could decide whether a
+  // company's board joins a polling list.
+  test("writes the promotion threshold", () => {
+    expect(setting.promotion_threshold).toBe(EXPECTED_PROMOTION_THRESHOLD);
+  });
+
+  // Criteria 95 and 96. The guessed expiry is the shorter of the two, because
+  // a guess is a placeholder rather than research.
+  test("writes both score expiries", () => {
+    expect(setting.score_expiry_days).toBe(EXPECTED_SCORE_EXPIRY_DAYS);
+    expect(setting.guessed_score_expiry_days).toBe(EXPECTED_GUESSED_SCORE_EXPIRY_DAYS);
+  });
+
   test("writes one company per ATS slug", () => {
-    const slugs = companies.map((company) => company.ats_slug).sort();
+    const slugs = companies.map((board) => board.slug).sort();
     expect(slugs).toEqual([...ALL_ATS_SLUGS].sort());
   });
 
@@ -447,7 +491,7 @@ describe("AC12: the Greenhouse slug list holds the boards that return jobs", () 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-ac12-");
     dir = temp.dir;
-    greenhouse = slugsFor(await readCompanies(temp.url), "greenhouse");
+    greenhouse = slugsFor(await readBoards(temp.url), "greenhouse");
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
@@ -471,7 +515,7 @@ describe("AC13: the Lever and Ashby slug lists give each collector something to 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-ac13-");
     dir = temp.dir;
-    const companies = await readCompanies(temp.url);
+    const companies = await readBoards(temp.url);
     lever = slugsFor(companies, "lever");
     ashby = slugsFor(companies, "ashby");
   }, SEED_TIMEOUT_MS);
@@ -499,12 +543,12 @@ describe("AC13: the Lever and Ashby slug lists give each collector something to 
 
 describe("a seeded company's match key is null, not an empty string", () => {
   let dir: string;
-  let companies: CompanyRow[];
+  let companies: BoardRow[];
 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-match-key-");
     dir = temp.dir;
-    companies = await readCompanies(temp.url);
+    companies = await readBoards(temp.url);
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
@@ -552,7 +596,7 @@ describe("AC19: a second seed run does not duplicate companies or warn", () => {
 
   test("the second run reports creating nothing and finding every company already present", () => {
     expect(secondOutput).toContain(
-      `Companies: created 0, already present ${ALL_ATS_SLUGS.length}`
+      `Boards: created 0, already present ${ALL_ATS_SLUGS.length}`
     );
   });
 

@@ -1,36 +1,35 @@
 import { describe, expect, test } from "vitest";
 import { companyMatchKey } from "../utils/company-match-key";
 import type { CompanyRecord } from "./company-service";
-import { fakeCompanyService } from "./company-service.fake";
+import { fakeCompanyService, unscoredCompany } from "./company-service.fake";
 
 // The fake stands in for the real service in the association step's tests, so
 // it has to reach the same answers the real one does. These checks mirror
 // lib/services/company-service.test.ts: where the two files disagree, the fake is
 // lying and every test that trusts it is worthless.
 
-function slugCompany(id: string, slug: string): CompanyRecord {
-  return { id, name: null, match_key: null, ats_platform: "ashby", ats_slug: slug };
+// A company met only as a board: no name and no match key. Its board slugs
+// live in a table of their own, which this fake does not hold.
+function namelessCompany(id: string): CompanyRecord {
+  return unscoredCompany({ id });
 }
 
 function namedCompany(id: string, name: string): CompanyRecord {
-  return {
-    id,
-    name,
-    match_key: companyMatchKey(name),
-    ats_platform: null,
-    ats_slug: null,
-  };
+  return unscoredCompany({ id, name, match_key: companyMatchKey(name) });
 }
 
 describe("looking a company up", () => {
-  test("finds a seeded company by its slug", async () => {
-    const service = fakeCompanyService([slugCompany("c1", "hinge-health")]);
+  // The real service looks a slug up through the ATS slug table, which this
+  // fake does not hold. A test that needs a slug lookup passes an override.
+  test("answers a slug lookup with an override", async () => {
+    const company = namedCompany("c1", "Slug Override Co");
+    const service = fakeCompanyService([company], { findBySlug: async () => company });
 
     expect((await service.findBySlug("hinge-health"))?.id).toBe("c1");
   });
 
-  test("returns null for a slug nobody holds", async () => {
-    const service = fakeCompanyService([slugCompany("c1", "hinge-health")]);
+  test("returns null for a slug with no override behind it", async () => {
+    const service = fakeCompanyService([namelessCompany("c1")]);
 
     expect(await service.findBySlug("nobody-holds-this")).toBeNull();
   });
@@ -70,14 +69,13 @@ describe("creating a company", () => {
     expect(result.company.match_key).toBe("createdbyname");
   });
 
-  test("gives a slug-only company no name and no key", async () => {
+  test("gives a nameless company no name and no key", async () => {
     const service = fakeCompanyService();
 
-    const result = await service.create({ ats_platform: "ashby", ats_slug: "created-by-slug" });
+    const company = await service.createNameless();
 
-    expect(result.company.name).toBeNull();
-    expect(result.company.match_key).toBeNull();
-    expect(result.company.ats_slug).toBe("created-by-slug");
+    expect(company.name).toBeNull();
+    expect(company.match_key).toBeNull();
   });
 
   test("gives every company an id of its own", async () => {
@@ -136,20 +134,11 @@ describe("a create the fake refuses", () => {
     expect(second.company.id).toBe(first.company.id);
   });
 
-  test("hands back the company already holding that slug", async () => {
-    const service = fakeCompanyService();
-
-    const first = await service.create({ ats_platform: "ashby", ats_slug: "clashing-slug" });
-    const second = await service.create({ ats_platform: "ashby", ats_slug: "clashing-slug" });
-
-    expect(second.created).toBe(false);
-    expect(second.company.id).toBe(first.company.id);
-  });
 });
 
 describe("filling a company's empty name", () => {
   test("writes the name and its key", async () => {
-    const companies = [slugCompany("c1", "fill-name-target")];
+    const companies = [namelessCompany("c1")];
     const service = fakeCompanyService(companies);
 
     const result = await service.fillName("c1", "Fill Name Target");
@@ -160,19 +149,11 @@ describe("filling a company's empty name", () => {
     expect(companies[0]?.name).toBe("Fill Name Target");
   });
 
-  test("leaves the platform and slug untouched", async () => {
-    const service = fakeCompanyService([slugCompany("c1", "fill-keeps-slug")]);
-
-    const result = await service.fillName("c1", "Fill Keeps Slug");
-
-    expect(result.company.ats_platform).toBe("ashby");
-    expect(result.company.ats_slug).toBe("fill-keeps-slug");
-  });
 
   test("refuses a name another company already holds, and names the holder", async () => {
     const service = fakeCompanyService([
       namedCompany("holder", "Name Clash Holder"),
-      slugCompany("target", "name-clash-target"),
+      namelessCompany("target"),
     ]);
 
     const result = await service.fillName("target", "Name Clash Holder");

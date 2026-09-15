@@ -474,7 +474,9 @@ describe("a host that refuses us is moved to the slow lane", () => {
   // A job deferred by the fast lane is resolved by the slow one, and only one
   // of the two may speak for it.
   test("a job carried into the slow lane writes one trace row, not two", async () => {
-    const written: { job_id: string; event: string; reason?: string }[] = [];
+    // job_id is optional on a trace row now that a company event carries none,
+    // so it is read as written rather than narrowed here.
+    const written: { job_id: string | undefined; event: string; reason?: string }[] = [];
 
     await resolveJobs(threeJobs(), {
       ...laneOptions([]),

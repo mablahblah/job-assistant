@@ -112,6 +112,15 @@ model Job {
   // setting, which reads as the employer listing the role again rather than
   // as two collectors disagreeing by hours about one posting.
   is_repost                Boolean?
+  // How well this job fits the user, judged by an agent against the alignment
+  // rubric. Empty is what says the job still needs scoring, so the column
+  // carries no default. A job returning to the backlog after being posted
+  // again is emptied, because the posting it was judged on is not the one now
+  // on offer.
+  alignment_score          Int?
+  // The reasoning behind that score. One field rather than four, because
+  // alignment is one score.
+  alignment_rationale      String?
   company                  Company?  @relation(fields: [company_id], references: [id])
 
   // Dedupe's two link clauses look a match up on these keys, so each is
@@ -128,27 +137,80 @@ model Job {
   @@index([company_id, title])
 }
 
-// An employer. A collector polls the companies carrying its ats_platform and
-// an ats_slug, so the slug lists are these rows rather than a table of their own.
+// An employer. Which boards a company posts on, and which of those we poll,
+// live in AtsSlug rather than here: a pair of columns on this row would force
+// the two facts to travel together.
 model Company {
-  id           String   @id @default(cuid())
+  id                              String    @id @default(cuid())
   // Optional, because a company met only as a board slug has no name yet and
   // nothing invents one for it.
-  name         String?  @unique
+  name                            String?   @unique
   // The name squashed down for matching: lowercased, stripped of everything
   // that is not a letter or a digit, and shorn of trailing legal-entity
   // words. Unique, so the database refuses a duplicate employer whatever the
   // matching code does.
-  match_key    String?  @unique
-  // Which applicant tracking system the company posts on, where known.
-  ats_platform String?
-  // The company's board slug on that system, where known. Unique, because a
-  // job carries a slug without carrying which board it came from, so a slug
-  // held by two companies could not be resolved to one.
-  ats_slug     String?  @unique
-  created_at   DateTime @default(now())
-  modified_at  DateTime @updatedAt
-  jobs         Job[]
+  match_key                       String?   @unique
+  // The four judgements an agent researches the company on, each 1 to 5.
+  // Empty is what says a category still needs researching, so none of them
+  // carries a default: a seeded middle value would read as a judgement nobody
+  // made and would never be researched.
+  employee_satisfaction           Int?
+  customer_satisfaction           Int?
+  work_life_balance               Int?
+  political_alignment             Int?
+  // The reasoning behind each score, one field per category rather than one
+  // field holding all four. Re-scoring one category writes one field; a shared
+  // field would have to be read, changed and written back whole every time,
+  // and a partial re-score would leave it describing a score that was cleared.
+  employee_satisfaction_rationale String?
+  customer_satisfaction_rationale String?
+  work_life_balance_rationale     String?
+  political_alignment_rationale   String?
+  // When the company was last scored. One date covers all four categories, so
+  // a re-score restarts the clock for the researched ones too. A date per
+  // category was considered and dropped as too heavy.
+  scored_at                       DateTime?
+  // The categories the agent guessed at because nothing public existed, held
+  // as a list of category names. The rubric awards a 3 in that case, which is
+  // a guess wearing the same clothes as a judgement, so this is what tells the
+  // two apart. Backlog cleanup empties a guessed category sooner than a
+  // researched one.
+  scores_guessed                  Json?
+  created_at                      DateTime  @default(now())
+  modified_at                     DateTime  @updatedAt
+  jobs                            Job[]
+  ats_slugs                       AtsSlug[]
+}
+
+// One row per applicant tracking system board we know about. The pair of
+// columns this replaces forced two different facts to travel together: that a
+// company posts on a hiring system, and that we poll its board every run.
+// Here the slug and the parser carry the first, and the collector carries the
+// second. Company matching writes a row as soon as a posting is read, with no
+// collector. Promotion fills the collector in later, and filling it in is what
+// puts the company on a polling list.
+model AtsSlug {
+  id          String   @id @default(cuid())
+  // The company's board slug on its hiring system. Unique across the table,
+  // because a job carries a slug without carrying which board it came from,
+  // so a slug held by two rows could not be resolved to one company.
+  slug        String   @unique
+  // The company whose board this is.
+  company_id  String
+  // Which parser read the posting the slug was found on. The parser rather
+  // than the hiring system itself, because the parser is what owns the link
+  // the slug was read out of.
+  parser      String
+  // Which collector polls this board every run. Empty until the company is
+  // promoted, and filling it in is what starts the polling.
+  collector   String?
+  created_at  DateTime @default(now())
+  modified_at DateTime @updatedAt
+  company     Company  @relation(fields: [company_id], references: [id])
+
+  // Each ATS collector asks for the rows carrying its own name, so that lookup
+  // reads an index rather than every row in the table.
+  @@index([collector])
 }
 
 // Single-row configuration. A seed script fills whatever is absent and
@@ -243,6 +305,18 @@ model Setting {
   // Measured in days and compared as an exact duration, so the hours between
   // two collectors seeing the same posting are absorbed rather than counted.
   repost_gap_days               Int?
+  // The score a company's four categories must average above before its board
+  // joins a polling list. The average rather than every category on its own:
+  // the company rubric awards a 3 when nothing public was found, so a
+  // per-category test would block a strong company forever on one unknown.
+  promotion_threshold           Float?
+  // How many days a company's scores stand before backlog cleanup empties
+  // them. A judgement about an employer ages, and a stale one would rank a
+  // job against a company that has since changed.
+  score_expiry_days             Int?
+  // How many days a guessed category stands. Shorter than the score expiry,
+  // because a 3 the agent guessed at is a placeholder rather than research.
+  guessed_score_expiry_days     Int?
   created_at                    DateTime @default(now())
   modified_at                   DateTime @updatedAt
 }
@@ -259,10 +333,13 @@ model Setting {
 // resolution, post_resolution_dedupe, post_resolution_save, parsing,
 // post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
 // post_parsing_save, promotion, post_promotion_save, classification,
-// post_classification_save, scoring.
-// Everything from backlog cleanup through the save after classification
-// writes today; scoring is what the next phase adds once it exists, the way
-// Job.status grows its comment.
+// post_classification_save, scoring, company_promotion.
+// Every one of them writes today.
+//
+// scoring and company_promotion are the two the pipeline itself never
+// reaches: an agent does the judging, so they are written by the scoring
+// orchestrator's two commands instead. They still carry the job search's own
+// run id, so one run's rows stay countable together.
 //
 // Backlog cleanup opens the run, before any collector, so the backlog being
 // added to has already been swept. Promotion and classification close it,
@@ -436,7 +513,46 @@ model Setting {
 // job_promoted, job_classified and job_reposted carry no reason, because one
 // population needs nothing to group by.
 //
-// Scoring adds its own reasons once it exists.
+// A company has a path of its own, shorter than a job's, and its rows carry
+// a company and never a job or a collector. Backlog cleanup writes
+// company_entered as each scored company arrives, then company_kept where the
+// judgement is still fresh, or company_scores_cleared where it is not, under
+// past_score_expiry for a company past the score expiry and
+// past_guessed_score_expiry for one past only the guessed-score expiry. Save
+// writes company_dbrow_updated where the company's row took its new score
+// block, and reuses collection's abandoned under db_write_failed where that
+// write threw.
+//
+// Scoring writes eight events and seven reasons of its own, all under the
+// step scoring. It writes job_entered and company_entered as each job and
+// company is gathered, so a heading can say what scoring was handed even
+// where the run stopped part-way. A job then takes job_scored, or
+// scoring_failed under one of four reasons: no_posting_url, where the job
+// carried neither the posting's words nor a link to fetch them;
+// posting_unreadable, where the page at that link would not open;
+// scoring_agent_failed, where the helper came back with no score at all; and
+// db_write_failed, where the score could not be written. A company takes
+// company_scored where every category was researched,
+// company_partially_scored under insufficient_research where the helper had
+// to guess at one, or company_scoring_failed under company_unnamed, where the
+// company is known only by a board slug, scoring_agent_failed, or
+// db_write_failed. scoring_agent_failed and db_write_failed each name one
+// population split by whether a job or a company was being scored, and the
+// event is what tells the two sides apart.
+//
+// No scoring row carries the score itself. A score is a counted value, so it
+// lives in a column on the row it describes and a reader joins to it.
+//
+// company_promotion writes three. company_entered as each scored company
+// arrives, then company_promoted where its board row gained the collector
+// that will poll it, or company_promotion_skipped under one of four reasons:
+// not_fully_scored, where a category is still empty and there is no average
+// to test; below_promotion_threshold, where the four scores average at or
+// below the setting; no_pollable_board, where no board of that company is one
+// a collector can poll; and already_polled, where every such board already
+// carries a collector. It is spelled apart from promotion, which means a
+// reposted job returning to the backlog, because scoring shares the job
+// search's run id and one name would put both in the same counting bucket.
 model Trace {
   // An auto-incrementing integer key, so two events landing in the same
   // millisecond still have a reliable order.
@@ -444,16 +560,22 @@ model Trace {
   // The job search during which the event happened.
   run_id     String
   // The job the event describes. A plain column with no relation, so a trace
-  // outlives the job it describes.
-  job_id     String
+  // outlives the job it describes. Empty on a company event, which describes
+  // an employer rather than a posting.
+  job_id     String?
+  // The company the event describes, on the events that describe one. A plain
+  // column with no relation, for the same reason job_id is one. A row names a
+  // job or a company, never both.
+  company_id String?
   // Where in the pipeline the event happened.
   step       String
   // What happened there.
   event      String
   // Why a dead end happened, where the event was one.
   reason     String?
-  // Which collector produced the job.
-  collector  String
+  // Which collector produced the job. Empty on a company event, because a
+  // company score has no collector behind it.
+  collector  String?
   // The domain the job's source owns, on the events where a source is what
   // failed. It is a column of its own rather than a field inside detail
   // because detail is JSON holding a different shape per event, and SQLite

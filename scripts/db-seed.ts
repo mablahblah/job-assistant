@@ -1,8 +1,9 @@
-// Seeds the pipeline database with the settings and ATS companies collection
+// Seeds the pipeline database with the settings and ATS boards collection
 // needs. It fills what is absent and overwrites nothing, so running it after a
 // schema change adds the new setting and leaves everything else as it was.
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { createCompanyService, type CompanyService } from "../lib/services/company-service";
+import { createAtsSlugService, type AtsSlugService } from "../lib/services/ats-slug-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
 
@@ -51,11 +52,25 @@ const SETTING_DEFAULTS = {
   resolution_slow_concurrency: 1,
   resolution_slow_pause_seconds: 12,
   repost_gap_days: 3,
+  // A company's four scores must average above this before its board joins a
+  // polling list. 3.5 sits just above the middle, so a company that scored a
+  // flat 3 everywhere — the value the rubric awards when nothing public was
+  // found — is never promoted on guesses alone.
+  promotion_threshold: 3.5,
+  // How long a company's scores stand before backlog cleanup empties them.
+  score_expiry_days: 90,
+  // How long a guessed category stands. Shorter than the score expiry,
+  // because a guess is a placeholder rather than research.
+  guessed_score_expiry_days: 30,
 };
 
 // The boards each ATS collector polls. A collector finds its work by asking
 // for the companies carrying its platform and a slug.
-const SLUGS_BY_PLATFORM: Record<string, string[]> = {
+// The boards the three ATS collectors poll, keyed by the collector that polls
+// them. A seeded row carries that collector from the start, which is what puts
+// the board on a polling list; a row written later by company matching carries
+// none until promotion fills it in.
+const SLUGS_BY_COLLECTOR: Record<string, string[]> = {
   greenhouse: [
     "gitlab",
     "duolingo",
@@ -114,6 +129,9 @@ type SettingPatch = {
   resolution_slow_concurrency?: number;
   resolution_slow_pause_seconds?: number;
   repost_gap_days?: number;
+  promotion_threshold?: number;
+  score_expiry_days?: number;
+  guessed_score_expiry_days?: number;
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -153,6 +171,15 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   // exactly the kind of value a seed must never overwrite.
   if (existing.resolution_slow_pause_seconds === null) {
     patch.resolution_slow_pause_seconds = SETTING_DEFAULTS.resolution_slow_pause_seconds;
+  }
+  if (existing.promotion_threshold === null) {
+    patch.promotion_threshold = SETTING_DEFAULTS.promotion_threshold;
+  }
+  if (existing.score_expiry_days === null) {
+    patch.score_expiry_days = SETTING_DEFAULTS.score_expiry_days;
+  }
+  if (existing.guessed_score_expiry_days === null) {
+    patch.guessed_score_expiry_days = SETTING_DEFAULTS.guessed_score_expiry_days;
   }
   if (existing.repost_gap_days === null) {
     patch.repost_gap_days = SETTING_DEFAULTS.repost_gap_days;
@@ -206,51 +233,56 @@ async function seedSourcePriority(prisma: PipelineDb): Promise<void> {
   console.log(`Source priority list: added ${missing.join(", ")} to the bottom`);
 }
 
-async function seedCompanies(companyService: CompanyService): Promise<void> {
+async function seedBoards(
+  companyService: CompanyService,
+  atsSlugs: AtsSlugService
+): Promise<void> {
   let created = 0;
   let present = 0;
-  // Each clash gets a line of its own. A slug held by the wrong board is a
-  // fact about two specific rows, and a count would hide which ones.
   const warnings: string[] = [];
 
-  for (const [ats_platform, slugs] of Object.entries(SLUGS_BY_PLATFORM)) {
-    for (const ats_slug of slugs) {
-      // A slug is unique across the whole table, so the lookup goes by slug
-      // alone. A hit under a different platform means another board already
-      // claimed it, rather than that this board owns the row.
-      const existing = await companyService.findBySlug(ats_slug);
+  for (const [collector, slugs] of Object.entries(SLUGS_BY_COLLECTOR)) {
+    for (const slug of slugs) {
+      const existing = await atsSlugs.findBySlug(slug);
 
       if (existing) {
-        if (existing.ats_platform === ats_platform) {
+        if (existing.collector === collector) {
           present += 1;
-        } else {
-          warnings.push(
-            `Warning: slug "${ats_slug}" for ${ats_platform} is already ` +
-              `held by ${existing.ats_platform}. Skipped.`
-          );
+          continue;
         }
+
+        // A slug belongs to exactly one board, so the same slug under a
+        // different collector means the seed list and the database disagree
+        // about who owns it. That is a question for the user, not something
+        // to settle by overwriting a row that a real run may depend on.
+        const holder = existing.collector ?? "no collector";
+        warnings.push(`Warning: slug "${slug}" wanted by ${collector} is held by ${holder}`);
         continue;
       }
 
-      // Seeded with no name on purpose. Nothing invents a company name from
-      // a board slug; company association fills it from the first job that
-      // supplies a real one.
-      const result = await companyService.create({ ats_platform, ats_slug });
-      if (result.created) {
-        created += 1;
-      } else {
-        // The service caught a refused write and handed back the company
-        // blocking it, rather than throwing. Only a second seed running at
-        // the same time can reach this.
-        warnings.push(
-          `Warning: could not create the company for slug "${ats_slug}" ` +
-            `because another company already holds it. Skipped.`
-        );
+      const company = await companyService.createNameless();
+      // The board's postings are read by the parser of the same name as the
+      // collector that polls the board, so one value serves both.
+      const { created: wasCreated } = await atsSlugs.record({
+        slug,
+        company_id: company.id,
+        parser: collector,
+      });
+
+      if (!wasCreated) {
+        // Something else wrote this slug between the lookup and the write, so
+        // the row we are looking at is no longer ours to attach a collector
+        // to.
+        warnings.push(`Warning: slug "${slug}" was claimed while seeding`);
+        continue;
       }
+
+      await atsSlugs.addCollector(slug, collector);
+      created += 1;
     }
   }
 
-  console.log(`Companies: created ${created}, already present ${present}`);
+  console.log(`Boards: created ${created}, already present ${present}`);
   for (const warning of warnings) {
     console.log(warning);
   }
@@ -262,7 +294,7 @@ async function main(): Promise<void> {
     await seedSettings(prisma);
     // After seedSettings, which is what creates the row when it is absent.
     await seedSourcePriority(prisma);
-    await seedCompanies(createCompanyService(prisma));
+    await seedBoards(createCompanyService(prisma), createAtsSlugService(prisma));
   } finally {
     await prisma.$disconnect();
   }

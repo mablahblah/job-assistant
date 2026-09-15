@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { CHECKED_MODELS, modelsFailingSchemaCheck, type SchemaProbe } from "./schema-check";
+import {
+  CHECKED_MODELS,
+  modelsFailingSchemaCheck,
+  schemaProbesFor,
+  type SchemaProbe,
+} from "./schema-check";
 
 function reads(name: string): SchemaProbe {
   return { name, read: async () => null };
@@ -75,5 +80,44 @@ describe("the check covers every model the schema declares", () => {
 
   test("no model in the schema is left unchecked", () => {
     expect([...CHECKED_MODELS].sort()).toEqual(modelsInSchema().sort());
+  });
+
+  // Naming a model in the list buys nothing unless a probe reads it, so the
+  // two are held together here as well.
+  test("every checked model has a probe that reads it", () => {
+    // Stands in for the client: every table answers a findFirst.
+    const db = new Proxy(
+      {},
+      {
+        get() {
+          return { findFirst: async () => null };
+        },
+      }
+    ) as Parameters<typeof schemaProbesFor>[0];
+
+    const probes = schemaProbesFor(db);
+    expect(probes.map((probe) => probe.name).sort()).toEqual([...CHECKED_MODELS].sort());
+  });
+
+  test("the ATS slug table is one of the tables read", async () => {
+    const asked: string[] = [];
+    const db = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          return {
+            findFirst: async () => {
+              asked.push(String(property));
+              return null;
+            },
+          };
+        },
+      }
+    ) as Parameters<typeof schemaProbesFor>[0];
+
+    const probe = schemaProbesFor(db).find((candidate) => candidate.name === "AtsSlug");
+    expect(probe, "no probe named AtsSlug").toBeDefined();
+    await probe?.read();
+    expect(asked).toEqual(["atsSlug"]);
   });
 });

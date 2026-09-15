@@ -11,7 +11,9 @@ import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
 import type { Collector, CollectorResult } from "./collector";
 
-const PLATFORM = "greenhouse";
+// The collector's own name, which is what a slug row carries when its board
+// is on this collector's polling list.
+const COLLECTOR = "greenhouse";
 
 const jobsUrl = (slug: string) =>
   `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true&pay_transparency=true`;
@@ -36,8 +38,8 @@ function toJobListEntry(posting: GreenhousePosting, slug: string): JobListEntry 
 export const greenhouseCollector: Collector = {
   name: "greenhouse",
 
-  async collect({ settings, limit }): Promise<CollectorResult> {
-    const { boards, warnings } = await readAtsBoards(settings, PLATFORM);
+  async collect({ settings, atsSlugs, limit }): Promise<CollectorResult> {
+    const { boards, warnings } = await readAtsBoards(atsSlugs, COLLECTOR);
     if (boards.length === 0) {
       return { jobs: [], errors: [], warnings };
     }

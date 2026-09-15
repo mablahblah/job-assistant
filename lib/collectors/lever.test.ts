@@ -9,8 +9,15 @@ vi.mock("../utils/lever-fields", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../utils/lever-fields")>();
   return { ...actual, jobFieldsFromLeverPosting: vi.fn(actual.jobFieldsFromLeverPosting) };
 });
-import type { AtsCompany, SettingsService } from "../services/settings-service";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import type { AtsBoard } from "./ats-boards";
+import type { CollectorContext } from "./collector";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+
+// Everything a collector is handed except the limit, which each test sets.
+type CollectorContextParts = Omit<CollectorContext, "limit">;
+
+const COLLECTOR_NAME = "lever";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -43,11 +50,22 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // A settings-service stand-in typed to the real interface, so a test supplies
 // only the boards and search terms it needs.
-function makeSettings(boards: AtsCompany[], searchTerms: string[]): SettingsService {
-  return fakeSettingsService({
-    getSearchTerms: async () => searchTerms,
-    getAtsCompanies: async () => boards,
-  });
+// What a collector is handed for one run, minus the limit. The boards live in
+// the ATS slug table now, so the fake slug service is seeded with a row per
+// board, each already carrying this collector.
+function makeContext(boards: AtsBoard[], searchTerms: string[]): CollectorContextParts {
+  return {
+    settings: fakeSettingsService({ getSearchTerms: async () => searchTerms }),
+    atsSlugs: fakeAtsSlugService(
+      boards.map((board, index) => ({
+        id: `row-${index}`,
+        slug: board.ats_slug,
+        company_id: `company-${index}`,
+        parser: COLLECTOR_NAME,
+        collector: COLLECTOR_NAME,
+      }))
+    ),
+  };
 }
 
 const postingsUrl = (slug: string) => `https://api.lever.co/v0/postings/${slug}?mode=json`;
@@ -78,8 +96,8 @@ async function collectOneJob() {
   stubFetch({
     [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]),
   });
-  const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
-  const result = await leverCollector.collect({ settings, limit: Infinity });
+  const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+  const result = await leverCollector.collect({ ...context, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
 }
@@ -108,8 +126,8 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
     stubFetch({
       [postingsUrl("gohighlevel")]: () => jsonResponse([]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
-    return leverCollector.collect({ settings, limit: Infinity });
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    return leverCollector.collect({ ...context, limit: Infinity });
   }
 
   test("the job list is empty", async () => {
@@ -126,9 +144,9 @@ describe("AC 38: postings whose title does not match the search terms are absent
     stubFetch({
       [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner, backendEngineer]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs.map((posting) => posting.raw_title)).toEqual([
       "Senior Product Designer",
@@ -149,9 +167,9 @@ describe("AC 39: a posting is filtered on its title alone, never its team", () =
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs).toEqual([]);
   });
@@ -166,9 +184,9 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           { ...seniorProductDesigner, id: "post-abc127", text: "Staff Product Designer" },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: 1 });
+    const result = await leverCollector.collect({ ...context, limit: 1 });
 
     expect(result.jobs).toHaveLength(1);
   });
@@ -196,14 +214,14 @@ describe("a board answering 404 records a warning and lets the other slugs run",
       [postingsUrl("acme")]: () => new Response("Not Found", { status: 404 }),
       [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]),
     });
-    const settings = makeSettings(
+    const context = makeContext(
       [
         { ats_slug: "acme" },
         { ats_slug: "gohighlevel" },
       ],
       SEARCH_TERMS
     );
-    return leverCollector.collect({ settings, limit: Infinity });
+    return leverCollector.collect({ ...context, limit: Infinity });
   }
 
   test("collect resolves rather than rejecting", async () => {
@@ -223,18 +241,18 @@ describe("a board answering 404 records a warning and lets the other slugs run",
 describe("AC 76: no boards configured", () => {
   test("a warning names the platform", async () => {
     stubFetch({});
-    const settings = makeSettings([], SEARCH_TERMS);
+    const context = makeContext([], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.warnings.some((warning) => warning.includes("lever"))).toBe(true);
   });
 
   test("no request is made", async () => {
     const calls = stubFetch({});
-    const settings = makeSettings([], SEARCH_TERMS);
+    const context = makeContext([], SEARCH_TERMS);
 
-    await leverCollector.collect({ settings, limit: Infinity });
+    await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(calls).toEqual([]);
   });
@@ -285,9 +303,9 @@ describe("a posting missing a location gives an empty location list", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_location_list).toEqual([]);
   });
@@ -306,9 +324,9 @@ describe("a posting missing workplaceType gives an empty mode list", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual([]);
   });
@@ -333,9 +351,9 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].description).toBeUndefined();
   });
@@ -356,9 +374,9 @@ describe("descriptionPlain wins when both descriptions are present", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].description).toBe("Plain version.");
   });
@@ -378,9 +396,9 @@ describe("description is used when descriptionPlain is absent", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].description).toBe("<p>HTML only version.</p>");
   });
@@ -413,9 +431,9 @@ describe("AC 102: a pay range in the description is left for a parser", () => {
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toBeUndefined();
     expect(result.jobs[0].description).toContain("$120,000 - $150,000");
@@ -437,9 +455,9 @@ describe("AC 93: a published workplaceType wins over a mode named in the descrip
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual(["remote"]);
   });
@@ -454,18 +472,18 @@ describe("AC 101: no request is made to a board page to find an employer name", 
           { ...seniorProductDesigner, id: "post-abc125", text: "Staff Product Designer" },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    await leverCollector.collect({ settings, limit: Infinity });
+    await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(calls).toEqual([postingsUrl("gohighlevel")]);
   });
 
   test("the name stored in settings is not written to the job either", async () => {
     stubFetch({ [postingsUrl("gohighlevel")]: () => jsonResponse([seniorProductDesigner]) });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_company_name).toBeUndefined();
   });
@@ -485,9 +503,9 @@ describe("AC 102: a work mode named only in the description is left for a parser
           },
         ]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual([]);
     expect(result.jobs[0].description).toContain("hybrid");
@@ -498,9 +516,9 @@ describe("AC 102: a work mode named only in the description is left for a parser
       [postingsUrl("gohighlevel")]: () =>
         jsonResponse([{ ...seniorProductDesigner, workplaceType: "onsite" }]),
     });
-    const settings = makeSettings([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "gohighlevel" }], SEARCH_TERMS);
 
-    const result = await leverCollector.collect({ settings, limit: Infinity });
+    const result = await leverCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual(["onsite"]);
   });

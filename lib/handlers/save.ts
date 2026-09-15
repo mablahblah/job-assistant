@@ -8,6 +8,7 @@
 // no database of its own and a fake serves its tests. Every rule about what a
 // write does — the merge, the active-status freeze, the delete guardrail — lives
 // in that service. This step is the loop that asks it and records the answer.
+import type { CompanyRecord, CompanyService } from "../services/company-service";
 import type { JobService, JobWriteOutcome } from "../services/job-service";
 import type { DeleteRefusedDetail, TraceDetail, TraceService } from "../services/trace-service";
 import type { CollectionIssue } from "../types/collection-issue";
@@ -178,4 +179,72 @@ export async function saveJobs(
   }
 
   return { jobs: savedJobs, warnings: saveWarnings(warnings) };
+}
+
+// The company half of saving, beside saveJobs above. Backlog cleanup's
+// company sweep and scoring both hand over a list whose score block has
+// already been worked out, so this writes each one through the company
+// service and hands the list back.
+export interface SaveCompaniesOptions {
+  companyService: CompanyService;
+  trace?: TraceService;
+  runId?: string;
+  step?: string;
+}
+
+export interface SaveCompaniesResult {
+  companies: CompanyRecord[];
+  warnings: CollectionIssue[];
+}
+
+// A company whose write is refused costs itself and nothing else. The caller
+// asked for its list back, so the refused company still rides home on the
+// list — a company silently missing would read as one never handed in — and
+// the failure is carried alongside it as a warning instead.
+export async function saveCompanies(
+  companies: CompanyRecord[],
+  options: SaveCompaniesOptions
+): Promise<SaveCompaniesResult> {
+  const { companyService, trace, runId, step } = options;
+  const savedCompanies: CompanyRecord[] = [];
+  const warnings: CollectionIssue[] = [];
+
+  // Sequential and awaited, never Promise.all: these are writes to one table
+  // through one service, and two entries pointing at the same row have to
+  // wait for load in the order they arrived.
+  for (const company of companies) {
+    try {
+      const saved = await companyService.writeScores(company);
+      savedCompanies.push(saved);
+
+      if (trace && runId !== undefined && step !== undefined) {
+        await trace.write({
+          run_id: runId,
+          company_id: saved.id,
+          step,
+          event: "company_dbrow_updated",
+        });
+      }
+    } catch (thrown) {
+      // The company came back unwritten, so the list hands back what was
+      // handed in rather than what the database now holds.
+      savedCompanies.push(company);
+      warnings.push({
+        collector: "save",
+        message: `Company ${company.id} could not be saved: ${messageFromThrown(thrown)}`,
+      });
+
+      if (trace && runId !== undefined && step !== undefined) {
+        await trace.write({
+          run_id: runId,
+          company_id: company.id,
+          step,
+          event: "abandoned",
+          reason: "db_write_failed",
+        });
+      }
+    }
+  }
+
+  return { companies: savedCompanies, warnings };
 }

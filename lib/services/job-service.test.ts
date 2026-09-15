@@ -769,3 +769,102 @@ describe("the classification job list", () => {
     expect(entry?.posting_updated_date).toEqual(new Date("2026-01-30T00:00:00.000Z"));
   });
 });
+
+// Scoring asks the database for its own work rather than reading what the
+// pipeline returned, so a job an earlier run left unscored is picked up
+// rather than lost.
+describe("finding the jobs that still need an alignment score", () => {
+  const COLLECTED_AT = new Date("2026-09-01T00:00:00.000Z");
+
+  async function makeJob(id: string, overrides: Record<string, unknown> = {}): Promise<void> {
+    await db.job.create({
+      data: {
+        id,
+        collected_at: COLLECTED_AT,
+        status: "backlog",
+        is_resolved: true,
+        is_parsed: true,
+        is_classified: true,
+        ...overrides,
+      },
+    });
+  }
+
+  // Criterion 3.
+  test("a backlog job carrying no alignment score is on the list", async () => {
+    await makeJob("needs-scoring");
+
+    const jobs = await service.findNeedingScores();
+
+    expect(jobs.map((job) => job.id)).toContain("needs-scoring");
+  });
+
+  // Criterion 4.
+  test("a job already carrying an alignment score is not on the list", async () => {
+    await makeJob("already-scored", { alignment_score: 4 });
+
+    const jobs = await service.findNeedingScores();
+
+    expect(jobs.map((job) => job.id)).not.toContain("already-scored");
+  });
+
+  // Criterion 5.
+  test("a job that has not been resolved is not on the list", async () => {
+    await makeJob("unresolved-job", { is_resolved: false });
+
+    const jobs = await service.findNeedingScores();
+
+    expect(jobs.map((job) => job.id)).not.toContain("unresolved-job");
+  });
+
+  // Criterion 6.
+  test("a job that has not been parsed is not on the list", async () => {
+    await makeJob("unparsed-job", { is_parsed: false });
+
+    const jobs = await service.findNeedingScores();
+
+    expect(jobs.map((job) => job.id)).not.toContain("unparsed-job");
+  });
+
+  // Criterion 7.
+  test("a job that has not been classified is not on the list", async () => {
+    await makeJob("unclassified-job", { is_classified: false });
+
+    const jobs = await service.findNeedingScores();
+
+    expect(jobs.map((job) => job.id)).not.toContain("unclassified-job");
+  });
+
+  // Only a backlog job is worth scoring: the user has already decided about
+  // every other status.
+  test("a job that has left the backlog is not on the list", async () => {
+    await makeJob("applied-job", { status: "app. sent" });
+
+    const jobs = await service.findNeedingScores();
+
+    expect(jobs.map((job) => job.id)).not.toContain("applied-job");
+  });
+
+  // Criterion 8. The whole point of asking the database rather than reading a
+  // list handed down.
+  test("a job an earlier run left unscored is on a later run's list", async () => {
+    await makeJob("left-unscored");
+
+    const first = await service.findNeedingScores();
+    const second = await service.findNeedingScores();
+
+    expect(first.map((job) => job.id)).toContain("left-unscored");
+    expect(second.map((job) => job.id)).toContain("left-unscored");
+  });
+
+  // The helper that scores a job reads the posting's own words, so the list
+  // has to carry them.
+  test("a job on the list carries the posting's own words", async () => {
+    await makeJob("carries-description", { description: "We are hiring a designer." });
+
+    const jobs = await service.findNeedingScores();
+    const found = jobs.find((job) => job.id === "carries-description");
+
+    expect(found?.description).toBe("We are hiring a designer.");
+  });
+});

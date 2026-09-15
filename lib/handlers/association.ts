@@ -7,6 +7,7 @@
 // opens no database of its own and a fake serves its tests. It recomputes on
 // every pass and never skips a job that already carries a company, which is
 // what lets a later parsing pass correct a company the first pass got wrong.
+import type { AtsSlugService } from "../services/ats-slug-service";
 import type { CompanyRecord, CompanyService } from "../services/company-service";
 import type { TraceService } from "../services/trace-service";
 import type { CollectionIssue } from "../types/collection-issue";
@@ -17,6 +18,10 @@ import { truncateDetail } from "../utils/trace-detail";
 
 export interface AssociateCompaniesOptions {
   companies: CompanyService;
+  // Where a board slug met on a posting is written down. Optional the same
+  // way trace is: a handler handed no service still does its work, which is
+  // what lets this run outside a job search.
+  atsSlugs?: AtsSlugService;
   trace?: TraceService;
   runId?: string;
   step?: string;
@@ -51,7 +56,13 @@ interface AssociationTraceRow {
 // collector has nothing to key a record on — so the caller adds it.
 type WarningInput =
   | { kind: "no_name_for_lookup"; slug: string }
-  | { kind: "company_name_clash"; name: string; target: CompanyRecord; heldBy: CompanyRecord };
+  | {
+      kind: "company_name_clash";
+      name: string;
+      target: CompanyRecord;
+      targetSlug?: string;
+      heldBy: CompanyRecord;
+    };
 
 interface AssociateJobResult {
   job: JobListEntry;
@@ -160,6 +171,9 @@ async function associateJob(
         kind: "company_name_clash",
         name: usable.name,
         target: match.company,
+        // The company was reached by slug, so this is its board slug. It is
+        // the only readable label a nameless company has.
+        targetSlug: slug,
         heldBy: fillResult.heldBy,
       };
     }
@@ -168,11 +182,35 @@ async function associateJob(
   return { job: { ...job, company_id: match.company.id }, traceRows, warning };
 }
 
+// Writes down that this company posts on a hiring system. It runs here rather
+// than in the handler that reads a posting, because that one is handed no
+// service at all, and because matching runs again straight after a posting is
+// read, by which point the job carries the real slug.
+//
+// A parser is what says the slug came off a posting we read. A job collected
+// from an ATS board carries a slug before anything has parsed it, and that
+// sighting is not yet worth a row: the parser names which hiring system the
+// slug belongs to, and the row records it.
+async function recordBoardSlug(
+  job: JobListEntry,
+  companyId: string,
+  atsSlugs: AtsSlugService | undefined
+): Promise<void> {
+  if (!atsSlugs) return;
+  const slug = job.raw_company_slug;
+  const parser = job.parser;
+  if (!slug || !parser) return;
+
+  // A slug another row already holds writes nothing. The service decides
+  // that, so a second job from one board costs a read rather than a refusal.
+  await atsSlugs.record({ slug, company_id: companyId, parser });
+}
+
 export async function associateCompanies(
   jobs: JobListEntry[],
   options: AssociateCompaniesOptions
 ): Promise<AssociateCompaniesResult> {
-  const { companies, trace, runId, step } = options;
+  const { companies, atsSlugs, trace, runId, step } = options;
   const associatedJobs: JobListEntry[] = [];
   const warnings: AssociationWarning[] = [];
 
@@ -182,6 +220,10 @@ export async function associateCompanies(
   for (const job of jobs) {
     const { job: associatedJob, traceRows, warning } = await associateJob(job, companies);
     associatedJobs.push(associatedJob);
+
+    if (associatedJob.company_id) {
+      await recordBoardSlug(associatedJob, associatedJob.company_id, atsSlugs);
+    }
 
     // A trace row and a warning are both keyed by job id and collector, so a
     // job carrying neither has nothing to key its record on.

@@ -1,23 +1,60 @@
 // Owns every read and write of the Company table. Nothing else in the
 // codebase talks to Company directly — callers go through the methods here
-// so the name / match_key / slug uniqueness rules stay in one place instead
-// of being re-solved at every call site.
+// so the name and match_key uniqueness rules stay in one place instead of
+// being re-solved at every call site. A company's board slugs live in a table
+// of their own, so a lookup by slug reads through that table rather than a
+// column here.
 import type { createPipelineDb } from "../db/pipeline-db";
 import { Prisma } from "../../generated/pipeline/client";
 import { companyMatchKey } from "../utils/company-match-key";
+
+// The four things an agent researches a company on. Named here as one list
+// so nothing downstream has to retype them, and so a fifth category could
+// only be added in one place.
+export const SCORE_CATEGORIES = [
+  "employee_satisfaction",
+  "customer_satisfaction",
+  "work_life_balance",
+  "political_alignment",
+] as const;
+
+export type ScoreCategory = (typeof SCORE_CATEGORIES)[number];
+
+// One category's answer. guessed travels with the score rather than in a list
+// of its own, because the agent knows category by category whether it found
+// anything public, and the service is what turns that into the stored list.
+export interface CategoryScore {
+  score: number;
+  rationale: string;
+  guessed: boolean;
+}
+
+// The categories one write covers. A category left off is one the agent was
+// never asked about, and its stored score and reasoning stay exactly as they
+// were.
+export type ScoreInput = Partial<Record<ScoreCategory, CategoryScore>>;
 
 export interface CompanyRecord {
   id: string;
   name: string | null;
   match_key: string | null;
-  ats_platform: string | null;
-  ats_slug: string | null;
+  employee_satisfaction: number | null;
+  customer_satisfaction: number | null;
+  work_life_balance: number | null;
+  political_alignment: number | null;
+  employee_satisfaction_rationale: string | null;
+  customer_satisfaction_rationale: string | null;
+  work_life_balance_rationale: string | null;
+  political_alignment_rationale: string | null;
+  scored_at: Date | null;
+  // The categories the agent guessed at. Read back as a list of category
+  // names; the column behind it is Json, so a row that somehow holds another
+  // shape is read as no guesses rather than trusted.
+  scores_guessed: ScoreCategory[];
 }
 
 export interface CreateInput {
   name?: string | null;
-  ats_platform?: string | null;
-  ats_slug?: string | null;
 }
 
 export interface CreateResult {
@@ -34,8 +71,13 @@ export interface FillNameResult {
 export interface CompanyService {
   findBySlug(slug: string): Promise<CompanyRecord | null>;
   findByMatchKey(matchKey: string): Promise<CompanyRecord | null>;
+  findNeedingScores(): Promise<CompanyRecord[]>;
+  findScored(): Promise<CompanyRecord[]>;
   create(input: CreateInput): Promise<CreateResult>;
+  createNameless(): Promise<CompanyRecord>;
   fillName(id: string, name: string): Promise<FillNameResult>;
+  saveScores(id: string, scores: ScoreInput, scoredAt: Date): Promise<CompanyRecord>;
+  writeScores(company: CompanyRecord): Promise<CompanyRecord>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -46,9 +88,35 @@ const SELECT = {
   id: true,
   name: true,
   match_key: true,
-  ats_platform: true,
-  ats_slug: true,
+  employee_satisfaction: true,
+  customer_satisfaction: true,
+  work_life_balance: true,
+  political_alignment: true,
+  employee_satisfaction_rationale: true,
+  customer_satisfaction_rationale: true,
+  work_life_balance_rationale: true,
+  political_alignment_rationale: true,
+  scored_at: true,
+  scores_guessed: true,
 } as const;
+
+// scores_guessed is a Prisma Json column, so its static type is JsonValue
+// rather than a list of category names. This checks the shape at runtime: a
+// row holding anything else reads as no guesses, which is the safe answer —
+// a category wrongly read as researched would outlive its real shelf life,
+// while one wrongly read as a guess is only researched again sooner.
+function guessedCategories(value: unknown): ScoreCategory[] {
+  if (!Array.isArray(value)) return [];
+  return SCORE_CATEGORIES.filter((category) => value.includes(category));
+}
+
+// What every read hands back: the row as the database holds it, with the
+// guessed list narrowed from Json to the four category names.
+type CompanyRow = Omit<CompanyRecord, "scores_guessed"> & { scores_guessed: unknown };
+
+function toRecord(row: CompanyRow): CompanyRecord {
+  return { ...row, scores_guessed: guessedCategories(row.scores_guessed) };
+}
 
 // True for a write the database refused because a unique column already
 // holds the value — narrows the error type so its meta and constraint
@@ -81,16 +149,25 @@ function columnFromRefusal(error: Prisma.PrismaClientKnownRequestError): string 
 }
 
 export function createCompanyService(db: PipelineDb): CompanyService {
+  // Looked up through the ATS slug table rather than a column of its own. A
+  // slug is unique across that table, so at most one company can answer, and
+  // findFirst is the query Prisma builds for a lookup through a relation.
   async function findBySlug(slug: string): Promise<CompanyRecord | null> {
-    return db.company.findUnique({ where: { ats_slug: slug }, select: SELECT });
+    const row = await db.company.findFirst({
+      where: { ats_slugs: { some: { slug } } },
+      select: SELECT,
+    });
+    return row === null ? null : toRecord(row);
   }
 
   async function findByMatchKey(matchKey: string): Promise<CompanyRecord | null> {
-    return db.company.findUnique({ where: { match_key: matchKey }, select: SELECT });
+    const row = await db.company.findUnique({ where: { match_key: matchKey }, select: SELECT });
+    return row === null ? null : toRecord(row);
   }
 
   async function findByName(name: string): Promise<CompanyRecord | null> {
-    return db.company.findUnique({ where: { name }, select: SELECT });
+    const row = await db.company.findUnique({ where: { name }, select: SELECT });
+    return row === null ? null : toRecord(row);
   }
 
   // Used once a refusal names no column, or names one we wrote no value
@@ -98,18 +175,13 @@ export function createCompanyService(db: PipelineDb): CompanyService {
   // already occupied is the blocker.
   async function findConflict(
     name: string | null,
-    matchKey: string | null,
-    slug: string | null
+    matchKey: string | null
   ): Promise<CompanyRecord | null> {
     if (name) {
       const byName = await findByName(name);
       if (byName) return byName;
     }
-    if (matchKey) {
-      const byMatchKey = await findByMatchKey(matchKey);
-      if (byMatchKey) return byMatchKey;
-    }
-    if (slug) return findBySlug(slug);
+    if (matchKey) return findByMatchKey(matchKey);
     return null;
   }
 
@@ -120,18 +192,49 @@ export function createCompanyService(db: PipelineDb): CompanyService {
   async function findBlocker(
     column: string | null,
     name: string | null,
-    matchKey: string | null,
-    slug: string | null
+    matchKey: string | null
   ): Promise<CompanyRecord | null> {
     if (column === "name" && name) return findByName(name);
     if (column === "match_key" && matchKey) return findByMatchKey(matchKey);
-    if (column === "ats_slug" && slug) return findBySlug(slug);
-    return findConflict(name, matchKey, slug);
+    return findConflict(name, matchKey);
   }
 
   return {
     findBySlug,
     findByMatchKey,
+
+    // Scoring researches every company that still has a live backlog job but
+    // has not been fully judged yet, so a ranking is never built on blanks.
+    // Prisma's relation filter does the "appears once" work for us: the
+    // company row is returned once however many backlog jobs match.
+    async findNeedingScores() {
+      const rows = await db.company.findMany({
+        where: {
+          jobs: { some: { status: "backlog" } },
+          // Built from SCORE_CATEGORIES so a fifth category joins the check by
+          // being added to that list alone. The mapped type keeps the compiler
+          // checking each name against the Company columns.
+          OR: SCORE_CATEGORIES.map(
+            (category): { [K in ScoreCategory]?: null } => ({
+              [category]: null,
+            })
+          ),
+        },
+        select: SELECT,
+      });
+      return rows.map(toRecord);
+    },
+
+    // Every company an agent has scored. Backlog cleanup sweeps these for
+    // judgements that have aged out; a company nothing has scored has no date
+    // to measure from and nothing to empty.
+    async findScored() {
+      const rows = await db.company.findMany({
+        where: { scored_at: { not: null } },
+        select: SELECT,
+      });
+      return rows.map(toRecord);
+    },
 
     async create(input) {
       // An empty-string name is treated as no name — a caller passing ""
@@ -139,54 +242,122 @@ export function createCompanyService(db: PipelineDb): CompanyService {
       // a nameless company by another name.
       const trimmedName = input.name?.trim();
       const name = trimmedName ? trimmedName : null;
-      if (!name && !input.ats_slug) {
-        throw new Error("Company.create requires either a name or a slug to identify the company.");
+      if (!name) {
+        throw new Error("Company.create requires a name. Use createNameless for a board's company.");
       }
-      const match_key = name ? companyMatchKey(name) : null;
-      const ats_slug = input.ats_slug ?? null;
+      const match_key = companyMatchKey(name);
 
       try {
-        const company = await db.company.create({
-          data: {
-            name,
-            match_key,
-            ats_platform: input.ats_platform ?? null,
-            ats_slug,
-          },
+        const row = await db.company.create({
+          data: { name, match_key },
           select: SELECT,
         });
-        return { company, created: true };
+        return { company: toRecord(row), created: true };
       } catch (error) {
         if (!isUniqueConstraintError(error)) throw error;
-        // Another company already holds this name, this match key, or this
-        // slug — two job postings for the same employer, not a real failure.
-        const blocker = await findBlocker(columnFromRefusal(error), name, match_key, ats_slug);
+        // Another company already holds this name or this match key — two job
+        // postings for the same employer, not a real failure.
+        const blocker = await findBlocker(columnFromRefusal(error), name, match_key);
         if (!blocker) throw error;
         return { company: blocker, created: false };
       }
     },
 
+    // A company met only as a board slug. It has no name and nothing invents
+    // one for it; the slug row written beside it is what identifies it, and
+    // company association fills the name in from the first job that carries a
+    // real one. Nothing can clash, because a row with no name and no match key
+    // occupies neither unique column.
+    async createNameless() {
+      const row = await db.company.create({ data: {}, select: SELECT });
+      return toRecord(row);
+    },
+
     async fillName(id, name) {
       const match_key = companyMatchKey(name);
       try {
-        const company = await db.company.update({
+        const row = await db.company.update({
           where: { id },
           data: { name, match_key },
           select: SELECT,
         });
-        return { company, filled: true, heldBy: null };
+        return { company: toRecord(row), filled: true, heldBy: null };
       } catch (error) {
         if (!isUniqueConstraintError(error)) throw error;
         // Someone else already has this name — two spellings of one
         // employer. Leave the target company as it was and hand back
         // whoever is already holding the name, instead of writing over it.
         // An update never writes a slug, so a slug is never its blocker.
-        const [company, heldBy] = await Promise.all([
+        const [row, heldBy] = await Promise.all([
           db.company.findUniqueOrThrow({ where: { id }, select: SELECT }),
-          findBlocker(columnFromRefusal(error), name, match_key, null),
+          findBlocker(columnFromRefusal(error), name, match_key),
         ]);
-        return { company, filled: false, heldBy };
+        return { company: toRecord(row), filled: false, heldBy };
       }
+    },
+
+    // Writes back what an agent researched. Only the categories it was given
+    // are touched, because a company is picked up again whenever any category
+    // is empty, and a write covering one category must not blank the three
+    // standing beside it.
+    async saveScores(id, scores, scoredAt) {
+      // An agent researches only the categories a company is missing, so the
+      // stored guessed list has to be read before it can be rebuilt.
+      const stored = await db.company.findUniqueOrThrow({
+        where: { id },
+        select: SELECT,
+      });
+      const storedGuessed = guessedCategories(stored.scores_guessed);
+
+      // A category keeps its old guess only while this write leaves it alone;
+      // once covered, the write's own flag is the truth about it.
+      const guessed = SCORE_CATEGORIES.filter((category) => {
+        const written = scores[category];
+        return written ? written.guessed : storedGuessed.includes(category);
+      });
+
+      const data: Record<string, number | string | Date | ScoreCategory[]> = {
+        scored_at: scoredAt,
+        scores_guessed: guessed,
+      };
+      for (const category of SCORE_CATEGORIES) {
+        const written = scores[category];
+        if (!written) continue;
+        data[category] = written.score;
+        data[`${category}_rationale`] = written.rationale;
+      }
+
+      const row = await db.company.update({
+        where: { id },
+        data,
+        select: SELECT,
+      });
+      return toRecord(row);
+    },
+
+    // Writes the whole score block exactly as the record holds it, empty
+    // fields included. saveScores above merges a partial answer into what is
+    // already stored; this one is for a caller that has already worked out
+    // what every field should be, which is what backlog cleanup hands over
+    // after emptying a stale judgement.
+    async writeScores(company) {
+      const row = await db.company.update({
+        where: { id: company.id },
+        data: {
+          employee_satisfaction: company.employee_satisfaction,
+          customer_satisfaction: company.customer_satisfaction,
+          work_life_balance: company.work_life_balance,
+          political_alignment: company.political_alignment,
+          employee_satisfaction_rationale: company.employee_satisfaction_rationale,
+          customer_satisfaction_rationale: company.customer_satisfaction_rationale,
+          work_life_balance_rationale: company.work_life_balance_rationale,
+          political_alignment_rationale: company.political_alignment_rationale,
+          scored_at: company.scored_at,
+          scores_guessed: company.scores_guessed,
+        },
+        select: SELECT,
+      });
+      return toRecord(row);
     },
   };
 }

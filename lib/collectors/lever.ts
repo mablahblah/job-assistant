@@ -8,7 +8,9 @@ import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
 import type { Collector, CollectorResult } from "./collector";
 
-const PLATFORM = "lever";
+// The collector's own name, which is what a slug row carries when its board
+// is on this collector's polling list.
+const COLLECTOR = "lever";
 
 const postingsUrl = (slug: string) => `https://api.lever.co/v0/postings/${slug}?mode=json`;
 
@@ -32,8 +34,8 @@ function toJobListEntry(posting: LeverPosting, slug: string): JobListEntry {
 export const leverCollector: Collector = {
   name: "lever",
 
-  async collect({ settings, limit }): Promise<CollectorResult> {
-    const { boards, warnings } = await readAtsBoards(settings, PLATFORM);
+  async collect({ settings, atsSlugs, limit }): Promise<CollectorResult> {
+    const { boards, warnings } = await readAtsBoards(atsSlugs, COLLECTOR);
     if (boards.length === 0) {
       return { jobs: [], errors: [], warnings };
     }

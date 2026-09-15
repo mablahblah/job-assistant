@@ -11,7 +11,32 @@ import type {
   CreateInput,
   CreateResult,
   FillNameResult,
+  ScoreCategory,
+  ScoreInput,
 } from "./company-service";
+import { SCORE_CATEGORIES } from "./company-service";
+
+// A company row with nothing scored yet, which is what every company looks
+// like before an agent has researched it. Test fixtures build on this rather
+// than spelling out ten empty fields each, so a new column added to the
+// record lands in one place.
+export function unscoredCompany(fields: Partial<CompanyRecord> & { id: string }): CompanyRecord {
+  return {
+    name: null,
+    match_key: null,
+    employee_satisfaction: null,
+    customer_satisfaction: null,
+    work_life_balance: null,
+    political_alignment: null,
+    employee_satisfaction_rationale: null,
+    customer_satisfaction_rationale: null,
+    work_life_balance_rationale: null,
+    political_alignment_rationale: null,
+    scored_at: null,
+    scores_guessed: [],
+    ...fields,
+  };
+}
 
 export function fakeCompanyService(
   companies: CompanyRecord[] = [],
@@ -25,8 +50,11 @@ export function fakeCompanyService(
     return `fake-company-${nextId}`;
   }
 
-  async function findBySlug(slug: string): Promise<CompanyRecord | null> {
-    return companies.find((company) => company.ats_slug === slug) ?? null;
+  // The real service looks a slug up through the ATS slug table. The fake has
+  // no such table, so a test that needs a slug lookup passes an override
+  // rather than seeding a column that no longer exists.
+  async function findBySlug(_slug: string): Promise<CompanyRecord | null> {
+    return null;
   }
 
   async function findByMatchKey(matchKey: string): Promise<CompanyRecord | null> {
@@ -43,18 +71,13 @@ export function fakeCompanyService(
   // the blocker.
   async function findConflict(
     name: string | null,
-    matchKey: string | null,
-    slug: string | null
+    matchKey: string | null
   ): Promise<CompanyRecord | null> {
     if (name) {
       const byName = await findByName(name);
       if (byName) return byName;
     }
-    if (matchKey) {
-      const byMatchKey = await findByMatchKey(matchKey);
-      if (byMatchKey) return byMatchKey;
-    }
-    if (slug) return findBySlug(slug);
+    if (matchKey) return findByMatchKey(matchKey);
     return null;
   }
 
@@ -62,28 +85,29 @@ export function fakeCompanyService(
     // An empty-string name is treated as no name at all.
     const trimmedName = input.name?.trim();
     const name = trimmedName ? trimmedName : null;
-    if (!name && !input.ats_slug) {
-      throw new Error("Company.create requires either a name or a slug to identify the company.");
+    if (!name) {
+      throw new Error("Company.create requires a name. Use createNameless for a board's company.");
     }
-    const match_key = name ? companyMatchKey(name) : null;
-    const ats_slug = input.ats_slug ?? null;
+    const match_key = companyMatchKey(name);
 
-    const blocker = await findConflict(name, match_key, ats_slug);
+    const blocker = await findConflict(name, match_key);
     if (blocker) {
       return { company: blocker, created: false };
     }
 
-    const company: CompanyRecord = {
-      id: generateId(),
-      name,
-      match_key,
-      ats_platform: input.ats_platform ?? null,
-      ats_slug,
-    };
+    const company = unscoredCompany({ id: generateId(), name, match_key });
     // Mutate the caller's own array so it can seed rows and read back
     // what the fake did.
     companies.push(company);
     return { company, created: true };
+  }
+
+  // A company met only as a board slug. It carries no name and no match key,
+  // so nothing can clash with it.
+  async function createNameless(): Promise<CompanyRecord> {
+    const company = unscoredCompany({ id: generateId() });
+    companies.push(company);
+    return company;
   }
 
   async function fillName(id: string, name: string): Promise<FillNameResult> {
@@ -93,23 +117,106 @@ export function fakeCompanyService(
       throw new Error(`Company.fillName: no company found with id "${id}".`);
     }
 
-    const heldBy = await findConflict(name, match_key, null);
+    const heldBy = await findConflict(name, match_key);
     if (heldBy && heldBy.id !== id) {
       return { company: target, filled: false, heldBy };
     }
 
     // Mutate the record in place so the caller's array reflects the write.
-    // ats_platform / ats_slug are never touched here.
     target.name = name;
     target.match_key = match_key;
     return { company: target, filled: true, heldBy: null };
   }
 
+  // Mirrors the real service: only the categories it is given are touched,
+  // and the guessed list is rebuilt rather than replaced, so a guess about a
+  // category this write never covered survives.
+  async function saveScores(
+    id: string,
+    scores: ScoreInput,
+    scoredAt: Date
+  ): Promise<CompanyRecord> {
+    const target = companies.find((company) => company.id === id);
+    if (!target) {
+      throw new Error(`Company.saveScores: no company found with id "${id}".`);
+    }
+
+    const untouched = target.scores_guessed.filter((category) => scores[category] === undefined);
+    const guessedNow = SCORE_CATEGORIES.filter((category) => scores[category]?.guessed === true);
+
+    for (const category of SCORE_CATEGORIES) {
+      const answer = scores[category];
+      if (answer === undefined) continue;
+      writeCategory(target, category, answer.score, answer.rationale);
+    }
+
+    target.scored_at = scoredAt;
+    target.scores_guessed = SCORE_CATEGORIES.filter(
+      (category) => untouched.includes(category) || guessedNow.includes(category)
+    );
+    return target;
+  }
+
+  // Mirrors the real service: the whole score block lands exactly as the
+  // record holds it, empty fields included.
+  async function writeScores(company: CompanyRecord): Promise<CompanyRecord> {
+    const index = companies.findIndex((each) => each.id === company.id);
+    if (index === -1) {
+      throw new Error(`Company.writeScores: no company found with id "${company.id}".`);
+    }
+    const stored = { ...company };
+    companies[index] = stored;
+    return stored;
+  }
+
+  // The real query joins to the job table to find companies still holding a
+  // backlog job. There are no jobs behind this fake, so a test that needs
+  // this answer passes an override rather than seeding a relation.
+  async function findNeedingScores(): Promise<CompanyRecord[]> {
+    return [];
+  }
+
+  async function findScored(): Promise<CompanyRecord[]> {
+    return companies.filter((company) => company.scored_at !== null);
+  }
+
   return {
     findBySlug,
     findByMatchKey,
+    findNeedingScores,
+    findScored,
     create,
+    createNameless,
     fillName,
+    saveScores,
+    writeScores,
     ...overrides,
   };
+}
+
+// Writes one category's pair of fields. A lookup table rather than a computed
+// key, so the record's field names stay checked by the compiler.
+function writeCategory(
+  company: CompanyRecord,
+  category: ScoreCategory,
+  score: number,
+  rationale: string
+): void {
+  if (category === "employee_satisfaction") {
+    company.employee_satisfaction = score;
+    company.employee_satisfaction_rationale = rationale;
+    return;
+  }
+  if (category === "customer_satisfaction") {
+    company.customer_satisfaction = score;
+    company.customer_satisfaction_rationale = rationale;
+    return;
+  }
+  if (category === "work_life_balance") {
+    company.work_life_balance = score;
+    company.work_life_balance_rationale = rationale;
+    return;
+  }
+  company.political_alignment = score;
+  company.political_alignment_rationale = rationale;
 }

@@ -18,10 +18,12 @@ async function resetTraces(prisma: PipelineDb): Promise<void> {
 }
 
 async function resetCompanies(prisma: PipelineDb): Promise<void> {
-  // A company carrying an ats_slug is a board the pipeline polls, so it is
-  // configuration rather than run output and survives.
-  const { count } = await prisma.company.deleteMany({ where: { ats_slug: null } });
-  console.log(`Companies: deleted ${count} without an ATS slug`);
+  // A company named by a slug row is a board the pipeline knows about, so it
+  // is configuration rather than run output and survives. The row itself
+  // survives too: nothing here empties the slug table, because a company kept
+  // without its row would be an orphan nothing could poll.
+  const { count } = await prisma.company.deleteMany({ where: { ats_slugs: { none: {} } } });
+  console.log(`Companies: deleted ${count} that no board row names`);
 }
 
 async function main(): Promise<void> {

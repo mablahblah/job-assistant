@@ -67,6 +67,50 @@ describe("the field list names every Job column exactly once", () => {
   });
 });
 
+// A merge settles two collectors disagreeing about one posting. Neither has
+// an opinion about how well the job fits the user, so a stored score has to
+// survive a fresh sighting of the same job.
+describe("the scores a merge must not touch", () => {
+  test("a stored alignment score survives an arriving copy that carries none", () => {
+    const result = merge({ ...GREENHOUSE, alignment_score: 4 }, { ...ADZUNA });
+    expect(result.alignment_score).toBe(4);
+  });
+
+  test("a stored alignment rationale survives too", () => {
+    const result = merge({ ...GREENHOUSE, alignment_rationale: "fits well" }, { ...ADZUNA });
+    expect(result.alignment_rationale).toBe("fits well");
+  });
+
+  // Promotion is the one thing that empties a score, and it does so by
+  // setting an explicit null, which has to reach the row.
+  test("an explicit null empties the stored score", () => {
+    const result = merge({ ...GREENHOUSE, alignment_score: 4 }, { ...ADZUNA, alignment_score: null });
+    expect(result.alignment_score).toBeNull();
+  });
+
+  test("neither copy carrying a score leaves the field off entirely", () => {
+    const result = merge({ ...GREENHOUSE }, { ...ADZUNA });
+    expect("alignment_score" in result).toBe(false);
+  });
+
+  // A company's four scores live on the company row, so a job merge has no
+  // way to reach them. This says so out loud.
+  test("no company score field appears on the merged entry", () => {
+    const result = merge({ ...GREENHOUSE, title: "UX Designer" }, { ...ADZUNA });
+    const companyScoreFields = [
+      "employee_satisfaction",
+      "customer_satisfaction",
+      "work_life_balance",
+      "political_alignment",
+      "scored_at",
+      "scores_guessed",
+    ];
+    for (const field of companyScoreFields) {
+      expect(Object.keys(result)).not.toContain(field);
+    }
+  });
+});
+
 describe("a contested field where only one side is filled", () => {
   test("the filled value wins even though its side ranks worse", () => {
     const result = merge(

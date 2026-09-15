@@ -22,9 +22,19 @@ export const CONTESTED_FIELDS = [
   "description",
 ] as const;
 
-// Later pipeline phases own these, so the later copy simply lands.
+// Later pipeline phases own these, so the later copy simply lands. An explicit
+// null is a real value here and empties the column; only an absent key leaves
+// the stored value standing.
+//
+// The two scoring fields sit here for that reason. A collector re-finding a
+// job carries no score, so the stored one stands — a merge settles two
+// collectors disagreeing about a posting, and neither has an opinion about
+// how well the job fits the user. Promotion is the one thing that empties
+// them, and it does so by setting an explicit null.
 export const WRITTEN_THROUGH_FIELDS = [
   "company_id",
+  "alignment_score",
+  "alignment_rationale",
   "is_resolved",
   "is_parsed",
   "is_classified",

@@ -134,5 +134,7 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "location_match_place",
   "location_match_mode",
   "is_repost",
+  "alignment_score",
+  "alignment_rationale",
   "delete_on_save",
 ] as const satisfies readonly (keyof JobListEntry)[];

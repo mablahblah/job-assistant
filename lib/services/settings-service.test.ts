@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createPipelineDb } from "../db/pipeline-db";
 import {
   createSettingsService,
-  type AtsCompany,
   type SettingsService,
   type TitleLevel,
 } from "./settings-service";
@@ -29,23 +28,6 @@ const EXPECTED_FAST_CONCURRENCY = 3;
 const EXPECTED_SLOW_CONCURRENCY = 1;
 const EXPECTED_SLOW_PAUSE_SECONDS = 12;
 
-const GREENHOUSE_SLUGS = [
-  "gitlab",
-  "duolingo",
-  "stripe",
-  "asana",
-  "lyft",
-  "dropbox",
-  "squarespace",
-  "hellofresh",
-  "intercom",
-  "coursera",
-  "modernhealth",
-  "calm",
-  "figma",
-];
-const LEVER_SLUGS = ["gohighlevel", "USMobile", "bhvr"];
-const ASHBY_SLUGS = ["hinge-health", "legora", "bjakcareer", "voodoo", "scorewarrior"];
 
 // The words the seed fills each title vocabulary with. The head nouns are the
 // measured list from the UX titles fixture plus the ones carried without
@@ -225,8 +207,20 @@ describe("AC 9: an unseeded database throws instead of returning something empty
     await expect(service.getSourcePriorityList()).rejects.toThrow(/source_priority_list/);
   });
 
-  test("getAtsCompanies returns an empty list, because no boards is a real answer", async () => {
-    expect(await service.getAtsCompanies("greenhouse")).toEqual([]);
+  // Zero would promote every company, whatever it scored.
+  test("getPromotionThreshold throws rather than returning zero", async () => {
+    await expect(service.getPromotionThreshold()).rejects.toThrow(/promotion_threshold/);
+  });
+
+  // Zero days would empty every company's scores on the run that wrote them.
+  test("getScoreExpiryDays throws rather than returning zero", async () => {
+    await expect(service.getScoreExpiryDays()).rejects.toThrow(/score_expiry_days/);
+  });
+
+  test("getGuessedScoreExpiryDays throws rather than returning zero", async () => {
+    await expect(service.getGuessedScoreExpiryDays()).rejects.toThrow(
+      /guessed_score_expiry_days/
+    );
   });
 });
 
@@ -245,14 +239,16 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the fourteen getters", () => {
+  test("exposes exactly the seventeen getters", () => {
     expect(Object.keys(service).sort()).toEqual(
       [
-        "getAtsCompanies",
         "getExpiryThreshold",
+        "getGuessedScoreExpiryDays",
         "getLocation",
+        "getPromotionThreshold",
         "getRadius",
         "getRepostGapDays",
+        "getScoreExpiryDays",
         "getResolutionFastConcurrency",
         "getResolutionSlowConcurrency",
         "getResolutionSlowPauseSeconds",
@@ -315,23 +311,6 @@ describe("the getters return what the seed writes", () => {
     expect(await service.getResolutionSlowPauseSeconds()).toBe(EXPECTED_SLOW_PAUSE_SECONDS);
   });
 
-  test("getAtsCompanies('greenhouse') returns the seeded greenhouse boards", async () => {
-    const companies = await service.getAtsCompanies("greenhouse");
-    expect(companies.map((company) => company.ats_slug).sort()).toEqual(
-      [...GREENHOUSE_SLUGS].sort()
-    );
-  });
-
-  test("getAtsCompanies('lever') returns the seeded lever boards", async () => {
-    const companies = await service.getAtsCompanies("lever");
-    expect(companies.map((company) => company.ats_slug).sort()).toEqual([...LEVER_SLUGS].sort());
-  });
-
-  test("getAtsCompanies('ashby') returns the seeded ashby boards", async () => {
-    const companies = await service.getAtsCompanies("ashby");
-    expect(companies.map((company) => company.ats_slug).sort()).toEqual([...ASHBY_SLUGS].sort());
-  });
-
 });
 
 // A row that exists with a null column stands in for a setting added after
@@ -368,92 +347,6 @@ describe("a Setting row that exists but has null columns still throws", () => {
 
   test("a null expiry_threshold column throws naming it", async () => {
     await expect(service.getExpiryThreshold()).rejects.toThrow(/expiry_threshold/);
-  });
-});
-
-// AC 11. A company added after the seed proves the list comes from the
-// database, because a hardcoded one could not know about it.
-describe("AC 11: getAtsCompanies reads the live company list rather than a hardcoded one", () => {
-  let dir: string;
-  let db: PipelineDb;
-  let service: SettingsService;
-  let companies: AtsCompany[];
-
-  beforeAll(async () => {
-    const temp = createAndSeed("pipeline-settings-live-list-");
-    dir = temp.dir;
-    ({ db, service } = buildService(temp.url));
-    await db.company.create({
-      data: { name: "Extra Co", ats_platform: "greenhouse", ats_slug: "extra-co" },
-    });
-    companies = await service.getAtsCompanies("greenhouse");
-  }, SEED_TIMEOUT_MS);
-
-  afterAll(() => cleanup(dir, db));
-
-  test("picks up a company added after the seed ran", () => {
-    expect(companies.map((company) => company.ats_slug)).toContain("extra-co");
-  });
-
-  test("returns every greenhouse board, not a fixed set", () => {
-    expect(companies.length).toBe(GREENHOUSE_SLUGS.length + 1);
-  });
-});
-
-// The three ATS collectors poll a board by its slug alone. Nothing reads a
-// board's company name, and the seed no longer writes one, so the name is not
-// selected at all — a runtime check, because vitest strips types without
-// checking them and a type alone would prove nothing here.
-describe("getAtsCompanies hands back the slug and nothing else", () => {
-  let dir: string;
-  let db: PipelineDb;
-  let companies: AtsCompany[];
-
-  beforeAll(async () => {
-    const temp = createAndSeed("pipeline-settings-slug-only-");
-    dir = temp.dir;
-    let service: SettingsService;
-    ({ db, service } = buildService(temp.url));
-    companies = await service.getAtsCompanies("greenhouse");
-  }, SEED_TIMEOUT_MS);
-
-  afterAll(() => cleanup(dir, db));
-
-  // Without this the check below would pass over an empty list.
-  test("every seeded greenhouse board comes back", () => {
-    expect(companies).toHaveLength(GREENHOUSE_SLUGS.length);
-  });
-
-  test("each board carries its slug and no other field", () => {
-    const shapes = companies.map((company) => Object.keys(company).sort());
-    expect(shapes).toEqual(companies.map(() => ["ats_slug"]));
-  });
-});
-
-describe("a company on the platform without a slug is left out", () => {
-  let dir: string;
-  let db: PipelineDb;
-  let service: SettingsService;
-  let temp: { dir: string; url: string };
-
-  beforeAll(async () => {
-    temp = createAndSeed("pipeline-settings-null-slug-");
-    dir = temp.dir;
-    await runSql(temp.url, "UPDATE Company SET ats_slug = NULL WHERE ats_slug = 'gitlab'");
-    ({ db, service } = buildService(temp.url));
-  }, SEED_TIMEOUT_MS);
-
-  afterAll(() => cleanup(dir, db));
-
-  test("the company with no slug is dropped", async () => {
-    const companies = await service.getAtsCompanies("greenhouse");
-    expect(companies.map((company) => company.ats_slug)).not.toContain("gitlab");
-    expect(companies.length).toBe(GREENHOUSE_SLUGS.length - 1);
-  });
-
-  test("a platform where no company still has a slug comes back empty", async () => {
-    await runSql(temp.url, "UPDATE Company SET ats_slug = NULL WHERE ats_platform = 'lever'");
-    expect(await service.getAtsCompanies("lever")).toEqual([]);
   });
 });
 

@@ -3,10 +3,15 @@
 // this shape and never a collector's internals.
 import type { JobListEntry } from "../types/job-list-entry";
 import type { SettingsService } from "../services/settings-service";
+import type { AtsSlugService } from "../services/ats-slug-service";
 
 // What a collector is handed to do one run's work.
 export interface CollectorContext {
   settings: SettingsService;
+  // Where an ATS collector finds the boards it polls. Every collector is
+  // handed it, the way every collector is handed the settings, so the
+  // orchestrator holds one shape rather than one per kind of collector.
+  atsSlugs: AtsSlugService;
   // How many jobs to stop after. Infinity means collect everything.
   limit: number;
 }

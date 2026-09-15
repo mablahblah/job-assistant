@@ -9,8 +9,15 @@ vi.mock("../utils/ashby-fields", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../utils/ashby-fields")>();
   return { ...actual, jobFieldsFromAshbyPosting: vi.fn(actual.jobFieldsFromAshbyPosting) };
 });
-import type { AtsCompany, SettingsService } from "../services/settings-service";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import type { AtsBoard } from "./ats-boards";
+import type { CollectorContext } from "./collector";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+
+// Everything a collector is handed except the limit, which each test sets.
+type CollectorContextParts = Omit<CollectorContext, "limit">;
+
+const COLLECTOR_NAME = "ashby";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -43,11 +50,22 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // A settings-service stand-in typed to the real interface, so a test supplies
 // only the boards and search terms it needs.
-function makeSettings(boards: AtsCompany[], searchTerms: string[]): SettingsService {
-  return fakeSettingsService({
-    getSearchTerms: async () => searchTerms,
-    getAtsCompanies: async () => boards,
-  });
+// What a collector is handed for one run, minus the limit. The boards live in
+// the ATS slug table now, so the fake slug service is seeded with a row per
+// board, each already carrying this collector.
+function makeContext(boards: AtsBoard[], searchTerms: string[]): CollectorContextParts {
+  return {
+    settings: fakeSettingsService({ getSearchTerms: async () => searchTerms }),
+    atsSlugs: fakeAtsSlugService(
+      boards.map((board, index) => ({
+        id: `row-${index}`,
+        slug: board.ats_slug,
+        company_id: `company-${index}`,
+        parser: COLLECTOR_NAME,
+        collector: COLLECTOR_NAME,
+      }))
+    ),
+  };
 }
 
 const boardUrl = (slug: string) =>
@@ -92,8 +110,8 @@ async function collectOneJob() {
     [boardUrl("hinge-health")]: () =>
       jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner] }),
   });
-  const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
-  const result = await ashbyCollector.collect({ settings, limit: Infinity });
+  const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+  const result = await ashbyCollector.collect({ ...context, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
 }
@@ -104,9 +122,9 @@ describe("AC 30: an unlisted posting is absent even when its title matches", () 
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [{ ...seniorProductDesigner, isListed: false }] }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs).toEqual([]);
   });
@@ -128,9 +146,9 @@ describe("AC 101: no request is made to a board page to find an employer name", 
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner] }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    await ashbyCollector.collect({ settings, limit: Infinity });
+    await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(calls).toEqual([boardUrl("hinge-health")]);
   });
@@ -155,8 +173,8 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
     stubFetch({
       [boardUrl("hinge-health")]: () => jsonResponse({ apiVersion: "1", jobs: [] }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
-    return ashbyCollector.collect({ settings, limit: Infinity });
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    return ashbyCollector.collect({ ...context, limit: Infinity });
   }
 
   test("the job list is empty", async () => {
@@ -174,9 +192,9 @@ describe("AC 38: a posting whose title does not match the search terms is absent
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner, backendEngineer] }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs.map((posting) => posting.raw_title)).toEqual(["Senior Product Designer"]);
   });
@@ -198,9 +216,9 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: 1 });
+    const result = await ashbyCollector.collect({ ...context, limit: 1 });
 
     expect(result.jobs).toHaveLength(1);
   });
@@ -221,18 +239,18 @@ describe("AC 47: posting_updated_date is left unset", () => {
 describe("AC 76: no boards configured", () => {
   test("a warning names the platform", async () => {
     stubFetch({});
-    const settings = makeSettings([], SEARCH_TERMS);
+    const context = makeContext([], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.warnings.some((warning) => warning.includes("ashby"))).toBe(true);
   });
 
   test("no request is made", async () => {
     const calls = stubFetch({});
-    const settings = makeSettings([], SEARCH_TERMS);
+    const context = makeContext([], SEARCH_TERMS);
 
-    await ashbyCollector.collect({ settings, limit: Infinity });
+    await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(calls).toEqual([]);
   });
@@ -245,14 +263,14 @@ describe("a board answering 404 records a warning and lets the other slug's job 
       [boardUrl("hinge-health")]: () =>
         jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner] }),
     });
-    const settings = makeSettings(
+    const context = makeContext(
       [
         { ats_slug: "carta" },
         { ats_slug: "hinge-health" },
       ],
       SEARCH_TERMS
     );
-    return ashbyCollector.collect({ settings, limit: Infinity });
+    return ashbyCollector.collect({ ...context, limit: Infinity });
   }
 
   test("collect resolves rather than rejecting", async () => {
@@ -309,9 +327,9 @@ describe("locations", () => {
           jobs: [{ ...seniorProductDesigner, location: "Remote - US", secondaryLocations: [] }],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_location_list).toEqual(["Remote - US"]);
   });
@@ -330,9 +348,9 @@ describe("locations", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_location_list).toEqual([
       "Remote - US",
@@ -349,9 +367,9 @@ describe("locations", () => {
           jobs: [{ ...seniorProductDesigner, location: undefined, secondaryLocations: [] }],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_location_list).toEqual([]);
   });
@@ -366,9 +384,9 @@ describe("modes", () => {
           jobs: [{ ...seniorProductDesigner, workplaceType: "OnSite" }],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual(["OnSite"]);
   });
@@ -381,9 +399,9 @@ describe("modes", () => {
           jobs: [{ ...seniorProductDesigner, workplaceType: null }],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual([]);
   });
@@ -399,9 +417,9 @@ describe("modes", () => {
           jobs: [{ ...seniorProductDesigner, workplaceType: "Hybrid", isRemote: true }],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual(["Hybrid"]);
   });
@@ -438,9 +456,9 @@ describe("salary", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toEqual({
       salary_min: 140000,
@@ -473,9 +491,9 @@ describe("salary", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toEqual({
       salary_min: 4000,
@@ -498,9 +516,9 @@ describe("salary", () => {
           jobs: [{ ...seniorProductDesigner, compensation: undefined }],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toBeUndefined();
   });
@@ -523,9 +541,9 @@ describe("salary", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toBeUndefined();
   });
@@ -550,9 +568,9 @@ describe("descriptions", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].description).toBe("<p>HTML only version.</p>");
   });
@@ -571,9 +589,9 @@ describe("descriptions", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "hinge-health" }], SEARCH_TERMS);
 
-    const result = await ashbyCollector.collect({ settings, limit: Infinity });
+    const result = await ashbyCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].description).toBeUndefined();
   });

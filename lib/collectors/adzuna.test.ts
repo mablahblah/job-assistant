@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { adzunaCollector } from "./adzuna";
 import type { SettingsService } from "../services/settings-service";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+
+// This collector polls no ATS board, so the slug service it is handed holds
+// none. It is still handed one, because every collector takes the same
+// context.
+const NO_BOARDS = fakeAtsSlugService();
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -135,7 +141,7 @@ const seniorProductDesigner = {
 async function collectOneJob() {
   stubFetch(routesFor({ austin: [seniorProductDesigner] }));
   const settings = makeSettings(SEARCH_TERMS);
-  const result = await adzunaCollector.collect({ settings, limit: Infinity });
+  const result = await adzunaCollector.collect({ settings, atsSlugs: NO_BOARDS, limit: Infinity });
   const [job] = result.jobs;
   return job;
 }
@@ -146,6 +152,7 @@ describe("a missing API key", () => {
     delete process.env.ADZUNA_API_KEY;
     stubFetch([]);
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -157,6 +164,7 @@ describe("a missing API key", () => {
     delete process.env.ADZUNA_API_KEY;
     stubFetch([]);
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -167,7 +175,7 @@ describe("a missing API key", () => {
     delete process.env.ADZUNA_APP_ID;
     delete process.env.ADZUNA_API_KEY;
     const calls = stubFetch([]);
-    await adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(calls).toEqual([]);
   });
 });
@@ -175,7 +183,7 @@ describe("a missing API key", () => {
 describe("AC 33: the remote search carries no where or distance", () => {
   test("no where param", async () => {
     const calls = stubFetch(routesFor({}));
-    await adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(findCall(calls, matchesRemoteSearch).searchParams.has("where")).toBe(false);
   });
 
@@ -183,7 +191,7 @@ describe("AC 33: the remote search carries no where or distance", () => {
     // Threading location into the remote search would narrow it to the radius
     // and defeat it.
     const calls = stubFetch(routesFor({}));
-    await adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(findCall(calls, matchesRemoteSearch).searchParams.has("distance")).toBe(false);
   });
 });
@@ -191,13 +199,13 @@ describe("AC 33: the remote search carries no where or distance", () => {
 describe("AC 33: the Austin search carries the location and radius settings", () => {
   test("where equals the location setting", async () => {
     const calls = stubFetch(routesFor({}));
-    await adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(findCall(calls, matchesAustinSearch).searchParams.get("where")).toBe(LOCATION);
   });
 
   test("distance equals the radius setting", async () => {
     const calls = stubFetch(routesFor({}));
-    await adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(findCall(calls, matchesAustinSearch).searchParams.get("distance")).toBe(String(RADIUS));
   });
 });
@@ -206,7 +214,7 @@ describe("two searches run per search term", () => {
   test("two terms make four requests", async () => {
     const calls = stubFetch(routesFor({}));
     const settings = makeSettings(["Product Design", "UX Researcher"]);
-    await adzunaCollector.collect({ settings, limit: Infinity });
+    await adzunaCollector.collect({ settings, atsSlugs: NO_BOARDS, limit: Infinity });
     expect(calls).toHaveLength(4);
   });
 });
@@ -214,7 +222,7 @@ describe("two searches run per search term", () => {
 describe("max_days_old is read from the expiry-threshold setting", () => {
   test("max_days_old equals the setting rather than a hardcoded number", async () => {
     const calls = stubFetch(routesFor({}));
-    await adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS, 21), limit: Infinity });
+    await adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS, 21), limit: Infinity });
     expect(findCall(calls, matchesAustinSearch).searchParams.get("max_days_old")).toBe("21");
   });
 });
@@ -230,6 +238,7 @@ describe("AC 24: limit stops collection after that many jobs", () => {
       })
     );
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: 1,
     });
@@ -244,6 +253,7 @@ describe("AC 39: results come back unfiltered", () => {
     const nonMatching = { ...seniorProductDesigner, id: "999", title: "Warehouse Associate" };
     stubFetch(routesFor({ austin: [nonMatching] }));
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -323,6 +333,7 @@ describe("a job missing a location gives an empty location list", () => {
     };
     stubFetch(routesFor({ austin: [withoutLocation] }));
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -337,6 +348,7 @@ describe("a results list of null gives no jobs", () => {
       { match: matchesAustinSearch, respond: () => jsonResponse({ results: null, count: 0 }) },
     ]);
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -348,6 +360,7 @@ describe("an empty results list", () => {
   test("gives no jobs", async () => {
     stubFetch(routesFor({}));
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -357,7 +370,7 @@ describe("an empty results list", () => {
   test("does not throw", async () => {
     stubFetch(routesFor({}));
     await expect(
-      adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
     ).resolves.toBeDefined();
   });
 });
@@ -381,7 +394,7 @@ describe("one of the two searches failing is surfaced", () => {
         respond: () => jsonResponse({ results: [seniorProductDesigner], count: 1 }),
       },
     ]);
-    return adzunaCollector.collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    return adzunaCollector.collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
   }
 
   test("a warning names which search failed", async () => {
@@ -418,6 +431,7 @@ describe("a failing search on one term does not cost the terms after it", () => 
       },
     ]);
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(["Product Design", "UX Design"]),
       limit: Infinity,
     });
@@ -446,6 +460,7 @@ describe("AC 79: a job with no description leaves the field unset", () => {
     stubFetch(routesFor({ austin: [withoutDescription] }));
 
     const result = await adzunaCollector.collect({
+      atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
     });
@@ -491,7 +506,7 @@ describe("AC 84: a job with no salary gets no raw_salary at all", () => {
     };
     stubFetch(routesFor({ austin: [withoutSalary] }));
     return adzunaCollector
-      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
       .then((r) => r.jobs[0]);
   }
 
@@ -511,7 +526,7 @@ describe('AC 99: salary is collected when salary_is_predicted is "0"', () => {
   function collectWithPublishedFlag() {
     stubFetch(routesFor({ austin: [{ ...seniorProductDesigner, salary_is_predicted: "0" }] }));
     return adzunaCollector
-      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
       .then((r) => r.jobs[0]);
   }
 
@@ -529,7 +544,7 @@ describe("AC 98: a predicted salary is excluded", () => {
   function collectWithPredictedSalary() {
     stubFetch(routesFor({ austin: [{ ...seniorProductDesigner, salary_is_predicted: "1" }] }));
     return adzunaCollector
-      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
       .then((r) => r.jobs[0]);
   }
 
@@ -560,7 +575,7 @@ describe("when salary_is_predicted is absent, the salary is left unset", () => {
     };
     stubFetch(routesFor({ austin: [noFlag] }));
     return adzunaCollector
-      .collect({ settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .collect({ atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
       .then((r) => r.jobs[0]);
   }
 

@@ -6,15 +6,17 @@ paths: ["lib/handlers/**/*.ts"]
 
 ## Shape
 
-A handler takes a job list, acts on every entry, and returns that list along with the warnings it raised. Collection is the one exception: it takes no list, because it builds the first one.
+A handler takes a list, acts on every entry, and returns that list along with the warnings it raised. Most handlers are handed jobs. Backlog cleanup's company sweep is handed companies, and `saveCompanies` is handed companies too. Collection is the one exception to taking a list: it takes none, because it builds the first one.
+
+The list comes back under the name of what is in it — `jobs` for a job list, `companies` for a company list — never both on one result.
 
 A handler runs once per position in the pipeline, never from inside another handler's per-job loop.
 
-Per-job work lives in a function the handler calls, never in the handler's own signature. `normalizeJob` acts on one job and is not a handler; `normalizeJobs` takes the list and is.
+Per-entry work lives in a function the handler calls, never in the handler's own signature. `normalizeJob` acts on one job and is not a handler; `normalizeJobs` takes the list and is.
 
 A handler reads no database of its own beyond the trace service. Everything else it needs arrives as an argument.
 
-A handler is named for what it does to a job list. One handler serves every position it runs at.
+A handler is named for what it does to its list. One handler serves every position it runs at.
 
 ## Trace and warnings
 

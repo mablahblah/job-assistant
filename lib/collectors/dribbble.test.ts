@@ -20,6 +20,12 @@ import { dribbbleCollector } from "./dribbble";
 import { fetchContainer } from "../tools/fetch-page";
 import { writeFixture } from "./fixture";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+
+// This collector polls no ATS board, so the slug service it is handed holds
+// none. It is still handed one, because every collector takes the same
+// context.
+const NO_BOARDS = fakeAtsSlugService();
 
 type SearchMode = "location" | "remote";
 
@@ -163,13 +169,12 @@ function makeSettings(overrides: SettingsOverrides = {}): SettingsService {
     getLocation: vi.fn(async () => overrides.location ?? DEFAULT_LOCATION),
     getRadius: vi.fn(async () => 0),
     getExpiryThreshold: vi.fn(async () => overrides.expiryThreshold ?? DEFAULT_EXPIRY_THRESHOLD),
-    getAtsCompanies: vi.fn(async () => []),
   });
 }
 
 async function collect(options: { settings?: SettingsService; limit?: number } = {}) {
   const settings = options.settings ?? makeSettings();
-  return dribbbleCollector.collect({ settings, limit: options.limit ?? Infinity });
+  return dribbbleCollector.collect({ settings, atsSlugs: NO_BOARDS, limit: options.limit ?? Infinity });
 }
 
 beforeEach(() => {

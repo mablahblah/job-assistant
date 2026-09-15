@@ -118,6 +118,10 @@ function countingJobService(
       calls.push("findUnclassified");
       return service.findUnclassified();
     },
+    async findNeedingScores() {
+      calls.push("findNeedingScores");
+      return service.findNeedingScores();
+    },
   };
 }
 

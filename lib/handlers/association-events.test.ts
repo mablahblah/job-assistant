@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { associateCompanies } from "./association";
-import { fakeCompanyService } from "../services/company-service.fake";
+import { fakeCompanyService, unscoredCompany } from "../services/company-service.fake";
 import { companyMatchKey } from "../utils/company-match-key";
-import type { CompanyRecord } from "../services/company-service";
+import type { CompanyRecord, CompanyService } from "../services/company-service";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { TraceEvent, TraceService } from "../services/trace-service";
 
@@ -18,11 +18,29 @@ function baseJob(overrides: Partial<JobListEntry> = {}): JobListEntry {
 }
 
 function namedCompany(id: string, name: string): CompanyRecord {
-  return { id, name, match_key: companyMatchKey(name), ats_platform: null, ats_slug: null };
+  return unscoredCompany({ id, name, match_key: companyMatchKey(name) });
 }
 
+// The real service reaches a company by board slug through the ATS slug
+// table. There is no such table behind the fake, so each fixture below
+// registers its slug here and the lookup is answered from this map.
+const COMPANY_BY_SLUG: Record<string, string> = {};
+
 function slugCompany(id: string, slug: string): CompanyRecord {
-  return { id, name: null, match_key: null, ats_platform: "ashby", ats_slug: slug };
+  COMPANY_BY_SLUG[slug] = id;
+  return unscoredCompany({ id });
+}
+
+// A company service whose slug lookup reads the map above.
+function companiesHolding(
+  stored: CompanyRecord[] = [],
+  overrides: Partial<CompanyService> = {}
+): CompanyService {
+  return fakeCompanyService(stored, {
+    findBySlug: async (slug: string) =>
+      stored.find((company) => company.id === COMPANY_BY_SLUG[slug]) ?? null,
+    ...overrides,
+  });
 }
 
 // Records every event handed to it instead of writing to a database, so a
@@ -50,7 +68,7 @@ function createFakeTraceService(): TraceService & { events: TraceEvent[] } {
 describe("a job that came out with a company", () => {
   test("writes exactly one company_associated row", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "one-row-board")]);
+    const companies = companiesHolding([slugCompany("c1", "one-row-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "one-row-board" })], {
       companies,
@@ -65,7 +83,7 @@ describe("a job that came out with a company", () => {
 
   test("a slug match reads matched_by_slug", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "slug-board")]);
+    const companies = companiesHolding([slugCompany("c1", "slug-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "slug-board" })], {
       companies,
@@ -79,7 +97,7 @@ describe("a job that came out with a company", () => {
 
   test("a name match reads matched_by_name", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([namedCompany("c1", "Named Co")]);
+    const companies = companiesHolding([namedCompany("c1", "Named Co")]);
 
     await associateCompanies([baseJob({ raw_company_name: "Named, Inc." })], {
       companies,
@@ -95,7 +113,7 @@ describe("a job that came out with a company", () => {
     const trace = createFakeTraceService();
 
     await associateCompanies([baseJob({ raw_company_name: "Fresh Co" })], {
-      companies: fakeCompanyService(),
+      companies: companiesHolding(),
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -108,7 +126,7 @@ describe("a job that came out with a company", () => {
   // it added, so a create that was refused must not inflate that figure.
   test("a create the service refused reads as a match, not company_created", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([], {
+    const companies = companiesHolding([], {
       create: async () => ({ company: namedCompany("blocker", "Blocked Co"), created: false }),
     });
 
@@ -128,7 +146,7 @@ describe("a job that came out with a company", () => {
 describe("filling a company's empty name", () => {
   test("writes a company_updated row reading company_name_filled", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "fill-board")]);
+    const companies = companiesHolding([slugCompany("c1", "fill-board")]);
 
     await associateCompanies(
       [baseJob({ raw_company_slug: "fill-board", raw_company_name: "Filled Name" })],
@@ -141,7 +159,7 @@ describe("filling a company's empty name", () => {
 
   test("its detail carries the name the company was given", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "detail-board")]);
+    const companies = companiesHolding([slugCompany("c1", "detail-board")]);
 
     await associateCompanies(
       [baseJob({ raw_company_slug: "detail-board", raw_company_name: "Detailed Name" })],
@@ -156,7 +174,7 @@ describe("filling a company's empty name", () => {
   // replace or duplicate the association row beside it.
   test("the association row is written alongside it, not replaced", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "both-rows-board")]);
+    const companies = companiesHolding([slugCompany("c1", "both-rows-board")]);
 
     await associateCompanies(
       [baseJob({ raw_company_slug: "both-rows-board", raw_company_name: "Both Rows Co" })],
@@ -176,7 +194,7 @@ describe("the two failures", () => {
     const trace = createFakeTraceService();
 
     await associateCompanies([baseJob({ raw_company_slug: "dead-end-board" })], {
-      companies: fakeCompanyService(),
+      companies: companiesHolding(),
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -188,7 +206,7 @@ describe("the two failures", () => {
 
   test("a name clash reads company_update_failed and company_name_clash", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([
+    const companies = companiesHolding([
       namedCompany("holder", "Contested Name"),
       slugCompany("target", "contested-board"),
     ]);
@@ -208,7 +226,7 @@ describe("the step contract", () => {
   // A step handed no trace context still does its work and stays silent,
   // which is what lets association run outside a job search.
   test("no trace service means no rows and the jobs are still associated", async () => {
-    const companies = fakeCompanyService([slugCompany("c1", "silent-board")]);
+    const companies = companiesHolding([slugCompany("c1", "silent-board")]);
 
     const result = await associateCompanies([baseJob({ raw_company_slug: "silent-board" })], {
       companies,
@@ -219,7 +237,7 @@ describe("the step contract", () => {
 
   test("no run id means no rows are written", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "no-run-board")]);
+    const companies = companiesHolding([slugCompany("c1", "no-run-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "no-run-board" })], {
       companies,
@@ -232,7 +250,7 @@ describe("the step contract", () => {
 
   test("no step name means no rows are written", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "no-step-board")]);
+    const companies = companiesHolding([slugCompany("c1", "no-step-board")]);
 
     await associateCompanies([baseJob({ raw_company_slug: "no-step-board" })], {
       companies,
@@ -245,7 +263,7 @@ describe("the step contract", () => {
 
   test("every row carries the run, the step and the collector its caller set", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "written-board")]);
+    const companies = companiesHolding([slugCompany("c1", "written-board")]);
 
     await associateCompanies(
       [baseJob({ collector: "lever", raw_company_slug: "written-board" })],
@@ -262,7 +280,7 @@ describe("the step contract", () => {
   // so a job carrying neither has nothing to key its record on.
   test("a job with no id writes no row and raises no warning, and is still associated", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "no-id-board")]);
+    const companies = companiesHolding([slugCompany("c1", "no-id-board")]);
     const jobs: JobListEntry[] = [{ collector: "adzuna", raw_company_slug: "no-id-board" }];
 
     const result = await associateCompanies(jobs, {
@@ -279,7 +297,7 @@ describe("the step contract", () => {
 
   test("a job with no collector writes no row and raises no warning", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([slugCompany("c1", "no-collector-board")]);
+    const companies = companiesHolding([slugCompany("c1", "no-collector-board")]);
     const jobs: JobListEntry[] = [{ id: "job-9", raw_company_slug: "no-collector-board" }];
 
     const result = await associateCompanies(jobs, {
@@ -302,7 +320,7 @@ describe("the step contract", () => {
     const longName = "L".repeat(300);
 
     await associateCompanies([baseJob({ raw_company_name: longName })], {
-      companies: fakeCompanyService(),
+      companies: companiesHolding(),
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -321,7 +339,7 @@ describe("the step contract", () => {
 describe("what the rows answer on their own", () => {
   test("company_created rows count the companies a run added", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([namedCompany("c1", "Already Here")]);
+    const companies = companiesHolding([namedCompany("c1", "Already Here")]);
     const jobs = [
       baseJob({ id: "1", raw_company_name: "Already Here" }),
       baseJob({ id: "2", raw_company_name: "Brand New One" }),
@@ -336,7 +354,7 @@ describe("what the rows answer on their own", () => {
 
   test("each job's association row says how that job reached its company", async () => {
     const trace = createFakeTraceService();
-    const companies = fakeCompanyService([
+    const companies = companiesHolding([
       slugCompany("c1", "by-slug-board"),
       namedCompany("c2", "By Name Co"),
     ]);

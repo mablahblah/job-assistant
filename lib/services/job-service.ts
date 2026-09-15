@@ -74,6 +74,7 @@ export interface JobService {
   // before then, and once judged it is done, so an already-classified job and
   // one that took a status removing it from the queue are both left off. The
   // four phase gates are left off every row for the same reason as above.
+  findNeedingScores(): Promise<JobListEntry[]>;
   findUnclassified(): Promise<JobListEntry[]>;
 }
 
@@ -275,6 +276,24 @@ export function createJobService(db: PipelineDb): JobService {
     },
 
     // The same narrowing as findUnparsed, one step further along the pipeline.
+    async findNeedingScores() {
+      const rows = await db.job.findMany({
+        where: {
+          status: "backlog",
+          alignment_score: null,
+          is_resolved: true,
+          is_parsed: true,
+          is_classified: true,
+        },
+        // The four flags are pinned by the where clause, so every row would
+        // carry the same values and tell scoring nothing it does not already
+        // know. The score column stays, because scoring fills it in on the
+        // entry it was handed and needs somewhere to put the number.
+        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+      });
+      return rows.map((row) => row as unknown as JobListEntry);
+    },
+
     async findUnclassified() {
       const rows = await db.job.findMany({
         where: { status: "backlog", is_resolved: true, is_parsed: true, is_classified: false },

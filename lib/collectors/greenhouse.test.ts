@@ -1,8 +1,15 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { greenhouseCollector } from "./greenhouse";
 import { jobFieldsFromGreenhousePosting } from "../utils/greenhouse-fields";
-import type { AtsCompany, SettingsService } from "../services/settings-service";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import type { AtsBoard } from "./ats-boards";
+import type { CollectorContext } from "./collector";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+
+// Everything a collector is handed except the limit, which each test sets.
+type CollectorContextParts = Omit<CollectorContext, "limit">;
+
+const COLLECTOR_NAME = "greenhouse";
 
 // The shared mapper is wrapped in a spy that still runs the real thing, so
 // every test below reads the same fields it always did while one test can
@@ -43,11 +50,22 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // A settings-service stand-in typed to the real interface, so a test supplies
 // only the boards and search terms it needs.
-function makeSettings(boards: AtsCompany[], searchTerms: string[]): SettingsService {
-  return fakeSettingsService({
-    getSearchTerms: async () => searchTerms,
-    getAtsCompanies: async () => boards,
-  });
+// What a collector is handed for one run, minus the limit. The boards live in
+// the ATS slug table now, so the fake slug service is seeded with a row per
+// board, each already carrying this collector.
+function makeContext(boards: AtsBoard[], searchTerms: string[]): CollectorContextParts {
+  return {
+    settings: fakeSettingsService({ getSearchTerms: async () => searchTerms }),
+    atsSlugs: fakeAtsSlugService(
+      boards.map((board, index) => ({
+        id: `row-${index}`,
+        slug: board.ats_slug,
+        company_id: `company-${index}`,
+        parser: COLLECTOR_NAME,
+        collector: COLLECTOR_NAME,
+      }))
+    ),
+  };
 }
 
 const jobsUrl = (slug: string) =>
@@ -82,8 +100,8 @@ async function collectOneJob() {
   stubFetch({
     [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
   });
-  const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
-  const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+  const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
+  const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
   const [posting] = result.jobs;
   return posting;
 }
@@ -102,9 +120,9 @@ describe("AC 27: the company name costs no request of its own", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    await greenhouseCollector.collect({ settings, limit: Infinity });
+    await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(calls.filter((url) => url === boardUrl("stripe"))).toEqual([]);
   });
@@ -113,9 +131,9 @@ describe("AC 27: the company name costs no request of its own", () => {
     const calls = stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    await greenhouseCollector.collect({ settings, limit: Infinity });
+    await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(calls).toEqual([jobsUrl("stripe")]);
   });
@@ -145,8 +163,8 @@ describe("AC 35: a board with zero postings returns no jobs without throwing", (
     stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [] }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
-    return greenhouseCollector.collect({ settings, limit: Infinity });
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    return greenhouseCollector.collect({ ...context, limit: Infinity });
   }
 
   test("the job list is empty", async () => {
@@ -163,9 +181,9 @@ describe("AC 38: postings whose title does not match the search terms are absent
     stubFetch({
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner, backendEngineer] }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs.map((posting) => posting.raw_title)).toEqual([
       "Senior Product Designer",
@@ -184,9 +202,9 @@ describe("AC 24: limit stops collection after that many jobs", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: 1 });
+    const result = await greenhouseCollector.collect({ ...context, limit: 1 });
 
     expect(result.jobs).toHaveLength(1);
   });
@@ -212,9 +230,9 @@ describe("AC 28: the company name comes from the posting itself", () => {
       [jobsUrl("stripe")]: () =>
         jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: "Stripe, Inc." }] }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_company_name).toBe("Stripe, Inc.");
   });
@@ -239,14 +257,14 @@ describe("a board answering 404 records a warning and lets the other slugs run",
       [jobsUrl("acme")]: () => new Response("Not Found", { status: 404 }),
       [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
     });
-    const settings = makeSettings(
+    const context = makeContext(
       [
         { ats_slug: "acme" },
         { ats_slug: "stripe" },
       ],
       SEARCH_TERMS
     );
-    return greenhouseCollector.collect({ settings, limit: Infinity });
+    return greenhouseCollector.collect({ ...context, limit: Infinity });
   }
 
   test("collect resolves rather than rejecting", async () => {
@@ -266,18 +284,18 @@ describe("a board answering 404 records a warning and lets the other slugs run",
 describe("AC 76: no boards configured", () => {
   test("a warning names the platform", async () => {
     stubFetch({});
-    const settings = makeSettings([], SEARCH_TERMS);
+    const context = makeContext([], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.warnings.some((warning) => warning.includes("greenhouse"))).toBe(true);
   });
 
   test("no request is made", async () => {
     const calls = stubFetch({});
-    const settings = makeSettings([], SEARCH_TERMS);
+    const context = makeContext([], SEARCH_TERMS);
 
-    await greenhouseCollector.collect({ settings, limit: Infinity });
+    await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(calls).toEqual([]);
   });
@@ -326,9 +344,9 @@ describe("a posting missing a location gives an empty location list", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_location_list).toEqual([]);
   });
@@ -356,9 +374,9 @@ describe("AC 79: a posting with no description leaves the field unset", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].description).toBeUndefined();
   });
@@ -414,8 +432,8 @@ describe("AC 84: a posting with no pay_input_ranges gets no raw_salary at all", 
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
-    return greenhouseCollector.collect({ settings, limit: Infinity }).then((r) => r.jobs[0]);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    return greenhouseCollector.collect({ ...context, limit: Infinity }).then((r) => r.jobs[0]);
   }
 
   test("raw_salary is absent rather than an empty envelope", async () => {
@@ -447,9 +465,9 @@ describe("an empty pay_input_ranges array gets no raw_salary either", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toBeUndefined();
   });
@@ -472,9 +490,9 @@ describe("AC 102: a work mode named in the description is left for a parser", ()
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual([]);
     expect(result.jobs[0].description).toContain("remote");
@@ -485,9 +503,9 @@ describe("AC 102: a work mode named in the description is left for a parser", ()
       [jobsUrl("brightwave-labs")]: () =>
         jsonResponse({ jobs: [{ ...seniorProductDesigner, company_name: undefined }] }),
     });
-    const settings = makeSettings([{ ats_slug: "brightwave-labs" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "brightwave-labs" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_company_name).toBeUndefined();
     expect(result.jobs[0].raw_company_slug).toBe("brightwave-labs");
@@ -512,9 +530,9 @@ describe("AC 102: a pay range in the description is left for a parser", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_salary).toBeUndefined();
     expect(result.jobs[0].description).toContain("$120,000 - $150,000");
@@ -537,9 +555,9 @@ describe("a posting carrying no description at all", () => {
           ],
         }),
     });
-    const settings = makeSettings([{ ats_slug: "stripe" }], SEARCH_TERMS);
+    const context = makeContext([{ ats_slug: "stripe" }], SEARCH_TERMS);
 
-    const result = await greenhouseCollector.collect({ settings, limit: Infinity });
+    const result = await greenhouseCollector.collect({ ...context, limit: Infinity });
 
     expect(result.jobs[0].raw_mode_list).toEqual([]);
     expect(result.jobs[0].salary_low).toBeUndefined();

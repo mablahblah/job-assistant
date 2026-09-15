@@ -86,13 +86,17 @@ async function readTableNames(url: string): Promise<string[]> {
   }
 }
 
-async function readCompanySlugs(url: string): Promise<Array<string | null>> {
+// Every company left standing, paired with the board slug naming it, where a
+// slug row names it at all. A company no row names is run output.
+async function readCompanyBoards(url: string): Promise<Array<string | null>> {
   const client = createClient({ url });
   try {
-    const result = await client.execute("SELECT ats_slug FROM Company");
+    const result = await client.execute(
+      "SELECT AtsSlug.slug AS slug FROM Company LEFT JOIN AtsSlug ON AtsSlug.company_id = Company.id"
+    );
     return result.rows.map((row) => {
-      const value = (row as unknown as Record<string, unknown>)["ats_slug"];
-      return value === null ? null : String(value);
+      const value = (row as unknown as Record<string, unknown>)["slug"];
+      return value === null || value === undefined ? null : String(value);
     });
   } finally {
     client.close();
@@ -114,13 +118,10 @@ describe("db-reset", () => {
     // two things the reset has to leave alone.
     runScript("db-seed.ts", temp.url);
 
-    seededSlugCount = await countRows(
-      temp.url,
-      "Company WHERE ats_slug IS NOT NULL"
-    );
+    seededSlugCount = await countRows(temp.url, "AtsSlug");
 
-    // A company met during a run rather than seeded: it carries a name and no
-    // board slug, which is what makes it run output.
+    // A company met during a run rather than seeded: no slug row names it,
+    // which is what makes it run output.
     await runSql(
       temp.url,
       `INSERT INTO Company (id, name, match_key, modified_at)
@@ -165,17 +166,23 @@ describe("db-reset", () => {
     expect(await countRows(temp.url, "Trace")).toBe(0);
   });
 
-  // Criterion 72.
-  test("a company carrying an ATS slug survives", async () => {
-    const slugs = await readCompanySlugs(temp.url);
+  // Criterion 51. A company a slug row names is a board the pipeline knows
+  // about, which is configuration rather than run output.
+  test("a company a slug row names survives", async () => {
+    const slugs = await readCompanyBoards(temp.url);
     expect(seededSlugCount).toBeGreaterThan(0);
     expect(slugs.filter((slug) => slug !== null)).toHaveLength(seededSlugCount);
   });
 
-  // Criterion 73.
-  test("a company carrying no ATS slug is deleted", async () => {
-    const slugs = await readCompanySlugs(temp.url);
+  test("a company no slug row names is deleted", async () => {
+    const slugs = await readCompanyBoards(temp.url);
     expect(slugs.filter((slug) => slug === null)).toHaveLength(0);
+  });
+
+  // The rows themselves are configuration too. A company kept without its row
+  // would be an orphan nothing could poll.
+  test("every slug row survives", async () => {
+    expect(await countRows(temp.url, "AtsSlug")).toBe(seededSlugCount);
   });
 
   // Criterion 74.
@@ -186,6 +193,6 @@ describe("db-reset", () => {
   // Criterion 75.
   test("no table was dropped", () => {
     expect(tablesAfter).toEqual(tablesBefore);
-    expect(tablesBefore).toEqual(["Company", "Job", "Place", "Setting", "Trace"]);
+    expect(tablesBefore).toEqual(["AtsSlug", "Company", "Job", "Place", "Setting", "Trace"]);
   });
 });

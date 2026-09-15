@@ -56,16 +56,53 @@ const EXPECTED_JOB_COLUMNS = [
   "location_match_place",
   "location_match_mode",
   "is_repost",
+  "alignment_score",
+  "alignment_rationale",
 ];
 
 // match_key holds the company name squashed down for matching, so two
-// spellings of one employer reach one row.
+// spellings of one employer reach one row. The four scores each carry their
+// own rationale, because re-scoring one category writes one field: a single
+// shared field would be overwritten with reasoning covering only what was
+// researched this pass.
 const EXPECTED_COMPANY_COLUMNS = [
   "id",
   "name",
   "match_key",
-  "ats_platform",
-  "ats_slug",
+  "employee_satisfaction",
+  "customer_satisfaction",
+  "work_life_balance",
+  "political_alignment",
+  "employee_satisfaction_rationale",
+  "customer_satisfaction_rationale",
+  "work_life_balance_rationale",
+  "political_alignment_rationale",
+  "scored_at",
+  "scores_guessed",
+  "created_at",
+  "modified_at",
+];
+
+// The four judgements a company is scored on, each 1 to 5.
+const COMPANY_SCORE_COLUMNS = [
+  "employee_satisfaction",
+  "customer_satisfaction",
+  "work_life_balance",
+  "political_alignment",
+];
+
+// The reasoning behind each score, one field per category.
+const COMPANY_RATIONALE_COLUMNS = COMPANY_SCORE_COLUMNS.map((name) => `${name}_rationale`);
+
+// One row per ATS board. The slug and the parser together record that a
+// company posts on a hiring system; the collector records that we poll that
+// board every run, and it stays empty until the company is promoted.
+const EXPECTED_ATS_SLUG_COLUMNS = [
+  "id",
+  "slug",
+  "company_id",
+  "parser",
+  "collector",
   "created_at",
   "modified_at",
 ];
@@ -87,6 +124,9 @@ const EXPECTED_SETTING_COLUMNS = [
   "resolution_slow_concurrency",
   "resolution_slow_pause_seconds",
   "repost_gap_days",
+  "promotion_threshold",
+  "score_expiry_days",
+  "guessed_score_expiry_days",
   "created_at",
   "modified_at",
 ];
@@ -105,13 +145,15 @@ const EXPECTED_PLACE_COLUMNS = [
   "created_at",
 ];
 
-// One row per event in a job's path through the pipeline. job_id names the
-// job an event describes but carries no foreign key, so a trace outlives the
-// job it was written for.
+// One row per event during a run. job_id names the job an event describes and
+// company_id names the company, and neither carries a foreign key, so a row
+// outlives whatever it was written for. A row names one or the other: a
+// company score has no job and no collector behind it.
 const EXPECTED_TRACE_COLUMNS = [
   "id",
   "run_id",
   "job_id",
+  "company_id",
   "step",
   "event",
   "reason",
@@ -121,10 +163,18 @@ const EXPECTED_TRACE_COLUMNS = [
   "created_at",
 ];
 
-// Every trace row carries these. reason, domain and detail are filled only by
-// the events that have something to say.
-const TRACE_REQUIRED_COLUMNS = ["run_id", "job_id", "step", "event", "collector", "created_at"];
-const TRACE_NULLABLE_COLUMNS = ["reason", "domain", "detail"];
+// Every trace row carries these. Everything else is filled only by the events
+// that have something to say — a job event names a job and a collector, a
+// company event names a company instead.
+const TRACE_REQUIRED_COLUMNS = ["run_id", "step", "event", "created_at"];
+const TRACE_NULLABLE_COLUMNS = [
+  "job_id",
+  "company_id",
+  "collector",
+  "reason",
+  "domain",
+  "detail",
+];
 
 // Columns the pipeline writes on its way to save. A collector fills only what
 // its source supplied and a later phase fills the rest, so every one of these
@@ -697,6 +747,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "classification",
       "post_classification_save",
       "scoring",
+      "company_promotion",
     ];
     const comment = traceComment();
     let searchFrom = 0;
@@ -850,6 +901,63 @@ describe("Trace: the model comment carries both vocabularies", () => {
     }
   });
 
+  test("the company events every step writes are listed", () => {
+    // A company's path is its own, and every row on it names a company and
+    // never a job. None of these is a substring of another: company_scored
+    // and company_scores_cleared diverge straight after company_score, and
+    // company_partially_scored spells the stem second rather than first.
+    const comment = traceComment();
+    const events = [
+      "company_entered",
+      "company_kept",
+      "company_scores_cleared",
+      "company_dbrow_updated",
+      "company_scored",
+      "company_partially_scored",
+      "company_scoring_failed",
+      "company_promoted",
+      "company_promotion_skipped",
+    ];
+    for (const event of events) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("scoring's own events are listed", () => {
+    const comment = traceComment();
+    for (const event of ["job_scored", "scoring_failed"]) {
+      expect(comment).toContain(event);
+    }
+  });
+
+  test("the company reason codes are listed", () => {
+    // Seven reasons across backlog cleanup, scoring and promotion. None is a
+    // substring of another: past_score_expiry and past_guessed_score_expiry
+    // differ from their fifth character, and the four promotion reasons share
+    // no stem at all.
+    const comment = traceComment();
+    const reasons = [
+      "past_score_expiry",
+      "past_guessed_score_expiry",
+      "insufficient_research",
+      "company_unnamed",
+      "not_fully_scored",
+      "below_promotion_threshold",
+      "no_pollable_board",
+      "already_polled",
+    ];
+    for (const reason of reasons) {
+      expect(comment).toContain(reason);
+    }
+  });
+
+  test("scoring's job reason codes are listed", () => {
+    const comment = traceComment();
+    for (const reason of ["no_posting_url", "posting_unreadable", "scoring_agent_failed"]) {
+      expect(comment).toContain(reason);
+    }
+  });
+
   test("the judging steps' reason codes are listed", () => {
     // None of the three is a substring of another or of a reason already in
     // the comment: no_location_match and location_unreadable diverge from
@@ -973,15 +1081,14 @@ describe("Trace: the model comment carries both vocabularies", () => {
   });
 });
 
-describe("Company: name is optional and match_key and ats_slug are each unique", () => {
+describe("Company: name is optional and match_key is unique", () => {
   let dir: string;
   let url: string;
   let companyColumns: ColumnInfo[];
   let uniqueColumns: Set<string>;
 
   const INSERT_COMPANY =
-    "INSERT INTO Company (id, name, match_key, ats_platform, ats_slug, created_at, modified_at) " +
-    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+    "INSERT INTO Company (id, name, match_key, created_at, modified_at) VALUES (?, ?, ?, ?, ?)";
   // modified_at carries no SQL default, so a raw insert has to supply it.
   const WRITTEN_AT = "2026-01-01T00:00:00.000Z";
 
@@ -1033,21 +1140,17 @@ describe("Company: name is optional and match_key and ats_slug are each unique",
     expect(uniqueColumns.has("match_key")).toBe(true);
   });
 
-  test("ats_slug is unique", () => {
-    expect(uniqueColumns.has("ats_slug")).toBe(true);
-  });
-
   test("a second company carrying a match key already in use is refused", async () => {
     const client = createClient({ url });
     try {
       await client.execute({
         sql: INSERT_COMPANY,
-        args: ["company-key-1", "Acme Inc", "acme", null, null, WRITTEN_AT, WRITTEN_AT],
+        args: ["company-key-1", "Acme Inc", "acme", WRITTEN_AT, WRITTEN_AT],
       });
       await expect(
         client.execute({
           sql: INSERT_COMPANY,
-          args: ["company-key-2", "Acme Incorporated", "acme", null, null, WRITTEN_AT, WRITTEN_AT],
+          args: ["company-key-2", "Acme Incorporated", "acme", WRITTEN_AT, WRITTEN_AT],
         })
       ).rejects.toThrow();
     } finally {
@@ -1055,22 +1158,268 @@ describe("Company: name is optional and match_key and ats_slug are each unique",
     }
   });
 
-  test("a second company carrying a slug already in use is refused", async () => {
+  // A company met only as a board slug has no name and no match key, so two
+  // of them occupy neither unique column. The seed creates one per board, so
+  // this has to hold.
+  test("two companies carrying neither a name nor a match key both save", async () => {
     const client = createClient({ url });
     try {
+      for (const id of ["nameless-1", "nameless-2"]) {
+        await client.execute({
+          sql: INSERT_COMPANY,
+          args: [id, null, null, WRITTEN_AT, WRITTEN_AT],
+        });
+      }
+      const result = await client.execute(
+        "SELECT count(*) as count FROM Company WHERE name IS NULL"
+      );
+      const record = result.rows[0] as unknown as Record<string, unknown>;
+      expect(Number(record["count"])).toBe(2);
+    } finally {
+      client.close();
+    }
+  });
+});
+
+// How well one job fits the user, judged by an agent against the alignment
+// rubric, with the reasoning beside it. One rationale field rather than four,
+// because alignment is one score.
+describe("Job: the alignment score and the reasoning behind it", () => {
+  let dir: string;
+  let jobColumns: ColumnInfo[];
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-alignment-");
+    dir = temp.dir;
+    runDbCreate(temp.url);
+    jobColumns = await tableColumns(temp.url, "Job");
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function findColumn(name: string): ColumnInfo | undefined {
+    const column = jobColumns.find((candidate) => candidate.name === name);
+    expect(column, `Job has no column named ${name}`).toBeDefined();
+    return column;
+  }
+
+  test("alignment_score is a whole number", () => {
+    expect(String(findColumn("alignment_score")?.type).toUpperCase()).toBe("INTEGER");
+  });
+
+  // A job reads as needing scoring exactly when this is empty, so the column
+  // has to be allowed to be empty and must carry no default.
+  test("alignment_score is optional", () => {
+    expect(findColumn("alignment_score")?.notnull).toBe(0);
+  });
+
+  test("alignment_score carries no default", () => {
+    expect(findColumn("alignment_score")?.dflt_value ?? null).toBeNull();
+  });
+
+  test("alignment_rationale is an optional string", () => {
+    expect(String(findColumn("alignment_rationale")?.type).toUpperCase()).toBe("TEXT");
+    expect(findColumn("alignment_rationale")?.notnull).toBe(0);
+  });
+});
+
+// A company is judged on four things, and each judgement carries its own
+// reasoning. scored_at dates all four together, and scores_guessed names the
+// ones the agent guessed at because nothing public existed.
+describe("Company: the four scores, their reasoning, and when they were given", () => {
+  let dir: string;
+  let companyColumns: ColumnInfo[];
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-company-scores-");
+    dir = temp.dir;
+    runDbCreate(temp.url);
+    companyColumns = await tableColumns(temp.url, "Company");
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function findColumn(name: string): ColumnInfo | undefined {
+    const column = companyColumns.find((candidate) => candidate.name === name);
+    expect(column, `Company has no column named ${name}`).toBeDefined();
+    return column;
+  }
+
+  // A new column's type is compared against a column of the same Prisma type
+  // already in the schema rather than against a literal, so the assertion does
+  // not hardcode how Prisma spells a type in sqlite today.
+  function typeOf(columns: ColumnInfo[], name: string): string {
+    return String(columns.find((candidate) => candidate.name === name)?.type).toUpperCase();
+  }
+
+  test.each(COMPANY_SCORE_COLUMNS)("%s is a whole number", (name) => {
+    expect(typeOf(companyColumns, name)).toBe("INTEGER");
+  });
+
+  // A company reads as needing research exactly when a score is missing, so
+  // every one of these has to be allowed to be empty.
+  test.each(COMPANY_SCORE_COLUMNS)("%s is optional", (name) => {
+    expect(findColumn(name)?.notnull).toBe(0);
+  });
+
+  test.each(COMPANY_RATIONALE_COLUMNS)("%s is an optional string", (name) => {
+    expect(typeOf(companyColumns, name)).toBe("TEXT");
+    expect(findColumn(name)?.notnull).toBe(0);
+  });
+
+  test("scored_at is an optional date", () => {
+    expect(typeOf(companyColumns, "scored_at")).toBe(typeOf(companyColumns, "created_at"));
+    expect(findColumn("scored_at")?.notnull).toBe(0);
+  });
+
+  // A list of category names, so it holds whichever of the four were guessed.
+  test("scores_guessed is an optional list", () => {
+    expect(findColumn("scores_guessed")?.notnull).toBe(0);
+  });
+
+  test("no score carries a default, so an unscored company reads as empty", () => {
+    for (const name of [...COMPANY_SCORE_COLUMNS, "scored_at", "scores_guessed"]) {
+      expect(findColumn(name)?.dflt_value ?? null).toBeNull();
+    }
+  });
+});
+
+// The board lists used to be a pair of columns on the company record, which
+// forced two different facts to travel together: that a company posts on a
+// hiring system, and that we poll its board every run. A table of its own
+// separates them, because the collector is what says we poll.
+describe("AtsSlug: one row per board, the slug unique and the collector optional", () => {
+  let dir: string;
+  let url: string;
+  let slugColumns: ColumnInfo[];
+
+  // modified_at carries no SQL default, so a raw insert has to supply it.
+  const WRITTEN_AT = "2026-01-01T00:00:00.000Z";
+  const INSERT_SLUG =
+    "INSERT INTO AtsSlug (id, slug, company_id, parser, collector, created_at, modified_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+  // A slug row names a company, so one has to exist before any row can point
+  // at it.
+  async function insertCompany(client: ReturnType<typeof createClient>, id: string): Promise<void> {
+    await client.execute({
+      sql: "INSERT INTO Company (id, name, match_key, created_at, modified_at) VALUES (?, ?, ?, ?, ?)",
+      args: [id, id, id, WRITTEN_AT, WRITTEN_AT],
+    });
+  }
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-ats-slug-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+    slugColumns = await tableColumns(url, "AtsSlug");
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("the table holds exactly the columns a board row needs", async () => {
+    expect(await columnNames(url, "AtsSlug")).toEqual([...EXPECTED_ATS_SLUG_COLUMNS].sort());
+  });
+
+  test("every column is snake_case", () => {
+    for (const column of slugColumns) {
+      expect(column.name).toMatch(/^[a-z0-9_]+$/);
+    }
+  });
+
+  test("slug is required", () => {
+    expect(slugColumns.find((column) => column.name === "slug")?.notnull).toBe(1);
+  });
+
+  test("company_id is required", () => {
+    expect(slugColumns.find((column) => column.name === "company_id")?.notnull).toBe(1);
+  });
+
+  test("parser is required", () => {
+    expect(slugColumns.find((column) => column.name === "parser")?.notnull).toBe(1);
+  });
+
+  // Company matching writes the row before anything decides to poll the board,
+  // so a row with no collector is the normal case rather than an incomplete one.
+  test("collector is optional", () => {
+    expect(slugColumns.find((column) => column.name === "collector")?.notnull).toBe(0);
+  });
+
+  test("the row names the company it belongs to", async () => {
+    const client = createClient({ url });
+    try {
+      const keys = await client.execute("PRAGMA foreign_key_list(AtsSlug)");
+      const targets = keys.rows.map((row) => {
+        const record = row as unknown as Record<string, unknown>;
+        return String(record["table"]);
+      });
+      expect(targets).toContain("Company");
+    } finally {
+      client.close();
+    }
+  });
+
+  test("a row written with no collector saves", async () => {
+    const client = createClient({ url });
+    try {
+      await insertCompany(client, "ats-slug-company-a");
       await client.execute({
-        sql: INSERT_COMPANY,
-        args: ["company-slug-1", "Beta Co", null, "greenhouse", "beta-co", WRITTEN_AT, WRITTEN_AT],
+        sql: INSERT_SLUG,
+        args: [
+          "ats-slug-row-a",
+          "unpolled-board",
+          "ats-slug-company-a",
+          "greenhouse",
+          null,
+          WRITTEN_AT,
+          WRITTEN_AT,
+        ],
+      });
+      const result = await client.execute({
+        sql: "SELECT collector FROM AtsSlug WHERE slug = ?",
+        args: ["unpolled-board"],
+      });
+      expect(result.rows.length).toBe(1);
+    } finally {
+      client.close();
+    }
+  });
+
+  // A job carries a slug without carrying which board it came from, so a slug
+  // held by two rows could not be resolved to one company.
+  test("a second row carrying a slug already in use is refused", async () => {
+    const client = createClient({ url });
+    try {
+      await insertCompany(client, "ats-slug-company-b");
+      await insertCompany(client, "ats-slug-company-c");
+      await client.execute({
+        sql: INSERT_SLUG,
+        args: [
+          "ats-slug-row-b",
+          "shared-board",
+          "ats-slug-company-b",
+          "greenhouse",
+          null,
+          WRITTEN_AT,
+          WRITTEN_AT,
+        ],
       });
       await expect(
         client.execute({
-          sql: INSERT_COMPANY,
+          sql: INSERT_SLUG,
           args: [
-            "company-slug-2",
-            "Beta Company",
+            "ats-slug-row-c",
+            "shared-board",
+            "ats-slug-company-c",
+            "lever",
             null,
-            "greenhouse",
-            "beta-co",
             WRITTEN_AT,
             WRITTEN_AT,
           ],
@@ -1079,6 +1428,13 @@ describe("Company: name is optional and match_key and ats_slug are each unique",
     } finally {
       client.close();
     }
+  });
+
+  // Each ATS collector asks for the rows carrying its own name, so that lookup
+  // reads an index rather than the whole table.
+  test("an index covers collector", async () => {
+    const covering = await indexesCovering(url, "AtsSlug", "collector");
+    expect(covering.length, "no index covers collector alone").toBeGreaterThan(0);
   });
 });
 

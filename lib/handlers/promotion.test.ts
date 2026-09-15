@@ -43,6 +43,39 @@ describe("what the step does to an expired job", () => {
 
     const result = await promoteJobs([judged], {});
 
-    expect(result.jobs[0]).toEqual({ ...judged, status: "backlog", is_classified: false });
+    expect(result.jobs[0]).toEqual({
+      ...judged,
+      status: "backlog",
+      is_classified: false,
+      // Emptied because the posting this job was judged against is not the
+      // one now on offer.
+      alignment_score: null,
+      alignment_rationale: null,
+    });
+  });
+});
+
+// Criteria 65 to 67. A promoted job was posted again, so the posting it was
+// judged against is not the one now on offer.
+describe("a job that carried an alignment score", () => {
+  test("its alignment score is emptied", async () => {
+    const result = await promoteJobs([entry("job-1", { alignment_score: 4 })], {});
+
+    expect(result.jobs[0]?.alignment_score).toBeNull();
+  });
+
+  test("the reasoning behind that score is emptied", async () => {
+    const result = await promoteJobs([entry("job-1", { alignment_rationale: "fits well" })], {});
+
+    expect(result.jobs[0]?.alignment_rationale).toBeNull();
+  });
+
+  // The next run's search asks for backlog jobs carrying no alignment score,
+  // so an emptied score is what puts this job back on that list.
+  test("the job comes back in the backlog with no score", async () => {
+    const result = await promoteJobs([entry("job-1", { alignment_score: 4 })], {});
+
+    expect(result.jobs[0]?.status).toBe("backlog");
+    expect(result.jobs[0]?.alignment_score).toBeNull();
   });
 });

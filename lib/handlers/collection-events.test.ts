@@ -6,6 +6,11 @@ import type { SettingsService } from "../services/settings-service";
 import type { UnusableCode } from "../utils/job-usable";
 import type { TraceEvent, TraceService } from "../services/trace-service";
 import { fakeSettingsService } from "../services/settings-service.fake";
+import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+
+// No test here polls an ATS board, so the slug service every collector is
+// handed holds none.
+const NO_BOARDS = fakeAtsSlugService();
 
 // Collection only hands this to collectors, so no getter needs real behaviour.
 const stubSettings: SettingsService = fakeSettingsService();
@@ -104,7 +109,7 @@ describe("a collected event is written for every job as it enters the loop", () 
     });
     const report = await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -126,7 +131,7 @@ describe("a collected event is written for every job as it enters the loop", () 
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -145,7 +150,7 @@ describe("a job dropped by the usability check gets both a collected and an aban
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -165,7 +170,7 @@ describe("a job that passes the usability check gets a collected event and no ab
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -202,7 +207,7 @@ describe("an abandoned event's reason is always one of the usability check's cod
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -227,7 +232,7 @@ describe("a malformed URL is abandoned naming itself in the detail", () => {
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -244,7 +249,7 @@ describe("a collector that throws leaves no trace event behind", () => {
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [failing],
@@ -263,7 +268,7 @@ describe("a collector's own error or warning writes no trace event", () => {
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -280,7 +285,7 @@ describe("a collector's own error or warning writes no trace event", () => {
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -295,7 +300,7 @@ describe("a collector that produces no jobs writes no trace events", () => {
     const collector = makeCollector("lever", emptyResult);
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -314,7 +319,7 @@ describe("a limit of 0 writes no trace events", () => {
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -334,7 +339,7 @@ describe("every trace event collection writes carries the collection step", () =
     });
     await collectJobs({
       collectedAt: stubCollectedAt,
-      settings: stubSettings,
+      settings: stubSettings, atsSlugs: NO_BOARDS,
       runId: stubRunId,
       trace,
       collectors: [collector],
@@ -362,6 +367,7 @@ describe("a collector that resolved a job itself says so", () => {
     const trace = makeTraceService();
     await collectJobs({
       settings: fakeSettingsService(),
+      atsSlugs: NO_BOARDS,
       collectors: [
         makeCollector("ashby", {
           jobs: [
@@ -395,6 +401,7 @@ describe("a collector that resolved a job itself says so", () => {
     const trace = makeTraceService();
     await collectJobs({
       settings: fakeSettingsService(),
+      atsSlugs: NO_BOARDS,
       collectors: [
         makeCollector("adzuna", {
           jobs: [
@@ -420,6 +427,7 @@ describe("a collector that resolved a job itself says so", () => {
     const trace = makeTraceService();
     await collectJobs({
       settings: fakeSettingsService(),
+      atsSlugs: NO_BOARDS,
       collectors: [
         makeCollector("ashby", {
           jobs: [

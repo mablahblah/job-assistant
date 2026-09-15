@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { cleanBacklogJobs } from "./backlog-cleanup";
+import { cleanBacklogCompanies, cleanBacklogJobs } from "./backlog-cleanup";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { TraceEvent, TraceService } from "../services/trace-service";
+import type { CompanyRecord } from "../services/company-service";
+import { unscoredCompany } from "../services/company-service.fake";
 
 // Covers only the trace rows the step writes. What it does to a job keeps its
 // own coverage in backlog-cleanup.test.ts and is not re-asserted here.
@@ -147,6 +149,115 @@ describe("a step handed no run to write against", () => {
 
     await cleanBacklogJobs([entry("stale", { posting_date: STALE })], {
       expiryThresholdDays: THRESHOLD,
+      referenceInstant: NOW,
+      trace,
+      step: STEP,
+    });
+
+    expect(trace.events).toEqual([]);
+  });
+});
+
+// The company half of the same sweep. A company event names the company and
+// carries no job and no collector, because a company score has neither behind
+// it.
+describe("the rows the company sweep writes", () => {
+  const SCORE_EXPIRY_DAYS = 90;
+  const GUESSED_SCORE_EXPIRY_DAYS = 30;
+
+  function daysBefore(days: number): Date {
+    return new Date(NOW.getTime() - days * 86_400_000);
+  }
+
+  function company(overrides: Partial<CompanyRecord> = {}): CompanyRecord {
+    return unscoredCompany({
+      id: "company-1",
+      name: "Traced Co",
+      employee_satisfaction: 4,
+      customer_satisfaction: 3,
+      work_life_balance: 5,
+      political_alignment: 2,
+      scored_at: daysBefore(1),
+      ...overrides,
+    });
+  }
+
+  async function sweep(record: CompanyRecord): Promise<TraceEvent[]> {
+    const trace = createFakeTraceService();
+    await cleanBacklogCompanies([record], {
+      scoreExpiryDays: SCORE_EXPIRY_DAYS,
+      guessedScoreExpiryDays: GUESSED_SCORE_EXPIRY_DAYS,
+      referenceInstant: NOW,
+      trace,
+      runId: RUN_ID,
+      step: STEP,
+    });
+    return trace.events;
+  }
+
+  // Criterion 69. An entering row per company, so a heading can say what the
+  // handler was handed even where the handler later died.
+  test("a company entering the sweep gets a row", async () => {
+    const events = await sweep(company());
+
+    expect(events[0]?.event).toBe("company_entered");
+  });
+
+  // Criterion 70.
+  test("the row names the company", async () => {
+    const events = await sweep(company());
+
+    expect(events[0]?.company_id).toBe("company-1");
+  });
+
+  // Criteria 70a and 100.
+  test("the row carries no job and no collector", async () => {
+    const events = await sweep(company());
+
+    expect(events[0]?.job_id).toBeUndefined();
+    expect(events[0]?.collector).toBeUndefined();
+  });
+
+  test("every row carries the run identifier and the step", async () => {
+    const events = await sweep(company());
+
+    for (const event of events) {
+      expect(event.run_id).toBe(RUN_ID);
+      expect(event.step).toBe(STEP);
+    }
+  });
+
+  test("a company left alone records that it was kept", async () => {
+    const events = await sweep(company());
+
+    expect(events.map((event) => event.event)).toEqual(["company_entered", "company_kept"]);
+  });
+
+  test("a company past the score expiry records why its scores went", async () => {
+    const events = await sweep(company({ scored_at: daysBefore(91) }));
+
+    expect(events[1]?.event).toBe("company_scores_cleared");
+    expect(events[1]?.reason).toBe("past_score_expiry");
+  });
+
+  // The two clearings are told apart by their reason, so one query can count
+  // how often a guess is what aged out.
+  test("a company past only the guessed-score expiry records its own reason", async () => {
+    const events = await sweep(
+      company({ scored_at: daysBefore(31), scores_guessed: ["customer_satisfaction"] })
+    );
+
+    expect(events[1]?.event).toBe("company_scores_cleared");
+    expect(events[1]?.reason).toBe("past_guessed_score_expiry");
+  });
+
+  // A handler handed only some of trace, runId and step still does its work
+  // and stays silent, which is what lets it run outside a job search.
+  test("a sweep handed no run identifier writes nothing", async () => {
+    const trace = createFakeTraceService();
+    await cleanBacklogCompanies([company()], {
+      scoreExpiryDays: SCORE_EXPIRY_DAYS,
+      guessedScoreExpiryDays: GUESSED_SCORE_EXPIRY_DAYS,
       referenceInstant: NOW,
       trace,
       step: STEP,

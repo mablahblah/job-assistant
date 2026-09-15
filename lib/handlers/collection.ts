@@ -8,11 +8,15 @@ import { unusableReason } from "../utils/job-usable";
 import type { Collector } from "../collectors/collector";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { SettingsService } from "../services/settings-service";
+import type { AtsSlugService } from "../services/ats-slug-service";
 import { messageFromThrown } from "../utils/thrown-message";
 import type { TraceService } from "../services/trace-service";
 
 export interface CollectJobsOptions {
   settings: SettingsService;
+  // Handed straight to every collector, because an ATS collector finds the
+  // boards it polls there.
+  atsSlugs: AtsSlugService;
   collectors: Collector[];
   // The date written into every job's collected_at. It arrives as an argument
   // so collection reads no clock, which is what lets one run share a single
@@ -69,7 +73,11 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
     try {
       // A fresh context per collector, so nothing one collector does to it
       // reaches the next.
-      const collectorResult = await collector.collect({ settings: options.settings, limit });
+      const collectorResult = await collector.collect({
+        settings: options.settings,
+        atsSlugs: options.atsSlugs,
+        limit,
+      });
 
       // Kept is counted rather than read off result.jobs, which holds every
       // collector's jobs and not just this one's.

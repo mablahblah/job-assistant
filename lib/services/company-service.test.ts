@@ -124,15 +124,15 @@ afterAll(async () => {
 // A slug is the stronger identity, so this is the lookup association tries
 // first. A miss falls through to the name lookup rather than creating.
 describe("finding a company by its board slug", () => {
-  test("returns the company holding that slug", async () => {
-    await db.company.create({
-      data: { ats_platform: "greenhouse", ats_slug: "find-by-slug-hit" },
+  test("returns the company the slug row names", async () => {
+    const company = await service.createNameless();
+    await db.atsSlug.create({
+      data: { slug: "find-by-slug-hit", company_id: company.id, parser: "greenhouse" },
     });
 
     const found = await service.findBySlug("find-by-slug-hit");
 
-    expect(found?.ats_slug).toBe("find-by-slug-hit");
-    expect(found?.ats_platform).toBe("greenhouse");
+    expect(found?.id).toBe(company.id);
   });
 
   test("returns null where no company holds that slug", async () => {
@@ -181,30 +181,34 @@ describe("creating a company", () => {
     expect(result.company.match_key).toBe("createdbyname");
   });
 
-  // The seed's case. An ATS company is known only by the board it posts on.
-  test("writes a slug and its platform with no name", async () => {
-    const result = await service.create({
-      ats_platform: "ashby",
-      ats_slug: "created-by-slug",
-    });
+  // The seed's case. A company met only as a board has no name, and the slug
+  // row written beside it is what identifies it.
+  test("a nameless company is created with nothing filled in", async () => {
+    const company = await service.createNameless();
 
-    expect(result.created).toBe(true);
-    expect(result.company.ats_slug).toBe("created-by-slug");
-    expect(result.company.ats_platform).toBe("ashby");
-    expect(result.company.name).toBeNull();
-    expect(result.company.match_key).toBeNull();
+    expect(company.name).toBeNull();
+    expect(company.match_key).toBeNull();
+  });
+
+  // Two of them occupy neither unique column, so the seed can create one per
+  // board without the second being refused.
+  test("two nameless companies are two different rows", async () => {
+    const first = await service.createNameless();
+    const second = await service.createNameless();
+
+    expect(second.id).not.toBe(first.id);
   });
 
   // AC 4. A record identified by nothing could never be matched again, so this
   // is a caller bug rather than an ordinary outcome, and it throws.
-  test("refuses a record carrying neither a name nor a slug", async () => {
-    await expect(service.create({})).rejects.toThrow(/name|slug/i);
+  test("refuses a record carrying no name", async () => {
+    await expect(service.create({})).rejects.toThrow(/name/i);
   });
 
   // An empty name is no name. The tidy strips a name like "-" to nothing, and
   // SQLite treats an empty string as an ordinary value in a unique index.
   test("refuses a record whose only name is empty", async () => {
-    await expect(service.create({ name: "" })).rejects.toThrow(/name|slug/i);
+    await expect(service.create({ name: "" })).rejects.toThrow(/name/i);
   });
 
   // The emptiness check reads the trimmed name, so the stored name is the
@@ -240,17 +244,6 @@ describe("a create the database refuses", () => {
     expect(second.company.id).toBe(first.company.id);
   });
 
-  // The seed is the only caller that creates by slug, and a company already
-  // holding that slug is the company the caller wanted. Recovering here is
-  // what lets the seed warn on a clash instead of falling over.
-  test("attaches the company already holding that slug", async () => {
-    const first = await service.create({ ats_platform: "ashby", ats_slug: "clashing-slug" });
-
-    const second = await service.create({ ats_platform: "ashby", ats_slug: "clashing-slug" });
-
-    expect(second.created).toBe(false);
-    expect(second.company.id).toBe(first.company.id);
-  });
 });
 
 // AC 76 and 77. A refusal names the column that blocked the write, so recovery
@@ -271,29 +264,10 @@ describe("recovering from a refused write", () => {
     expect(lookups).toEqual([{ match_key: companyMatchKey("One Lookup Holdings") }]);
   });
 
-  test("looks up only the slug where the slug is the column named", async () => {
-    const first = await service.create({
-      ats_platform: "greenhouse",
-      ats_slug: "one-lookup-slug",
-    });
-    const lookups: unknown[] = [];
-    const watched = createCompanyService(recordingDb(db, lookups));
-
-    const second = await watched.create({
-      name: "One Lookup Slug Newcomer",
-      ats_slug: "one-lookup-slug",
-    });
-
-    expect(second.created).toBe(false);
-    expect(second.company.id).toBe(first.company.id);
-    expect(lookups).toEqual([{ ats_slug: "one-lookup-slug" }]);
-  });
 
   test("looks up only the column a refused name fill names", async () => {
     const holder = await service.create({ name: "Fill One Lookup Group" });
-    const target = await db.company.create({
-      data: { ats_platform: "lever", ats_slug: "fill-one-lookup" },
-    });
+    const target = await service.createNameless();
     const lookups: unknown[] = [];
     const watched = createCompanyService(recordingDb(db, lookups));
 
@@ -324,9 +298,7 @@ describe("recovering from a refused write", () => {
 // that supplies one, and its key is written with it.
 describe("filling a company's empty name", () => {
   test("writes the name and its key", async () => {
-    const created = await db.company.create({
-      data: { ats_platform: "lever", ats_slug: "fill-name-target" },
-    });
+    const created = await service.createNameless();
 
     const result = await service.fillName(created.id, "Fill Name Target");
 
@@ -335,18 +307,6 @@ describe("filling a company's empty name", () => {
     expect(result.company.match_key).toBe("fillnametarget");
   });
 
-  // AC 36. Association never writes a company's ATS platform or slug — a
-  // company earns being polled by scoring, not by being met once.
-  test("leaves the platform and slug untouched", async () => {
-    const created = await db.company.create({
-      data: { ats_platform: "greenhouse", ats_slug: "fill-keeps-slug" },
-    });
-
-    const result = await service.fillName(created.id, "Fill Keeps Slug");
-
-    expect(result.company.ats_platform).toBe("greenhouse");
-    expect(result.company.ats_slug).toBe("fill-keeps-slug");
-  });
 
   // AC 35 and 55. An ordinary event, not a crash: two spellings of one
   // employer, one already named. The name is not written, the company the job
@@ -354,9 +314,7 @@ describe("filling a company's empty name", () => {
   // warn about a merge only the user can make.
   test("refuses a name another company already holds, and names the holder", async () => {
     const holder = await service.create({ name: "Name Clash Holder" });
-    const target = await db.company.create({
-      data: { ats_platform: "ashby", ats_slug: "name-clash-target" },
-    });
+    const target = await service.createNameless();
 
     const result = await service.fillName(target.id, "Name Clash Holder");
 
@@ -364,5 +322,283 @@ describe("filling a company's empty name", () => {
     expect(result.company.id).toBe(target.id);
     expect(result.company.name).toBeNull();
     expect(result.heldBy?.id).toBe(holder.company.id);
+  });
+});
+
+// An agent researches a company on four things and writes back a score, the
+// reasoning behind it, and whether it had to guess. A company is picked up
+// again whenever any category is empty, so the write has to leave the
+// categories it was not given exactly as they were.
+describe("saving a company's scores", () => {
+  const SCORED_AT = new Date("2026-09-15T00:00:00.000Z");
+
+  async function companyNamed(name: string): Promise<string> {
+    const { company } = await service.create({ name });
+    return company.id;
+  }
+
+  test("a researched category is written with its score", async () => {
+    const id = await companyNamed("Scores Written Co");
+
+    const company = await service.saveScores(
+      id,
+      { employee_satisfaction: { score: 4, rationale: "well reviewed", guessed: false } },
+      SCORED_AT
+    );
+
+    expect(company.employee_satisfaction).toBe(4);
+  });
+
+  test("the reasoning behind a category is written in a field of its own", async () => {
+    const id = await companyNamed("Rationale Written Co");
+
+    const company = await service.saveScores(
+      id,
+      { work_life_balance: { score: 2, rationale: "long hours reported", guessed: false } },
+      SCORED_AT
+    );
+
+    expect(company.work_life_balance_rationale).toBe("long hours reported");
+  });
+
+  // Only the categories a company is missing are researched, so the three it
+  // already holds must survive a write covering the fourth.
+  test("a category the write was not given keeps the value it had", async () => {
+    const id = await companyNamed("Partial Rescore Co");
+    await service.saveScores(
+      id,
+      {
+        employee_satisfaction: { score: 5, rationale: "excellent", guessed: false },
+        customer_satisfaction: { score: 3, rationale: "mixed", guessed: false },
+      },
+      SCORED_AT
+    );
+
+    const company = await service.saveScores(
+      id,
+      { political_alignment: { score: 1, rationale: "rolled back DEI", guessed: false } },
+      SCORED_AT
+    );
+
+    expect(company.employee_satisfaction).toBe(5);
+    expect(company.customer_satisfaction).toBe(3);
+  });
+
+  test("the reasoning behind a category the write was not given survives too", async () => {
+    const id = await companyNamed("Partial Rationale Co");
+    await service.saveScores(
+      id,
+      { employee_satisfaction: { score: 5, rationale: "excellent", guessed: false } },
+      SCORED_AT
+    );
+
+    const company = await service.saveScores(
+      id,
+      { political_alignment: { score: 1, rationale: "rolled back DEI", guessed: false } },
+      SCORED_AT
+    );
+
+    expect(company.employee_satisfaction_rationale).toBe("excellent");
+  });
+
+  test("the date the company was scored is written onto it", async () => {
+    const id = await companyNamed("Scored Date Co");
+
+    const company = await service.saveScores(
+      id,
+      { customer_satisfaction: { score: 3, rationale: "no ratings found", guessed: true } },
+      SCORED_AT
+    );
+
+    expect(company.scored_at?.toISOString()).toBe(SCORED_AT.toISOString());
+  });
+
+  // The rubric awards a 3 when nothing public was found, which looks exactly
+  // like a researched middling score. The guessed list is what tells them
+  // apart, so cleanup can empty a guess sooner than a judgement.
+  test("a guessed category is named in the guessed list", async () => {
+    const id = await companyNamed("Guessed Named Co");
+
+    const company = await service.saveScores(
+      id,
+      {
+        employee_satisfaction: { score: 4, rationale: "well reviewed", guessed: false },
+        customer_satisfaction: { score: 3, rationale: "nothing public", guessed: true },
+      },
+      SCORED_AT
+    );
+
+    expect(company.scores_guessed).toEqual(["customer_satisfaction"]);
+  });
+
+  test("a company with every category researched has an empty guessed list", async () => {
+    const id = await companyNamed("Nothing Guessed Co");
+
+    const company = await service.saveScores(
+      id,
+      {
+        employee_satisfaction: { score: 4, rationale: "a", guessed: false },
+        customer_satisfaction: { score: 4, rationale: "b", guessed: false },
+        work_life_balance: { score: 4, rationale: "c", guessed: false },
+        political_alignment: { score: 4, rationale: "d", guessed: false },
+      },
+      SCORED_AT
+    );
+
+    expect(company.scores_guessed).toEqual([]);
+  });
+
+  // A partial re-score must not drop a guess made about a category it is not
+  // touching, or that guess would sit in the ranking as if it were research.
+  test("a guess about a category this write did not touch stays on the list", async () => {
+    const id = await companyNamed("Guess Survives Co");
+    await service.saveScores(
+      id,
+      { customer_satisfaction: { score: 3, rationale: "nothing public", guessed: true } },
+      SCORED_AT
+    );
+
+    const company = await service.saveScores(
+      id,
+      { employee_satisfaction: { score: 4, rationale: "well reviewed", guessed: false } },
+      SCORED_AT
+    );
+
+    expect(company.scores_guessed).toEqual(["customer_satisfaction"]);
+  });
+
+  // The other half of the same rule: researching a category that used to be a
+  // guess takes it off the list.
+  test("a category researched this time comes off the guessed list", async () => {
+    const id = await companyNamed("Guess Replaced Co");
+    await service.saveScores(
+      id,
+      { customer_satisfaction: { score: 3, rationale: "nothing public", guessed: true } },
+      SCORED_AT
+    );
+
+    const company = await service.saveScores(
+      id,
+      { customer_satisfaction: { score: 5, rationale: "strong ratings", guessed: false } },
+      SCORED_AT
+    );
+
+    expect(company.scores_guessed).toEqual([]);
+  });
+
+  test("the stored row holds what was written", async () => {
+    const id = await companyNamed("Stored Scores Co");
+    await service.saveScores(
+      id,
+      { political_alignment: { score: 2, rationale: "conservative donations", guessed: false } },
+      SCORED_AT
+    );
+
+    const stored = await db.company.findUnique({ where: { id } });
+    expect(stored?.political_alignment).toBe(2);
+  });
+});
+
+// Scoring researches every company holding a backlog job and missing a score,
+// so a ranking is never built on blanks.
+describe("finding the companies that still need a score", () => {
+  const COLLECTED_AT = new Date("2026-09-01T00:00:00.000Z");
+  const FULL_SCORES = {
+    employee_satisfaction: 4,
+    customer_satisfaction: 4,
+    work_life_balance: 4,
+    political_alignment: 4,
+  };
+
+  async function companyWithJob(
+    name: string,
+    scores: Record<string, number> = {},
+    jobStatus = "backlog",
+    jobCount = 1
+  ): Promise<string> {
+    const company = await db.company.create({ data: { name, match_key: name, ...scores } });
+    for (let index = 0; index < jobCount; index += 1) {
+      await db.job.create({
+        data: {
+          id: `${name}-job-${index}`,
+          company_id: company.id,
+          collected_at: COLLECTED_AT,
+          status: jobStatus,
+        },
+      });
+    }
+    return company.id;
+  }
+
+  // Criterion 9.
+  test("a company holding a backlog job and missing a score is on the list", async () => {
+    const id = await companyWithJob("Needs Score Co");
+
+    const companies = await service.findNeedingScores();
+
+    expect(companies.map((company) => company.id)).toContain(id);
+  });
+
+  // One missing category is enough, because a ranking built on a blank is
+  // not a ranking.
+  test("a company missing only one of the four is on the list", async () => {
+    const id = await companyWithJob("Missing One Co", {
+      employee_satisfaction: 4,
+      customer_satisfaction: 4,
+      work_life_balance: 4,
+    });
+
+    const companies = await service.findNeedingScores();
+
+    expect(companies.map((company) => company.id)).toContain(id);
+  });
+
+  // Criterion 10.
+  test("a company holding all four scores is not on the list", async () => {
+    const id = await companyWithJob("Fully Scored Co", FULL_SCORES);
+
+    const companies = await service.findNeedingScores();
+
+    expect(companies.map((company) => company.id)).not.toContain(id);
+  });
+
+  // Criterion 11. The user has already decided about a job that left the
+  // backlog, so its employer is not worth researching.
+  test("a company whose only jobs left the backlog is not on the list", async () => {
+    const id = await companyWithJob("Applied Co", {}, "app. sent");
+
+    const companies = await service.findNeedingScores();
+
+    expect(companies.map((company) => company.id)).not.toContain(id);
+  });
+
+  test("a company holding no jobs at all is not on the list", async () => {
+    const company = await db.company.create({
+      data: { name: "Jobless Co", match_key: "joblessco" },
+    });
+
+    const companies = await service.findNeedingScores();
+
+    expect(companies.map((each) => each.id)).not.toContain(company.id);
+  });
+
+  // Criterion 12. One helper researches one company, so a company appearing
+  // twice would be researched twice and paid for twice.
+  test("a company holding several backlog jobs appears once", async () => {
+    const id = await companyWithJob("Several Jobs Co", {}, "backlog", 3);
+
+    const companies = await service.findNeedingScores();
+
+    expect(companies.filter((company) => company.id === id)).toHaveLength(1);
+  });
+
+  // The helper researches by name, so the list has to carry it.
+  test("a company on the list carries its name", async () => {
+    await companyWithJob("Named For Research Co");
+
+    const companies = await service.findNeedingScores();
+    const found = companies.find((company) => company.name === "Named For Research Co");
+
+    expect(found).toBeDefined();
   });
 });

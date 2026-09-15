@@ -19,15 +19,19 @@ export type AssociationWarning =
       collector: string;
       name: string;
       target: CompanyRecord;
+      // The board slug the job carried, where it had one. A company met only
+      // as a board holds no name, and its slugs live in a table this file is
+      // not handed, so the slug travels with the warning instead.
+      targetSlug?: string;
       heldBy: CompanyRecord;
     };
 
-// A company always carries a name, a board slug, or both. Where it has a
-// name, that's the readable label; where it has none, the slug stands in for
-// it, since being nameless is an ordinary state and not a fault. The id
-// always tags along, because two companies can otherwise show the same label.
-function labelCompany(company: CompanyRecord): string {
-  const label = company.name ?? company.ats_slug ?? "unlabeled company";
+// A company's name is its readable label. Where it has none, the board slug
+// the job arrived on stands in, since being nameless is an ordinary state and
+// not a fault. The id always tags along, because two companies can otherwise
+// show the same label.
+function labelCompany(company: CompanyRecord, slug?: string): string {
+  const label = company.name ?? slug ?? "unlabeled company";
   return `${label} (id: ${company.id})`;
 }
 
@@ -44,7 +48,7 @@ export function associationWarnings(warnings: AssociationWarning[]): CollectionI
       case "company_name_clash":
         return {
           collector: warning.collector,
-          message: `Could not write the name "${warning.name}" to ${labelCompany(warning.target)} because ${labelCompany(warning.heldBy)} already holds that name. Merge these two company rows by hand.`,
+          message: `Could not write the name "${warning.name}" to ${labelCompany(warning.target, warning.targetSlug)} because ${labelCompany(warning.heldBy)} already holds that name. Merge these two company rows by hand.`,
         };
       default: {
         // Exhaustiveness check: if a new AssociationWarning kind is added

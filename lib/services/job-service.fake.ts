@@ -190,6 +190,22 @@ export function fakeJobService(
       .map(withoutGateFields);
   }
 
+  // Backlog, carrying no alignment score, and past all three phase gates.
+  // Mirrors the real query: a job an earlier run left unscored is picked up
+  // rather than lost.
+  async function findNeedingScores(): Promise<JobListEntry[]> {
+    return jobs
+      .filter(
+        (job) =>
+          (job.status ?? "backlog") === "backlog" &&
+          job.alignment_score == null &&
+          !!job.is_resolved &&
+          !!job.is_parsed &&
+          !!job.is_classified
+      )
+      .map(withoutGateFields);
+  }
+
   return {
     update,
     delete: deleteJob,
@@ -201,6 +217,7 @@ export function fakeJobService(
     findBacklog,
     findExpiredWithin,
     findUnclassified,
+    findNeedingScores,
     ...overrides,
   };
 }

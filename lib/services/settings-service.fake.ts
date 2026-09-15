@@ -26,15 +26,16 @@ export function fakeSettingsService(overrides: Partial<SettingsService> = {}): S
     getTitleLevels: async () => [],
     getTitleSuffixes: async () => [],
     getTitleRemovalWords: async () => [],
-    // Neither of these has a seeded default to copy. An empty ATS company list
-    // is how a platform is switched off, and the priority list is built from
-    // the collector registry rather than seeded as a constant.
-    getAtsCompanies: async () => [],
+    // The priority list has no seeded default to copy: it is built from the
+    // collector registry rather than seeded as a constant.
     getSourcePriorityList: async () => [],
     getResolutionFastConcurrency: async () => 3,
     getResolutionSlowConcurrency: async () => 1,
     getResolutionSlowPauseSeconds: async () => 12,
     getRepostGapDays: async () => 3,
+    getPromotionThreshold: async () => 3.5,
+    getScoreExpiryDays: async () => 90,
+    getGuessedScoreExpiryDays: async () => 30,
     ...overrides,
   };
 }
