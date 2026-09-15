@@ -17,10 +17,11 @@
 import type { CollectionIssue } from "../types/collection-issue";
 import type { Collector } from "../collectors/collector";
 import { associateCompanies } from "../handlers/association";
-import { cleanBacklogJobs } from "../handlers/backlog-cleanup";
+import { cleanBacklogCompanies, cleanBacklogJobs } from "../handlers/backlog-cleanup";
 import { classifyJobs } from "../handlers/classification";
 import { promoteJobs } from "../handlers/promotion";
 import { collectJobs } from "../handlers/collection";
+import type { AtsSlugService } from "../services/ats-slug-service";
 import type { CompanyService } from "../services/company-service";
 import { dedupeJobs } from "../handlers/dedupe";
 import type { JobListEntry } from "../types/job-list-entry";
@@ -30,7 +31,7 @@ import { parseJobs } from "../handlers/parsing";
 import { resolveJobs } from "../handlers/resolution";
 import type { Parser } from "../parsers/parser";
 import type { ResolutionBrowserFactory, ResolutionPage } from "../tools/resolution-page";
-import { saveJobs } from "../handlers/save";
+import { saveCompanies, saveJobs } from "../handlers/save";
 import type { PlaceService } from "../services/place-service";
 import type { Geocoder } from "../tools/geocoder";
 import type { SettingsService } from "../services/settings-service";
@@ -43,8 +44,21 @@ export interface FinishedHandler {
   // one dedupe handler runs at two positions, so the position is what this
   // names and what its trace rows carry.
   step: string;
-  // How many entries the list it handed back held.
-  jobs: number;
+  // How many entries the list it handed back held. Entries rather than jobs,
+  // because a handler may be handed any list: most are handed jobs, and the
+  // one that clears stale company scores is handed companies.
+  entries: number;
+}
+
+// What a handler hands back: the list it acted on, under the name of what is
+// in it. Spelling the other name as never is what stops a result carrying
+// both, which would leave the count below picking one arbitrarily.
+type HandlerResult =
+  | { jobs: unknown[]; companies?: never }
+  | { companies: unknown[]; jobs?: never };
+
+function entriesIn(result: HandlerResult): number {
+  return result.jobs === undefined ? result.companies.length : result.jobs.length;
 }
 
 export interface RunJobSearchFailure {
@@ -58,6 +72,10 @@ export interface RunJobSearchFailure {
 
 export interface RunJobSearchResult {
   jobs: JobListEntry[];
+  // How many companies lost all four scores during backlog cleanup, and how
+  // many lost only the categories that were guessed. The summary says both.
+  companyScoresCleared: number;
+  companyGuessesCleared: number;
   errors: CollectionIssue[];
   warnings: CollectionIssue[];
   // One entry per handler that finished, in run order. A handler that threw
@@ -81,6 +99,10 @@ export interface RunJobSearchOptions {
   // identity dedupe later matches on, so a caller can't forget it and have
   // the orchestrator silently skip it.
   companies: CompanyService;
+  // Required, not optional, for the same reason again: a caller that omitted
+  // it would have the pipeline learn nothing about which boards its employers
+  // post on, and promotion would have no row to put a collector on.
+  atsSlugs: AtsSlugService;
   // Required, not optional, for the same reason: a caller that omitted it
   // would have the run end without writing a row, which is what a run that
   // found nothing also looks like.
@@ -125,6 +147,8 @@ export interface RunJobSearchOptions {
 export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJobSearchResult> {
   const report: RunJobSearchResult = {
     jobs: [],
+    companyScoresCleared: 0,
+    companyGuessesCleared: 0,
     errors: [],
     warnings: [],
     handlers: [],
@@ -149,12 +173,16 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
   // The same, for a handler, which additionally earns its line on the
   // finished list. A handler that threw never reaches the push, because the
   // throw leaves through `at` above.
-  async function handler<T extends { jobs: JobListEntry[] }>(
+  //
+  // The result is read for a list under either name rather than for jobs
+  // alone, because a handler may be handed any list. Most hand back jobs; the
+  // one that clears stale company scores hands back companies.
+  async function handler<T extends HandlerResult>(
     step: string,
     run: () => Promise<T>
   ): Promise<T> {
     const result = await at(step, run);
-    report.handlers.push({ step, jobs: result.jobs.length });
+    report.handlers.push({ step, entries: entriesIn(result) });
     return result;
   }
 
@@ -164,6 +192,15 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     // counts as expired would contradict itself.
     const expiryThresholdDays = await at("expiry_threshold", () =>
       options.settings.getExpiryThreshold()
+    );
+
+    // Read here for the same reason: every company in one run is judged
+    // against one pair of thresholds and one instant.
+    const scoreExpiryDays = await at("score_expiry_days", () =>
+      options.settings.getScoreExpiryDays()
+    );
+    const guessedScoreExpiryDays = await at("guessed_score_expiry_days", () =>
+      options.settings.getGuessedScoreExpiryDays()
     );
 
     // Read here rather than after collection, because the backlog cleanup save
@@ -186,6 +223,36 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       })
     );
 
+    // The company half of the same sweep, at the same position. A judgement
+    // about an employer ages the way a posting does, and a company whose
+    // scores are emptied here is researched again when scoring runs.
+    const scoredCompanies = await at("scored_company_lookup", () =>
+      options.companies.findScored()
+    );
+
+    const cleanedCompanies = await handler("backlog_cleanup_companies", () =>
+      cleanBacklogCompanies(scoredCompanies, {
+        scoreExpiryDays,
+        guessedScoreExpiryDays,
+        referenceInstant: options.collectedAt,
+        trace: options.trace,
+        runId: options.runId,
+        step: "backlog_cleanup",
+      })
+    );
+    report.companyScoresCleared = cleanedCompanies.scoresCleared;
+    report.companyGuessesCleared = cleanedCompanies.guessesCleared;
+
+    const companiesSaved = await handler("backlog_cleanup_company_save", () =>
+      saveCompanies(cleanedCompanies.companies, {
+        companyService: options.companies,
+        trace: options.trace,
+        runId: options.runId,
+        step: "post_backlog_cleanup_save",
+      })
+    );
+    report.warnings.push(...companiesSaved.warnings);
+
     const backlogSaved = await handler("post_backlog_cleanup_save", () =>
       saveJobs(cleanedBacklog.jobs, {
         jobService: options.jobService,
@@ -202,6 +269,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     const collected = await handler("collection", () =>
       collectJobs({
         settings: options.settings,
+        atsSlugs: options.atsSlugs,
         collectors: options.collectors,
         collectedAt: options.collectedAt,
         runId: options.runId,
@@ -245,6 +313,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     const associated = await handler("post_collection_association", () =>
       associateCompanies(report.jobs, {
         companies: options.companies,
+        atsSlugs: options.atsSlugs,
         trace: options.trace,
         runId: options.runId,
         step: "post_collection_association",
@@ -409,6 +478,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     const parsedAssociated = await handler("post_parsing_association", () =>
       associateCompanies(parsedNormalized.jobs, {
         companies: options.companies,
+        atsSlugs: options.atsSlugs,
         trace: options.trace,
         runId: options.runId,
         step: "post_parsing_association",

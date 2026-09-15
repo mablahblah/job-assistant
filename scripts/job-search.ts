@@ -3,6 +3,7 @@
 // is the orchestrator's to know rather than this script's.
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { createCompanyService } from "../lib/services/company-service";
+import { createAtsSlugService } from "../lib/services/ats-slug-service";
 import { createJobService } from "../lib/services/job-service";
 import { createPlaceService } from "../lib/services/place-service";
 import { createSettingsService } from "../lib/services/settings-service";
@@ -64,6 +65,9 @@ async function main(): Promise<void> {
     // The one way anything reaches the Company table, so association attaches
     // each job to a company without opening a database of its own.
     const companies = createCompanyService(prisma);
+    // The one way anything reaches the ATS slug table: which boards our
+    // employers post on, and which of those we poll every run.
+    const atsSlugs = createAtsSlugService(prisma);
     // The one way anything reaches the Job table, so saving stays in one
     // place instead of leaking into collectors and parsers.
     const jobService = createJobService(prisma);
@@ -84,6 +88,7 @@ async function main(): Promise<void> {
       settings,
       collectors: COLLECTORS,
       companies,
+      atsSlugs,
       jobService,
       // createResolutionBrowser already takes an optional launcher and returns
       // a resolution browser session, which is exactly what openBrowser is
@@ -107,7 +112,7 @@ async function main(): Promise<void> {
       // only be noise beside the summary the user actually reads.
       console.log("Finished before it stopped:");
       for (const handler of report.handlers) {
-        console.log(`  - ${handler.step}: ${handler.jobs} jobs`);
+        console.log(`  - ${handler.step}: ${handler.entries} entries`);
       }
     }
 
