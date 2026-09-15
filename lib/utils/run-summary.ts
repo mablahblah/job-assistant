@@ -15,9 +15,22 @@ function total(counts: TraceRunCount[], matches: (row: TraceRunCount) => boolean
 
 // English disagrees with a bare plural at one, and a summary the user reads
 // every run is the wrong place to make them forgive it. Zero keeps the plural,
-// because zero jobs is not one job.
-function jobs(n: number): string {
+// because zero of a thing is not one of it. Job and company are the only two
+// subjects this file counts, so one function words both rather than carrying
+// two near-copies that can drift apart.
+function countWord(subject: "job" | "company", n: number): string {
+  if (subject === "company") return n === 1 ? "1 company" : `${n} companies`;
   return n === 1 ? "1 job" : `${n} jobs`;
+}
+
+// Most lines in this file count jobs, so they keep the shorter name.
+function jobs(n: number): string {
+  return countWord("job", n);
+}
+
+// Scoring's company block and the cleanup notes count companies.
+function companies(n: number): string {
+  return countWord("company", n);
 }
 
 // Two detail lines carry a verb that has to agree as well, so they cannot be
@@ -85,19 +98,26 @@ interface StepOutcome {
 function stepBlock(
   heading: string,
   step: string,
+  // Named at every call site rather than defaulted, because one step is
+  // printed twice under two subjects and a silent default would let the two
+  // blocks count the same population.
+  subject: "job" | "company",
   counts: TraceRunCount[],
   outcomes: StepOutcome[],
   notes: string[],
   stoppedAt?: string | null
 ): string[] {
-  const entered = total(counts, (row) => row.step === step && row.event === "job_entered");
+  const entered = total(
+    counts,
+    (row) => row.step === step && row.event === `${subject}_entered`
+  );
   const width = String(entered).length;
 
   // A partial block is otherwise indistinguishable from a complete one. This
   // is a fact about the run rather than a way any one job left the step, so it
   // sits on the heading instead of earning a line of its own.
   const stoppedSuffix = stoppedAt === step ? " \u2014 stopped early" : "";
-  const lines: string[] = [`${heading} (${jobs(entered)})${stoppedSuffix}`];
+  const lines: string[] = [`${heading} (${countWord(subject, entered)})${stoppedSuffix}`];
 
   for (const outcome of outcomes) {
     const count = total(
@@ -110,16 +130,17 @@ function stepBlock(
     // block reads as a step that never ran.
     if (count === 0) continue;
 
-    // jobs() already carries the word after the number, so the padding only
-    // has to put the spaces in front of it.
+    // countWord() already carries the word after the number, so the padding
+    // only has to put the spaces in front of it.
     const pad = " ".repeat(2 + width - String(count).length);
     const reasonClause = outcome.reason ? ` (reason: ${outcome.reason})` : "";
-    lines.push(`${pad}${jobs(count)} ${outcome.label}${reasonClause}`);
+    lines.push(`${pad}${countWord(subject, count)} ${outcome.label}${reasonClause}`);
   }
 
-  // A note about no jobs at all says nothing, so a step handed nothing shows
-  // its heading and stops there.
-  if (entered > 0 && notes.length > 0) {
+  // Whether a note belongs at zero is a fact about that particular note
+  // rather than about this shape, so the caller decides. A note about
+  // companies must still print where no job was on the backlog at all.
+  if (notes.length > 0) {
     lines.push("", ...notes.map((note) => `  Note: ${note}`));
   }
 
@@ -136,18 +157,44 @@ export function summaryFromTraceCounts(
 ): string[] {
   const lines: string[] = [];
 
+  // Cleanup sweeps stale company judgements alongside expired jobs. That is
+  // true about companies rather than a way a job left the step, so it earns a
+  // note, and the note is built from its own counts so an empty backlog does
+  // not hide it.
+  const staleScoresCleared = total(
+    counts,
+    (row) =>
+      row.step === "backlog_cleanup" &&
+      row.event === "company_scores_cleared" &&
+      row.reason === "past_score_expiry"
+  );
+  const staleGuessedScoresCleared = total(
+    counts,
+    (row) =>
+      row.step === "backlog_cleanup" &&
+      row.event === "company_scores_cleared" &&
+      row.reason === "past_guessed_score_expiry"
+  );
+  const backlogCleanupNotes = [
+    ...(staleScoresCleared > 0 ? [`${companies(staleScoresCleared)} lost a stale score`] : []),
+    ...(staleGuessedScoresCleared > 0
+      ? [`${companies(staleGuessedScoresCleared)} lost a stale guessed score`]
+      : []),
+  ];
+
   // Backlog cleanup opens the run, so it opens the summary too — the reader
   // meets the jobs in the order the run met them.
   lines.push(
     ...stepBlock(
       "Backlog cleanup",
       "backlog_cleanup",
+      "job",
       counts,
       [
         { event: "job_kept", label: "kept" },
         { event: "job_expired", reason: "past_expiry_threshold", label: "expired" },
       ],
-      [],
+      backlogCleanupNotes,
       stoppedAt
     ),
     ""
@@ -254,15 +301,24 @@ export function summaryFromTraceCounts(
     }
   }
 
-  // Promotion and classification close the run, so they close the summary.
+  // stepBlock no longer withholds a note at zero, so the one caller that
+  // relied on that applies the guard itself: where nothing was promoted,
+  // saying where nothing came from says nothing.
+  const jobsPromoted = total(
+    counts,
+    (row) => row.step === "promotion" && row.event === "job_entered"
+  );
+
+  // Promotion and classification close the deterministic run.
   lines.push(
     "",
     ...stepBlock(
       "Promotion",
       "promotion",
+      "job",
       counts,
       [{ event: "job_promoted", label: "promoted into the pipeline" }],
-      ["these came from the backlog, not from this run's collection"],
+      jobsPromoted > 0 ? ["these came from the backlog, not from this run's collection"] : [],
       stoppedAt
     ),
     ""
@@ -279,6 +335,7 @@ export function summaryFromTraceCounts(
     ...stepBlock(
       "Classification",
       "classification",
+      "job",
       counts,
       [
         { event: "job_classified", label: "were close enough" },
@@ -291,6 +348,68 @@ export function summaryFromTraceCounts(
         },
       ],
       reposted > 0 ? [`${reposted} of these were also flagged as reposts`] : [],
+      stoppedAt
+    )
+  );
+
+  // Scoring closes the summary, because it is the last thing a run does. Both
+  // blocks read the same step, and the subject is what tells them apart.
+  lines.push(
+    "",
+    ...stepBlock(
+      "Alignment scoring",
+      "scoring",
+      "job",
+      counts,
+      [
+        { event: "job_scored", label: "scored" },
+        { event: "scoring_failed", reason: "no_posting_url", label: "could not be scored" },
+        { event: "scoring_failed", reason: "posting_unreadable", label: "could not be scored" },
+        { event: "scoring_failed", reason: "scoring_agent_failed", label: "could not be scored" },
+        { event: "scoring_failed", reason: "db_write_failed", label: "could not be scored" },
+      ],
+      [],
+      stoppedAt
+    ),
+    ""
+  );
+
+  // Being put on a polling list is true about a company already counted above
+  // rather than a way one left the step, so it is a note and never sums into
+  // the heading.
+  const companiesPromoted = total(
+    counts,
+    (row) => row.step === "company_promotion" && row.event === "company_promoted"
+  );
+
+  lines.push(
+    ...stepBlock(
+      "Company scoring",
+      "scoring",
+      "company",
+      counts,
+      [
+        { event: "company_scored", label: "scored" },
+        {
+          event: "company_partially_scored",
+          reason: "insufficient_research",
+          label: "partially scored",
+        },
+        { event: "company_scoring_failed", reason: "company_unnamed", label: "could not be scored" },
+        {
+          event: "company_scoring_failed",
+          reason: "scoring_agent_failed",
+          label: "could not be scored",
+        },
+        { event: "company_scoring_failed", reason: "db_write_failed", label: "could not be scored" },
+      ],
+      companiesPromoted > 0
+        ? [
+            `${companies(companiesPromoted)} ${
+              companiesPromoted === 1 ? "was" : "were"
+            } added to a polling list`,
+          ]
+        : [],
       stoppedAt
     )
   );

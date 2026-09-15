@@ -345,3 +345,165 @@ describe("the three judging steps each print a block", () => {
     expect(lines).toContain("Classification (157 jobs)");
   });
 });
+
+// A company row carries no collector, so its trace counts group under a null
+// one. Everything below is a company count unless it says otherwise.
+function companyCount(
+  step: string,
+  event: string,
+  n: number,
+  reason: string | null = null
+): TraceRunCount {
+  return { step, event, reason, collector: null, domain: null, count: n };
+}
+
+// Criterion 74. Alignment scoring is a block of its own, counting jobs.
+describe("the alignment scoring block", () => {
+  test("its heading counts the jobs scoring was handed", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("scoring", "job_entered", "lever", 10),
+        count("scoring", "job_scored", "lever", 7),
+        count("scoring", "scoring_failed", "lever", 3, "no_posting_url"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Alignment scoring (10 jobs)");
+  });
+
+  test("its lines account for every job it was handed", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("scoring", "job_entered", "lever", 10),
+        count("scoring", "job_scored", "lever", 7),
+        count("scoring", "scoring_failed", "lever", 3, "no_posting_url"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("   7 jobs scored");
+    expect(lines).toContain("   3 jobs could not be scored (reason: no_posting_url)");
+  });
+
+  // Criterion 76. A missing block reads as a step that never ran.
+  test("a run with nothing to score still prints the heading at zero", () => {
+    const lines = summaryFromTraceCounts([], COLLECTORS);
+
+    expect(lines).toContain("Alignment scoring (0 jobs)");
+  });
+});
+
+// Criteria 75, 102 and 103. Company scoring is a second block, and every
+// number in it counts companies rather than jobs.
+describe("the company scoring block", () => {
+  test("its heading counts companies", () => {
+    const lines = summaryFromTraceCounts(
+      [companyCount("scoring", "company_entered", 4)],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Company scoring (4 companies)");
+  });
+
+  test("one company reads as one company rather than a bare plural", () => {
+    const lines = summaryFromTraceCounts(
+      [companyCount("scoring", "company_entered", 1)],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("Company scoring (1 company)");
+  });
+
+  // Criterion 82. A guessed category is an outcome, not a warning.
+  test("its outcome lines count companies", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        companyCount("scoring", "company_entered", 4),
+        companyCount("scoring", "company_scored", 2),
+        companyCount("scoring", "company_partially_scored", 1, "insufficient_research"),
+        companyCount("scoring", "company_scoring_failed", 1, "company_unnamed"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("  2 companies scored");
+    expect(lines).toContain("  1 company partially scored (reason: insufficient_research)");
+    expect(lines).toContain("  1 company could not be scored (reason: company_unnamed)");
+  });
+
+  test("a run with no company to score still prints the heading at zero", () => {
+    const lines = summaryFromTraceCounts([], COLLECTORS);
+
+    expect(lines).toContain("Company scoring (0 companies)");
+  });
+});
+
+// Criterion 80. Being added to a polling list is something true about
+// companies already counted above, so it is a note rather than a way out.
+describe("companies promoted during a run", () => {
+  test("a note says how many were added to a polling list", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        companyCount("scoring", "company_entered", 4),
+        companyCount("scoring", "company_scored", 4),
+        companyCount("company_promotion", "company_promoted", 2),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("  Note: 2 companies were added to a polling list");
+  });
+
+  test("no note where nothing was promoted", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        companyCount("scoring", "company_entered", 4),
+        companyCount("scoring", "company_scored", 4),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines.join("\n")).not.toContain("added to a polling list");
+  });
+});
+
+// Criterion 81. Stale judgements are swept at the start of a run, which is
+// something true about companies rather than about the jobs the block counts.
+describe("company scores cleared during backlog cleanup", () => {
+  test("a note says how many lost every score", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("backlog_cleanup", "job_entered", "lever", 5),
+        count("backlog_cleanup", "job_kept", "lever", 5),
+        companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_score_expiry"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("  Note: 3 companies lost a stale score");
+  });
+
+  test("a note says how many lost only their guessed scores", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        count("backlog_cleanup", "job_entered", "lever", 5),
+        count("backlog_cleanup", "job_kept", "lever", 5),
+        companyCount("backlog_cleanup", "company_scores_cleared", 2, "past_guessed_score_expiry"),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("  Note: 2 companies lost a stale guessed score");
+  });
+
+  // The note is about companies, so an empty backlog must not hide it.
+  test("the note prints even where no job was on the backlog", () => {
+    const lines = summaryFromTraceCounts(
+      [companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_score_expiry")],
+      COLLECTORS
+    );
+
+    expect(lines).toContain("  Note: 3 companies lost a stale score");
+  });
+});
