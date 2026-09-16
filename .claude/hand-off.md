@@ -13,95 +13,82 @@
 
 ## Current Task
 
-**Phase 10, Scoring, is being built. Tasks 1 to 17 are done. Tasks 18 to 24 are not.**
+**Phase 10, Scoring, is built. All 24 tasks are done. The phase is not closed.**
 
-Verified at session end: **2,655 tests pass across 116 files. `npm run lint` exits 0.** Nothing is committed. Every change sits in the working tree.
+Verified at session end: **2,723 tests pass across 121 files. `npm run lint` exits 0.**
 
-Task 18 is part built. The two database searches it needs both exist and pass — `jobService.findNeedingScores` and `companyService.findNeedingScores`. The scoring orchestrator itself does not exist.
-
-The 24 build tasks are in [the phase spec](../docs/features/unified-pipeline/phases/phase-10-scoring-spec.md#tasks) and mirrored in `docs/CURRENT-FEATURE.md`.
+Seven commits were pushed to `feature/unified-pipeline`, `ba89215..4cda7fd`. Everything phase 10 built is committed.
 
 ### What is in the working tree
 
-Six new files:
+Five files, none of them phase 10 code:
 
-- `lib/services/ats-slug-service.ts` and its fake, plus a test for each
-- `lib/handlers/backlog-cleanup-companies.test.ts`
-- `lib/handlers/save-companies.test.ts`
-
-Fifty-five changed files. The three that carry the most new behaviour are `lib/services/company-service.ts`, `lib/handlers/backlog-cleanup.ts` and `prisma/schema.prisma`.
+- `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md` and the feature decision log — this session's own bookkeeping.
+- `lib/collectors/fixtures/dribbble.html` and `lib/collectors/fixtures/uiuxjobsboard.html` — **the live run refreshed these itself.** A page-reading collector rewrites its fixture from the last search that returned cards, but only where that search's own self-check passed. This is the designed behaviour, not damage. Commit them or discard them; either is safe.
 
 ## Completed This Session
 
-**Tasks 1 to 17 of phase 10.**
+**Tasks 18 to 24 of phase 10, and the first live end-to-end run.**
 
-The database gained an ATS slug table, four company scores with a rationale each, a job alignment score, three settings, and a records table that can describe a company. The company record lost its two ATS columns, and the 24 files reading them were rewritten.
+Scoring now runs. It is two commands, because an agent does the judging and no single command can pause while it thinks.
 
-A service now owns the ATS slug table. Company matching writes a slug row after a posting is read. The three ATS collectors read their boards from that table rather than from the company table. The seed fills it, and the reset script spares every company a slug row names.
-
-Backlog cleanup gained a company sweep that empties a stale judgement. A save handler for company lists sits beside the one for jobs. A reposted job loses its alignment score. The written handler contract now describes a handler as acting on any list.
+- `lib/orchestrators/scoring.ts` holds both halves. `runScoringGather` sweeps the backlog, then asks the database for the jobs and employers needing scores. `runScoringSave` takes the answers back, writes them through the two services, and records what became of each entry.
+- `scripts/score-gather.ts` and `scripts/score-save.ts` are the two commands, registered as `npm run score:gather` and `npm run score:save`. Save takes `--summary` on the last batch.
+- `lib/handlers/company-promotion.ts` gives a well-scoring company's board row the collector that will poll it.
+- The run summary gained an alignment scoring block, a company scoring block, and two notes.
+- `score-companies` became `score-backlog`, with the company rubric lifted into a file of its own.
+- The `job-search` skill runs the pipeline, then scoring, then the viewing server.
+- The company and scoring record vocabulary is documented in the `Trace` model comment and in `trace-events.md`, with a guardrail test in `prisma/schema.test.ts`. **That gap the previous hand-off named is closed.**
 
 ## Session Context
 
-The decisions the user made are in the feature decision log. **No entry was written this session.** `update-decision-log` ran and dropped all three candidates: two restated process that `start-work-session` and `crowd-code` already document, and one had no fork behind it.
-
-### How this session was run, and what went wrong
-
-`start-work-session` says to invoke `crowd-code` once per change. For most of tasks 1 to 17 that was not done, and the code was written directly instead. The user caught it and asked for the complicated additions to be redone properly.
-
-**Five pieces were then rebuilt through crowd-code**, each by stubbing the implementation until its tests went red, dispatching two writers, and selecting against the rubric: the ATS slug service, `saveScores` on the company service, the company sweep in backlog cleanup, `saveCompanies`, the seed's board filling, and the two new database searches.
-
-**Two of those first prompts were wrong, and I patched the winners by hand instead of re-prompting.** The user caught that too. The rule is that a shortfall caused by the prompt is fixed in the prompt, and the writers run again. Both were re-dispatched with corrected prompts, and both winners were then applied untouched.
-
-**Everything from here on is to be built through crowd-code.**
+The decisions the user made are in the feature decision log. **Two entries were written this session**, and one existing entry was superseded.
 
 ### Calls made while building
 
-**The task order changed.** Task 3 removes two company columns. Building it in listed order would have left the suite broken across five later tasks, so tasks 8 to 14 were built first and task 3 landed as one sweep carrying tasks 9, 10, 11 and 12 with it.
+**Promotion fills in a board row that already exists.** Criterion 56 reads as though promotion re-reads the slug out of the resolved link. It does not. Company matching already wrote that row when the posting was parsed, carrying the slug, the company and the parser. The phase spec's Approach section settles it: "Promotion fills it in later, and filling it in is what puts the company on a polling list." So promotion only adds the collector. This needed one new service method, `listForCompany`.
 
-**The alignment score went into the wrong merge group first.** It was put in a group the merge never writes onto the entry. That looked right — a merge settles two collectors disagreeing about a posting, and neither has an opinion about how well a job fits. But promotion empties the score by writing an explicit empty value, and a group the merge drops meant that value never reached the row. It moved to `WRITTEN_THROUGH_FIELDS`, where an explicit empty value lands and an absent one leaves the stored score standing.
+**Scoring writes under one step name, split by subject.** Both halves write under `scoring`, and whether a row names a job or a company is what tells the two populations apart. This mirrors backlog cleanup, which already does the same. Promotion is a separate step, `company_promotion`, because a `promotion` step already exists and means a reposted job returning to the backlog.
 
-**The company sweep runs at the pipeline's backlog cleanup position**, which adds two names to the run: `backlog_cleanup_companies` and `backlog_cleanup_company_save`. Two ordering tests in `lib/orchestrators/job-search.test.ts` name every handler in order and had to be updated.
+**A shared reason needed two event names.** Criteria 17 and 29 both name `scoring_agent_failed`, but the vocabulary rule forbids one reason spanning two populations. The fix was two events — `scoring_failed` for a job, `company_scoring_failed` for a company — so the event carries the split and the summary can count each side.
 
-**The slug service is optional on company matching and required everywhere else.** Optional there matches how the trace service is optional: a handler handed no service still does its work, which is what lets it run outside a job search. It is required on `runJobSearch`, on the collection handler, and on every collector's context.
+**The save half looks up the collector.** A trace row about a job must carry the collector that produced it, and an agent's answer carries only an id. So `runScoringSave` reads `findNeedingScores` first and builds an id-to-collector map, rather than trusting the agent to hand the collector back.
 
-**The company fake answers neither a slug lookup nor the company search.** Both now read something the fake does not hold — a slug reads through the ATS slug table, and the company search joins to the job table. A test needing either passes an override. Three association test files build a small map from slug to company id for this.
+**`--summary` was added to the save command.** Nothing else prints a summary once scoring has run — the pipeline prints its own before scoring starts. The flag is passed on the last batch only, because the command runs once per batch and reprinting a growing summary each time is noise.
 
 ### Gotchas discovered
 
-**`jobAgeInDays` does not take a date.** It takes a job's three dates and picks which one to count from. A company carries one date, so the company sweep does the subtraction itself, matching that helper at the edges: plain division, and a future date reads as no age rather than a negative one. Both writers got this wrong from a prompt that implied otherwise.
+**A raw `INSERT` into `Company` or `AtsSlug` must supply `modified_at`.** Prisma's `@updatedAt` has no database default, so a test inserting a row by hand fails the NOT NULL constraint.
 
-**A warning lost the only label it had.** The company name clash warning showed a board slug where a company had no name. The slug moved to a table that warning is not handed, so the slug now travels on the warning itself as `targetSlug`.
+**The job-search command does not print its run identifier.** Scoring must carry the same one, and the skill has no way to read it. This run worked around it by reading the identifier out of the `Trace` table by hand. **This is now phase 13's work, recorded in `docs/CURRENT-FEATURE.md` and the decision log.**
 
-**Adding a database table breaks four guardrails at once**: the hand-kept checked-model list, the reset script's table-name assertion, the merge rule's column coverage test, and the schema column lists in `prisma/schema.test.ts`. That is the guardrails working.
-
-**`prisma format` rewrites the schema's whitespace.** Run `npx prisma generate` after every schema edit, or the generated client describes the old shape.
+**`.serve.json` points at `scripts/serve.ts`, which does not exist.** The only server on disk is `legacy/scripts/serve.ts`, reading the old database. The viewing server cannot show anything this pipeline produces. **This is phase 12's work.**
 
 ### Approaches tried and abandoned
 
-**Hand-correcting a crowd-code winner.** Twice. Both times the fault was in my prompt, and the correct move is to fix the prompt and run the writers again.
+**Adding `atsSlugs` to every scoring test call with one sweep.** A bulk edit put the option on four `runScoringGather` calls, which do not take it. Tests still passed because the extra property is ignored at runtime; `npm run lint` caught it. Typecheck is the guardrail here, not the suite.
 
-**Keeping the board lookup on the settings service.** Criterion 101 requires a service of its own, so `getAtsCompanies` was removed and `readAtsBoards` now reads the slug service. The board shape stayed as `{ ats_slug }` so the three collectors' bodies did not change.
+### What the first live run showed
 
-### A gap that must be closed
+It ran about 55 minutes, almost all of it following links in a browser.
 
-**The new company record vocabulary is undocumented.** The pipeline now writes five events a company can take — `company_entered`, `company_kept`, `company_scores_cleared`, `company_dbrow_updated`, and collection's `abandoned` reused for a failed write — and two reasons, `past_score_expiry` and `past_guessed_score_expiry`.
-
-This project documents that vocabulary in two places, and neither has been updated: the comment above the `Trace` model in `prisma/schema.prisma`, and [trace-events.md](../docs/features/unified-pipeline/trace-events.md). The existing tests in `prisma/schema.test.ts` still pass, because each only checks the words it names. That is the guardrail being narrower than the convention, not the convention being met.
+- 376 jobs collected, 313 saved, 162 resolved, 170 parsed, 169 classified.
+- Only 20 jobs reached scoring — a 5% yield. 88 of the classified jobs expired on arrival, which is what a fresh database collecting old postings does once.
+- 110 jobs could not be parsed. Four platforms account for 77: Workable 32, AIApply 24, Workday 13, SmartRecruiters 8. No parser exists for any of them.
+- 27 employers were researched, one helper each. 20 came back fully scored, 7 partially, because a category had nothing public behind it.
+- **Promotion fired correctly on real data.** Impinj and Virtualitics cleared the threshold and joined a polling list. 24 fell below it, 1 had no board we can poll.
+- jsearch raised one warning: `JSearch local search failed: Network timeout after 15s`.
 
 ### Open questions
 
-**Nothing is committed.** Fifty-five modified files and six new ones sit in the working tree on `feature/unified-pipeline`.
+**Phase 10 is built but not closed.** Closing updates the architecture doc, runs `/update-decision-log`, and presents any `BACKLOG.md` change for approval.
 
-**No decision-log entry exists for this session.** `update-decision-log` has not run.
-
-**Whether the company sweep should also run inside the scoring orchestrator.** Criterion 40 says no handler in the scoring orchestrator runs before backlog cleanup, and criterion 41a says backlog cleanup has run again by the time scoring starts. The pipeline half is built. The scoring half is not, because the scoring orchestrator is not built.
+**The two summary shapes are now phase 14.** Collection, dedupe, resolution and parsing print a label and loose bullets. Everything else follows the run-summary rule. Read together they look like two different programs. This was backlog item 30; the entry was removed from the backlog and its r&d file stays at `docs/features/summary-format-rollout/feature_r&d.md`.
 
 ## Next Steps
 
-1. **Build task 18, the scoring orchestrator's gathering half**, in `lib/orchestrators/scoring.ts`. Its two database searches already exist and pass. What remains: run backlog cleanup, ask for the two lists, and write an entered record for each job and each company. Covers criteria 1 to 12, 41a, 68, 69, 72 and 110. Read the spec's Approach section first — this orchestrator has two starting points and is unlike every other one in the project.
-2. **Build task 19, the saving half.** It takes scores back, writes them through the two services, records each outcome, and can be called more than once in a run.
-3. **Build task 20, company promotion**, then 21, the run summary.
-4. **Tasks 22, 23 and 24 are markdown only** — two skills and one line in `CLAUDE.md`. `crowd-code` makes those directly without writer agents.
-5. **Document the company record vocabulary** in the `Trace` model comment in `prisma/schema.prisma` and in `trace-events.md`, and add a test in `prisma/schema.test.ts` naming the five events and two reasons, beside the tests that do the same for every other step.
-6. **`update-decision-log` ran on 2026-09-15 and wrote nothing.** Three candidates were raised and all three failed the qualification test. Run it again when the next session produces decisions.
+1. **Decide what to do with the two refreshed fixtures** in `lib/collectors/fixtures/`. The live run rewrote them. Commit or discard.
+2. **Commit the three documentation files** still in the working tree: `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md` and the feature decision log.
+3. **Close phase 10.** Update `docs/features/unified-pipeline/architecture.md` to describe scoring as built — the two-starting-point orchestrator, the promotion handler, the ATS slug service's `listForCompany`, and the two new commands. Then present any backlog change for approval.
+4. **Plan phase 11, Work log & enrichment**, following the phase planning procedure.
+5. **Consider a parser for Workable.** It cost 32 jobs in one run, more than any other platform. This is a judgement for prioritization, not a decision already made.
