@@ -13,82 +13,75 @@
 
 ## Current Task
 
-**Phase 10, Scoring, is built. All 24 tasks are done. The phase is not closed.**
+**Phase 10, Scoring, is built and closed. Nothing is in flight.**
 
-Verified at session end: **2,723 tests pass across 121 files. `npm run lint` exits 0.**
+Verified at session end: **121 test files, 2,706 tests passed, 17 skipped. `npm run lint` exits 0.**
 
-Seven commits were pushed to `feature/unified-pipeline`, `ba89215..4cda7fd`. Everything phase 10 built is committed.
+The 17 skipped tests are skipped on purpose. They cover the fixture write this session disconnected, and they describe the behaviour a backlog item will restore.
 
-### What is in the working tree
+Six commits pushed to `feature/unified-pipeline`, `4cda7fd..0ec2344`. The working tree holds one uncommitted line in the feature decision log, written moments before this document.
 
-Five files, none of them phase 10 code:
-
-- `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md` and the feature decision log — this session's own bookkeeping.
-- `lib/collectors/fixtures/dribbble.html` and `lib/collectors/fixtures/uiuxjobsboard.html` — **the live run refreshed these itself.** A page-reading collector rewrites its fixture from the last search that returned cards, but only where that search's own self-check passed. This is the designed behaviour, not damage. Commit them or discard them; either is safe.
+The next unit of work is **planning phase 11, Work log & enrichment**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md).
 
 ## Completed This Session
 
-**Tasks 18 to 24 of phase 10, and the first live end-to-end run.**
+**Phase 10's close, and one side piece of work.**
 
-Scoring now runs. It is two commands, because an agent does the judging and no single command can pause while it thinks.
+### The fixture write is disconnected
 
-- `lib/orchestrators/scoring.ts` holds both halves. `runScoringGather` sweeps the backlog, then asks the database for the jobs and employers needing scores. `runScoringSave` takes the answers back, writes them through the two services, and records what became of each entry.
-- `scripts/score-gather.ts` and `scripts/score-save.ts` are the two commands, registered as `npm run score:gather` and `npm run score:save`. Save takes `--summary` on the last batch.
-- `lib/handlers/company-promotion.ts` gives a well-scoring company's board row the collector that will poll it.
-- The run summary gained an alignment scoring block, a company scoring block, and two notes.
-- `score-companies` became `score-backlog`, with the company rubric lifted into a file of its own.
-- The `job-search` skill runs the pipeline, then scoring, then the viewing server.
-- The company and scoring record vocabulary is documented in the `Trace` model comment and in `trace-events.md`, with a guardrail test in `prisma/schema.test.ts`. **That gap the previous hand-off named is closed.**
+Two collectors read job cards off a rendered web page: Dribbble and UI/UX Jobs Board. Each saved a copy of that page into `lib/collectors/fixtures/` on every real job search, so an offline test could replay it. That dirtied the working tree on every search and asked for a commit after each one.
+
+- The `writeFixture` call is commented out in `lib/collectors/dribbble.ts` and `lib/collectors/uiuxjobsboard.ts`, with its reasoning above it. The candidate is still picked, so reconnecting is uncommenting.
+- Both test files mark their fixture-write `describe` block `.skip` rather than deleting it.
+- Backlog item 26 was replaced. It is now **Live Collector Check & Fixture Refresh**, and its r&d file records what was withdrawn, the workaround until it is built, and the one tension it has to settle: a fast one-job run makes a thin, weak fixture.
+
+### Phase 10 is closed
+
+- **`architecture.md`** describes scoring as built: four new Status paragraphs, a three-command run-shape diagram, six new vocabulary terms, three new Parts rows, the board-row table in the Data Model, and a phase 10 row in Ported From Legacy.
+- **The decision log** gained two entries.
+- **Two backlog items retired.** Company Scoring Improvements and ATS Company Graduation moved to a new `docs/features/_cancelled/` folder. Items 8 to 29 renumbered to 6 to 27.
+- **`docs/CURRENT-FEATURE.md`** has phase 10's 24 tasks folded back out and its close ticked.
 
 ## Session Context
 
-The decisions the user made are in the feature decision log. **Two entries were written this session**, and one existing entry was superseded.
+The decisions the user made are in the feature decision log. **Two entries were written this session.**
 
 ### Calls made while building
 
-**Promotion fills in a board row that already exists.** Criterion 56 reads as though promotion re-reads the slug out of the resolved link. It does not. Company matching already wrote that row when the posting was parsed, carrying the slug, the company and the parser. The phase spec's Approach section settles it: "Promotion fills it in later, and filling it in is what puts the company on a polling list." So promotion only adds the collector. This needed one new service method, `listForCompany`.
+**An unused import fails `npm run lint`.** Commenting out the `writeFixture` call meant commenting the import out too. This is why the disconnect touches the import line as well as the call.
 
-**Scoring writes under one step name, split by subject.** Both halves write under `scoring`, and whether a row names a job or a company is what tells the two populations apart. This mirrors backlog cleanup, which already does the same. Promotion is a separate step, `company_promotion`, because a `promotion` step already exists and means a reposted job returning to the backlog.
+**Stale phase references in `architecture.md` were corrected while there.** Three places still said work was coming that had already landed: the job service's "scoring joins it in later phases", and two "that is classification's call in Phase 9" notes. The phase-7a "will replace both orchestrators" sentence was rewritten to describe the two that exist.
 
-**A shared reason needed two event names.** Criteria 17 and 29 both name `scoring_agent_failed`, but the vocabulary rule forbids one reason spanning two populations. The fix was two events — `scoring_failed` for a job, `company_scoring_failed` for a company — so the event carries the split and the summary can count each side.
+**Both retired r&d files gained a "Cancelled" section.** The `retire-feature` skill does not ask for one. They exist because the user's own reason for choosing cancelled over completed was that a cold reader would otherwise think two features solved one problem — and a folder move alone does not say that.
 
-**The save half looks up the collector.** A trace row about a job must carry the collector that produced it, and an agent's answer carries only an id. So `runScoringSave` reads `findNeedingScores` first and builds an id-to-collector map, rather than trusting the agent to hand the collector back.
-
-**`--summary` was added to the save command.** Nothing else prints a summary once scoring has run — the pipeline prints its own before scoring starts. The flag is passed on the last batch only, because the command runs once per batch and reprinting a growing summary each time is noise.
+**"Backlog item 26 was replaced" was dropped as a decision-log candidate.** It failed the "informs future work" test: `BACKLOG.md` and the r&d file already carry it.
 
 ### Gotchas discovered
 
-**A raw `INSERT` into `Company` or `AtsSlug` must supply `modified_at`.** Prisma's `@updatedAt` has no database default, so a test inserting a row by hand fails the NOT NULL constraint.
+**The link checker does not URL-decode.** `python3 ~/.claude/skills/retire-feature/scripts/check-links.py` reports 58 broken links under `docs/`. Almost all are `%26` in a path that really is `feature_r&d.md`. Three were real, caused by moving two folders one level deeper, and are fixed. **Do not treat the 58 as this session's damage.**
 
-**The job-search command does not print its run identifier.** Scoring must carry the same one, and the skill has no way to read it. This run worked around it by reading the identifier out of the `Trace` table by hand. **This is now phase 13's work, recorded in `docs/CURRENT-FEATURE.md` and the decision log.**
+**`docs/DECISIONS.md` does not exist in this project.** The `start-work-session` skill asks a session to read it. There is one decision log, the feature's own.
 
-**`.serve.json` points at `scripts/serve.ts`, which does not exist.** The only server on disk is `legacy/scripts/serve.ts`, reading the old database. The viewing server cannot show anything this pipeline produces. **This is phase 12's work.**
+**The Future Ideas list in `BACKLOG.md` restarts its numbering at 26**, colliding with the Upcoming Features numbers. Pre-existing and left alone.
 
 ### Approaches tried and abandoned
 
-**Adding `atsSlugs` to every scoring test call with one sweep.** A bulk edit put the option on four `runScoringGather` calls, which do not take it. Tests still passed because the extra property is ignored at runtime; `npm run lint` caught it. Typecheck is the guardrail here, not the suite.
+**Gitignoring the fixture files.** Rejected: `readFixture` throws when the file is absent, so a fresh clone's tests would fail until someone ran a real job search.
 
-### What the first live run showed
+**Storing the fixtures in the database.** Rejected: they are test input, and the tests run with no database at all.
 
-It ran about 55 minutes, almost all of it following links in a browser.
-
-- 376 jobs collected, 313 saved, 162 resolved, 170 parsed, 169 classified.
-- Only 20 jobs reached scoring — a 5% yield. 88 of the classified jobs expired on arrival, which is what a fresh database collecting old postings does once.
-- 110 jobs could not be parsed. Four platforms account for 77: Workable 32, AIApply 24, Workday 13, SmartRecruiters 8. No parser exists for any of them.
-- 27 employers were researched, one helper each. 20 came back fully scored, 7 partially, because a category had nothing public behind it.
-- **Promotion fired correctly on real data.** Impinj and Virtualitics cleared the threshold and joined a polling list. 24 fell below it, 1 had no board we can poll.
-- jsearch raised one warning: `JSearch local search failed: Network timeout after 15s`.
+**Retiring the two backlog items with a supersession note at ship time.** This was proposed, matching how item 2 already says "retired once this ships". The user rejected it: "Remove both entirely."
 
 ### Open questions
 
-**Phase 10 is built but not closed.** Closing updates the architecture doc, runs `/update-decision-log`, and presents any `BACKLOG.md` change for approval.
+**Phase 11 has two open questions in its r&d file**, both to be answered during planning. What "ask the user for the company name" means in each of the three places a status can change — the pipeline, the update-job skill, the Web UI. And whether a name the user supplies runs through company association's own match-or-create, or creates a company directly.
 
-**The two summary shapes are now phase 14.** Collection, dedupe, resolution and parsing print a label and loose bullets. Everything else follows the run-summary rule. Read together they look like two different programs. This was backlog item 30; the entry was removed from the backlog and its r&d file stays at `docs/features/summary-format-rollout/feature_r&d.md`.
+**Nobody owns the 58 pre-existing broken doc links.** Backlog item 17, Code Health, is the plausible home. Not raised with the user.
+
+**A Workable parser is still unprioritized.** It cost 32 jobs in the first live run, more than any other platform. Carried from the previous hand-off.
 
 ## Next Steps
 
-1. **Decide what to do with the two refreshed fixtures** in `lib/collectors/fixtures/`. The live run rewrote them. Commit or discard.
-2. **Commit the three documentation files** still in the working tree: `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md` and the feature decision log.
-3. **Close phase 10.** Update `docs/features/unified-pipeline/architecture.md` to describe scoring as built — the two-starting-point orchestrator, the promotion handler, the ATS slug service's `listForCompany`, and the two new commands. Then present any backlog change for approval.
-4. **Plan phase 11, Work log & enrichment**, following the phase planning procedure.
-5. **Consider a parser for Workable.** It cost 32 jobs in one run, more than any other platform. This is a judgement for prioritization, not a decision already made.
+1. **Commit the one uncommitted decision-log line** in `docs/features/unified-pipeline/decision-log.md`, along with this hand-off.
+2. **Plan phase 11, Work log & enrichment**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). Its [r&d file](../docs/features/unified-pipeline/phases/phase-11-work-log-r%26d.md) holds the scope, what ports from `legacy/` — `work-search-log`, `work-search-weeks`, `company-enrichment` — and the two open questions above. Phase 11 writes no traces: a status change made by hand is not a job passing through a step.
+3. **Consider a parser for Workable.** A judgement for prioritization, not a decision already made.
