@@ -6,7 +6,8 @@
 import type { JobListEntry } from "../types/job-list-entry";
 import { ageToDate } from "../utils/job-age";
 import { fetchContainer } from "../tools/fetch-page";
-import { pickFixture, writeFixture, type FixtureCandidate } from "./fixture";
+// writeFixture is deliberately not imported: see the disconnected call below.
+import { pickFixture, type FixtureCandidate } from "./fixture";
 import { matchCategories, type Category } from "../utils/match-categories";
 import { noCardsWarnings, paginate, type PaginateResult, type ResultCard } from "./paginate";
 import type { Collector, CollectorResult } from "./collector";
@@ -136,15 +137,23 @@ export const uiuxjobsboardCollector: Collector = {
 
     warnings.push(...noCardsWarnings(searchResults));
 
+    // Disconnected on purpose. A real job search used to overwrite the saved
+    // fixture on disk, which dirtied the working tree on every run and asked
+    // for a commit after each search. The candidate is still picked above, so
+    // reconnecting is uncommenting these lines. A command that refreshes the
+    // fixture deliberately is on the backlog, to be built the day an offline
+    // test starts failing against a site that changed its markup.
+    //
     // Called even when the self-check failed: writeFixture is what decides
     // not to write, and it returns the warning saying so.
     // An empty html here means no search returned a card, and writeFixture
     // is what refuses it and says so.
-    warnings.push(
-      ...writeFixture(NAME, fixture?.html ?? "", {
-        selfCheckFailed: fixture?.selfCheckFailed ?? false,
-      })
-    );
+    //
+    // warnings.push(
+    //   ...writeFixture(NAME, fixture?.html ?? "", {
+    //     selfCheckFailed: fixture?.selfCheckFailed ?? false,
+    //   })
+    // );
 
     // A dead search is a degraded run rather than a failed collector, so
     // nothing here is an error.

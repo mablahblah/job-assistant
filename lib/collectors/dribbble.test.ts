@@ -545,7 +545,10 @@ describe("limit caps jobs across every search combined, not per search", () => {
   });
 });
 
-describe("the fixture is refreshed once for the whole run, keyed to one search", () => {
+// Skipped while the fixture write is disconnected in dribbble.ts. Every test
+// below still describes the behaviour the collector will have again the day
+// that call is uncommented, so they stay here rather than being deleted.
+describe.skip("the fixture is refreshed once for the whole run, keyed to one search", () => {
   test("a clean search calls writeFixture once with selfCheckFailed false", async () => {
     const term = "Product Design";
     stubFetch(singleTermRoutes(term, [dribbbleCard({ id: 1 })], [dribbbleCard({ id: 2 })]));
