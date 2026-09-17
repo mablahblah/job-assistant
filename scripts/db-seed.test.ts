@@ -12,8 +12,10 @@ const repoRoot = resolve(scriptsDir, "..");
 
 // Creating plus seeding measured well under two seconds. These are ceilings
 // rather than budgets: the multi one covers a block that seeds several times.
-const SEED_TIMEOUT_MS = 45_000;
-const MULTI_SEED_TIMEOUT_MS = 120_000;
+// Raised from 45 seconds, which a full-suite run exceeded: vitest runs
+// these child processes in parallel and they contend for the machine.
+const SEED_TIMEOUT_MS = 120_000;
+const MULTI_SEED_TIMEOUT_MS = 240_000;
 
 const EXPECTED_SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 const EXPECTED_LOCATION = "78701";

@@ -38,7 +38,9 @@ const repoRoot = resolve(libDir, "..", "..");
 
 // Creating a scratch database measured well under two seconds. This is a
 // ceiling rather than a budget.
-const CREATE_TIMEOUT_MS = 45_000;
+// Raised from 45 seconds, which a full-suite run exceeded: vitest runs
+// these child processes in parallel and they contend for the machine.
+const CREATE_TIMEOUT_MS = 120_000;
 
 // The date every run here writes into collected_at. Fixed, so a row written
 // by one of these runs never depends on when the suite happened to run.

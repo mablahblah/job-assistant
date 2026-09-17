@@ -18,8 +18,10 @@ const devDbPath = resolve(repoRoot, "dev.db");
 
 // Creating a database runs the prisma CLI in a child process. A run measured
 // at well under a second, so these are ceilings rather than budgets.
-const CREATE_TIMEOUT_MS = 45_000;
-const MULTI_CREATE_TIMEOUT_MS = 120_000;
+// Raised from 45 seconds, which a full-suite run exceeded: vitest runs
+// these child processes in parallel and they contend for the machine.
+const CREATE_TIMEOUT_MS = 120_000;
+const MULTI_CREATE_TIMEOUT_MS = 240_000;
 
 const EXPECTED_JOB_COLUMNS = [
   "id",

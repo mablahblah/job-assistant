@@ -18,7 +18,9 @@ const repoRoot = resolve(libDir, "..", "..");
 
 // Creating plus seeding measured well under two seconds. This is a ceiling
 // rather than a budget.
-const SEED_TIMEOUT_MS = 45_000;
+// Raised from 45 seconds, which a full-suite run exceeded: vitest runs
+// these child processes in parallel and they contend for the machine.
+const SEED_TIMEOUT_MS = 120_000;
 
 const EXPECTED_SEARCH_TERMS = ["Product Design", "UX", "Founding Design"];
 const EXPECTED_LOCATION = "78701";
