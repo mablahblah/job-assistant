@@ -11,6 +11,7 @@ import { isActiveStatus } from "../utils/job-status";
 import { mergeJobs, WRITE_ONCE_FIELDS } from "../utils/job-merge";
 import { urlMatchKey } from "../utils/url-match-key";
 import { isPastThreshold, jobAgeInDays } from "../utils/job-age";
+import { poolJobDates } from "../utils/job-dates";
 
 // What the write turned out to be, so a caller can trace it without working
 // it out again from the row it got back.
@@ -162,8 +163,15 @@ export function createJobService(db: PipelineDb): JobService {
       );
     }
 
+    // A first-ever save never merges, so this is the only place a brand-new
+    // job has its dates pooled. Pooling against no second side still runs the
+    // collection-date fallback, so a job carrying no posting date anywhere
+    // still leaves save with one.
+    const { posting_date, posting_updated_date } = poolJobDates(entry, null, entry.collected_at);
+    const columns = { ...toColumnData(entry), posting_date, posting_updated_date };
+
     try {
-      const row = await db.job.create({ data: toColumnData(entry) as Prisma.JobCreateInput });
+      const row = await db.job.create({ data: columns as Prisma.JobCreateInput });
       return { job: toJobListEntry(row), outcome: "created" };
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error;

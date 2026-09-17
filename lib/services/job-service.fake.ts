@@ -4,6 +4,7 @@
 // service's create, update and delete rules against the array the caller
 // passed in — a job created by one call is then found by the next.
 import { mergeJobs } from "../utils/job-merge";
+import { poolJobDates } from "../utils/job-dates";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { DeleteResult, JobSearchMatch, JobService, UpdateResult } from "./job-service";
 import { isActiveStatus } from "../utils/job-status";
@@ -59,6 +60,11 @@ export function fakeJobService(
       if (job.status === undefined) job.status = "backlog";
       writeLinkMatchKey(job, "original_url_match_key", entry.original_url, job.original_url);
       writeLinkMatchKey(job, "resolved_url_match_key", entry.resolved_url, job.resolved_url);
+      // A first-ever save never merges, so the stand-in runs the same
+      // collection-date fallback here that the real service runs on create.
+      const pooled = poolJobDates(entry, null, entry.collected_at as Date);
+      job.posting_date = pooled.posting_date;
+      job.posting_updated_date = pooled.posting_updated_date;
       // The database writes both timestamps on an insert.
       const now = new Date();
       job.created_at = now;

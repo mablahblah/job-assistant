@@ -132,6 +132,32 @@ describe("creating a row", () => {
     expect(row?.status).toBe("backlog");
   });
 
+  // AC 9. Every job carries an age, so a job reaching save with no posting date
+  // anywhere takes its collection date as its posting date. The rule was built
+  // into the pooler and the merge calls it, but a first-ever save never merges,
+  // so this is the path that proves the rule reaches the row.
+  test("takes its collection date as posting date where the entry carries none", async () => {
+    await service.update({ id: "create-no-dates", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+
+    const row = await db.job.findUnique({ where: { id: "create-no-dates" } });
+    expect(row?.posting_date).toEqual(COLLECTED_AT);
+    expect(row?.posting_updated_date).toBeNull();
+  });
+
+  // The other half of the same rule: the fallback fires only where no date
+  // exists, so a date the source did publish is never replaced by it.
+  test("keeps a posting date the entry brought", async () => {
+    const published = new Date("2025-12-01T00:00:00.000Z");
+    await service.update(
+      { id: "create-with-date", collected_at: COLLECTED_AT, posting_date: published },
+      PRIORITY_LIST
+    );
+
+    const row = await db.job.findUnique({ where: { id: "create-with-date" } });
+    expect(row?.posting_date).toEqual(published);
+    expect(row?.posting_updated_date).toBeNull();
+  });
+
   test("refuses an entry carrying no id", async () => {
     const error = await thrownBy(service.update({ collected_at: COLLECTED_AT }, PRIORITY_LIST));
 
