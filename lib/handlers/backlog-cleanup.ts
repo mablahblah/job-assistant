@@ -41,7 +41,7 @@ export interface CleanBacklogJobsResult {
 // this step has no right to write fails to compile.
 interface BacklogCleanupEvent {
   event: "job_entered" | "job_kept" | "job_expired";
-  reason?: "past_expiry_threshold";
+  reason?: "past_expiration_threshold";
 }
 
 interface CleanedBacklogJob {
@@ -74,7 +74,7 @@ function cleanBacklogJob(
     // nothing else about an expired job has changed.
     return {
       job: { ...job, status: "expired" },
-      events: [{ event: "job_entered" }, { event: "job_expired", reason: "past_expiry_threshold" }],
+      events: [{ event: "job_entered" }, { event: "job_expired", reason: "past_expiration_threshold" }],
     };
   }
 
@@ -289,15 +289,15 @@ export async function cleanBacklogCompanies(
           company_id: company.id,
           step,
           event: "company_scores_cleared",
-          reason: "past_score_expiry",
+          reason: "past_expiration_threshold",
         });
       } else if (outcome === "guesses_cleared") {
         await trace.write({
           run_id: runId,
           company_id: company.id,
           step,
-          event: "company_scores_cleared",
-          reason: "past_guessed_score_expiry",
+          event: "placeholder_company_scores_cleared",
+          reason: "past_expiration_threshold",
         });
       } else {
         await trace.write({

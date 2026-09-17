@@ -123,8 +123,8 @@ function makeJob(title: string): JobListEntry {
 
 // Two fake collectors. Each returns fixed data with no request, no browser,
 // and no file on disk, so this test reaches no job site. One job from each
-// is deliberately unusable, so every collector produces both a "collected"
-// and an "abandoned" event.
+// is deliberately unusable, so every collector produces both a "job_collected"
+// and an "job_abandoned" event.
 const adzunaCollector: Collector = {
   name: "adzuna",
   async collect() {
@@ -270,7 +270,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
 
   test("grouped by collector, each count is the number of jobs that collector produced", async () => {
     // DISTINCT job_id, because a dropped job carries both a collected and an
-    // abandoned row; counting rows instead of jobs would double it.
+    // job_abandoned row; counting rows instead of jobs would double it.
     const rows = await queryTrace(
       url,
       "SELECT collector, COUNT(DISTINCT job_id) as count FROM Trace WHERE run_id = ? GROUP BY collector",
@@ -311,7 +311,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     );
     const totals = rows.map((row) => ({ run_id: row["run_id"], count: Number(row["count"]) }));
     // Each run writes a collected event for every job its collectors produced
-    // (3 + 2 = 5), an abandoned event for each of the two dropped jobs, two
+    // (3 + 2 = 5), a job_job_abandoned event for each of the two dropped jobs, two
     // normalization events for each of the three that survived — one for the
     // title, one for the company name — one association event per surviving
     // job, and one save event per surviving job: 5 + 2 + 6 + 3 + 3 = 19 rows.
@@ -327,7 +327,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     const rows = await queryTrace(
       url,
       "SELECT job_id, collector FROM Trace WHERE run_id = ? AND event = ?",
-      [runIdAlpha, "collected"]
+      [runIdAlpha, "job_collected"]
     );
     const collectorByJobId = new Map(
       rows.map((row) => [row["job_id"] as string, row["collector"] as string])
@@ -343,7 +343,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     const [row] = await queryTrace(
       url,
       "SELECT detail FROM Trace WHERE run_id = ? AND collector = ? AND event = ?",
-      [runIdAlpha, "greenhouse", "abandoned"]
+      [runIdAlpha, "greenhouse", "job_abandoned"]
     );
     // The orchestrator wrote the bare string "not-a-url", but detail is a
     // Json column, so raw SQL hands it back quoted rather than plain.
@@ -354,7 +354,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
     const [row] = await queryTrace(
       url,
       "SELECT detail FROM Trace WHERE run_id = ? AND collector = ? AND event = ?",
-      [runIdAlpha, "greenhouse", "abandoned"]
+      [runIdAlpha, "greenhouse", "job_abandoned"]
     );
     const raw = row?.["detail"];
     expect(typeof raw).toBe("string");
@@ -454,7 +454,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
   test("its twin: how many titles did not normalize, by collector", async () => {
     const rows = await queryTrace(
       url,
-      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND reason = 'title_not_normalized' GROUP BY collector",
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND reason = 'missing_role_noun' GROUP BY collector",
       [runId]
     );
     const counts = Object.fromEntries(
@@ -468,7 +468,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
   test("normalized and not-normalized together account for every job that carried a title", async () => {
     const rows = await queryTrace(
       url,
-      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND (reason = 'title_normalized' OR reason = 'title_not_normalized') GROUP BY collector",
+      "SELECT collector, COUNT(*) as count FROM Trace WHERE run_id = ? AND step = 'post_collection_normalization' AND (reason = 'title_normalized' OR reason = 'missing_role_noun') GROUP BY collector",
       [runId]
     );
     const counts = Object.fromEntries(
@@ -495,11 +495,11 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     // its job count.
     expect(funnel).toEqual([
       { collector: "indeed", reason: "company_name_normalized", count: 3 },
+      { collector: "indeed", reason: "missing_role_noun", count: 2 },
       { collector: "indeed", reason: "title_normalized", count: 1 },
-      { collector: "indeed", reason: "title_not_normalized", count: 2 },
       { collector: "linkedin", reason: "company_name_normalized", count: 4 },
+      { collector: "linkedin", reason: "missing_role_noun", count: 2 },
       { collector: "linkedin", reason: "title_normalized", count: 2 },
-      { collector: "linkedin", reason: "title_not_normalized", count: 2 },
     ]);
   });
 
@@ -512,9 +512,9 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     const totals = rows.map((row) => ({ step: row["step"], count: Number(row["count"]) }));
     // One run id covers both steps, so this is the whole pipeline's row set.
     //
-    // The collect step: collection writes one "collected" row per job handed
+    // The collect step: collection writes one "job_collected" row per job handed
     // over, and none of the 3 + 4 = 7 jobs here fails the usability check, so
-    // that step has no abandoned rows to add: 7. Normalization writes two rows
+    // that step has no job_job_job_abandoned rows to add: 7. Normalization writes two rows
     // per surviving job, one for the title and one for the company name:
     // 7 * 2 = 14. Association writes one row per surviving job: 7. Save writes
     // one row per surviving job too: 7. Post-collection dedupe is absent
@@ -528,7 +528,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
     //
     // The parsing step then finds the same 7, because resolution just placed
     // them and nothing has parsed them yet. No parser covers the employer
-    // postings these resolutions ended on, so parsing writes one parse_failed
+    // postings these resolutions ended on, so parsing writes one parsing_failed
     // row each: 7. Its normalization pass writes two rows per job again:
     // 7 * 2 = 14. Association writes 7, and save 7. Parsing's dedupe writes
     // nothing, for the same reason the other two dedupe passes did not.
@@ -745,7 +745,7 @@ describe("the trace table answers how each job reached its company, across both 
   test("fills a company's missing name once, and never repeats the fill once it holds one", async () => {
     const filled = await queryTrace(
       url,
-      "SELECT step, detail FROM Trace WHERE run_id = ? AND event = 'company_updated' AND reason = 'company_name_filled'",
+      "SELECT step, detail FROM Trace WHERE run_id = ? AND event = 'company_dbrow_updated' AND reason = 'company_name_filled'",
       [runId]
     );
     expect(filled.length).toBe(1);
@@ -757,7 +757,7 @@ describe("the trace table answers how each job reached its company, across both 
     // overwritten and no second fill row is written.
     const secondPass = await queryTrace(
       url,
-      "SELECT id FROM Trace WHERE run_id = ? AND step = 'post_parsing_association' AND event = 'company_updated'",
+      "SELECT id FROM Trace WHERE run_id = ? AND step = 'post_parsing_association' AND event = 'company_dbrow_updated'",
       [runId]
     );
     expect(secondPass.length).toBe(0);
@@ -860,7 +860,7 @@ describe("the trace table answers what save did to each job, across both passes"
     // what makes the funnel add up: nothing entered and quietly vanished.
     const collected = await queryTrace(
       url,
-      "SELECT DISTINCT job_id FROM Trace WHERE run_id = ? AND event = 'collected'",
+      "SELECT DISTINCT job_id FROM Trace WHERE run_id = ? AND event = 'job_collected'",
       [runId]
     );
     const saved = await queryTrace(
@@ -973,7 +973,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
     //
     // The parsing step then finds the same 2, because resolution just placed
     // them and nothing has parsed them yet. No parser covers the postings
-    // those resolutions ended on, so parsing writes one parse_failed row
+    // those resolutions ended on, so parsing writes one parsing_failed row
     // each: 2. Its normalization pass writes two rows per job: 4. Association
     // writes 2, and save 2. Parsing's dedupe writes nothing, because the pair
     // was already folded before either of these two was ever stored.
@@ -992,14 +992,14 @@ describe("the trace table answers what dedupe merged away, and what save then di
     ]);
   });
 
-  test("the merged-away entry reads abandoned on a hard match", async () => {
+  test("the merged-away entry reads job_abandoned on a hard match", async () => {
     const [row] = await queryTrace(
       url,
       "SELECT event, reason FROM Trace WHERE run_id = ? AND step = 'post_collection_dedupe'",
       [runId]
     );
 
-    expect(row?.["event"]).toBe("abandoned");
+    expect(row?.["event"]).toBe("job_abandoned");
     // Neither copy carries a posting date, so their pooled dates end on the
     // same value and the gap between them is nothing at all.
     expect(row?.["reason"]).toBe("hard_match_in_list");
@@ -1023,11 +1023,11 @@ describe("the trace table answers what dedupe merged away, and what save then di
   test("save records the same reason for the entry it could find no row for", async () => {
     const [row] = await queryTrace(
       url,
-      "SELECT event, reason FROM Trace WHERE run_id = ? AND step = 'post_collection_save' AND event = 'abandoned'",
+      "SELECT event, reason FROM Trace WHERE run_id = ? AND step = 'post_collection_save' AND event = 'job_abandoned'",
       [runId]
     );
 
-    expect(row?.["event"]).toBe("abandoned");
+    expect(row?.["event"]).toBe("job_abandoned");
     // The reason names the match that removed the job rather than the write
     // that never happened, so deletions can be counted by kind.
     expect(row?.["reason"]).toBe("hard_match_in_list");

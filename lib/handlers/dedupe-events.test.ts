@@ -107,7 +107,7 @@ describe("what leaves no row", () => {
 // AC 74 and 75. The two in-list reasons are told apart by whether the merged
 // job's pooled dates fall less than 24 hours apart.
 describe("an entry merged away inside the list", () => {
-  test("reads abandoned and hard_match_in_list where the dates agree", async () => {
+  test("reads job_abandoned and hard_match_in_list where the dates agree", async () => {
     const trace = createFakeTraceService();
     const jobs = [
       freshEntry("a", { ...withOriginalUrl("https://example.com/1"), posting_date: POSTED_AT }),
@@ -117,7 +117,7 @@ describe("an entry merged away inside the list", () => {
     await runDedupe(jobs, fakeJobService([]), trace);
 
     expect(trace.events).toHaveLength(1);
-    expect(trace.events[0]?.event).toBe("abandoned");
+    expect(trace.events[0]?.event).toBe("job_abandoned");
     expect(trace.events[0]?.reason).toBe("hard_match_in_list");
   });
 
@@ -138,7 +138,7 @@ describe("an entry merged away inside the list", () => {
 // AC 76 to 79. A stored row and the entry that reached it swap places: the
 // entry leaves the list and the row joins it.
 describe("an entry that left the list for a stored row", () => {
-  test("an entry that never held a row reads abandoned and matched_db_row", async () => {
+  test("an entry that never held a row reads job_abandoned and matched_db_row", async () => {
     const trace = createFakeTraceService();
     const rows = [storedRow("row-1", withOriginalUrl("https://example.com/1"))];
 
@@ -149,17 +149,17 @@ describe("an entry that left the list for a stored row", () => {
     );
 
     const leaving = trace.events.find((event) => event.job_id === "a");
-    expect(leaving?.event).toBe("abandoned");
+    expect(leaving?.event).toBe("job_abandoned");
     expect(leaving?.reason).toBe("matched_db_row");
   });
 
-  // Phase 7 AC 68 and 70, superseding the earlier reading. abandoned is the
+  // Phase 7 AC 68 and 70, superseding the earlier reading. job_abandoned is the
   // word for a job's path through the pipeline ending, and it makes no
   // claim about whether a row existed. Whether a row was actually deleted is
   // save's to say, at the step that carries the delete out, so dedupe saying
   // it here would be guessing at a delete the active-status guardrail can still
   // refuse.
-  test("an entry that already held a row reads abandoned too", async () => {
+  test("an entry that already held a row reads job_abandoned too", async () => {
     const trace = createFakeTraceService();
     // The stored row is the older of the two, so its id is the one that
     // survives and the entry's own row is the one that goes.
@@ -174,7 +174,7 @@ describe("an entry that left the list for a stored row", () => {
     await runDedupe(jobs, fakeJobService(rows), trace);
 
     const leaving = trace.events.find((event) => event.job_id === "row-new");
-    expect(leaving?.event).toBe("abandoned");
+    expect(leaving?.event).toBe("job_abandoned");
     expect(leaving?.reason).toBe("matched_db_row");
   });
 
@@ -195,7 +195,7 @@ describe("an entry that left the list for a stored row", () => {
 
   // AC 78 and 79. That row is the job the event describes, so it supplies
   // both the id and the collector rather than the entry that found it.
-  test("the stored row reads added_to_job_list, keyed on itself", async () => {
+  test("the stored row reads job_added_to_list, keyed on itself", async () => {
     const trace = createFakeTraceService();
     const rows = [storedRow("row-1", withOriginalUrl("https://example.com/1"))];
 
@@ -205,7 +205,7 @@ describe("an entry that left the list for a stored row", () => {
       trace
     );
 
-    const joined = trace.events.find((event) => event.event === "added_to_job_list");
+    const joined = trace.events.find((event) => event.event === "job_added_to_list");
     expect(joined?.reason).toBe("matched_list_entry");
     expect(joined?.job_id).toBe("row-1");
     expect(joined?.collector).toBe("greenhouse");

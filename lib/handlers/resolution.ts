@@ -90,7 +90,7 @@ function applyOutcome(job: JobListEntry, outcome: ResolutionOutcome): FollowedEn
 
   return {
     job: { ...job, delete_on_save: "blacklisted_url", is_resolved: false, resolved_url: null },
-    event: "abandoned",
+    event: "job_abandoned",
     reason: "blacklisted_url",
   };
 }

@@ -49,7 +49,7 @@ export interface ClassifyJobsResult {
 // right to write fails to compile.
 interface ClassificationEvent {
   event: "job_entered" | "job_reposted" | "job_expired" | "job_classified" | "classification_failed";
-  reason?: "past_expiry_threshold" | "no_location_match" | "location_unreadable";
+  reason?: "past_expiration_threshold" | "no_location_match" | "location_unusable";
 }
 
 interface ClassifiedJob {
@@ -136,7 +136,7 @@ async function classifyJob(
   );
 
   if (isPastThreshold(ageInDays, expiryThresholdDays)) {
-    events.push({ event: "job_expired", reason: "past_expiry_threshold" });
+    events.push({ event: "job_expired", reason: "past_expiration_threshold" });
     return { job: { ...judgedJob, status: "expired", is_classified: true }, events };
   }
 
@@ -152,7 +152,7 @@ async function classifyJob(
     // A job that named places and had none of them read stays in the backlog
     // untouched and unjudged. Unreadable is a different answer from far away.
     if (locationTexts.length > 0 && resolvedPlaces.length === 0) {
-      events.push({ event: "classification_failed", reason: "location_unreadable" });
+      events.push({ event: "classification_failed", reason: "location_unusable" });
       return { job: judgedJob, events };
     }
 
@@ -190,7 +190,7 @@ async function classifyJob(
     // could not be read, and reusing that reason keeps every job to exactly one
     // outcome row. The job is left as the repost check left it, so a later run
     // picks it back up.
-    events.push({ event: "classification_failed", reason: "location_unreadable" });
+    events.push({ event: "classification_failed", reason: "location_unusable" });
     return { job: judgedJob, events };
   }
 }

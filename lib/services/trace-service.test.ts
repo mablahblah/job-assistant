@@ -93,7 +93,7 @@ function collectedEvent(jobId: string): TraceEvent {
     run_id: "run-1",
     job_id: jobId,
     step: "collection",
-    event: "collected",
+    event: "job_collected",
     collector: "adzuna",
   };
 }
@@ -168,7 +168,7 @@ describe("a write records exactly what the caller passed", () => {
       run_id: "run-full",
       job_id: "job-full",
       step: "collection",
-      event: "abandoned",
+      event: "job_abandoned",
       collector: "greenhouse",
       reason: "original_url_not_a_url",
       detail: "htp:/broken",
@@ -331,20 +331,20 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
     const temp = createDb("pipeline-trace-counts-");
     dir = temp.dir;
     ({ db, writer } = buildWriter(temp.url));
-    await writer.write({ run_id: "r1", job_id: "a", step: "collection", event: "collected", collector: "adzuna" });
-    await writer.write({ run_id: "r1", job_id: "b", step: "collection", event: "collected", collector: "adzuna" });
-    await writer.write({ run_id: "r1", job_id: "c", step: "collection", event: "collected", collector: "lever" });
+    await writer.write({ run_id: "r1", job_id: "a", step: "collection", event: "job_collected", collector: "adzuna" });
+    await writer.write({ run_id: "r1", job_id: "b", step: "collection", event: "job_collected", collector: "adzuna" });
+    await writer.write({ run_id: "r1", job_id: "c", step: "collection", event: "job_collected", collector: "lever" });
     await writer.write({
       run_id: "r1",
       job_id: "b",
       step: "post_collection_dedupe",
-      event: "abandoned",
+      event: "job_abandoned",
       collector: "adzuna",
       reason: "hard_match_in_list",
     });
     // A second run, so a passing read proves the query filters by run id
     // rather than counting the whole table.
-    await writer.write({ run_id: "r2", job_id: "z", step: "collection", event: "collected", collector: "adzuna" });
+    await writer.write({ run_id: "r2", job_id: "z", step: "collection", event: "job_collected", collector: "adzuna" });
   }, CREATE_TIMEOUT_MS);
 
   afterAll(() => cleanup(dir, db));
@@ -355,7 +355,7 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
       expect.arrayContaining([
         {
           step: "collection",
-          event: "collected",
+          event: "job_collected",
           reason: null,
           collector: "adzuna",
           domain: null,
@@ -363,7 +363,7 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
         },
         {
           step: "collection",
-          event: "collected",
+          event: "job_collected",
           reason: null,
           collector: "lever",
           domain: null,
@@ -371,7 +371,7 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
         },
         {
           step: "post_collection_dedupe",
-          event: "abandoned",
+          event: "job_abandoned",
           reason: "hard_match_in_list",
           collector: "adzuna",
           domain: null,
@@ -404,7 +404,7 @@ describe("the owned domain travels in its own column, so a failing source is cou
   const failure = {
     run_id: "r1",
     step: "parsing",
-    event: "parse_failed",
+    event: "parsing_failed",
     reason: "no_parser_for_domain",
     collector: "adzuna",
   };

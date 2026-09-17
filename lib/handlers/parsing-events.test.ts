@@ -78,19 +78,19 @@ describe("AC 37: every kind of parse failure carries its own reason", () => {
   test("no parser for the domain reads as no_parser_for_domain", async () => {
     const [row] = await rowsFor(job("a", { resolved_url: WORKDAY_LINK }), null);
 
-    expect(row).toMatchObject({ event: "parse_failed", reason: "no_parser_for_domain" });
+    expect(row).toMatchObject({ event: "parsing_failed", reason: "no_parser_for_domain" });
   });
 
   test("a parser that threw reads as parser_errored", async () => {
     const [row] = await rowsFor(job("a"), THROWING_PARSER);
 
-    expect(row).toMatchObject({ event: "parse_failed", reason: "parser_errored" });
+    expect(row).toMatchObject({ event: "parsing_failed", reason: "parser_errored" });
   });
 
   test("a parser that read nothing reads as nothing_parsed", async () => {
     const [row] = await rowsFor(job("a"), EMPTY_PARSER);
 
-    expect(row).toMatchObject({ event: "parse_failed", reason: "nothing_parsed" });
+    expect(row).toMatchObject({ event: "parsing_failed", reason: "nothing_parsed" });
   });
 
   test("the three reasons are three distinct words, so a query can tell them apart", async () => {
@@ -104,7 +104,7 @@ describe("AC 37: every kind of parse failure carries its own reason", () => {
   });
 });
 
-describe("AC 38: every parse_failed row carries the owned domain in its own column", () => {
+describe("AC 38: every parsing_failed row carries the owned domain in its own column", () => {
   test.each([
     ["no parser covers the domain", WORKDAY_LINK, null, "myworkdayjobs.com"],
     ["the parser threw", GREENHOUSE_LINK, THROWING_PARSER, "greenhouse.io"],
@@ -129,7 +129,7 @@ describe("AC 38: every parse_failed row carries the owned domain in its own colu
   });
 });
 
-describe("AC 39: every parse_failed row keeps the full resolved link in detail", () => {
+describe("AC 39: every parsing_failed row keeps the full resolved link in detail", () => {
   test.each([
     ["no parser covers the domain", WORKDAY_LINK, null],
     ["the parser threw", GREENHOUSE_LINK, THROWING_PARSER],
@@ -159,7 +159,7 @@ describe("AC 40 and 41: a link yielding no owned domain leaves that column empty
   test("the row is still written, naming the failure", async () => {
     const [row] = await rowsFor(job("a", { resolved_url: "historical" }), READING_PARSER);
 
-    expect(row).toMatchObject({ event: "parse_failed", reason: "no_parser_for_domain" });
+    expect(row).toMatchObject({ event: "parsing_failed", reason: "no_parser_for_domain" });
   });
 
   test("nothing throws", async () => {

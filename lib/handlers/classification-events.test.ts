@@ -107,7 +107,7 @@ describe("the outcome row each verdict produces", () => {
 
     expect(rows.map((row) => [row.event, row.reason])).toEqual([
       ["job_entered", undefined],
-      ["job_expired", "past_expiry_threshold"],
+      ["job_expired", "past_expiration_threshold"],
     ]);
   });
 
@@ -125,7 +125,7 @@ describe("the outcome row each verdict produces", () => {
 
     expect(rows.map((row) => [row.event, row.reason])).toEqual([
       ["job_entered", undefined],
-      ["classification_failed", "location_unreadable"],
+      ["classification_failed", "location_unusable"],
     ]);
   });
 
@@ -140,7 +140,7 @@ describe("the outcome row each verdict produces", () => {
 
     expect(rows.map((row) => [row.event, row.reason])).toEqual([
       ["job_entered", undefined],
-      ["classification_failed", "location_unreadable"],
+      ["classification_failed", "location_unusable"],
     ]);
   });
 });

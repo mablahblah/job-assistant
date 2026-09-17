@@ -92,7 +92,7 @@ describe("nothing unusable produces nothing to print", () => {
 });
 
 describe("a reason outside WARNING_REASONS is dropped rather than printed", () => {
-  test.each(["title_not_normalized", "salary_partially_normalized", "company_name_normalized"])(
+  test.each(["missing_role_noun", "salary_partially_normalized", "company_name_normalized"])(
     "entries carrying reason %s produce no issue",
     (reason) => {
       const entries = buildUnusableEntries("adzuna", reason, 5);
@@ -105,7 +105,7 @@ describe("a reason outside WARNING_REASONS is dropped rather than printed", () =
     // reason's count on their way out.
     const entries = [
       ...buildUnusableEntries("adzuna", "salary_unusable", 2),
-      ...buildUnusableEntries("adzuna", "title_not_normalized", 5),
+      ...buildUnusableEntries("adzuna", "missing_role_noun", 5),
     ];
     const issues = summarizeNormalizationWarnings(entries);
     expect(issues).toHaveLength(1);

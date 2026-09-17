@@ -59,7 +59,7 @@ export function normalizeJob(
     events.push(
       normalized.matched
         ? { event: "job_updated", reason: "title_normalized", detail }
-        : { event: "normalization_failed", reason: "title_not_normalized", detail }
+        : { event: "normalization_failed", reason: "missing_role_noun", detail }
     );
   }
 

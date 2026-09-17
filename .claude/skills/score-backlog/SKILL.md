@@ -55,7 +55,7 @@ npm run score:gather -- --out {work_file}
 >
 > Set `guessed` to true where you found nothing public and awarded a 3 by the rubric's own rule.
 >
-> If the company has no name to research, return `{"id": "{company_id}", "failure": "company_unnamed"}` instead.
+> If the company has no name to research, return `{"id": "{company_id}", "failure": "no_company_name"}` instead.
 
 4. Collect every helper's answer.
 

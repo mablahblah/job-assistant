@@ -155,7 +155,7 @@ describe("a deletion dedupe asked for", () => {
 
   // AC 85. The entry was a fresh copy that lost to a stored row and never
   // reached a row of its own, so it is a dead end rather than a deletion.
-  test("an entry marked for deletion that no row holds reads abandoned", async () => {
+  test("an entry marked for deletion that no row holds reads job_abandoned", async () => {
     const trace = createFakeTraceService();
 
     await saveJobs([entry("ghost", { delete_on_save: "matched_db_row" })], {
@@ -166,7 +166,7 @@ describe("a deletion dedupe asked for", () => {
       step: STEP,
     });
 
-    expect(trace.events[0]?.event).toBe("abandoned");
+    expect(trace.events[0]?.event).toBe("job_abandoned");
     expect(trace.events[0]?.reason).toBe("matched_db_row");
   });
 
@@ -218,7 +218,7 @@ describe("a write that threw", () => {
     });
   }
 
-  test("reads abandoned", async () => {
+  test("reads job_abandoned", async () => {
     const trace = createFakeTraceService();
 
     await saveJobs([entry("lost")], {
@@ -229,7 +229,7 @@ describe("a write that threw", () => {
       step: STEP,
     });
 
-    expect(trace.events.map((event) => event.event)).toEqual(["abandoned"]);
+    expect(trace.events.map((event) => event.event)).toEqual(["job_abandoned"]);
   });
 
   test("carries the reason db_write_failed", async () => {
@@ -354,7 +354,7 @@ describe("the step contract", () => {
     expect(trace.events[0]?.collector).toBe("adzuna");
   });
 
-  test("a warning is raised alongside the abandoned row, not instead of it", async () => {
+  test("a warning is raised alongside the job_abandoned row, not instead of it", async () => {
     const trace = createFakeTraceService();
 
     const result = await saveJobs([entry("lost")], {

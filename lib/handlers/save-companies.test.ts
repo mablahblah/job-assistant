@@ -151,7 +151,7 @@ describe("the rows the company save writes", () => {
       step: STEP,
     });
 
-    expect(trace.events[0]?.event).toBe("abandoned");
+    expect(trace.events[0]?.event).toBe("job_abandoned");
     expect(trace.events[0]?.reason).toBe("db_write_failed");
   });
 

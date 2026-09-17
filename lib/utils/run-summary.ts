@@ -57,7 +57,7 @@ function topFailedDomains(
   for (const row of counts) {
     // A link that yields no owned domain still owes its count to the total
     // above, but there is nothing to name it by, so it has no line here.
-    if (row.step !== "parsing" || row.event !== "parse_failed" || row.domain === null) {
+    if (row.step !== "parsing" || row.event !== "parsing_failed" || row.domain === null) {
       continue;
     }
 
@@ -161,20 +161,19 @@ export function summaryFromTraceCounts(
   // true about companies rather than a way a job left the step, so it earns a
   // note, and the note is built from its own counts so an empty backlog does
   // not hide it.
-  const staleScoresCleared = total(
-    counts,
-    (row) =>
-      row.step === "backlog_cleanup" &&
-      row.event === "company_scores_cleared" &&
-      row.reason === "past_score_expiry"
-  );
-  const staleGuessedScoresCleared = total(
-    counts,
-    (row) =>
-      row.step === "backlog_cleanup" &&
-      row.event === "company_scores_cleared" &&
-      row.reason === "past_guessed_score_expiry"
-  );
+  // Both clearings carry the one expiry reason the whole pipeline shares, so
+  // the event is the only thing separating them. Counting on the reason would
+  // give every cleared company both notes.
+  const clearedCompanies = (event: string) =>
+    total(
+      counts,
+      (row) =>
+        row.step === "backlog_cleanup" &&
+        row.event === event &&
+        row.reason === "past_expiration_threshold"
+    );
+  const staleScoresCleared = clearedCompanies("company_scores_cleared");
+  const staleGuessedScoresCleared = clearedCompanies("placeholder_company_scores_cleared");
   const backlogCleanupNotes = [
     ...(staleScoresCleared > 0 ? [`${companies(staleScoresCleared)} lost a stale score`] : []),
     ...(staleGuessedScoresCleared > 0
@@ -192,7 +191,7 @@ export function summaryFromTraceCounts(
       counts,
       [
         { event: "job_kept", label: "kept" },
-        { event: "job_expired", reason: "past_expiry_threshold", label: "expired" },
+        { event: "job_expired", reason: "past_expiration_threshold", label: "expired" },
       ],
       backlogCleanupNotes,
       stoppedAt
@@ -203,7 +202,7 @@ export function summaryFromTraceCounts(
   // A headline number, printed even at zero, because a run that collected
   // nothing is exactly what the reader needs told rather than left to infer
   // from a missing line.
-  const collected = total(counts, (row) => row.step === "collection" && row.event === "collected");
+  const collected = total(counts, (row) => row.step === "collection" && row.event === "job_collected");
   lines.push(`Collected: ${jobs(collected)}`);
 
   // Every collector gets a line, in the order the run was given them, even
@@ -214,7 +213,7 @@ export function summaryFromTraceCounts(
     const found = total(
       counts,
       (row) =>
-        row.step === "collection" && row.event === "collected" && row.collector === collector
+        row.step === "collection" && row.event === "job_collected" && row.collector === collector
     );
     lines.push(`  - ${collector} collected ${jobs(found)}`);
   }
@@ -241,7 +240,7 @@ export function summaryFromTraceCounts(
     counts,
     (row) =>
       row.step === "post_collection_dedupe" &&
-      row.event === "abandoned" &&
+      row.event === "job_abandoned" &&
       (row.reason === "hard_match_in_list" || row.reason === "repost_match_in_list")
   );
   // `matched_db_row` is the one reason meaning the duplicate was found against
@@ -250,7 +249,7 @@ export function summaryFromTraceCounts(
     counts,
     (row) =>
       row.step === "post_collection_dedupe" &&
-      row.event === "abandoned" &&
+      row.event === "job_abandoned" &&
       row.reason === "matched_db_row"
   );
   // The heading goes with its lines. A heading standing alone over nothing
@@ -291,7 +290,7 @@ export function summaryFromTraceCounts(
   // domains are all of them or the worst of them.
   const parseFailures = total(
     counts,
-    (row) => row.step === "parsing" && row.event === "parse_failed"
+    (row) => row.step === "parsing" && row.event === "parsing_failed"
   );
   if (parseFailures > 0) {
     lines.push(`  - ${jobs(parseFailures)} could not be parsed`);
@@ -339,11 +338,11 @@ export function summaryFromTraceCounts(
       counts,
       [
         { event: "job_classified", label: "were close enough" },
-        { event: "job_expired", reason: "past_expiry_threshold", label: "expired" },
+        { event: "job_expired", reason: "past_expiration_threshold", label: "expired" },
         { event: "classification_failed", reason: "no_location_match", label: "too far" },
         {
           event: "classification_failed",
-          reason: "location_unreadable",
+          reason: "location_unusable",
           label: "could not be judged",
         },
       ],
@@ -395,7 +394,7 @@ export function summaryFromTraceCounts(
           reason: "insufficient_research",
           label: "partially scored",
         },
-        { event: "company_scoring_failed", reason: "company_unnamed", label: "could not be scored" },
+        { event: "company_scoring_failed", reason: "no_company_name", label: "could not be scored" },
         {
           event: "company_scoring_failed",
           reason: "scoring_agent_failed",

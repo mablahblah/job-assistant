@@ -346,11 +346,13 @@ model Setting {
 // because an expired job only gains a fresh date once collection has found
 // the new listing and dedupe has merged it in.
 //
-// event names what happened. Collection writes collected and abandoned;
+// event names what happened, and every event about a job carries the job_
+// prefix, so the subject of a row reads off its event name alone. Collection
+// writes job_collected and job_abandoned;
 // normalization writes job_updated where a field was normalized and
 // normalization_failed where a raw value it could act on produced nothing;
 // company association writes company_associated where the job came out with a
-// company, company_updated where it filled a company's empty name,
+// company, company_dbrow_updated where it filled a company's empty name,
 // association_failed where the job came out with none, and
 // company_update_failed where the name it went to write was already taken.
 // Save writes job_dbrow_created where a row is written for a job not already
@@ -358,22 +360,27 @@ model Setting {
 // existing row takes merged fields; job_dbrow_status_updated where an active
 // row takes a different status and nothing else; and job_dbrow_deleted where
 // a row that dedupe marked for removal is deleted. It reuses collection's
-// abandoned for a write that throws, so the entry never lands; step and
-// reason are what tell the two abandoned populations apart. Save also writes
-// job_dbrow_delete_refused, where the active guardrail kept a row dedupe had
-// marked. Dedupe writes abandoned for every entry it marks away, whether or
-// not that entry held a row, and writes added_to_job_list where a stored row
+// job_abandoned for a write that throws, so the entry never lands; step and
+// reason are what tell the two job_abandoned populations apart. Save also
+// writes job_dbrow_delete_refused, where the active guardrail kept a row
+// dedupe had marked. It reuses association's company_dbrow_updated for a
+// company row that took its new score block, because both are one write to
+// one company row and step is what tells them apart. Dedupe writes
+// job_abandoned for every entry it marks away, whether or
+// not that entry held a row, and writes job_added_to_list where a stored row
 // joined this run's list; that row's job_id and collector both come from the
 // stored row, because that row is the job the event describes. Resolution
 // writes job_resolved where a job's resolution reached a page the rules accepted and
-// resolution_failed where it did not, and reuses abandoned where a collected
-// job's resolution reached a blacklisted host. Collection writes job_resolved
-// too, for a job a self-resolving collector handed over already pointing at
-// the employer's own posting; step and reason tell the two populations apart.
+// resolution_failed where it did not, and reuses job_abandoned where a
+// collected job's resolution reached a blacklisted host. Collection writes
+// job_resolved too, for a job a self-resolving collector handed over already
+// pointing at the employer's own posting; step and reason tell the two
+// populations apart.
 // Parsing writes job_parsed where a parser read the employer's own posting
-// and came back with at least one field, and parse_failed where it did not.
+// and came back with at least one field, and parsing_failed where it did not.
 // It reuses no earlier step's event, because reading a posting is not
-// something any earlier step does.
+// something any earlier step does. Its name carries the step's own spelling,
+// the way every other step's failure event does.
 //
 // The three judging steps write seven between them, and each writes
 // job_entered as a job arrives, so a summary heading can say what a step was
@@ -388,12 +395,12 @@ model Setting {
 // latest row. Classification reuses backlog cleanup's job_expired, and step is
 // what tells the two populations apart.
 //
-// abandoned ends a job's path through the pipeline and makes no claim
+// job_abandoned ends a job's path through the pipeline and makes no claim
 // about whether a row existed. What became of the row is a separate event:
 // job_dbrow_deleted where save carried the delete out, or
 // job_dbrow_delete_refused where the active guardrail kept it. A job taking a
-// disqualifying status is not abandoned, because it keeps its row and can be
-// repaired.
+// disqualifying status never takes job_abandoned, because it keeps its row
+// and can be repaired.
 //
 // reason names why a dead end happened, and for normalization also how
 // completely a field came through.
@@ -407,7 +414,9 @@ model Setting {
 //
 // Normalization writes nine, one set per field, chosen by whether every raw
 // value that was present got normalized — all of them, some, or none:
-// title_normalized and title_not_normalized (a title has one input, so it is
+// title_normalized and missing_role_noun, where the title carried no known
+// job noun to build the standard shape around and a tidied fallback was
+// stored instead (a title has one input, so it is
 // never partial); salary_normalized, salary_partially_normalized and
 // salary_unusable; work_mode_normalized, work_mode_partially_normalized and
 // work_mode_unusable; and company_name_normalized, which has no failure
@@ -421,28 +430,30 @@ model Setting {
 // Company association writes six. Three sit under company_associated and say
 // how the company was reached: matched_by_slug, matched_by_name, and
 // company_created where neither lookup found one. company_name_filled sits
-// under company_updated, where a company holding no name took the job's.
-// no_name_for_lookup sits under association_failed, where the job's slug
+// under company_dbrow_updated, where a company holding no name took the job's.
+// no_company_name sits under association_failed, where the job's slug
 // matched nothing and it carried no name to fall back on; it is spelled apart
 // from collection's no_company_identity so a query grouping by reason alone
-// does not merge two different populations. company_name_clash sits under
+// does not merge two different populations. Scoring writes no_company_name
+// too, for a company row holding no name to research, and the event is what
+// tells that population from this one. company_name_clash sits under
 // company_update_failed, where another company already holds that name.
-// no_name_for_lookup and company_name_clash are the two that warn.
+// no_company_name and company_name_clash are the two that warn.
 //
 // Save writes one reason of its own: db_write_failed, sitting under
-// abandoned, where the write throws and the entry never reaches the table. It
-// passes dedupe's reason through unchanged onto job_dbrow_deleted,
-// job_dbrow_delete_refused and the abandoned it writes for a marked entry
+// job_abandoned, where the write throws and the entry never reaches the
+// table. It passes dedupe's reason through unchanged onto job_dbrow_deleted,
+// job_dbrow_delete_refused and the job_abandoned it writes for a marked entry
 // that never held a row, so the reason names the match rather than the active
 // status.
 //
 // Dedupe writes four. hard_match_in_list and repost_match_in_list sit under
-// abandoned, where an entry merged into another entry on the same list; the
-// two are told apart by whether the merged job's pooled dates fall less than
-// 24 hours apart. matched_db_row sits under abandoned where the entry left
-// the list for a stored row having never been saved, and under
+// job_abandoned, where an entry merged into another entry on the same list;
+// the two are told apart by whether the merged job's pooled dates fall less
+// than 24 hours apart. matched_db_row sits under job_abandoned where the
+// entry left the list for a stored row having never been saved, and under
 // job_dbrow_deleted where it already held a row of its own.
-// matched_list_entry sits under added_to_job_list, on the stored row that
+// matched_list_entry sits under job_added_to_list, on the stored row that
 // joined the list.
 //
 // Collection writes one reason under job_resolved: collector_provided, where
@@ -470,7 +481,7 @@ model Setting {
 // link left unfollowed — one population split by outcome, which is what lets
 // a single query answer how often four pages is the binding constraint. The
 // tenth, blacklisted_url, sits under resolution_failed for a hand-entered
-// job and under abandoned for a collected one, whose row is marked for
+// job and under job_abandoned for a collected one, whose row is marked for
 // deletion instead.
 //
 // page_refused and page_load_failed are the two that leave a job's status
@@ -480,9 +491,9 @@ model Setting {
 // both say nothing about whether the posting is any good.
 //
 // normalization_failed does not mean nothing was written. A title that
-// matched no job noun still stores its cleaned fallback, so the event
-// records that the rule did not fire rather than that the field was left
-// empty.
+// matched no job noun still stores its cleaned fallback, so missing_role_noun
+// records that the rule found nothing to fire on rather than that the field
+// was left empty.
 //
 // A normalization event's detail carries from and to, each cut at 200
 // characters, so a collector bug putting a description in the wrong field
@@ -490,7 +501,7 @@ model Setting {
 // from is the only surviving record of the spelling the source published,
 // since the cleaned name overwrites it in place.
 //
-// Parsing writes three, all sitting under parse_failed.
+// Parsing writes three, all sitting under parsing_failed.
 // no_parser_for_domain, where no parser owns the domain the resolved link
 // belongs to, or the link yields no owned domain at all; the job takes
 // unparseable, because a later run would reach the same verdict.
@@ -498,30 +509,35 @@ model Setting {
 // and nothing_parsed, where the parser ran and returned no field at all.
 // Those last two keep the job in the backlog, because both describe an
 // outage rather than a verdict on the job, and the next run tries again. A
-// parse_failed row also carries the owned domain in the domain column and the
+// parsing_failed row also carries the owned domain in the domain column and the
 // full resolved link in detail, so a failing platform can be counted and any
 // one failure chased back to the exact address it happened on.
 //
-// The judging steps write three. past_expiry_threshold sits under job_expired
-// at backlog cleanup and again at classification, naming the one rule both
-// apply. no_location_match sits under classification_failed where every place
-// and work mode pair was too far away, and location_unreadable sits under it
-// where no place on the job could be read at all — a job we could not place is
-// left in the backlog for a later run, so the two are never merged. A refused
-// map request is recorded as location_unreadable too, because from the job's
-// point of view that is exactly what happened. job_entered, job_kept,
+// The judging steps write three. past_expiration_threshold sits under
+// job_expired at backlog cleanup and again at classification, naming the one
+// rule both apply. no_location_match sits under classification_failed where
+// every place and work mode pair was too far away, and location_unusable sits
+// under it where no place on the job could be read at all — a job we could not
+// place is left in the backlog for a later run, so the two are never merged. A
+// refused map request is recorded as location_unusable too, because from the
+// job's point of view that is exactly what happened. Normalization writes
+// location_unusable as well, for a raw location that cut away to no place, and
+// the event is what tells the two populations apart. job_entered, job_kept,
 // job_promoted, job_classified and job_reposted carry no reason, because one
 // population needs nothing to group by.
 //
 // A company has a path of its own, shorter than a job's, and its rows carry
 // a company and never a job or a collector. Backlog cleanup writes
 // company_entered as each scored company arrives, then company_kept where the
-// judgement is still fresh, or company_scores_cleared where it is not, under
-// past_score_expiry for a company past the score expiry and
-// past_guessed_score_expiry for one past only the guessed-score expiry. Save
+// judgement is still fresh. Where it is not, company_scores_cleared says every
+// score was emptied and placeholder_company_scores_cleared says only the
+// guessed ones were, both under past_expiration_threshold. The event carries
+// which scores went, because that is what happened to the company; the reason
+// names the one rule every expiry in the pipeline applies, the same word
+// job_expired carries. Save
 // writes company_dbrow_updated where the company's row took its new score
-// block, and reuses collection's abandoned under db_write_failed where that
-// write threw.
+// block, and reuses collection's job_abandoned under db_write_failed where
+// that write threw.
 //
 // Scoring writes eight events and seven reasons of its own, all under the
 // step scoring. It writes job_entered and company_entered as each job and
@@ -534,7 +550,7 @@ model Setting {
 // db_write_failed, where the score could not be written. A company takes
 // company_scored where every category was researched,
 // company_partially_scored under insufficient_research where the helper had
-// to guess at one, or company_scoring_failed under company_unnamed, where the
+// to guess at one, or company_scoring_failed under no_company_name, where the
 // company is known only by a board slug, scoring_agent_failed, or
 // db_write_failed. scoring_agent_failed and db_write_failed each name one
 // population split by whether a job or a company was being scored, and the

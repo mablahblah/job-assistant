@@ -34,7 +34,7 @@ type ParseFailureReason = "no_parser_for_domain" | "parser_errored" | "nothing_p
 // what gets counted.
 interface ParsedEntry {
   job: JobListEntry;
-  event: "job_parsed" | "parse_failed";
+  event: "job_parsed" | "parsing_failed";
   reason?: ParseFailureReason;
   domain?: string;
   detail?: string;
@@ -50,7 +50,7 @@ function markUnparseable(
 ): ParsedEntry {
   return {
     job: { ...job, status: "unparseable", is_parsed: false },
-    event: "parse_failed",
+    event: "parsing_failed",
     reason: "no_parser_for_domain",
     domain: domain ?? undefined,
     detail: resolvedUrl ?? undefined,
@@ -88,7 +88,7 @@ async function parseSingleJob(
     if (Object.keys(result).length === 0) {
       return {
         job: { ...job, is_parsed: false },
-        event: "parse_failed",
+        event: "parsing_failed",
         reason: "nothing_parsed",
         domain,
         detail: resolvedUrl,
@@ -114,7 +114,7 @@ async function parseSingleJob(
     // outage must not push a job out of the backlog permanently.
     return {
       job: { ...job, is_parsed: false },
-      event: "parse_failed",
+      event: "parsing_failed",
       reason: "parser_errored",
       domain,
       detail: resolvedUrl,

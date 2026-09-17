@@ -641,7 +641,7 @@ describe("Trace: its id orders events, and it outlives the job it describes", ()
         sql:
           "INSERT INTO Trace (run_id, job_id, step, event, collector, created_at) " +
           "VALUES (?, ?, ?, ?, ?, ?)",
-        args: ["run-1", "job-1", "collection", "collected", "adzuna", "2026-01-01T00:00:00.000Z"],
+        args: ["run-1", "job-1", "collection", "job_collected", "adzuna", "2026-01-01T00:00:00.000Z"],
       });
       const result = await client.execute("SELECT id FROM Trace");
       const row = result.rows[0] as unknown as Record<string, unknown>;
@@ -662,7 +662,7 @@ describe("Trace: its id orders events, and it outlives the job it describes", ()
           sql:
             "INSERT INTO Trace (run_id, job_id, step, event, collector, created_at) " +
             "VALUES (?, ?, ?, ?, ?, ?)",
-          args: ["run-1", "job-1", "collection", "collected", "adzuna", "2026-01-01T00:00:00.000Z"],
+          args: ["run-1", "job-1", "collection", "job_collected", "adzuna", "2026-01-01T00:00:00.000Z"],
         });
         const result = await client.execute("SELECT last_insert_rowid() as id");
         return Number((result.rows[0] as unknown as Record<string, unknown>)["id"]);
@@ -700,7 +700,7 @@ describe("Trace: its id orders events, and it outlives the job it describes", ()
         sql:
           "INSERT INTO Trace (run_id, job_id, step, event, collector, created_at) " +
           "VALUES (?, ?, ?, ?, ?, ?)",
-        args: ["run-1", "job-to-delete", "collection", "collected", "adzuna", timestamp],
+        args: ["run-1", "job-to-delete", "collection", "job_collected", "adzuna", timestamp],
       });
       await client.execute({ sql: "DELETE FROM Job WHERE id = ?", args: ["job-to-delete"] });
 
@@ -783,7 +783,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
     const comment = traceComment();
     const reasons = [
       "title_normalized",
-      "title_not_normalized",
+      "missing_role_noun",
       "salary_normalized",
       "salary_partially_normalized",
       "salary_unusable",
@@ -811,7 +811,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "matched_by_name",
       "company_created",
       "company_name_filled",
-      "no_name_for_lookup",
+      "no_company_name",
       "company_name_clash",
     ];
     for (const reason of reasons) {
@@ -825,12 +825,12 @@ describe("Trace: the model comment carries both vocabularies", () => {
     // neither can pass on the strength of the other.
     const comment = traceComment();
     const events = [
-      "collected",
-      "abandoned",
+      "job_collected",
+      "job_abandoned",
       "job_updated",
       "normalization_failed",
       "company_associated",
-      "company_updated",
+      "company_dbrow_updated",
       "association_failed",
       "company_update_failed",
     ];
@@ -849,9 +849,9 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "job_dbrow_updated",
       "job_dbrow_status_updated",
       "job_dbrow_deleted",
-      // Save's fifth event is collection's abandoned, reused rather than
+      // Save's fifth event is collection's job_abandoned, reused rather than
       // renamed, so the step and the reason are what tell the two apart.
-      "abandoned",
+      "job_abandoned",
     ];
     for (const event of events) {
       expect(comment).toContain(event);
@@ -869,12 +869,12 @@ describe("Trace: the model comment carries both vocabularies", () => {
     // strength of the other.
     const comment = traceComment();
     const events = [
-      "added_to_job_list",
+      "job_added_to_list",
       "job_dbrow_delete_refused",
       // Dedupe's other three rows reuse names already in the comment, so the
       // reasons below are what tell its populations from save's and
       // collection's.
-      "abandoned",
+      "job_abandoned",
       "job_dbrow_deleted",
     ];
     for (const event of events) {
@@ -911,6 +911,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
       "company_entered",
       "company_kept",
       "company_scores_cleared",
+      "placeholder_company_scores_cleared",
       "company_dbrow_updated",
       "company_scored",
       "company_partially_scored",
@@ -931,16 +932,16 @@ describe("Trace: the model comment carries both vocabularies", () => {
   });
 
   test("the company reason codes are listed", () => {
-    // Seven reasons across backlog cleanup, scoring and promotion. None is a
-    // substring of another: past_score_expiry and past_guessed_score_expiry
-    // differ from their fifth character, and the four promotion reasons share
-    // no stem at all.
+    // Six reasons across backlog cleanup, scoring and promotion. Both
+    // clearings now share past_expiration_threshold and are told apart by
+    // their event, so one word covers every expiry the pipeline records. None
+    // of the six is a substring of another, and the four promotion reasons
+    // share no stem at all.
     const comment = traceComment();
     const reasons = [
-      "past_score_expiry",
-      "past_guessed_score_expiry",
+      "past_expiration_threshold",
       "insufficient_research",
-      "company_unnamed",
+      "no_company_name",
       "not_fully_scored",
       "below_promotion_threshold",
       "no_pollable_board",
@@ -959,12 +960,12 @@ describe("Trace: the model comment carries both vocabularies", () => {
   });
 
   test("the judging steps' reason codes are listed", () => {
-    // None of the three is a substring of another or of a reason already in
-    // the comment: no_location_match and location_unreadable diverge from
-    // normalization's location_unusable straight after the shared location
-    // stem, and one of them spells that stem second rather than first.
+    // Classification shares location_unusable with normalization, and
+    // past_expiration_threshold with backlog cleanup; the event is what tells
+    // each pair of populations apart. no_location_match spells the location
+    // stem second rather than first, so it is a substring of neither.
     const comment = traceComment();
-    const reasons = ["past_expiry_threshold", "no_location_match", "location_unreadable"];
+    const reasons = ["past_expiration_threshold", "no_location_match", "location_unusable"];
     for (const reason of reasons) {
       expect(comment).toContain(reason);
     }
@@ -996,16 +997,16 @@ describe("Trace: the model comment carries both vocabularies", () => {
   });
 
   // AC 66. Resolution writes two events of its own and reuses collection's
-  // abandoned for a job its resolution disqualified.
+  // job_abandoned for a job its resolution disqualified.
   test("resolution's events are listed", () => {
     const comment = traceComment();
     const events = [
       "job_resolved",
       "resolution_failed",
-      // Resolution's third event is collection's abandoned, reused rather
+      // Resolution's third event is collection's job_abandoned, reused rather
       // than renamed, so the step and the reason are what tell the
       // populations apart.
-      "abandoned",
+      "job_abandoned",
     ];
     for (const event of events) {
       expect(comment).toContain(event);
@@ -1040,7 +1041,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
   // posting is not something any earlier step does.
   test("parsing's events are listed", () => {
     const comment = traceComment();
-    for (const event of ["job_parsed", "parse_failed"]) {
+    for (const event of ["job_parsed", "parsing_failed"]) {
       expect(comment).toContain(event);
     }
   });
@@ -1056,14 +1057,14 @@ describe("Trace: the model comment carries both vocabularies", () => {
     }
   });
 
-  // AC 67's schema half. A job merged away takes abandoned whether or not it
+  // AC 67's schema half. A job merged away takes job_abandoned whether or not it
   // held a row, so the comment may no longer tie the word to a row's absence.
-  test("the comment ties abandoned to the path ending rather than to a missing row", () => {
+  test("the comment ties job_abandoned to the path ending rather than to a missing row", () => {
     const comment = traceComment();
     const collapsed = comment.replace(/\/\//g, " ").replace(/\s+/g, " ").trim();
 
     expect(collapsed).toContain(
-      "abandoned ends a job's path through the pipeline and makes no claim about whether a row existed"
+      "job_abandoned ends a job's path through the pipeline and makes no claim about whether a row existed"
     );
   });
 
@@ -1076,7 +1077,7 @@ describe("Trace: the model comment carries both vocabularies", () => {
     const comment = traceComment();
     const collapsed = comment.replace(/\/\//g, " ").replace(/\s+/g, " ").trim();
     expect(collapsed).toContain(
-      "normalization_failed does not mean nothing was written. A title that matched no job noun still stores its cleaned fallback, so the event records that the rule did not fire rather than that the field was left empty."
+      "normalization_failed does not mean nothing was written. A title that matched no job noun still stores its cleaned fallback, so missing_role_noun records that the rule found nothing to fire on rather than that the field was left empty."
     );
   });
 });

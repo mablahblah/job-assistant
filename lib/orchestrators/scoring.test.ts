@@ -407,7 +407,7 @@ describe("saving a company's scores", () => {
     const trace = makeTraceService();
     await runScoringSave({
       jobScores: [],
-      companyScores: [{ id: "c2", failure: "company_unnamed" }],
+      companyScores: [{ id: "c2", failure: "no_company_name" }],
       settings: fakeSettingsService(),
       companies: fakeCompanyService([unscoredCompany({ id: "c2" })]),
       jobService: fakeJobService([]),
@@ -423,7 +423,7 @@ describe("saving a company's scores", () => {
         company_id: "c2",
         step: "scoring",
         event: "company_scoring_failed",
-        reason: "company_unnamed",
+        reason: "no_company_name",
       },
     ]);
   });

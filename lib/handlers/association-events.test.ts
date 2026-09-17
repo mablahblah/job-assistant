@@ -144,7 +144,7 @@ describe("a job that came out with a company", () => {
 // AC 46 and 53. Filling an empty name leaves no other record of when the
 // name arrived, so the row has to carry it.
 describe("filling a company's empty name", () => {
-  test("writes a company_updated row reading company_name_filled", async () => {
+  test("writes a company_dbrow_updated row reading company_name_filled", async () => {
     const trace = createFakeTraceService();
     const companies = companiesHolding([slugCompany("c1", "fill-board")]);
 
@@ -153,7 +153,7 @@ describe("filling a company's empty name", () => {
       { companies, trace, runId: RUN_ID, step: STEP }
     );
 
-    const filled = trace.events.find((event) => event.event === "company_updated");
+    const filled = trace.events.find((event) => event.event === "company_dbrow_updated");
     expect(filled?.reason).toBe("company_name_filled");
   });
 
@@ -166,7 +166,7 @@ describe("filling a company's empty name", () => {
       { companies, trace, runId: RUN_ID, step: STEP }
     );
 
-    const filled = trace.events.find((event) => event.event === "company_updated");
+    const filled = trace.events.find((event) => event.event === "company_dbrow_updated");
     expect(JSON.stringify(filled?.detail)).toContain("Detailed Name");
   });
 
@@ -190,7 +190,7 @@ describe("filling a company's empty name", () => {
 // AC 47 and 48. The two dead ends. Both warn as well, which is covered in
 // association.test.ts.
 describe("the two failures", () => {
-  test("no name to look up reads association_failed and no_name_for_lookup", async () => {
+  test("no name to look up reads association_failed and no_company_name", async () => {
     const trace = createFakeTraceService();
 
     await associateCompanies([baseJob({ raw_company_slug: "dead-end-board" })], {
@@ -201,7 +201,7 @@ describe("the two failures", () => {
     });
 
     expect(trace.events[0]?.event).toBe("association_failed");
-    expect(trace.events[0]?.reason).toBe("no_name_for_lookup");
+    expect(trace.events[0]?.reason).toBe("no_company_name");
   });
 
   test("a name clash reads company_update_failed and company_name_clash", async () => {

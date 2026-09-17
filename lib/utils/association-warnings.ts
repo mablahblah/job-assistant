@@ -13,7 +13,7 @@ import type { CollectionIssue } from "../types/collection-issue";
 import type { CompanyRecord } from "../services/company-service";
 
 export type AssociationWarning =
-  | { kind: "no_name_for_lookup"; collector: string; slug: string }
+  | { kind: "no_company_name"; collector: string; slug: string }
   | {
       kind: "company_name_clash";
       collector: string;
@@ -38,7 +38,7 @@ function labelCompany(company: CompanyRecord, slug?: string): string {
 export function associationWarnings(warnings: AssociationWarning[]): CollectionIssue[] {
   return warnings.map((warning) => {
     switch (warning.kind) {
-      case "no_name_for_lookup":
+      case "no_company_name":
         // The job travels the rest of the pipeline without a company. Save
         // is a later phase, so nothing has been written when this is raised.
         return {

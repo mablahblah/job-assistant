@@ -27,7 +27,7 @@ function slugCompany(id: string, slug: string): CompanyRecord {
 // is producing jobs with no employer, which is worth the user's attention.
 describe("a job with no name to look up", () => {
   const warning: AssociationWarning = {
-    kind: "no_name_for_lookup",
+    kind: "no_company_name",
     collector: "greenhouse",
     slug: "unknown-board",
   };
@@ -143,7 +143,7 @@ describe("a run with nothing wrong", () => {
 describe("the two kinds together", () => {
   test("keep the order they arrived in", () => {
     const issues = associationWarnings([
-      { kind: "no_name_for_lookup", collector: "lever", slug: "first-slug" },
+      { kind: "no_company_name", collector: "lever", slug: "first-slug" },
       {
         kind: "company_name_clash",
         collector: "adzuna",
@@ -151,7 +151,7 @@ describe("the two kinds together", () => {
         target: slugCompany("t1", "mixed-board"),
         heldBy: namedCompany("h1", "Mixed Clash"),
       },
-      { kind: "no_name_for_lookup", collector: "ashby", slug: "last-slug" },
+      { kind: "no_company_name", collector: "ashby", slug: "last-slug" },
     ]);
 
     expect(issues.map((issue) => issue.collector)).toEqual(["lever", "adzuna", "ashby"]);

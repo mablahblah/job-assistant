@@ -114,7 +114,7 @@ describe("a collected event is written for every job as it enters the loop", () 
       trace,
       collectors: [collector],
     });
-    const collected = trace.events.find((event) => event.event === "collected");
+    const collected = trace.events.find((event) => event.event === "job_collected");
     expect(collected).toMatchObject({
       step: "collection",
       collector: "lever",
@@ -140,7 +140,7 @@ describe("a collected event is written for every job as it enters the loop", () 
   });
 });
 
-describe("a job dropped by the usability check gets both a collected and an abandoned event", () => {
+describe("a job dropped by the usability check gets both a collected and a job_job_abandoned event", () => {
   test("both events exist, in that order, for the same job", async () => {
     const trace = makeTraceService();
     const collector = makeCollector("lever", {
@@ -155,13 +155,13 @@ describe("a job dropped by the usability check gets both a collected and an aban
       trace,
       collectors: [collector],
     });
-    expect(trace.events.map((event) => event.event)).toEqual(["collected", "abandoned"]);
+    expect(trace.events.map((event) => event.event)).toEqual(["job_collected", "job_abandoned"]);
     expect(trace.events[0]?.job_id).toBe(trace.events[1]?.job_id);
   });
 });
 
-describe("a job that passes the usability check gets a collected event and no abandoned event", () => {
-  test("abandoned never appears for that job", async () => {
+describe("a job that passes the usability check gets a collected event and no job_job_abandoned event", () => {
+  test("job_abandoned never appears for that job", async () => {
     const trace = makeTraceService();
     const collector = makeCollector("lever", {
       jobs: [makeJob("Designer")],
@@ -176,13 +176,13 @@ describe("a job that passes the usability check gets a collected event and no ab
       collectors: [collector],
     });
     // Normalization writes its own events for this job, so the check is that
-    // no abandoned event exists rather than that collected is the only event.
+    // no job_job_abandoned event exists rather than that collected is the only event.
     const collectionEvents = trace.events.filter((event) => event.step === "collection");
-    expect(collectionEvents.map((event) => event.event)).toEqual(["collected"]);
+    expect(collectionEvents.map((event) => event.event)).toEqual(["job_collected"]);
   });
 });
 
-describe("an abandoned event's reason is always one of the usability check's codes", () => {
+describe("a job_job_abandoned event's reason is always one of the usability check's codes", () => {
   test("every reason recorded belongs to the set of six codes", async () => {
     // Typed against UnusableCode, so this list stops compiling if job-usable.ts
     // ever adds or renames a code.
@@ -213,7 +213,7 @@ describe("an abandoned event's reason is always one of the usability check's cod
       collectors: [collector],
     });
     const reasons = trace.events
-      .filter((event) => event.event === "abandoned")
+      .filter((event) => event.event === "job_abandoned")
       .map((event) => event.reason);
     expect(reasons).toHaveLength(4);
     for (const reason of reasons) {
@@ -237,7 +237,7 @@ describe("a malformed URL is abandoned naming itself in the detail", () => {
       trace,
       collectors: [collector],
     });
-    const abandoned = trace.events.find((event) => event.event === "abandoned");
+    const abandoned = trace.events.find((event) => event.event === "job_abandoned");
     expect(abandoned?.reason).toBe("original_url_not_a_url");
     expect(abandoned?.detail).toBe("not-a-url");
   });
@@ -330,7 +330,7 @@ describe("a limit of 0 writes no trace events", () => {
 });
 
 describe("every trace event collection writes carries the collection step", () => {
-  test("step reads collection for both collected and abandoned events", async () => {
+  test("step reads collection for both collected and job_abandoned events", async () => {
     const trace = makeTraceService();
     const collector = makeCollector("lever", {
       jobs: [makeJob("Designer"), { ...makeJob("Researcher"), raw_title: undefined }],
@@ -347,7 +347,7 @@ describe("every trace event collection writes carries the collection step", () =
     // Normalization writes its own events at a different step, so the cleanup
     // is scoped to the two events collection itself is responsible for.
     const collectionEvents = trace.events.filter(
-      (event) => event.event === "collected" || event.event === "abandoned"
+      (event) => event.event === "job_collected" || event.event === "job_abandoned"
     );
     expect(collectionEvents.length).toBeGreaterThan(0);
     for (const event of collectionEvents) {
@@ -448,7 +448,7 @@ describe("a collector that resolved a job itself says so", () => {
       trace,
     });
 
-    const collected = trace.events.find((event) => event.event === "collected");
+    const collected = trace.events.find((event) => event.event === "job_collected");
     const resolved = trace.events.find((event) => event.event === "job_resolved");
     expect(resolved?.job_id).toBe(collected?.job_id);
   });

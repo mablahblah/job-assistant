@@ -57,7 +57,7 @@ const REASON_CASES: Array<
   [reason: string, expectedEvent: NormalizationEvent["event"], job: JobListEntry]
 > = [
   ["title_normalized", "job_updated", { raw_title: "Senior UX Designer" }],
-  ["title_not_normalized", "normalization_failed", { raw_title: "UI/UX" }],
+  ["missing_role_noun", "normalization_failed", { raw_title: "UI/UX" }],
   ["salary_normalized", "job_updated", { raw_salary: { salary_min: 85000, salary_max: 115000 } }],
   [
     "salary_partially_normalized",
@@ -113,7 +113,7 @@ describe("normalizeJob: title event detail", () => {
     // Brackets come out during tidying, so from and to differ here even
     // though no job noun is found and the title still counts as unmatched.
     const job: JobListEntry = { raw_title: "(UI/UX)" };
-    const event = eventFor(normalizeJob(job, VOCABULARIES), "title_not_normalized");
+    const event = eventFor(normalizeJob(job, VOCABULARIES), "missing_role_noun");
     expect(event.detail.from).toBe("(UI/UX)");
     expect(event.detail.to).toBe("UI/UX");
   });
@@ -188,7 +188,7 @@ describe("normalizeJob: detail values are truncated", () => {
     // Guards the trace table against a collector bug that puts a whole job
     // description into raw_title. The longest real title measured is 131.
     const job: JobListEntry = { raw_title: "A".repeat(500) };
-    const event = eventFor(normalizeJob(job, VOCABULARIES), "title_not_normalized");
+    const event = eventFor(normalizeJob(job, VOCABULARIES), "missing_role_noun");
     expect(event.detail.from).toHaveLength(200);
   });
 });

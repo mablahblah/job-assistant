@@ -95,7 +95,7 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
           run_id: options.runId,
           job_id: id,
           step: "collection",
-          event: "collected",
+          event: "job_collected",
           collector: collector.name,
         });
 
@@ -107,7 +107,7 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
             run_id: options.runId,
             job_id: id,
             step: "collection",
-            event: "abandoned",
+            event: "job_abandoned",
             collector: collector.name,
             reason: reason.code,
             detail: reason.detail,

@@ -100,7 +100,7 @@ async function deleteEntry(
   // No row held this id, so there is nothing to delete and nothing is wrong.
   // The entry was a copy that lost a merge and never reached a row of its
   // own, which is a dead end worth recording under the reason it lost.
-  return { job: null, traceRow: { event: "abandoned", reason }, warning: null };
+  return { job: null, traceRow: { event: "job_abandoned", reason }, warning: null };
 }
 
 async function updateEntry(
@@ -129,7 +129,7 @@ async function saveEntry(
     return {
       job: null,
       traceRow: {
-        event: "abandoned",
+        event: "job_abandoned",
         reason: "db_write_failed",
         detail: truncateDetail(messageFromThrown(thrown)),
       },
@@ -239,7 +239,7 @@ export async function saveCompanies(
           run_id: runId,
           company_id: company.id,
           step,
-          event: "abandoned",
+          event: "job_abandoned",
           reason: "db_write_failed",
         });
       }

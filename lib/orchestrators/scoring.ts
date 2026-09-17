@@ -179,7 +179,7 @@ export async function runScoringGather(
 }
 
 export type JobScoringFailure = "no_posting_url" | "posting_unreadable" | "scoring_agent_failed";
-export type CompanyScoringFailure = "company_unnamed" | "scoring_agent_failed";
+export type CompanyScoringFailure = "no_company_name" | "scoring_agent_failed";
 
 // One job's answer from a scoring helper. A score present means the helper
 // judged it; a score absent means it could not, and `failure` says why.

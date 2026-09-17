@@ -22,8 +22,8 @@ describe("the summary is built from one run's trace rows", () => {
   test("collected names every collector the run was given, including the empty ones", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("collection", "collected", "ashby", 60),
-        count("collection", "collected", "lever", 40),
+        count("collection", "job_collected", "ashby", 60),
+        count("collection", "job_collected", "lever", 40),
       ],
       COLLECTORS
     );
@@ -37,7 +37,7 @@ describe("the summary is built from one run's trace rows", () => {
   test("jobs a collector resolved itself are counted under collected", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("collection", "collected", "ashby", 60),
+        count("collection", "job_collected", "ashby", 60),
         count("collection", "job_resolved", "ashby", 24, "collector_provided"),
       ],
       COLLECTORS
@@ -49,10 +49,10 @@ describe("the summary is built from one run's trace rows", () => {
   test("the two kinds of duplicate are reported apart", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("collection", "collected", "ashby", 100),
-        count("post_collection_dedupe", "abandoned", "ashby", 9, "hard_match_in_list"),
-        count("post_collection_dedupe", "abandoned", "lever", 4, "repost_match_in_list"),
-        count("post_collection_dedupe", "abandoned", "ashby", 7, "matched_db_row"),
+        count("collection", "job_collected", "ashby", 100),
+        count("post_collection_dedupe", "job_abandoned", "ashby", 9, "hard_match_in_list"),
+        count("post_collection_dedupe", "job_abandoned", "lever", 4, "repost_match_in_list"),
+        count("post_collection_dedupe", "job_abandoned", "ashby", 7, "matched_db_row"),
       ],
       COLLECTORS
     );
@@ -78,7 +78,7 @@ describe("the summary is built from one run's trace rows", () => {
   test("a collector's own resolutions are not counted as resolution's work", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("collection", "collected", "ashby", 60),
+        count("collection", "job_collected", "ashby", 60),
         count("collection", "job_resolved", "ashby", 60, "collector_provided"),
       ],
       COLLECTORS
@@ -91,7 +91,7 @@ describe("the summary is built from one run's trace rows", () => {
     const lines = summaryFromTraceCounts(
       [
         count("parsing", "job_parsed", "ashby", 40),
-        count("parsing", "parse_failed", "adzuna", 6, "no_parser_for_domain", "myworkdayjobs.com"),
+        count("parsing", "parsing_failed", "adzuna", 6, "no_parser_for_domain", "myworkdayjobs.com"),
       ],
       COLLECTORS
     );
@@ -104,9 +104,9 @@ describe("the summary is built from one run's trace rows", () => {
   test("a domain no parser owns and a domain whose parser broke are labelled apart", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("parsing", "parse_failed", "adzuna", 4, "no_parser_for_domain", "myworkdayjobs.com"),
-        count("parsing", "parse_failed", "ashby", 3, "parser_errored", "lever.co"),
-        count("parsing", "parse_failed", "ashby", 2, "nothing_parsed", "lever.co"),
+        count("parsing", "parsing_failed", "adzuna", 4, "no_parser_for_domain", "myworkdayjobs.com"),
+        count("parsing", "parsing_failed", "ashby", 3, "parser_errored", "lever.co"),
+        count("parsing", "parsing_failed", "ashby", 2, "nothing_parsed", "lever.co"),
       ],
       COLLECTORS
     );
@@ -118,12 +118,12 @@ describe("the summary is built from one run's trace rows", () => {
   test("the five domains costing the most jobs are the ones that print", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("parsing", "parse_failed", "adzuna", 9, "no_parser_for_domain", "six.com"),
-        count("parsing", "parse_failed", "adzuna", 8, "no_parser_for_domain", "five.com"),
-        count("parsing", "parse_failed", "adzuna", 7, "no_parser_for_domain", "four.com"),
-        count("parsing", "parse_failed", "adzuna", 6, "no_parser_for_domain", "three.com"),
-        count("parsing", "parse_failed", "adzuna", 5, "no_parser_for_domain", "two.com"),
-        count("parsing", "parse_failed", "adzuna", 4, "no_parser_for_domain", "one.com"),
+        count("parsing", "parsing_failed", "adzuna", 9, "no_parser_for_domain", "six.com"),
+        count("parsing", "parsing_failed", "adzuna", 8, "no_parser_for_domain", "five.com"),
+        count("parsing", "parsing_failed", "adzuna", 7, "no_parser_for_domain", "four.com"),
+        count("parsing", "parsing_failed", "adzuna", 6, "no_parser_for_domain", "three.com"),
+        count("parsing", "parsing_failed", "adzuna", 5, "no_parser_for_domain", "two.com"),
+        count("parsing", "parsing_failed", "adzuna", 4, "no_parser_for_domain", "one.com"),
       ],
       COLLECTORS
     );
@@ -138,8 +138,8 @@ describe("the summary is built from one run's trace rows", () => {
   test("two domains that failed the same number of times print alphabetically", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("parsing", "parse_failed", "adzuna", 3, "no_parser_for_domain", "zebra.com"),
-        count("parsing", "parse_failed", "adzuna", 3, "no_parser_for_domain", "apple.com"),
+        count("parsing", "parsing_failed", "adzuna", 3, "no_parser_for_domain", "zebra.com"),
+        count("parsing", "parsing_failed", "adzuna", 3, "no_parser_for_domain", "apple.com"),
       ],
       COLLECTORS
     );
@@ -153,7 +153,7 @@ describe("the summary is built from one run's trace rows", () => {
 
   test("a failure with no owned domain counts in the total but has nothing to list", () => {
     const lines = summaryFromTraceCounts(
-      [count("parsing", "parse_failed", "adzuna", 2, "no_parser_for_domain", null)],
+      [count("parsing", "parsing_failed", "adzuna", 2, "no_parser_for_domain", null)],
       COLLECTORS
     );
 
@@ -176,7 +176,7 @@ describe("the summary is built from one run's trace rows", () => {
     const lines = summaryFromTraceCounts(
       [
         count("parsing", "job_parsed", "ashby", 3),
-        count("post_parsing_dedupe", "abandoned", "ashby", 5, "hard_match_in_list"),
+        count("post_parsing_dedupe", "job_abandoned", "ashby", 5, "hard_match_in_list"),
       ],
       COLLECTORS
     );
@@ -186,7 +186,7 @@ describe("the summary is built from one run's trace rows", () => {
 
   test("a detail line with nothing to report is left out", () => {
     const lines = summaryFromTraceCounts(
-      [count("collection", "collected", "ashby", 5)],
+      [count("collection", "job_collected", "ashby", 5)],
       COLLECTORS
     );
 
@@ -207,8 +207,8 @@ describe("the summary is built from one run's trace rows", () => {
   test("the blocks come out in the order the pipeline runs them", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("collection", "collected", "ashby", 100),
-        count("post_collection_dedupe", "abandoned", "ashby", 9, "hard_match_in_list"),
+        count("collection", "job_collected", "ashby", 100),
+        count("post_collection_dedupe", "job_abandoned", "ashby", 9, "hard_match_in_list"),
         count("resolution", "job_resolved", "ashby", 55, "no_apply_links"),
         count("parsing", "job_parsed", "ashby", 30),
       ],
@@ -226,7 +226,7 @@ describe("one job reads as one job", () => {
   test("the headline numbers drop the plural at one", () => {
     const lines = summaryFromTraceCounts(
       [
-        count("collection", "collected", "ashby", 1),
+        count("collection", "job_collected", "ashby", 1),
         count("resolution", "job_resolved", "ashby", 1),
       ],
       ["ashby"]
@@ -241,10 +241,10 @@ describe("one job reads as one job", () => {
     const lines = summaryFromTraceCounts(
       [
         count("collection", "job_resolved", "ashby", 1, "collector_provided"),
-        count("post_collection_dedupe", "abandoned", "ashby", 1, "hard_match_in_list"),
-        count("post_collection_dedupe", "abandoned", "ashby", 1, "matched_db_row"),
+        count("post_collection_dedupe", "job_abandoned", "ashby", 1, "hard_match_in_list"),
+        count("post_collection_dedupe", "job_abandoned", "ashby", 1, "matched_db_row"),
         count("resolution", "resolution_failed", "ashby", 1, "posting_gone"),
-        count("parsing", "parse_failed", "ashby", 1, "no_parser_for_domain", "myworkdayjobs.com"),
+        count("parsing", "parsing_failed", "ashby", 1, "no_parser_for_domain", "myworkdayjobs.com"),
       ],
       ["ashby"]
     );
@@ -276,14 +276,14 @@ describe("the three judging steps each print a block", () => {
       [
         entered("backlog_cleanup", 412),
         count("backlog_cleanup", "job_kept", "greenhouse", 375),
-        count("backlog_cleanup", "job_expired", "greenhouse", 37, "past_expiry_threshold"),
+        count("backlog_cleanup", "job_expired", "greenhouse", 37, "past_expiration_threshold"),
       ],
       COLLECTORS
     );
 
     expect(lines).toContain("Backlog cleanup (412 jobs)");
     expect(lines).toContain("  375 jobs kept");
-    expect(lines).toContain("   37 jobs expired (reason: past_expiry_threshold)");
+    expect(lines).toContain("   37 jobs expired (reason: past_expiration_threshold)");
   });
 
   test("promotion says its jobs came from the backlog rather than this run", () => {
@@ -302,9 +302,9 @@ describe("the three judging steps each print a block", () => {
       [
         entered("classification", 157),
         count("classification", "job_classified", "greenhouse", 64),
-        count("classification", "job_expired", "greenhouse", 32, "past_expiry_threshold"),
+        count("classification", "job_expired", "greenhouse", 32, "past_expiration_threshold"),
         count("classification", "classification_failed", "greenhouse", 48, "no_location_match"),
-        count("classification", "classification_failed", "greenhouse", 13, "location_unreadable"),
+        count("classification", "classification_failed", "greenhouse", 13, "location_unusable"),
         count("classification", "job_reposted", "greenhouse", 12),
       ],
       COLLECTORS
@@ -312,9 +312,9 @@ describe("the three judging steps each print a block", () => {
 
     expect(lines).toContain("Classification (157 jobs)");
     expect(lines).toContain("   64 jobs were close enough");
-    expect(lines).toContain("   32 jobs expired (reason: past_expiry_threshold)");
+    expect(lines).toContain("   32 jobs expired (reason: past_expiration_threshold)");
     expect(lines).toContain("   48 jobs too far (reason: no_location_match)");
-    expect(lines).toContain("   13 jobs could not be judged (reason: location_unreadable)");
+    expect(lines).toContain("   13 jobs could not be judged (reason: location_unusable)");
     expect(lines).toContain("  Note: 12 of these were also flagged as reposts");
   });
 
@@ -422,14 +422,14 @@ describe("the company scoring block", () => {
         companyCount("scoring", "company_entered", 4),
         companyCount("scoring", "company_scored", 2),
         companyCount("scoring", "company_partially_scored", 1, "insufficient_research"),
-        companyCount("scoring", "company_scoring_failed", 1, "company_unnamed"),
+        companyCount("scoring", "company_scoring_failed", 1, "no_company_name"),
       ],
       COLLECTORS
     );
 
     expect(lines).toContain("  2 companies scored");
     expect(lines).toContain("  1 company partially scored (reason: insufficient_research)");
-    expect(lines).toContain("  1 company could not be scored (reason: company_unnamed)");
+    expect(lines).toContain("  1 company could not be scored (reason: no_company_name)");
   });
 
   test("a run with no company to score still prints the heading at zero", () => {
@@ -476,7 +476,7 @@ describe("company scores cleared during backlog cleanup", () => {
       [
         count("backlog_cleanup", "job_entered", "lever", 5),
         count("backlog_cleanup", "job_kept", "lever", 5),
-        companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_score_expiry"),
+        companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_expiration_threshold"),
       ],
       COLLECTORS
     );
@@ -489,7 +489,12 @@ describe("company scores cleared during backlog cleanup", () => {
       [
         count("backlog_cleanup", "job_entered", "lever", 5),
         count("backlog_cleanup", "job_kept", "lever", 5),
-        companyCount("backlog_cleanup", "company_scores_cleared", 2, "past_guessed_score_expiry"),
+        companyCount(
+          "backlog_cleanup",
+          "placeholder_company_scores_cleared",
+          2,
+          "past_expiration_threshold"
+        ),
       ],
       COLLECTORS
     );
@@ -497,10 +502,37 @@ describe("company scores cleared during backlog cleanup", () => {
     expect(lines).toContain("  Note: 2 companies lost a stale guessed score");
   });
 
+  // Both clearings carry one reason, so only the event separates them. A
+  // counter reading the reason alone would print each company's note twice.
+  test("a full clear prints no guessed-score note", () => {
+    const lines = summaryFromTraceCounts(
+      [companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_expiration_threshold")],
+      COLLECTORS
+    );
+
+    expect(lines).not.toContain("  Note: 3 companies lost a stale guessed score");
+  });
+
+  test("a guessed-score clear prints no full-clear note", () => {
+    const lines = summaryFromTraceCounts(
+      [
+        companyCount(
+          "backlog_cleanup",
+          "placeholder_company_scores_cleared",
+          2,
+          "past_expiration_threshold"
+        ),
+      ],
+      COLLECTORS
+    );
+
+    expect(lines).not.toContain("  Note: 2 companies lost a stale score");
+  });
+
   // The note is about companies, so an empty backlog must not hide it.
   test("the note prints even where no job was on the backlog", () => {
     const lines = summaryFromTraceCounts(
-      [companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_score_expiry")],
+      [companyCount("backlog_cleanup", "company_scores_cleared", 3, "past_expiration_threshold")],
       COLLECTORS
     );
 

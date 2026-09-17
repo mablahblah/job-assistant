@@ -107,7 +107,7 @@ export async function dedupeJobs(
     if (reason) {
       pending.push({
         job: fold.loser,
-        event: "abandoned",
+        event: "job_abandoned",
         reason,
         detail: dedupeDetail(fold.loser, fold.becameId, fold.clause),
       });
@@ -181,7 +181,7 @@ export async function dedupeJobs(
       // The row is the job this event describes, so it supplies both the id
       // and the collector, whether or not its own id went on to survive. It
       // joined the list rather than lost anything, so it carries no detail.
-      pending.push({ job: row, event: "added_to_job_list", reason: "matched_list_entry" });
+      pending.push({ job: row, event: "job_added_to_list", reason: "matched_list_entry" });
       claims.set(id, { index, clause });
     }
 
@@ -299,7 +299,7 @@ function mergePair(
   };
 }
 
-// abandoned marks a job's path through the pipeline ending, and makes no
+// job_abandoned marks a job's path through the pipeline ending, and makes no
 // claim about whether a row existed. Whether a row is really deleted is save's
 // to say, at the step that carries the delete out, and its guardrail can still
 // refuse one for a job the user has already applied to.
@@ -310,7 +310,7 @@ function leavingRow(
 ): PendingTrace {
   return {
     job: loser,
-    event: "abandoned",
+    event: "job_abandoned",
     reason: MATCHED_DB_ROW,
     detail: dedupeDetail(loser, becameId, clause),
   };

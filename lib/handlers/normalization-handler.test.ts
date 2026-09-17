@@ -293,7 +293,7 @@ describe("normalizeJobs: the reasons that never warn", () => {
   // covering every reason except the two that do warn.
   const SILENT_REASON_CASES: Array<[reason: string, rawFields: Partial<JobListEntry>]> = [
     ["title_normalized", { raw_title: "Senior UX Designer" }],
-    ["title_not_normalized", { raw_title: "UI/UX" }],
+    ["missing_role_noun", { raw_title: "UI/UX" }],
     ["salary_normalized", { raw_salary: { salary_min: 85000, salary_max: 115000 } }],
     [
       "salary_partially_normalized",

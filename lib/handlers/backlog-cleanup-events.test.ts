@@ -80,7 +80,7 @@ describe("the rows one job produces", () => {
         step: STEP,
         event: "job_expired",
         collector: "greenhouse",
-        reason: "past_expiry_threshold",
+        reason: "past_expiration_threshold",
       },
     ]);
   });
@@ -237,18 +237,20 @@ describe("the rows the company sweep writes", () => {
     const events = await sweep(company({ scored_at: daysBefore(91) }));
 
     expect(events[1]?.event).toBe("company_scores_cleared");
-    expect(events[1]?.reason).toBe("past_score_expiry");
+    expect(events[1]?.reason).toBe("past_expiration_threshold");
   });
 
-  // The two clearings are told apart by their reason, so one query can count
-  // how often a guess is what aged out.
-  test("a company past only the guessed-score expiry records its own reason", async () => {
+  // The two clearings are told apart by their event, because which scores went
+  // is what happened to the company. Both carry the one expiry reason every
+  // step in the pipeline shares, so one query counts every expiry at once and
+  // the event says which kind each was.
+  test("a company past only the guessed-score expiry records its own event", async () => {
     const events = await sweep(
       company({ scored_at: daysBefore(31), scores_guessed: ["customer_satisfaction"] })
     );
 
-    expect(events[1]?.event).toBe("company_scores_cleared");
-    expect(events[1]?.reason).toBe("past_guessed_score_expiry");
+    expect(events[1]?.event).toBe("placeholder_company_scores_cleared");
+    expect(events[1]?.reason).toBe("past_expiration_threshold");
   });
 
   // A handler handed only some of trace, runId and step still does its work

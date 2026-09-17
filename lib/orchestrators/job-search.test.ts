@@ -262,7 +262,7 @@ describe("normalization writes its own trace events after collection", () => {
     await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
-    const collected = trace.events.find((event) => event.event === "collected");
+    const collected = trace.events.find((event) => event.event === "job_collected");
     const normalization = trace.events.filter(
       (event) => event.step === "post_collection_normalization"
     );
@@ -1379,7 +1379,7 @@ describe("AC 79: two jobs that resolved to one posting leave one row", () => {
 
     expect(rows).toHaveLength(1);
     const departures = trace.events.filter(
-      (event) => event.step === "post_resolution_dedupe" && event.event === "abandoned"
+      (event) => event.step === "post_resolution_dedupe" && event.event === "job_abandoned"
     );
     expect(departures).toHaveLength(1);
   });

@@ -55,7 +55,7 @@ interface AssociationTraceRow {
 // whether this job is even eligible to warn — a job carrying no id or no
 // collector has nothing to key a record on — so the caller adds it.
 type WarningInput =
-  | { kind: "no_name_for_lookup"; slug: string }
+  | { kind: "no_company_name"; slug: string }
   | {
       kind: "company_name_clash";
       name: string;
@@ -125,13 +125,13 @@ async function associateJob(
     const failedSlug = slug ?? "";
     traceRows.push({
       event: "association_failed",
-      reason: "no_name_for_lookup",
+      reason: "no_company_name",
       detail: truncateDetail(failedSlug),
     });
     return {
       job: { ...job },
       traceRows,
-      warning: { kind: "no_name_for_lookup", slug: failedSlug },
+      warning: { kind: "no_company_name", slug: failedSlug },
     };
   }
 
@@ -154,7 +154,7 @@ async function associateJob(
     const fillResult = await companies.fillName(match.company.id, usable.name);
     if (fillResult.filled) {
       traceRows.push({
-        event: "company_updated",
+        event: "company_dbrow_updated",
         reason: "company_name_filled",
         detail: truncateDetail(usable.name),
       });

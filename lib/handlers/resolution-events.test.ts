@@ -197,18 +197,18 @@ describe("AC 18, 20: a job's resolution that reached a blacklisted host", () => 
     { url: "https://www.jobleads.com/jobs/1", html: "<p>A job posting</p>" },
   ];
 
-  // abandoned is the word for a job leaving the pipeline, whether or not a
+  // job_abandoned is the word for a job leaving the pipeline, whether or not a
   // row went with it.
-  test("a collected job reads abandoned", async () => {
+  test("a collected job reads job_abandoned", async () => {
     const events = await traceOf(blacklisted);
 
     expect(events.map((event) => [event.event, event.reason])).toEqual([
-      ["abandoned", "blacklisted_url"],
+      ["job_abandoned", "blacklisted_url"],
     ]);
   });
 
   // A hand-entered job is markUnresolvable rather than dropped, so it has not left the
-  // pipeline and abandoned would be a lie.
+  // pipeline and job_abandoned would be a lie.
   test("a hand-entered job reads resolution_failed", async () => {
     const events = await traceOf(blacklisted, job("a", { collector: "user" }));
 

@@ -46,10 +46,10 @@ Anything true about the jobs rather than a way out of the step is a note. Notes 
 
 ```
 Classification (157 jobs)
-   32 jobs expired (reason: past_expiry_threshold)
+   32 jobs expired (reason: past_expiration_threshold)
    64 jobs were close enough
    48 jobs too far (reason: no_location_match)
-   13 jobs could not be judged (reason: location_unreadable)
+   13 jobs could not be judged (reason: location_unusable)
 
   Note: 12 of these were also flagged as reposts
 ```
