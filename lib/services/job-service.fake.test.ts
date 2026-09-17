@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { JobListEntry } from "../types/job-list-entry";
+import type { CompanyRecord } from "./company-service";
 import { fakeJobService } from "./job-service.fake";
 
 // The fake stands in for the real service in the save step's tests, so it has
@@ -740,5 +741,91 @@ describe("searching by part of an employer's name", () => {
     const service = fakeJobService([storedJob("fake-search-x", { raw_company_name: "Indeed" })]);
 
     expect(await service.findByCompanyNameMatch({ companyNamePart: "nobody" })).toEqual([]);
+  });
+});
+
+// The dashboard's two reads. The fake grows an employer table for them,
+// because a job's employer carries four of the five ratings behind its total
+// and the page works that total out as it is built.
+describe("the dashboard's reads", () => {
+  function employer(id: string, name: string): CompanyRecord {
+    return {
+      id,
+      name,
+      match_key: name.toLowerCase(),
+      employee_satisfaction: 4,
+      customer_satisfaction: 4,
+      work_life_balance: 4,
+      political_alignment: 4,
+      employee_satisfaction_rationale: null,
+      customer_satisfaction_rationale: null,
+      work_life_balance_rationale: null,
+      political_alignment_rationale: null,
+      scored_at: null,
+      scores_guessed: [],
+      address: null,
+      phone: null,
+      website: null,
+      enriched_at: null,
+      enrichment_status: null,
+      enrichment_uncertain: false,
+      enrichment_flags: [],
+    };
+  }
+
+  const held: JobListEntry[] = [
+    { id: "fake-backlog", status: "backlog", company_id: "fake-co" },
+    { id: "fake-sent", status: "app. sent" },
+    { id: "fake-expired", status: "expired" },
+  ];
+
+  function service() {
+    return fakeJobService([...held], {}, [employer("fake-co", "Acme")]);
+  }
+
+  test("gives back only the jobs holding one of the statuses asked for", async () => {
+    const found = await service().findByStatuses(["backlog"]);
+
+    expect(found.map((row) => row.job.id)).toEqual(["fake-backlog"]);
+  });
+
+  test("covers every status it was handed", async () => {
+    const found = await service().findByStatuses(["app. sent", "expired"]);
+
+    expect(found.map((row) => row.job.id)).toEqual(["fake-sent", "fake-expired"]);
+  });
+
+  test("hands back the employer beside the job", async () => {
+    const [row] = await service().findByStatuses(["backlog"]);
+
+    expect(row.company?.name).toBe("Acme");
+  });
+
+  test("hands back nothing in the employer's place where the job has none", async () => {
+    const [row] = await service().findByStatuses(["app. sent"]);
+
+    expect(row.company).toBeNull();
+  });
+
+  test("gives back nothing where no status was asked for", async () => {
+    expect(await service().findByStatuses([])).toEqual([]);
+  });
+
+  test("gives back the jobs holding the ids asked for, each with its employer", async () => {
+    const found = await service().findByIds(["fake-backlog", "fake-sent"]);
+    const byId = new Map(found.map((row) => [row.job.id, row]));
+
+    expect(byId.get("fake-backlog")?.company?.name).toBe("Acme");
+    expect(byId.get("fake-sent")?.company).toBeNull();
+  });
+
+  test("passes over an id no job holds", async () => {
+    const found = await service().findByIds(["fake-backlog", "fake-deleted"]);
+
+    expect(found.map((row) => row.job.id)).toEqual(["fake-backlog"]);
+  });
+
+  test("gives back nothing where no id was asked for", async () => {
+    expect(await service().findByIds([])).toEqual([]);
   });
 });

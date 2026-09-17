@@ -202,3 +202,54 @@ describe("a write the database refuses", () => {
     rmSync(temp.dir, { recursive: true, force: true });
   }, CREATE_TIMEOUT_MS);
 });
+
+// Criterion 175. The dashboard's work log page reads through this service
+// rather than the database, the way every other page list does.
+describe("reading every entry", () => {
+  test("gives back the newest entry first", async () => {
+    await db.workLogEntry.create({
+      data: {
+        id: "read-all-older",
+        ...entryFor("job-read-all-older"),
+        created_at: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+    await db.workLogEntry.create({
+      data: {
+        id: "read-all-newer",
+        ...entryFor("job-read-all-newer"),
+        created_at: new Date("2026-04-01T00:00:00.000Z"),
+      },
+    });
+
+    const found = await service.findAll();
+    const ids = found.map((entry) => entry.id);
+
+    expect(ids.indexOf("read-all-newer")).toBeLessThan(ids.indexOf("read-all-older"));
+  });
+
+  test("hands back every field the form asks for", async () => {
+    await db.workLogEntry.create({
+      data: {
+        id: "read-all-whole",
+        job_id: "job-read-all-whole",
+        company_name: "Figma",
+        job_title: "Senior Product Designer",
+        activity: "Had interview",
+        created_at: new Date("2026-05-01T00:00:00.000Z"),
+      },
+    });
+
+    const found = await service.findAll();
+    const entry = found.find((held) => held.id === "read-all-whole");
+
+    expect(entry).toEqual({
+      id: "read-all-whole",
+      job_id: "job-read-all-whole",
+      company_name: "Figma",
+      job_title: "Senior Product Designer",
+      activity: "Had interview",
+      created_at: new Date("2026-05-01T00:00:00.000Z"),
+    });
+  });
+});

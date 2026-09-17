@@ -7,6 +7,8 @@ import type { createPipelineDb } from "../db/pipeline-db";
 import { Prisma } from "../../generated/pipeline/client";
 import type { Job } from "../../generated/pipeline/client";
 import type { JobListEntry } from "../types/job-list-entry";
+import type { JobRow } from "../types/job-row";
+import { COMPANY_RECORD_SELECT, toCompanyRecord, type CompanyRow } from "./company-service";
 import { isActiveStatus } from "../utils/job-status";
 import { mergeJobs, WRITE_ONCE_FIELDS } from "../utils/job-merge";
 import { urlMatchKey } from "../utils/url-match-key";
@@ -105,6 +107,25 @@ export interface JobService {
     titlePart?: string;
     statuses?: readonly string[];
   }): Promise<JobSearchMatch[]>;
+  // The dashboard's two reads. Each hands back the job and its employer side
+  // by side rather than merged, because the job shape already mirrors the Job
+  // row exactly and a merged shape would be a third field list to keep in step
+  // with both. The employer has to come along: four of the five ratings behind
+  // a job's total sit on it, and the total is worked out as the page is built
+  // rather than read from a column.
+  //
+  // Neither read orders its rows. The three page lists sort differently from
+  // each other, so the sorting belongs where that difference lives.
+  //
+  // A list covering no status hands back nothing rather than everything.
+  // Reading the whole table would put every job under a heading that promised
+  // one status.
+  findByStatuses(statuses: readonly string[]): Promise<JobRow[]>;
+  // The work log names its jobs by id, and the employer's contact details are
+  // only reachable through the job. An id no job holds is expected rather than
+  // an error, because an entry is built to outlive the job it names, so it is
+  // simply absent from what comes back.
+  findByIds(ids: readonly string[]): Promise<JobRow[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -121,6 +142,17 @@ function isUniqueConstraintError(error: unknown): boolean {
 // actually hold. This is the single documented cast that bridges the two.
 function toJobListEntry(row: Job): JobListEntry {
   return row as unknown as JobListEntry;
+}
+
+// One row read with its employer alongside. The relation is optional, so a
+// job company association never matched comes back with nothing in the
+// employer's place rather than being left out of the list.
+function toJobRow(row: Job & { company: CompanyRow | null }): JobRow {
+  const { company, ...job } = row;
+  return {
+    job: toJobListEntry(job as Job),
+    company: company === null ? null : toCompanyRecord(company),
+  };
 }
 
 // A link's match key travels with it: a string link gets a freshly computed
@@ -381,6 +413,24 @@ export function createJobService(db: PipelineDb): JobService {
         status: row.status,
         posting_date: row.posting_date,
       }));
+    },
+
+    async findByStatuses(statuses) {
+      if (statuses.length === 0) return [];
+      const rows = await db.job.findMany({
+        where: { status: { in: [...statuses] } },
+        include: { company: { select: COMPANY_RECORD_SELECT } },
+      });
+      return rows.map(toJobRow);
+    },
+
+    async findByIds(ids) {
+      if (ids.length === 0) return [];
+      const rows = await db.job.findMany({
+        where: { id: { in: [...ids] } },
+        include: { company: { select: COMPANY_RECORD_SELECT } },
+      });
+      return rows.map(toJobRow);
     },
   };
 }

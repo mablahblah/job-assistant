@@ -29,6 +29,11 @@ export interface WorkLogRecord extends WorkLogInput {
 
 export interface WorkLogService {
   write(entry: WorkLogInput): Promise<WorkLogRecord>;
+  // The dashboard's work log page reads through the service that owns this
+  // table rather than the database. Every entry rather than one week's worth,
+  // because the page groups them into weeks itself and a week nothing was
+  // filed in still has to appear.
+  findAll(): Promise<WorkLogRecord[]>;
 }
 
 export function createWorkLogService(db: PipelineDb): WorkLogService {
@@ -40,6 +45,10 @@ export function createWorkLogService(db: PipelineDb): WorkLogService {
     // reach the caller rather than leave the user believing a record exists.
     async write(entry: WorkLogInput) {
       return db.workLogEntry.create({ data: entry });
+    },
+
+    async findAll() {
+      return db.workLogEntry.findMany({ orderBy: { created_at: "desc" } });
     },
   };
 }

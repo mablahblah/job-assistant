@@ -20,6 +20,7 @@ Every file in `lib/` sits in the folder named for the kind of thing it is. `lib/
 | `lib/tools/`         | Wrappers around something outside the app, and their interfaces    |
 | `lib/types/`         | Shapes shared across folders, holding no logic                     |
 | `lib/utils/`         | Plain functions taking values and returning values                 |
+| `lib/views/`         | The code that turns data into a screen                             |
 
 ## Files
 
@@ -112,6 +113,14 @@ A util takes values, returns values, and reaches no database.
 - Answering yes or no: `is{X}` or `matches{X}` — `isActiveStatus`, `matchesSearchTerms`
 - Every util names its subject.
 - A util used by one folder only still lives here. `ashby-fields.ts` is read by a collector and a parser, and would be miscast in either.
+
+## Views
+
+A view takes values and returns HTML — the text a browser reads to draw a page. It reaches no database and calls nothing outside itself.
+
+- File: `lib/views/{subject}.ts`, named for what it builds — `job-table.ts`, `work-log.ts`, `page.ts`
+- Function: `{subject}View` — `jobTableView`, `workLogView`, `pageView`
+- A util answers one small question about a value. A view owns a whole screen, or a whole part of one, and answers with HTML.
 
 ## Values
 

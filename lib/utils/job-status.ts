@@ -57,3 +57,23 @@ export const WORK_LOG_STATUSES = [
 export function isWorkLogStatus(status: string): boolean {
   return (WORK_LOG_STATUSES as readonly string[]).includes(status);
 }
+
+// The statuses that mean a job has been ruled out by the pipeline or the user.
+// The pipeline writes unresolvable when it cannot follow a job link and
+// unparseable when it cannot read a posting.
+//
+// The dashboard reads this list to show disqualified jobs, rather than typing
+// the statuses again.
+export const RULED_OUT_STATUSES = [
+  "expired",
+  "too far",
+  "won't apply",
+  "unresolvable",
+  "unparseable",
+  "rejected",
+] as const;
+
+// True when a status is one of the ruled-out ones.
+export function isRuledOutStatus(status: string): boolean {
+  return (RULED_OUT_STATUSES as readonly string[]).includes(status);
+}

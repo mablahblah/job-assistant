@@ -86,3 +86,34 @@ describe("the fake refusing a write", () => {
     expect(written).toHaveLength(0);
   });
 });
+
+// The stand-in has to reach the same answer the real service does, so it
+// orders its entries too rather than handing back the array as written.
+describe("reading every entry", () => {
+  test("gives back the newest entry first", async () => {
+    const service = fakeWorkLogService([
+      {
+        id: "older",
+        job_id: "job-a",
+        company_name: "Figma",
+        job_title: "Product Designer",
+        activity: "Applied for job",
+        created_at: new Date("2026-03-01T00:00:00.000Z"),
+      },
+      {
+        id: "newer",
+        job_id: "job-b",
+        company_name: "Stripe",
+        job_title: "Product Designer",
+        activity: "Had interview",
+        created_at: new Date("2026-04-01T00:00:00.000Z"),
+      },
+    ]);
+
+    expect((await service.findAll()).map((entry) => entry.id)).toEqual(["newer", "older"]);
+  });
+
+  test("gives back nothing where nothing has been filed", async () => {
+    expect(await fakeWorkLogService().findAll()).toEqual([]);
+  });
+});

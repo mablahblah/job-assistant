@@ -6,6 +6,8 @@
 import { mergeJobs } from "../utils/job-merge";
 import { poolJobDates } from "../utils/job-dates";
 import type { JobListEntry } from "../types/job-list-entry";
+import type { JobRow } from "../types/job-row";
+import type { CompanyRecord } from "./company-service";
 import type { DeleteResult, JobSearchMatch, JobService, UpdateResult } from "./job-service";
 import { isActiveStatus } from "../utils/job-status";
 import { urlMatchKey } from "../utils/url-match-key";
@@ -29,8 +31,31 @@ function writeLinkMatchKey(
 
 export function fakeJobService(
   jobs: JobListEntry[] = [],
-  overrides: Partial<JobService> = {}
+  overrides: Partial<JobService> = {},
+  // A table of its own rather than an employer nested on each job, because the
+  // held jobs mirror Job rows and a Job row carries a company id, not a
+  // company.
+  companies: CompanyRecord[] = []
 ): JobService {
+  // A job with no company id, or one naming a company this table does not
+  // hold, reads as having no employer rather than as an error. The real
+  // relation is optional, and a test seeding only the jobs it cares about is
+  // the ordinary case.
+  function toJobRow(job: JobListEntry): JobRow {
+    const employer = companies.find((company) => company.id === job.company_id);
+    return { job: { ...job }, company: employer ? { ...employer } : null };
+  }
+
+  async function findByStatuses(statuses: readonly string[]): Promise<JobRow[]> {
+    if (statuses.length === 0) return [];
+    return jobs.filter((job) => statuses.includes(job.status ?? "backlog")).map(toJobRow);
+  }
+
+  async function findByIds(ids: readonly string[]): Promise<JobRow[]> {
+    if (ids.length === 0) return [];
+    return jobs.filter((job) => job.id !== undefined && ids.includes(job.id)).map(toJobRow);
+  }
+
   async function update(
     entry: JobListEntry,
     priorityList: readonly string[]
@@ -274,6 +299,8 @@ export function fakeJobService(
     findUnclassified,
     findNeedingScores,
     findByCompanyNameMatch,
+    findByStatuses,
+    findByIds,
     ...overrides,
   };
 }

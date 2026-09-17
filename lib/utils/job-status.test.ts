@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
   ACTIVE_STATUSES,
+  RULED_OUT_STATUSES,
   VALID_STATUSES,
   WORK_LOG_STATUSES,
   isActiveStatus,
+  isRuledOutStatus,
   isValidStatus,
   isWorkLogStatus,
 } from "./job-status";
@@ -118,5 +120,49 @@ describe("isWorkLogStatus", () => {
 
   test("a status not on any list writes no work log entry", () => {
     expect(isWorkLogStatus("something else")).toBe(false);
+  });
+});
+
+// Criterion 138. The disqualified list on the dashboard covers every status
+// that is neither the backlog nor one of the applied-to five, including the
+// two the pipeline itself writes when it cannot follow or read a posting.
+describe("the ruled-out status list", () => {
+  test("holds exactly the six statuses that are neither backlog nor applied-to", () => {
+    expect([...RULED_OUT_STATUSES]).toEqual([
+      "expired",
+      "too far",
+      "won't apply",
+      "unresolvable",
+      "unparseable",
+      "rejected",
+    ]);
+  });
+
+  test("holds only statuses the database accepts", () => {
+    for (const status of RULED_OUT_STATUSES) {
+      expect([...VALID_STATUSES]).toContain(status);
+    }
+  });
+
+  // Criterion 144. Together the three lists account for all twelve statuses,
+  // so no status falls off every list on the page.
+  test("with the backlog and the active statuses it accounts for every valid status", () => {
+    expect(
+      [...RULED_OUT_STATUSES, ...ACTIVE_STATUSES, "backlog"].sort()
+    ).toEqual([...VALID_STATUSES].sort());
+  });
+});
+
+describe("isRuledOutStatus", () => {
+  test.each([...RULED_OUT_STATUSES])("%s is ruled out", (status) => {
+    expect(isRuledOutStatus(status)).toBe(true);
+  });
+
+  test.each(["backlog", ...ACTIVE_STATUSES])("%s is not ruled out", (status) => {
+    expect(isRuledOutStatus(status)).toBe(false);
+  });
+
+  test("a status not on any list is not ruled out", () => {
+    expect(isRuledOutStatus("something else")).toBe(false);
   });
 });

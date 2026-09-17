@@ -27,8 +27,16 @@ export function fakeWorkLogService(
     return record;
   }
 
+  // Sorted rather than handed back as held, because the real service orders
+  // its rows and a stand-in that did not would let a page test pass against an
+  // order the database never produces.
+  async function findAll(): Promise<WorkLogRecord[]> {
+    return [...entries].sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+  }
+
   return {
     write,
+    findAll,
     // A handler's test needs a failing write to check what the run reports,
     // and the real failure is a database refusal no array can produce. An
     // override is how a test supplies one.

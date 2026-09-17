@@ -130,6 +130,14 @@ function countingJobService(
       calls.push("findByCompanyNameMatch");
       return service.findByCompanyNameMatch(options);
     },
+    async findByStatuses(statuses) {
+      calls.push("findByStatuses");
+      return service.findByStatuses(statuses);
+    },
+    async findByIds(ids) {
+      calls.push("findByIds");
+      return service.findByIds(ids);
+    },
   };
 }
 

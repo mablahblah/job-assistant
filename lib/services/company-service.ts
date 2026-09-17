@@ -110,7 +110,11 @@ type PipelineDb = ReturnType<typeof createPipelineDb>;
 
 // Every read/write below selects exactly these columns, so the shape handed
 // back always matches CompanyRecord regardless of what else the schema grows.
-const SELECT = {
+//
+// Exported because the job service's page reads hand back a job and its
+// employer side by side, and an employer built from a second column list would
+// drift from this one.
+export const COMPANY_RECORD_SELECT = {
   id: true,
   name: true,
   match_key: true,
@@ -153,12 +157,14 @@ function enrichmentDoubts(value: unknown): EnrichmentDoubt[] {
 
 // What every read hands back: the row as the database holds it, with both
 // Json lists narrowed to the names they are allowed to hold.
-type CompanyRow = Omit<CompanyRecord, "scores_guessed" | "enrichment_flags"> & {
+export type CompanyRow = Omit<CompanyRecord, "scores_guessed" | "enrichment_flags"> & {
   scores_guessed: unknown;
   enrichment_flags: unknown;
 };
 
-function toRecord(row: CompanyRow): CompanyRecord {
+// Exported alongside the column list above, and for the same reason: the one
+// place that narrows the two Json columns is the one place that should.
+export function toCompanyRecord(row: CompanyRow): CompanyRecord {
   return {
     ...row,
     scores_guessed: guessedCategories(row.scores_guessed),
@@ -203,26 +209,26 @@ export function createCompanyService(db: PipelineDb): CompanyService {
   async function findBySlug(slug: string): Promise<CompanyRecord | null> {
     const row = await db.company.findFirst({
       where: { ats_slugs: { some: { slug } } },
-      select: SELECT,
+      select: COMPANY_RECORD_SELECT,
     });
-    return row === null ? null : toRecord(row);
+    return row === null ? null : toCompanyRecord(row);
   }
 
   async function findByMatchKey(matchKey: string): Promise<CompanyRecord | null> {
-    const row = await db.company.findUnique({ where: { match_key: matchKey }, select: SELECT });
-    return row === null ? null : toRecord(row);
+    const row = await db.company.findUnique({ where: { match_key: matchKey }, select: COMPANY_RECORD_SELECT });
+    return row === null ? null : toCompanyRecord(row);
   }
 
   // The status change knows a job's company id and nothing else, so this is
   // where it reads the employer behind that job.
   async function findById(id: string): Promise<CompanyRecord | null> {
-    const row = await db.company.findUnique({ where: { id }, select: SELECT });
-    return row === null ? null : toRecord(row);
+    const row = await db.company.findUnique({ where: { id }, select: COMPANY_RECORD_SELECT });
+    return row === null ? null : toCompanyRecord(row);
   }
 
   async function findByName(name: string): Promise<CompanyRecord | null> {
-    const row = await db.company.findUnique({ where: { name }, select: SELECT });
-    return row === null ? null : toRecord(row);
+    const row = await db.company.findUnique({ where: { name }, select: COMPANY_RECORD_SELECT });
+    return row === null ? null : toCompanyRecord(row);
   }
 
   // Used once a refusal names no column, or names one we wrote no value
@@ -276,9 +282,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
             })
           ),
         },
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
-      return rows.map(toRecord);
+      return rows.map(toCompanyRecord);
     },
 
     // Every company an agent has scored. Backlog cleanup sweeps these for
@@ -287,9 +293,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
     async findScored() {
       const rows = await db.company.findMany({
         where: { scored_at: { not: null } },
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
-      return rows.map(toRecord);
+      return rows.map(toCompanyRecord);
     },
 
     async create(input) {
@@ -306,9 +312,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
       try {
         const row = await db.company.create({
           data: { name, match_key },
-          select: SELECT,
+          select: COMPANY_RECORD_SELECT,
         });
-        return { company: toRecord(row), created: true };
+        return { company: toCompanyRecord(row), created: true };
       } catch (error) {
         if (!isUniqueConstraintError(error)) throw error;
         // Another company already holds this name or this match key — two job
@@ -325,8 +331,8 @@ export function createCompanyService(db: PipelineDb): CompanyService {
     // real one. Nothing can clash, because a row with no name and no match key
     // occupies neither unique column.
     async createNameless() {
-      const row = await db.company.create({ data: {}, select: SELECT });
-      return toRecord(row);
+      const row = await db.company.create({ data: {}, select: COMPANY_RECORD_SELECT });
+      return toCompanyRecord(row);
     },
 
     async fillName(id, name) {
@@ -335,9 +341,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
         const row = await db.company.update({
           where: { id },
           data: { name, match_key },
-          select: SELECT,
+          select: COMPANY_RECORD_SELECT,
         });
-        return { company: toRecord(row), filled: true, heldBy: null };
+        return { company: toCompanyRecord(row), filled: true, heldBy: null };
       } catch (error) {
         if (!isUniqueConstraintError(error)) throw error;
         // Someone else already has this name — two spellings of one
@@ -345,10 +351,10 @@ export function createCompanyService(db: PipelineDb): CompanyService {
         // whoever is already holding the name, instead of writing over it.
         // An update never writes a slug, so a slug is never its blocker.
         const [row, heldBy] = await Promise.all([
-          db.company.findUniqueOrThrow({ where: { id }, select: SELECT }),
+          db.company.findUniqueOrThrow({ where: { id }, select: COMPANY_RECORD_SELECT }),
           findBlocker(columnFromRefusal(error), name, match_key),
         ]);
-        return { company: toRecord(row), filled: false, heldBy };
+        return { company: toCompanyRecord(row), filled: false, heldBy };
       }
     },
 
@@ -361,7 +367,7 @@ export function createCompanyService(db: PipelineDb): CompanyService {
       // stored guessed list has to be read before it can be rebuilt.
       const stored = await db.company.findUniqueOrThrow({
         where: { id },
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
       const storedGuessed = guessedCategories(stored.scores_guessed);
 
@@ -386,9 +392,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
       const row = await db.company.update({
         where: { id },
         data,
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
-      return toRecord(row);
+      return toCompanyRecord(row);
     },
 
     // Goes down before the search starts rather than after it answers, so a
@@ -399,9 +405,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
       const row = await db.company.update({
         where: { id },
         data: { enrichment_status: "pending" },
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
-      return toRecord(row);
+      return toCompanyRecord(row);
     },
 
     // Writes the whole result of one search at once. A field the search did
@@ -427,9 +433,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
           enriched_at: answered ? at : null,
           enrichment_status: answered ? "complete" : "failed",
         },
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
-      return toRecord(row);
+      return toCompanyRecord(row);
     },
 
     // Writes the whole score block exactly as the record holds it, empty
@@ -452,9 +458,9 @@ export function createCompanyService(db: PipelineDb): CompanyService {
           scored_at: company.scored_at,
           scores_guessed: company.scores_guessed,
         },
-        select: SELECT,
+        select: COMPANY_RECORD_SELECT,
       });
-      return toRecord(row);
+      return toCompanyRecord(row);
     },
   };
 }

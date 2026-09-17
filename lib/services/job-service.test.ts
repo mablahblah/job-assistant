@@ -1047,3 +1047,106 @@ describe("searching by part of an employer's name", () => {
     );
   });
 });
+
+// Criteria 113, 136, 138 and 175. The dashboard asks the service that owns the
+// table rather than the database, and it needs the employer beside every job:
+// four of the five ratings behind a total live on the employer, and the total
+// is worked out as the page is built.
+describe("reading the jobs a page list covers", () => {
+  test("gives back only the jobs holding one of the statuses asked for", async () => {
+    await seedRow("page-status-backlog", { status: "backlog" });
+    await seedRow("page-status-sent", { status: "app. sent" });
+    await seedRow("page-status-expired", { status: "expired" });
+
+    const found = await service.findByStatuses(["backlog"]);
+
+    expect(found.map((row) => row.job.id)).toContain("page-status-backlog");
+    expect(found.map((row) => row.job.id)).not.toContain("page-status-sent");
+    expect(found.map((row) => row.job.id)).not.toContain("page-status-expired");
+  });
+
+  test("covers every status it was handed", async () => {
+    await seedRow("page-status-many-a", { status: "unresolvable" });
+    await seedRow("page-status-many-b", { status: "unparseable" });
+
+    const found = await service.findByStatuses(["unresolvable", "unparseable"]);
+    const ids = found.map((row) => row.job.id);
+
+    expect(ids).toContain("page-status-many-a");
+    expect(ids).toContain("page-status-many-b");
+  });
+
+  test("hands back the employer beside the job", async () => {
+    await seedCompany("page-co-linear", "Page Read Linear");
+    await seedRow("page-job-linear", { status: "test", company_id: "page-co-linear" });
+
+    const found = await service.findByStatuses(["test"]);
+    const row = found.find((held) => held.job.id === "page-job-linear");
+
+    expect(row?.company?.name).toBe("Page Read Linear");
+  });
+
+  // The relation is optional, and a job company association never matched is
+  // the ordinary case rather than a broken row.
+  test("hands back nothing in the employer's place where the job has none", async () => {
+    await seedRow("page-job-no-employer", { status: "offer" });
+
+    const found = await service.findByStatuses(["offer"]);
+    const row = found.find((held) => held.job.id === "page-job-no-employer");
+
+    expect(row?.job.company_id).toBeNull();
+    expect(row?.company).toBeNull();
+  });
+
+  // The employer arrives through the one conversion the company service owns,
+  // so its two stored lists come back as lists rather than as raw columns.
+  test("hands back the employer's guessed categories as a list", async () => {
+    await seedCompany("page-co-vercel", "Page Read Vercel");
+    await db.company.update({
+      where: { id: "page-co-vercel" },
+      data: { scores_guessed: ["work_life_balance"] },
+    });
+    await seedRow("page-job-vercel", { status: "screening", company_id: "page-co-vercel" });
+
+    const found = await service.findByStatuses(["screening"]);
+    const row = found.find((held) => held.job.id === "page-job-vercel");
+
+    expect(row?.company?.scores_guessed).toEqual(["work_life_balance"]);
+  });
+
+  // A page list covering no status shows nothing. Reading every job instead
+  // would put the whole table under a heading that promised one status.
+  test("gives back nothing where no status was asked for", async () => {
+    expect(await service.findByStatuses([])).toEqual([]);
+  });
+});
+
+// Criterion 175. The work log's entries name their jobs by id, and the
+// employer's contact details are only reachable through the job.
+describe("reading jobs by their ids", () => {
+  test("gives back the jobs holding those ids, each with its employer", async () => {
+    await seedCompany("page-ids-co", "Page Read Ramp");
+    await seedRow("page-ids-a", { company_id: "page-ids-co" });
+    await seedRow("page-ids-b", {});
+
+    const found = await service.findByIds(["page-ids-a", "page-ids-b"]);
+    const byId = new Map(found.map((row) => [row.job.id, row]));
+
+    expect(byId.get("page-ids-a")?.company?.name).toBe("Page Read Ramp");
+    expect(byId.get("page-ids-b")?.company).toBeNull();
+  });
+
+  // An entry outlives the job it names, so an id matching nothing is expected
+  // rather than an error.
+  test("passes over an id no job holds", async () => {
+    await seedRow("page-ids-kept");
+
+    const found = await service.findByIds(["page-ids-kept", "page-ids-deleted"]);
+
+    expect(found.map((row) => row.job.id)).toEqual(["page-ids-kept"]);
+  });
+
+  test("gives back nothing where no id was asked for", async () => {
+    expect(await service.findByIds([])).toEqual([]);
+  });
+});

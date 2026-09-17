@@ -32,7 +32,7 @@ npm run test        # Vitest — legacy/ and docs/ are excluded
 
 **After editing `prisma/schema.prisma`, run `npx prisma generate`.** `prisma db push` does not regenerate the client, so `db:create` alone leaves it describing the old schema. A fresh clone is covered by `postinstall`, which generates on install.
 
-`npm run cli` and `npm run serve` reach into `legacy/` and are retired with it.
+`npm run cli` reaches into `legacy/` and is retired with it. `npm run serve` now starts the new dashboard from `scripts/serve.ts`.
 
 ## Architecture
 
@@ -54,6 +54,7 @@ Every file in `lib/` sits in a folder named for the kind of thing it is, and `li
 | `lib/tools/`         | Wrappers around something outside the app, and their interfaces |
 | `lib/types/`         | Shapes shared across folders, holding no logic                  |
 | `lib/utils/`         | Plain functions taking values and returning values              |
+| `lib/views/`         | The code that turns data into a screen                          |
 
 Planning lives in [`docs/features/unified-pipeline/`](docs/features/unified-pipeline/):
 

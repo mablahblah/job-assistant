@@ -13,68 +13,72 @@
 
 ## Current Task
 
-**Phase 11, Work log & enrichment, is built and closed.** So is phase 11a. The next unstarted work is **planning phase 12, the Web UI**.
+**Phase 12, the Web UI, is built. All nineteen tasks are done and checked off.** The phase is not closed. Closing it means the architecture doc, any backlog changes presented for approval, and a commit.
 
-Before that, **the test flakes must be discussed and resolved**. The user asked for this explicitly, at the start of the next session, before any building. Details are under **The test flakes** below.
+**Nothing is committed.** 19 files changed and 24 new files, all from this session alone. No second session ran against this branch.
 
-Verified at session end: **137 test files, 3,017 tests passed, 17 skipped. `npm run lint` exits 0, including its type check.** The 17 skipped tests are skipped on purpose and describe behaviour a backlog item will restore.
+Verified at session end: **150 test files, 3,229 tests passed, 17 skipped. `npm run lint` exits 0, including its type check.** The 17 skipped tests are skipped on purpose and predate this session.
 
-**Nothing is committed.** Two sessions ran against this branch at once, so the working tree holds both phase 11 and a parallel session's phase 11a work. Attribute the diff accordingly: phase 11a touched roughly forty code files — every handler, `lib/orchestrators/scoring.ts`, `lib/utils/run-summary.ts`, `lib/services/trace-service.test.ts` — and deleted `docs/features/unified-pipeline/trace-events.md`.
+The dashboard was run by hand against a throwaway database and works. The real `dev.db` still does not match the code, so the dashboard refuses to start against it. That is expected and needs no action before the migration.
 
 ## Completed This Session
 
-**Task 24 was split into three and all three were built.**
+**Nine new plain-logic files in `lib/utils/`**: the ruled-out status list (added to `job-status.ts`), plus `escape-html.ts`, `score-display.ts`, `relative-date.ts`, `score-total.ts`, `score-reasoning.ts`, `work-log-weeks.ts` and `salary-periods.ts`.
 
-`lib/services/job-service.ts` gained `findByCompanyNameMatch` — part of an employer's name, optionally part of a title, optionally a list of statuses to stay within. It crosses to the `Company` table and returns a narrower shape than every other read, `JobSearchMatch`: id, title, employer name, status, posting date. Its stand-in learned the same, and the inline stub in `lib/handlers/dedupe.test.ts` did too.
+**Two new shape files in `lib/types/`**: `job-row.ts` and `work-log-row.ts`. Neither has a test, deliberately.
 
-`scripts/find-jobs.ts` is new. Flags are `--company`, `--title` and `--statuses`. It prints one line per match, newest posting first, and the fixed phrase `no job matched` where nothing did.
+**A new folder, `lib/views/`**, holding `job-table.ts`, `work-log.ts` and `page.ts`. The naming rule and `CLAUDE.md` both gained a row describing it.
 
-`package.json` gained `find-jobs` and `change-status` scripts.
+**A new tool, `lib/tools/web-server.ts`**, with a stand-in beside it. It answers a made-up request with no port opened, and refuses to start against a database that does not match the code.
 
-`.claude/skills/change-status/SKILL.md` was rewritten through the `writing-skills` skill. It now calls the built commands, lists all twelve statuses, looks a job up before changing anything, narrows that lookup by the status being set, and asks for an employer name only where the run reports one missing.
+**Two new reads on the job service** — jobs by status, and jobs by id — each handing back the job and its employer side by side. **One new read on the work log service** — every entry, newest first. Both stand-ins learned theirs, and the job stand-in grew an employer table as a third argument.
 
-**The phase 11 spec was amended** with 2 user stories, 17 acceptance criteria (86 to 102) and a "Decided while building" section.
+**`scripts/serve.ts` is new**, `public/` holds the stylesheet and switcher script copied out of `legacy/`, and `npm run serve` points at the new command.
 
-**Phase 11 was closed.** The architecture doc now describes the status change, the work log, the employer search and the job lookup as built. Three decision log entries were written. Future Ideas item 34 was retired and the items after it renumbered.
+**Backlog item 32 is new**, with an r&d file at `docs/features/scoring-reasoning-panel/`. Adding it renumbered every Future Ideas item by one, and one stale reference in the phase 11 meeting notes was corrected.
 
 ## Session Context
 
-The decisions the user made are in [the feature decision log](../docs/features/unified-pipeline/decision-log.md). **Three entries were written this session**, all dated 2026-09-17, about the job lookup. Do not restate them from here.
+The decisions the user made are in [the feature decision log](../docs/features/unified-pipeline/decision-log.md). **Nothing was written to it this session** — two entries were drafted and the user rejected both.
 
 ### Calls made while building
 
-All four are already written into the phase 11 spec's **Decided while building** section. Read them there rather than here.
+All four are written into the phase 12 spec's **Decided while building** section. Read them there rather than here.
 
-### The test flakes
+### The eye check found what it was built to find
 
-**This is the first thing to do next session, by the user's explicit request, and it is a discussion before it is a fix.**
+Task 19 existed to judge by eye whether a plain browser tooltip could hold five paragraphs of reasoning. **It could not.** A real example measured 2,848 characters across five blocks and the browser cut it off. The tooltip now carries the job's own reasoning alone, 704 characters. The employer's four categories are saved and shown nowhere. Phase 12's acceptance criteria 157, 158 and 159 were rewritten, and backlog item 32 holds the panel that could carry all five.
 
-On one full-suite run, `prisma/schema.test.ts`, `scripts/db-seed.test.ts` and `lib/services/settings-service.test.ts` all failed together and the skipped count jumped from 17 to 38 — the signature of a `beforeAll` hook timing out and taking its whole file with it. All three passed when run alone, and later full runs were clean.
+### Write plainly
 
-The suspected cause is contention. Each of those files spawns `npx tsx scripts/db-create.ts` as a child process, and the shared 45-second ceiling is reached when several run at once. **Six files now do this.** Phase 11 added three of them: `lib/services/work-log-service.test.ts`, `scripts/change-status.test.ts`, and this session's `scripts/find-jobs.test.ts`.
-
-This matters because the project treats "the suite passes" as its completion gate. A green run that was green by luck and a red run dismissed as noise both cost real information.
+The user said twice that the writing used too much lingo — once about an explanation, once about the drafted decision log entries and the backlog item. The backlog item was rewritten in plain words. Both drafted decision log entries were rejected outright. Anything written for this user names the literal thing rather than the term of art, and explains a technical name beside it.
 
 ### Gotchas discovered
 
-**The job service stand-in matches a different field from the real service.** The real search matches the stored `Company.name`; the stand-in holds no employer table, so it matches `raw_company_name`, the name a collector wrote onto the job. Deliberate, commented in `lib/services/job-service.fake.ts`, and a test needing the stored name belongs against the real service.
+**The job service test file shares one database across every test.** Three tests written this session failed on first run for that reason — an employer name already taken, and a status other tests had already used. A new test finds its own row by id rather than taking the first result.
 
-**Renumbering the backlog silently breaks cross-references.** Removing Future Ideas item 34 made the phase 11 spec's "Future Ideas item 50" point at the wrong item. Fixed by hand. The user is solving this elsewhere.
+**The job table view renders no job id.** Two ordering tests failed because they searched the output for an id that never reaches the page. They mark rows by title instead.
 
-**The live `dev.db` no longer matches the code.** `npm run find-jobs` against it refuses to run, naming `Company` and `WorkLogEntry`. This is expected and needs no action — the file goes away at migration and switch over.
+**`scripts/serve.ts` must not contain the word "trace" in any casing**, including in prose. A test reads the file and checks for it, which is how criterion 176 — that reading a page writes no record of a run — is proven.
+
+### Approaches tried and abandoned
+
+**Putting all five pieces of reasoning in the tooltip.** Built, measured, rejected by eye. See above.
+
+**Giving the two page shapes a list of their field names, checked against the database columns.** Offered and declined. Those shapes only join shapes that already exist and are already tested.
 
 ### Open questions
 
-**A hard crash between the status write and the work log entry write reports nothing.** Carried from the previous hand-off, still true. A reported failure can be retried; a crash cannot be known about. Named and accepted rather than solved, because no database transaction exists anywhere in this codebase.
+**The dashboard has never been opened against real data.** Every check this session ran against a throwaway database holding four jobs and one work log entry. How the page behaves with 1,800 jobs is unknown.
 
-**A Workable parser is still unprioritized.** Carried from the previous hand-off and untouched. It cost 32 jobs in the first live run, more than any other platform.
+**A Workable parser is still unprioritized.** Carried from the previous hand-off and untouched. It cost 32 jobs in the first live run.
 
-**The broken documentation link count is 65.** It was 58 at the last hand-off. Almost all are the link checker failing to decode `%26` in filenames that really do contain an ampersand. The user expects this to resolve once that cause is fixed. Backlog item "Code Health" is the plausible home.
+**The broken documentation link count was 65 at the last hand-off** and was not checked this session.
 
 ## Next Steps
 
-1. **Discuss and resolve the test flakes.** The user asked for this at the start of the session, before any other work. See **The test flakes** above for the evidence and the suspected cause. It is a conversation first — the fix is not decided.
+1. **Close phase 12.** Update `docs/features/unified-pipeline/architecture.md` to describe the dashboard as built — the views folder, the server tool, the two service reads, the serve command. Present any backlog change for approval. The decision log step already ran and the user declined both entries.
 
-2. **Commit.** Nothing from either session is committed, and the two sessions' work is interleaved in the tree. Phase 11 and phase 11a are separate units and deserve separate commits.
+2. **Commit.** One session's work, one unit: phase 12 built. 43 files.
 
-3. **Plan phase 12, the Web UI.** Follow the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). Three things already parked for it: the work log page, the weekly grouping and week labels from `legacy/lib/work-search-weeks.ts`, and `.serve.json` pointing at a file that only exists inside `legacy/`.
+3. **Plan phase 13, migration and switch over.** The last phase before shipping. Deleting `legacy/` in one move is what it builds toward, and `npm run cli` is the last thing still pointing into that folder.
