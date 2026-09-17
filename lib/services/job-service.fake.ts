@@ -5,7 +5,7 @@
 // passed in — a job created by one call is then found by the next.
 import { mergeJobs } from "../utils/job-merge";
 import type { JobListEntry } from "../types/job-list-entry";
-import type { DeleteResult, JobService, UpdateResult } from "./job-service";
+import type { DeleteResult, JobSearchMatch, JobService, UpdateResult } from "./job-service";
 import { isActiveStatus } from "../utils/job-status";
 import { urlMatchKey } from "../utils/url-match-key";
 import { isPastThreshold, jobAgeInDays } from "../utils/job-age";
@@ -161,6 +161,13 @@ export function fakeJobService(
     return jobs.filter((job) => (job.status ?? "backlog") === "backlog").map(withoutGateFields);
   }
 
+  // Hands the held job back whole, matching the real read, which leaves the
+  // phase gate fields on too. Only the reads that build a job list for a save
+  // strip them.
+  async function findById(id: string): Promise<JobListEntry | null> {
+    return jobs.find((job) => job.id === id) ?? null;
+  }
+
   // A job with no collection date cannot have its age measured at all, so it
   // is left off rather than given a made-up one. A stored row always carries
   // the date, so only a hand-built job in a test can reach this.
@@ -206,9 +213,51 @@ export function fakeJobService(
       .map(withoutGateFields);
   }
 
+  // The real service joins to the Company table and matches Company.name.
+  // This fake carries no employer table at all — the only employer text it
+  // holds is raw_company_name, the name a collector wrote straight onto the
+  // job — so that field stands in for it. A test that needs the stored
+  // employer's name rather than the collected one belongs against the real
+  // service.
+  async function findByCompanyNameMatch(options: {
+    companyNamePart: string;
+    titlePart?: string;
+    statuses?: readonly string[];
+  }): Promise<JobSearchMatch[]> {
+    const companyPart = options.companyNamePart.toLowerCase();
+    const titlePart = options.titlePart?.toLowerCase();
+    const statuses = options.statuses;
+
+    return jobs
+      .filter((job) => job.raw_company_name?.toLowerCase().includes(companyPart))
+      .filter((job) => !titlePart || (job.title ?? "").toLowerCase().includes(titlePart))
+      .filter((job) => !statuses?.length || statuses.includes(job.status ?? "backlog"))
+      // filter already hands back a fresh array, so this sort never reaches
+      // the array the caller passed in. Spelled out because sort mutates in
+      // place, and a later edit dropping a filter would make it do so.
+      .sort((a, b) => {
+        // Mirrors SQLite's ordering for the real query: a job with no posting
+        // date sorts below every job that has one.
+        const aTime = a.posting_date?.getTime();
+        const bTime = b.posting_date?.getTime();
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime - aTime;
+      })
+      .map((job) => ({
+        id: job.id ?? "",
+        title: job.title || job.raw_title || null,
+        company_name: job.raw_company_name ?? null,
+        status: job.status ?? "backlog",
+        posting_date: job.posting_date ?? null,
+      }));
+  }
+
   return {
     update,
     delete: deleteJob,
+    findById,
     findByOriginalUrlMatchKey,
     findByResolvedUrlMatchKey,
     findByCompanyAndTitle,
@@ -218,6 +267,7 @@ export function fakeJobService(
     findExpiredWithin,
     findUnclassified,
     findNeedingScores,
+    findByCompanyNameMatch,
     ...overrides,
   };
 }

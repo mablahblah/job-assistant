@@ -176,6 +176,29 @@ model Company {
   // two apart. Backlog cleanup empties a guessed category sooner than a
   // researched one.
   scores_guessed                  Json?
+  // The contact details the Texas Workforce Commission form asks for, filled
+  // in by an internet search the first time one of this company's jobs takes
+  // a status that writes a work log entry. Empty is the ordinary state: most
+  // companies never have a job reach one of those statuses.
+  address                         String?
+  phone                           String?
+  website                         String?
+  // When a search last filled one of the three fields above in. This is the
+  // only thing that marks a company as done, so a search that found nothing
+  // leaves it empty and the company is searched again next time. Recording
+  // that a search found nothing and blocking a later search are two different
+  // things, and only the first is wanted.
+  enriched_at                     DateTime?
+  // What the last search did: pending, written before the search starts so a
+  // run cut short partway is told apart from one never tried, then complete
+  // or failed. Empty means no search has ever been made.
+  enrichment_status               String?
+  // Set where the search raised any doubt about what it wrote, so the user
+  // checks those details before filing rather than after.
+  enrichment_uncertain            Boolean   @default(false)
+  // Which doubts were raised, held as a list of reason names the way
+  // scores_guessed holds a list of category names.
+  enrichment_flags                Json?
   created_at                      DateTime  @default(now())
   modified_at                     DateTime  @updatedAt
   jobs                            Job[]
@@ -601,4 +624,27 @@ model Trace {
   // What is specific to this one event. Nothing that gets counted goes here.
   detail     Json?
   created_at DateTime @default(now())
+}
+
+// One row per job search activity recorded for the Texas Workforce
+// Commission. It is a legal filing that cannot be regenerated, so it stands
+// free of the job it describes: the pipeline is allowed to delete a job row,
+// and an entry that read through to that row would be destroyed with it.
+// Nothing revises an entry, so there is no last-changed column.
+model WorkLogEntry {
+  id           String   @id @default(cuid())
+  // The job the activity was for. A plain column with no relation, so the
+  // entry outlives the job it names, the way Trace.job_id already does.
+  job_id       String
+  // The employer's name as it stood when the entry was written, copied here
+  // rather than read through to the company row. The form names an employer,
+  // and a later write to that row must not change what was filed.
+  company_name String
+  // The job title as it stood when the entry was written, copied for the same
+  // reason the employer name is.
+  job_title    String
+  // What the activity was, in the wording Texas accepts: "Applied for job",
+  // "Had phone screen", or "Had interview".
+  activity     String
+  created_at   DateTime @default(now())
 }

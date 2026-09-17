@@ -29,6 +29,7 @@ export const CHECKED_MODELS = [
   "Place",
   "Setting",
   "Trace",
+  "WorkLogEntry",
 ] as const;
 
 // One probe per model. A findFirst on an empty table still asks for every
@@ -41,6 +42,7 @@ export function schemaProbesFor(db: PipelineDb): SchemaProbe[] {
     { name: "Place", read: () => db.place.findFirst() },
     { name: "Setting", read: () => db.setting.findFirst() },
     { name: "Trace", read: () => db.trace.findFirst() },
+    { name: "WorkLogEntry", read: () => db.workLogEntry.findFirst() },
   ];
 }
 

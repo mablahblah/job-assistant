@@ -89,8 +89,8 @@ async function seedRow(
 
 // Job.company_id is a real foreign key, so a row pointing at a company needs
 // that company on file first.
-async function seedCompany(id: string): Promise<void> {
-  await db.company.create({ data: { id } });
+async function seedCompany(id: string, name?: string): Promise<void> {
+  await db.company.create({ data: { id, ...(name === undefined ? {} : { name }) } });
 }
 
 // Hands back whatever a call threw. Prisma quotes the surrounding source
@@ -866,5 +866,156 @@ describe("finding the jobs that still need an alignment score", () => {
     const found = jobs.find((job) => job.id === "carries-description");
 
     expect(found?.description).toBe("We are hiring a designer.");
+  });
+});
+
+// Criteria 7 and 8. Nothing could look a job up without also writing to it,
+// and the write path creates a row when it cannot find one. A status change
+// carries no collection date, so that create then refuses — which reports a
+// missing column where the real answer is that the id matches no job. The
+// command reads the job first and answers for itself.
+describe("reading one job by its id", () => {
+  test("gives back the row holding that id", async () => {
+    await seedRow("read-one-a", { title: "Senior Product Designer" });
+
+    const found = await service.findById("read-one-a");
+
+    expect(found?.id).toBe("read-one-a");
+    expect(found?.title).toBe("Senior Product Designer");
+  });
+
+  test("gives back nothing where no row holds that id", async () => {
+    expect(await service.findById("read-one-nobody")).toBeNull();
+  });
+
+  // The read must not be a write in disguise. A mistyped id reaching a path
+  // that creates a row would file a work log entry against a job nobody has.
+  test("creates no row for an id that matches nothing", async () => {
+    await service.findById("read-one-ghost");
+
+    expect(await service.findById("read-one-ghost")).toBeNull();
+  });
+});
+
+// AC 86, 87, 88, 89, 91, 101. The user names a job by its employer and roughly
+// its role, never by an id, so this read is what turns those words into a row
+// the change-status skill can act on.
+describe("searching by part of an employer's name", () => {
+  test("gives back every job whose employer name holds that part", async () => {
+    await seedCompany("search-co-indeed", "Indeed");
+    await seedRow("search-indeed-a", {
+      company_id: "search-co-indeed",
+      title: "Product Designer",
+      posting_date: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    await seedRow("search-indeed-b", {
+      company_id: "search-co-indeed",
+      title: "Senior Product Designer",
+      posting_date: new Date("2026-02-01T00:00:00.000Z"),
+    });
+
+    const found = await service.findByCompanyNameMatch({ companyNamePart: "ndee" });
+
+    expect(found.map((job) => job.id).sort()).toEqual(["search-indeed-a", "search-indeed-b"]);
+  });
+
+  test("names the job's employer, title and status on every match", async () => {
+    await seedCompany("search-co-stripe", "Stripe");
+    await seedRow("search-stripe-a", {
+      company_id: "search-co-stripe",
+      title: "Staff Product Designer",
+      status: "app. sent",
+      posting_date: new Date("2026-03-01T00:00:00.000Z"),
+    });
+
+    const [match] = await service.findByCompanyNameMatch({ companyNamePart: "Stripe" });
+
+    expect(match).toMatchObject({
+      id: "search-stripe-a",
+      title: "Staff Product Designer",
+      company_name: "Stripe",
+      status: "app. sent",
+    });
+  });
+
+  test("ignores letter casing in the part it is handed", async () => {
+    await seedCompany("search-co-figma", "Figma");
+    await seedRow("search-figma-a", {
+      company_id: "search-co-figma",
+      title: "Product Designer",
+      posting_date: new Date("2026-01-05T00:00:00.000Z"),
+    });
+
+    const found = await service.findByCompanyNameMatch({ companyNamePart: "FIGMA" });
+
+    expect(found.map((job) => job.id)).toEqual(["search-figma-a"]);
+  });
+
+  test("keeps only the jobs whose title holds the title part", async () => {
+    await seedCompany("search-co-canva", "Canva");
+    await seedRow("search-canva-designer", {
+      company_id: "search-co-canva",
+      title: "Product Designer",
+      posting_date: new Date("2026-01-06T00:00:00.000Z"),
+    });
+    await seedRow("search-canva-engineer", {
+      company_id: "search-co-canva",
+      title: "Product Engineer",
+      posting_date: new Date("2026-01-07T00:00:00.000Z"),
+    });
+
+    const found = await service.findByCompanyNameMatch({
+      companyNamePart: "Canva",
+      titlePart: "designer",
+    });
+
+    expect(found.map((job) => job.id)).toEqual(["search-canva-designer"]);
+  });
+
+  test("keeps only the jobs holding one of the statuses it was handed", async () => {
+    await seedCompany("search-co-notion", "Notion");
+    await seedRow("search-notion-backlog", {
+      company_id: "search-co-notion",
+      title: "Product Designer",
+      status: "backlog",
+      posting_date: new Date("2026-01-08T00:00:00.000Z"),
+    });
+    await seedRow("search-notion-sent", {
+      company_id: "search-co-notion",
+      title: "Product Designer",
+      status: "app. sent",
+      posting_date: new Date("2026-01-09T00:00:00.000Z"),
+    });
+
+    const found = await service.findByCompanyNameMatch({
+      companyNamePart: "Notion",
+      statuses: ["backlog"],
+    });
+
+    expect(found.map((job) => job.id)).toEqual(["search-notion-backlog"]);
+  });
+
+  test("puts the most recently published job first", async () => {
+    await seedCompany("search-co-linear", "Linear");
+    await seedRow("search-linear-older", {
+      company_id: "search-co-linear",
+      title: "Product Designer",
+      posting_date: new Date("2026-01-10T00:00:00.000Z"),
+    });
+    await seedRow("search-linear-newer", {
+      company_id: "search-co-linear",
+      title: "Product Designer",
+      posting_date: new Date("2026-04-10T00:00:00.000Z"),
+    });
+
+    const found = await service.findByCompanyNameMatch({ companyNamePart: "Linear" });
+
+    expect(found.map((job) => job.id)).toEqual(["search-linear-newer", "search-linear-older"]);
+  });
+
+  test("gives back nothing where no employer name holds that part", async () => {
+    expect(await service.findByCompanyNameMatch({ companyNamePart: "nobody-by-that-name" })).toEqual(
+      []
+    );
   });
 });

@@ -188,3 +188,94 @@ describe("overrides", () => {
     expect(result.company.match_key).toBe("stillworks");
   });
 });
+
+// Criteria 33 and 51, on the stand-in the handlers' own tests use.
+describe("the fake finding a company by its id", () => {
+  test("gives back the held company carrying that id", async () => {
+    const service = fakeCompanyService([
+      unscoredCompany({ id: "held-a", name: "Held Co" }),
+      unscoredCompany({ id: "held-b" }),
+    ]);
+
+    expect((await service.findById("held-a"))?.name).toBe("Held Co");
+  });
+
+  test("gives back nothing where no held company carries that id", async () => {
+    const service = fakeCompanyService([unscoredCompany({ id: "held-a" })]);
+
+    expect(await service.findById("nobody")).toBeNull();
+  });
+
+  test("a held company starts with its contact fields empty", async () => {
+    const service = fakeCompanyService([unscoredCompany({ id: "held-a" })]);
+
+    expect(await service.findById("held-a")).toMatchObject({
+      address: null,
+      phone: null,
+      website: null,
+      enriched_at: null,
+      enrichment_status: null,
+      enrichment_uncertain: false,
+      enrichment_flags: [],
+    });
+  });
+});
+
+// Criteria 58, 45, 46, 47 and 59, on the stand-in the handlers' tests use.
+describe("the fake marking a company as being searched", () => {
+  test("the held company reads as being searched", async () => {
+    const companies = [unscoredCompany({ id: "held-a", name: "Held Co" })];
+    const service = fakeCompanyService(companies);
+
+    await service.startEnrichment("held-a");
+
+    expect(companies[0]?.enrichment_status).toBe("pending");
+  });
+
+  test("the mark alone does not make the held company done", async () => {
+    const companies = [unscoredCompany({ id: "held-a", name: "Held Co" })];
+    const service = fakeCompanyService(companies);
+
+    await service.startEnrichment("held-a");
+
+    expect(companies[0]?.enriched_at).toBeNull();
+  });
+});
+
+describe("the fake saving what a search found", () => {
+  const FOUND = {
+    address: "760 Market Street, San Francisco, CA 94102",
+    phone: "415-555-0142",
+    website: "https://www.figma.com",
+  };
+  const AT = new Date("2026-02-01T00:00:00.000Z");
+
+  test("the held company holds what was found and reads as done", async () => {
+    const companies = [unscoredCompany({ id: "held-a", name: "Held Co" })];
+    const service = fakeCompanyService(companies);
+
+    await service.saveEnrichment("held-a", FOUND, [], AT);
+
+    expect(companies[0]).toMatchObject({
+      ...FOUND,
+      enriched_at: AT,
+      enrichment_status: "complete",
+      enrichment_uncertain: false,
+      enrichment_flags: [],
+    });
+  });
+
+  test("a search that filled nothing in leaves the held company not done", async () => {
+    const companies = [unscoredCompany({ id: "held-a", name: "Held Co" })];
+    const service = fakeCompanyService(companies);
+
+    await service.saveEnrichment("held-a", {}, ["missing_address", "missing_phone"], AT);
+
+    expect(companies[0]).toMatchObject({
+      enriched_at: null,
+      enrichment_status: "failed",
+      enrichment_uncertain: true,
+      enrichment_flags: ["missing_address", "missing_phone"],
+    });
+  });
+});

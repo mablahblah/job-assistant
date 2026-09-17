@@ -631,3 +631,114 @@ describe("the fake's classification job list", () => {
     expect(entry).not.toHaveProperty("is_classified");
   });
 });
+
+// Criteria 7 and 8, on the stand-in the handlers' own tests use.
+describe("the fake reading one job by its id", () => {
+  test("gives back the held job carrying that id", async () => {
+    const service = fakeJobService([
+      { id: "held-a", title: "Senior Product Designer" },
+      { id: "held-b", title: "Design Engineer" },
+    ]);
+
+    expect((await service.findById("held-a"))?.title).toBe("Senior Product Designer");
+  });
+
+  test("gives back nothing where no held job carries that id", async () => {
+    const service = fakeJobService([{ id: "held-a" }]);
+
+    expect(await service.findById("nobody")).toBeNull();
+  });
+
+  test("holds no new job after a read that found nothing", async () => {
+    const jobs = [{ id: "held-a" }];
+    const service = fakeJobService(jobs);
+
+    await service.findById("nobody");
+
+    expect(jobs).toHaveLength(1);
+  });
+});
+
+// AC 86, 87, 88, 91, 101. The fake holds jobs and no employers, so it matches
+// on the employer name the job itself carries. A test that needs the stored
+// employer's name rather than the collected one belongs against the real
+// service, not here.
+describe("searching by part of an employer's name", () => {
+  test("gives back every job whose employer name holds that part", async () => {
+    const service = fakeJobService([
+      storedJob("fake-search-a", { raw_company_name: "Indeed", title: "Product Designer" }),
+      storedJob("fake-search-b", { raw_company_name: "Figma", title: "Product Designer" }),
+    ]);
+
+    const found = await service.findByCompanyNameMatch({ companyNamePart: "ndee" });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-search-a"]);
+  });
+
+  test("ignores letter casing in the part it is handed", async () => {
+    const service = fakeJobService([
+      storedJob("fake-search-case", { raw_company_name: "Figma", title: "Product Designer" }),
+    ]);
+
+    const found = await service.findByCompanyNameMatch({ companyNamePart: "FIGMA" });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-search-case"]);
+  });
+
+  test("keeps only the jobs whose title holds the title part", async () => {
+    const service = fakeJobService([
+      storedJob("fake-search-designer", {
+        raw_company_name: "Canva",
+        title: "Product Designer",
+      }),
+      storedJob("fake-search-engineer", {
+        raw_company_name: "Canva",
+        title: "Product Engineer",
+      }),
+    ]);
+
+    const found = await service.findByCompanyNameMatch({
+      companyNamePart: "Canva",
+      titlePart: "designer",
+    });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-search-designer"]);
+  });
+
+  test("keeps only the jobs holding one of the statuses it was handed", async () => {
+    const service = fakeJobService([
+      storedJob("fake-search-backlog", { raw_company_name: "Notion", status: "backlog" }),
+      storedJob("fake-search-sent", { raw_company_name: "Notion", status: "app. sent" }),
+    ]);
+
+    const found = await service.findByCompanyNameMatch({
+      companyNamePart: "Notion",
+      statuses: ["backlog"],
+    });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-search-backlog"]);
+  });
+
+  test("puts the most recently published job first", async () => {
+    const service = fakeJobService([
+      storedJob("fake-search-older", {
+        raw_company_name: "Linear",
+        posting_date: new Date("2026-01-10T00:00:00.000Z"),
+      }),
+      storedJob("fake-search-newer", {
+        raw_company_name: "Linear",
+        posting_date: new Date("2026-04-10T00:00:00.000Z"),
+      }),
+    ]);
+
+    const found = await service.findByCompanyNameMatch({ companyNamePart: "Linear" });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-search-newer", "fake-search-older"]);
+  });
+
+  test("gives back nothing where no employer name holds that part", async () => {
+    const service = fakeJobService([storedJob("fake-search-x", { raw_company_name: "Indeed" })]);
+
+    expect(await service.findByCompanyNameMatch({ companyNamePart: "nobody" })).toEqual([]);
+  });
+});

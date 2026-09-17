@@ -98,6 +98,10 @@ function countingJobService(
     },
     // The reads the other steps own. Dedupe never calls any of them, which is
     // exactly what the call list is here to prove.
+    async findById(id) {
+      calls.push("findById");
+      return service.findById(id);
+    },
     async findUnresolved() {
       calls.push("findUnresolved");
       return service.findUnresolved();
@@ -121,6 +125,10 @@ function countingJobService(
     async findNeedingScores() {
       calls.push("findNeedingScores");
       return service.findNeedingScores();
+    },
+    async findByCompanyNameMatch(options) {
+      calls.push("findByCompanyNameMatch");
+      return service.findByCompanyNameMatch(options);
     },
   };
 }

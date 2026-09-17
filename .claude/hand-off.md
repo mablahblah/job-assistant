@@ -13,75 +13,68 @@
 
 ## Current Task
 
-**Phase 10, Scoring, is built and closed. Nothing is in flight.**
+**Phase 11, Work log & enrichment, is built and closed.** So is phase 11a. The next unstarted work is **planning phase 12, the Web UI**.
 
-Verified at session end: **121 test files, 2,706 tests passed, 17 skipped. `npm run lint` exits 0.**
+Before that, **the test flakes must be discussed and resolved**. The user asked for this explicitly, at the start of the next session, before any building. Details are under **The test flakes** below.
 
-The 17 skipped tests are skipped on purpose. They cover the fixture write this session disconnected, and they describe the behaviour a backlog item will restore.
+Verified at session end: **137 test files, 3,017 tests passed, 17 skipped. `npm run lint` exits 0, including its type check.** The 17 skipped tests are skipped on purpose and describe behaviour a backlog item will restore.
 
-Six commits pushed to `feature/unified-pipeline`, `4cda7fd..0ec2344`. The working tree holds one uncommitted line in the feature decision log, written moments before this document.
-
-The next unit of work is **planning phase 11, Work log & enrichment**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md).
+**Nothing is committed.** Two sessions ran against this branch at once, so the working tree holds both phase 11 and a parallel session's phase 11a work. Attribute the diff accordingly: phase 11a touched roughly forty code files — every handler, `lib/orchestrators/scoring.ts`, `lib/utils/run-summary.ts`, `lib/services/trace-service.test.ts` — and deleted `docs/features/unified-pipeline/trace-events.md`.
 
 ## Completed This Session
 
-**Phase 10's close, and one side piece of work.**
+**Task 24 was split into three and all three were built.**
 
-### The fixture write is disconnected
+`lib/services/job-service.ts` gained `findByCompanyNameMatch` — part of an employer's name, optionally part of a title, optionally a list of statuses to stay within. It crosses to the `Company` table and returns a narrower shape than every other read, `JobSearchMatch`: id, title, employer name, status, posting date. Its stand-in learned the same, and the inline stub in `lib/handlers/dedupe.test.ts` did too.
 
-Two collectors read job cards off a rendered web page: Dribbble and UI/UX Jobs Board. Each saved a copy of that page into `lib/collectors/fixtures/` on every real job search, so an offline test could replay it. That dirtied the working tree on every search and asked for a commit after each one.
+`scripts/find-jobs.ts` is new. Flags are `--company`, `--title` and `--statuses`. It prints one line per match, newest posting first, and the fixed phrase `no job matched` where nothing did.
 
-- The `writeFixture` call is commented out in `lib/collectors/dribbble.ts` and `lib/collectors/uiuxjobsboard.ts`, with its reasoning above it. The candidate is still picked, so reconnecting is uncommenting.
-- Both test files mark their fixture-write `describe` block `.skip` rather than deleting it.
-- Backlog item 26 was replaced. It is now **Live Collector Check & Fixture Refresh**, and its r&d file records what was withdrawn, the workaround until it is built, and the one tension it has to settle: a fast one-job run makes a thin, weak fixture.
+`package.json` gained `find-jobs` and `change-status` scripts.
 
-### Phase 10 is closed
+`.claude/skills/change-status/SKILL.md` was rewritten through the `writing-skills` skill. It now calls the built commands, lists all twelve statuses, looks a job up before changing anything, narrows that lookup by the status being set, and asks for an employer name only where the run reports one missing.
 
-- **`architecture.md`** describes scoring as built: four new Status paragraphs, a three-command run-shape diagram, six new vocabulary terms, three new Parts rows, the board-row table in the Data Model, and a phase 10 row in Ported From Legacy.
-- **The decision log** gained two entries.
-- **Two backlog items retired.** Company Scoring Improvements and ATS Company Graduation moved to a new `docs/features/_cancelled/` folder. Items 8 to 29 renumbered to 6 to 27.
-- **`docs/CURRENT-FEATURE.md`** has phase 10's 24 tasks folded back out and its close ticked.
+**The phase 11 spec was amended** with 2 user stories, 17 acceptance criteria (86 to 102) and a "Decided while building" section.
+
+**Phase 11 was closed.** The architecture doc now describes the status change, the work log, the employer search and the job lookup as built. Three decision log entries were written. Future Ideas item 34 was retired and the items after it renumbered.
 
 ## Session Context
 
-The decisions the user made are in the feature decision log. **Two entries were written this session.**
+The decisions the user made are in [the feature decision log](../docs/features/unified-pipeline/decision-log.md). **Three entries were written this session**, all dated 2026-09-17, about the job lookup. Do not restate them from here.
 
 ### Calls made while building
 
-**An unused import fails `npm run lint`.** Commenting out the `writeFixture` call meant commenting the import out too. This is why the disconnect touches the import line as well as the call.
+All four are already written into the phase 11 spec's **Decided while building** section. Read them there rather than here.
 
-**Stale phase references in `architecture.md` were corrected while there.** Three places still said work was coming that had already landed: the job service's "scoring joins it in later phases", and two "that is classification's call in Phase 9" notes. The phase-7a "will replace both orchestrators" sentence was rewritten to describe the two that exist.
+### The test flakes
 
-**Both retired r&d files gained a "Cancelled" section.** The `retire-feature` skill does not ask for one. They exist because the user's own reason for choosing cancelled over completed was that a cold reader would otherwise think two features solved one problem — and a folder move alone does not say that.
+**This is the first thing to do next session, by the user's explicit request, and it is a discussion before it is a fix.**
 
-**"Backlog item 26 was replaced" was dropped as a decision-log candidate.** It failed the "informs future work" test: `BACKLOG.md` and the r&d file already carry it.
+On one full-suite run, `prisma/schema.test.ts`, `scripts/db-seed.test.ts` and `lib/services/settings-service.test.ts` all failed together and the skipped count jumped from 17 to 38 — the signature of a `beforeAll` hook timing out and taking its whole file with it. All three passed when run alone, and later full runs were clean.
+
+The suspected cause is contention. Each of those files spawns `npx tsx scripts/db-create.ts` as a child process, and the shared 45-second ceiling is reached when several run at once. **Six files now do this.** Phase 11 added three of them: `lib/services/work-log-service.test.ts`, `scripts/change-status.test.ts`, and this session's `scripts/find-jobs.test.ts`.
+
+This matters because the project treats "the suite passes" as its completion gate. A green run that was green by luck and a red run dismissed as noise both cost real information.
 
 ### Gotchas discovered
 
-**The link checker does not URL-decode.** `python3 ~/.claude/skills/retire-feature/scripts/check-links.py` reports 58 broken links under `docs/`. Almost all are `%26` in a path that really is `feature_r&d.md`. Three were real, caused by moving two folders one level deeper, and are fixed. **Do not treat the 58 as this session's damage.**
+**The job service stand-in matches a different field from the real service.** The real search matches the stored `Company.name`; the stand-in holds no employer table, so it matches `raw_company_name`, the name a collector wrote onto the job. Deliberate, commented in `lib/services/job-service.fake.ts`, and a test needing the stored name belongs against the real service.
 
-**`docs/DECISIONS.md` does not exist in this project.** The `start-work-session` skill asks a session to read it. There is one decision log, the feature's own.
+**Renumbering the backlog silently breaks cross-references.** Removing Future Ideas item 34 made the phase 11 spec's "Future Ideas item 50" point at the wrong item. Fixed by hand. The user is solving this elsewhere.
 
-**The Future Ideas list in `BACKLOG.md` restarts its numbering at 26**, colliding with the Upcoming Features numbers. Pre-existing and left alone.
-
-### Approaches tried and abandoned
-
-**Gitignoring the fixture files.** Rejected: `readFixture` throws when the file is absent, so a fresh clone's tests would fail until someone ran a real job search.
-
-**Storing the fixtures in the database.** Rejected: they are test input, and the tests run with no database at all.
-
-**Retiring the two backlog items with a supersession note at ship time.** This was proposed, matching how item 2 already says "retired once this ships". The user rejected it: "Remove both entirely."
+**The live `dev.db` no longer matches the code.** `npm run find-jobs` against it refuses to run, naming `Company` and `WorkLogEntry`. This is expected and needs no action — the file goes away at migration and switch over.
 
 ### Open questions
 
-**Phase 11 has two open questions in its r&d file**, both to be answered during planning. What "ask the user for the company name" means in each of the three places a status can change — the pipeline, the update-job skill, the Web UI. And whether a name the user supplies runs through company association's own match-or-create, or creates a company directly.
+**A hard crash between the status write and the work log entry write reports nothing.** Carried from the previous hand-off, still true. A reported failure can be retried; a crash cannot be known about. Named and accepted rather than solved, because no database transaction exists anywhere in this codebase.
 
-**Nobody owns the 58 pre-existing broken doc links.** Backlog item 17, Code Health, is the plausible home. Not raised with the user.
+**A Workable parser is still unprioritized.** Carried from the previous hand-off and untouched. It cost 32 jobs in the first live run, more than any other platform.
 
-**A Workable parser is still unprioritized.** It cost 32 jobs in the first live run, more than any other platform. Carried from the previous hand-off.
+**The broken documentation link count is 65.** It was 58 at the last hand-off. Almost all are the link checker failing to decode `%26` in filenames that really do contain an ampersand. The user expects this to resolve once that cause is fixed. Backlog item "Code Health" is the plausible home.
 
 ## Next Steps
 
-1. **Commit the one uncommitted decision-log line** in `docs/features/unified-pipeline/decision-log.md`, along with this hand-off.
-2. **Plan phase 11, Work log & enrichment**, following the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). Its [r&d file](../docs/features/unified-pipeline/phases/phase-11-work-log-r%26d.md) holds the scope, what ports from `legacy/` — `work-search-log`, `work-search-weeks`, `company-enrichment` — and the two open questions above. Phase 11 writes no traces: a status change made by hand is not a job passing through a step.
-3. **Consider a parser for Workable.** A judgement for prioritization, not a decision already made.
+1. **Discuss and resolve the test flakes.** The user asked for this at the start of the session, before any other work. See **The test flakes** above for the evidence and the suspected cause. It is a conversation first — the fix is not decided.
+
+2. **Commit.** Nothing from either session is committed, and the two sessions' work is interleaved in the tree. Phase 11 and phase 11a are separate units and deserve separate commits.
+
+3. **Plan phase 12, the Web UI.** Follow the [phase planning procedure](../docs/features/unified-pipeline/phase-planning-procedure.md). Three things already parked for it: the work log page, the weekly grouping and week labels from `legacy/lib/work-search-weeks.ts`, and `.serve.json` pointing at a file that only exists inside `legacy/`.

@@ -15,6 +15,8 @@ import type {
   ScoreInput,
 } from "./company-service";
 import { SCORE_CATEGORIES } from "./company-service";
+import type { ContactDetails } from "../utils/enrichment-contact";
+import type { EnrichmentDoubt } from "../utils/enrichment-doubts";
 
 // A company row with nothing scored yet, which is what every company looks
 // like before an agent has researched it. Test fixtures build on this rather
@@ -34,6 +36,13 @@ export function unscoredCompany(fields: Partial<CompanyRecord> & { id: string })
     political_alignment_rationale: null,
     scored_at: null,
     scores_guessed: [],
+    address: null,
+    phone: null,
+    website: null,
+    enriched_at: null,
+    enrichment_status: null,
+    enrichment_uncertain: false,
+    enrichment_flags: [],
     ...fields,
   };
 }
@@ -55,6 +64,12 @@ export function fakeCompanyService(
   // rather than seeding a column that no longer exists.
   async function findBySlug(_slug: string): Promise<CompanyRecord | null> {
     return null;
+  }
+
+  // The status change knows a job's company id and nothing else, so this is
+  // where it reads the employer behind that job.
+  async function findById(id: string): Promise<CompanyRecord | null> {
+    return companies.find((company) => company.id === id) ?? null;
   }
 
   async function findByMatchKey(matchKey: string): Promise<CompanyRecord | null> {
@@ -180,9 +195,48 @@ export function fakeCompanyService(
     return companies.filter((company) => company.scored_at !== null);
   }
 
+  function held(id: string): CompanyRecord {
+    const company = companies.find((candidate) => candidate.id === id);
+    if (!company) throw new Error(`No company held with id "${id}"`);
+    return company;
+  }
+
+  // The mark goes down before the search starts, which is what tells a
+  // company whose search was cut off partway from one never tried. It touches
+  // nothing else, enriched_at included.
+  async function startEnrichment(id: string): Promise<CompanyRecord> {
+    const company = held(id);
+    company.enrichment_status = "pending";
+    return company;
+  }
+
+  // Recording that a search found nothing and blocking a later search are two
+  // different things. Only a search that filled a field in writes enriched_at,
+  // which is the one thing that closes a company out.
+  async function saveEnrichment(
+    id: string,
+    found: ContactDetails,
+    doubts: readonly EnrichmentDoubt[],
+    at: Date
+  ): Promise<CompanyRecord> {
+    const company = held(id);
+    const answered = Boolean(found.address || found.phone || found.website);
+    company.address = found.address ?? null;
+    company.phone = found.phone ?? null;
+    company.website = found.website ?? null;
+    // Copied rather than held, so a later change by the caller cannot reach
+    // back into a company this fake is holding.
+    company.enrichment_flags = [...doubts];
+    company.enrichment_uncertain = doubts.length > 0;
+    company.enriched_at = answered ? at : null;
+    company.enrichment_status = answered ? "complete" : "failed";
+    return company;
+  }
+
   return {
     findBySlug,
     findByMatchKey,
+    findById,
     findNeedingScores,
     findScored,
     create,
@@ -190,6 +244,8 @@ export function fakeCompanyService(
     fillName,
     saveScores,
     writeScores,
+    startEnrichment,
+    saveEnrichment,
     ...overrides,
   };
 }

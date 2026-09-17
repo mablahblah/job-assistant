@@ -7,6 +7,8 @@
 import type { createPipelineDb } from "../db/pipeline-db";
 import { Prisma } from "../../generated/pipeline/client";
 import { companyMatchKey } from "../utils/company-match-key";
+import { ENRICHMENT_DOUBTS, type EnrichmentDoubt } from "../utils/enrichment-doubts";
+import type { ContactDetails } from "../utils/enrichment-contact";
 
 // The four things an agent researches a company on. Named here as one list
 // so nothing downstream has to retype them, and so a fifth category could
@@ -51,6 +53,22 @@ export interface CompanyRecord {
   // names; the column behind it is Json, so a row that somehow holds another
   // shape is read as no guesses rather than trusted.
   scores_guessed: ScoreCategory[];
+  // The contact details a Texas Workforce Commission filing asks for, filled
+  // in by an internet search. A status change has a job's company id and
+  // nothing else, so it reads the employer here to see whether it holds a
+  // usable name and whether a search has already answered for it.
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  // What says an employer is done. A read that left this off would send every
+  // employer back to the paid search on every status change.
+  enriched_at: Date | null;
+  enrichment_status: string | null;
+  enrichment_uncertain: boolean;
+  // Narrowed from Json the same way scores_guessed is, and for the same
+  // reason: a row holding another shape reads as no doubts rather than being
+  // trusted.
+  enrichment_flags: EnrichmentDoubt[];
 }
 
 export interface CreateInput {
@@ -71,6 +89,7 @@ export interface FillNameResult {
 export interface CompanyService {
   findBySlug(slug: string): Promise<CompanyRecord | null>;
   findByMatchKey(matchKey: string): Promise<CompanyRecord | null>;
+  findById(id: string): Promise<CompanyRecord | null>;
   findNeedingScores(): Promise<CompanyRecord[]>;
   findScored(): Promise<CompanyRecord[]>;
   create(input: CreateInput): Promise<CreateResult>;
@@ -78,6 +97,13 @@ export interface CompanyService {
   fillName(id: string, name: string): Promise<FillNameResult>;
   saveScores(id: string, scores: ScoreInput, scoredAt: Date): Promise<CompanyRecord>;
   writeScores(company: CompanyRecord): Promise<CompanyRecord>;
+  startEnrichment(id: string): Promise<CompanyRecord>;
+  saveEnrichment(
+    id: string,
+    found: ContactDetails,
+    doubts: readonly EnrichmentDoubt[],
+    at: Date
+  ): Promise<CompanyRecord>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -98,6 +124,13 @@ const SELECT = {
   political_alignment_rationale: true,
   scored_at: true,
   scores_guessed: true,
+  address: true,
+  phone: true,
+  website: true,
+  enriched_at: true,
+  enrichment_status: true,
+  enrichment_uncertain: true,
+  enrichment_flags: true,
 } as const;
 
 // scores_guessed is a Prisma Json column, so its static type is JsonValue
@@ -110,12 +143,27 @@ function guessedCategories(value: unknown): ScoreCategory[] {
   return SCORE_CATEGORIES.filter((category) => value.includes(category));
 }
 
-// What every read hands back: the row as the database holds it, with the
-// guessed list narrowed from Json to the four category names.
-type CompanyRow = Omit<CompanyRecord, "scores_guessed"> & { scores_guessed: unknown };
+// enrichment_flags is a Json column too, narrowed the same way and for the
+// same reason. A doubt wrongly read as absent only costs a warning the user
+// did not need; a stored shape trusted blind could put anything on a page.
+function enrichmentDoubts(value: unknown): EnrichmentDoubt[] {
+  if (!Array.isArray(value)) return [];
+  return ENRICHMENT_DOUBTS.filter((doubt) => value.includes(doubt));
+}
+
+// What every read hands back: the row as the database holds it, with both
+// Json lists narrowed to the names they are allowed to hold.
+type CompanyRow = Omit<CompanyRecord, "scores_guessed" | "enrichment_flags"> & {
+  scores_guessed: unknown;
+  enrichment_flags: unknown;
+};
 
 function toRecord(row: CompanyRow): CompanyRecord {
-  return { ...row, scores_guessed: guessedCategories(row.scores_guessed) };
+  return {
+    ...row,
+    scores_guessed: guessedCategories(row.scores_guessed),
+    enrichment_flags: enrichmentDoubts(row.enrichment_flags),
+  };
 }
 
 // True for a write the database refused because a unique column already
@@ -165,6 +213,13 @@ export function createCompanyService(db: PipelineDb): CompanyService {
     return row === null ? null : toRecord(row);
   }
 
+  // The status change knows a job's company id and nothing else, so this is
+  // where it reads the employer behind that job.
+  async function findById(id: string): Promise<CompanyRecord | null> {
+    const row = await db.company.findUnique({ where: { id }, select: SELECT });
+    return row === null ? null : toRecord(row);
+  }
+
   async function findByName(name: string): Promise<CompanyRecord | null> {
     const row = await db.company.findUnique({ where: { name }, select: SELECT });
     return row === null ? null : toRecord(row);
@@ -202,6 +257,7 @@ export function createCompanyService(db: PipelineDb): CompanyService {
   return {
     findBySlug,
     findByMatchKey,
+    findById,
 
     // Scoring researches every company that still has a live backlog job but
     // has not been fully judged yet, so a ranking is never built on blanks.
@@ -330,6 +386,47 @@ export function createCompanyService(db: PipelineDb): CompanyService {
       const row = await db.company.update({
         where: { id },
         data,
+        select: SELECT,
+      });
+      return toRecord(row);
+    },
+
+    // Goes down before the search starts rather than after it answers, so a
+    // run cut off partway reads differently from one never tried. It touches
+    // nothing else, enriched_at included, because only a search that filled
+    // a field in is allowed to close a company out.
+    async startEnrichment(id) {
+      const row = await db.company.update({
+        where: { id },
+        data: { enrichment_status: "pending" },
+        select: SELECT,
+      });
+      return toRecord(row);
+    },
+
+    // Writes the whole result of one search at once. A field the search did
+    // not fill is written empty rather than left standing, because this is
+    // the only thing that writes these and a later run must not read a value
+    // this one did not find.
+    //
+    // There is no such thing as a permanently failed company. A search that
+    // found nothing records that it found nothing and leaves enriched_at
+    // empty, so the company is asked about again next time. The old code got
+    // this wrong by accident: an empty result set marked a company done while
+    // a service error left it retryable, and nobody chose that split.
+    async saveEnrichment(id, found, doubts, at) {
+      const answered = Boolean(found.address || found.phone || found.website);
+      const row = await db.company.update({
+        where: { id },
+        data: {
+          address: found.address ?? null,
+          phone: found.phone ?? null,
+          website: found.website ?? null,
+          enrichment_flags: [...doubts],
+          enrichment_uncertain: doubts.length > 0,
+          enriched_at: answered ? at : null,
+          enrichment_status: answered ? "complete" : "failed",
+        },
         select: SELECT,
       });
       return toRecord(row);

@@ -79,6 +79,13 @@ const EXPECTED_COMPANY_COLUMNS = [
   "political_alignment_rationale",
   "scored_at",
   "scores_guessed",
+  "address",
+  "phone",
+  "website",
+  "enriched_at",
+  "enrichment_status",
+  "enrichment_uncertain",
+  "enrichment_flags",
   "created_at",
   "modified_at",
 ];

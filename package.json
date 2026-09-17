@@ -10,6 +10,8 @@
     "db:seed": "npx tsx scripts/db-seed.ts",
     "db:reset": "npx tsx scripts/db-reset.ts",
     "job-search": "npx tsx scripts/job-search.ts",
+    "find-jobs": "npx tsx scripts/find-jobs.ts",
+    "change-status": "npx tsx scripts/change-status.ts",
     "score:gather": "npx tsx scripts/score-gather.ts",
     "score:save": "npx tsx scripts/score-save.ts",
     "lint": "npx eslint . --ext .ts && npm run typecheck",

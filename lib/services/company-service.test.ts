@@ -602,3 +602,179 @@ describe("finding the companies that still need a score", () => {
     expect(found).toBeDefined();
   });
 });
+
+// Criteria 33 and 51. A status change has a job's company id and nothing
+// else, so it reads the employer here — to see whether it holds a usable
+// name, and whether a search has already filled its contact details in.
+describe("finding a company by its id", () => {
+  test("gives back the company holding that id", async () => {
+    const { company } = await service.create({ name: "Read By Id Co" });
+
+    const found = await service.findById(company.id);
+
+    expect(found?.id).toBe(company.id);
+    expect(found?.name).toBe("Read By Id Co");
+  });
+
+  test("gives back nothing where no company holds that id", async () => {
+    expect(await service.findById("no-such-company")).toBeNull();
+  });
+
+  // A board the app polls creates a company holding a slug and no name, so a
+  // job attached to one of those carries an employer whose name is still
+  // blank. The read has to show that.
+  test("gives back a company holding no name", async () => {
+    const nameless = await service.createNameless();
+
+    const found = await service.findById(nameless.id);
+
+    expect(found?.id).toBe(nameless.id);
+    expect(found?.name).toBeNull();
+  });
+
+  // Criterion 51 is judged on these, so a read that left them off would send
+  // every employer back to the paid search on every status change.
+  test("carries the contact fields a search fills in", async () => {
+    const { company } = await service.create({ name: "Contact Fields Co" });
+
+    const found = await service.findById(company.id);
+
+    expect(found).toMatchObject({
+      address: null,
+      phone: null,
+      website: null,
+      enriched_at: null,
+      enrichment_status: null,
+      enrichment_uncertain: false,
+      enrichment_flags: [],
+    });
+  });
+});
+
+// Criterion 58. The mark goes down before the search starts, so a run cut
+// short partway is told apart from one that was never tried.
+describe("marking a company as being searched", () => {
+  test("the company reads as being searched", async () => {
+    const { company } = await service.create({ name: "Marked Co" });
+
+    await service.startEnrichment(company.id);
+
+    expect((await service.findById(company.id))?.enrichment_status).toBe("pending");
+  });
+
+  test("nothing is filled in by the mark alone", async () => {
+    const { company } = await service.create({ name: "Marked Empty Co" });
+
+    await service.startEnrichment(company.id);
+
+    expect(await service.findById(company.id)).toMatchObject({
+      address: null,
+      phone: null,
+      website: null,
+      enriched_at: null,
+    });
+  });
+
+  // The mark is not a record of success, so it must not make the company
+  // look done. Only a search that filled a field in does that.
+  test("the mark alone does not make the company done", async () => {
+    const { company } = await service.create({ name: "Marked Not Done Co" });
+
+    await service.startEnrichment(company.id);
+
+    expect((await service.findById(company.id))?.enriched_at).toBeNull();
+  });
+});
+
+// Criteria 45, 46, 47 and 59.
+describe("saving what a search found", () => {
+  const FOUND = {
+    address: "760 Market Street, San Francisco, CA 94102",
+    phone: "415-555-0142",
+    website: "https://www.figma.com",
+  };
+  const AT = new Date("2026-02-01T00:00:00.000Z");
+
+  test("the company holds the address, the phone number and the website", async () => {
+    const { company } = await service.create({ name: "Found Co" });
+
+    await service.saveEnrichment(company.id, FOUND, [], AT);
+
+    expect(await service.findById(company.id)).toMatchObject(FOUND);
+  });
+
+  test("a search that filled something in marks the company done", async () => {
+    const { company } = await service.create({ name: "Found Done Co" });
+
+    await service.saveEnrichment(company.id, FOUND, [], AT);
+
+    expect(await service.findById(company.id)).toMatchObject({
+      enriched_at: AT,
+      enrichment_status: "complete",
+    });
+  });
+
+  test("a search that raised no doubt leaves the company undoubted", async () => {
+    const { company } = await service.create({ name: "Found Certain Co" });
+
+    await service.saveEnrichment(company.id, FOUND, [], AT);
+
+    expect(await service.findById(company.id)).toMatchObject({
+      enrichment_uncertain: false,
+      enrichment_flags: [],
+    });
+  });
+
+  test("the doubts a search raised are stored and mark the company doubtful", async () => {
+    const { company } = await service.create({ name: "Found Doubtful Co" });
+
+    await service.saveEnrichment(
+      company.id,
+      { address: "1 Hacker Way, London" },
+      ["address_outside_us", "missing_phone"],
+      AT
+    );
+
+    expect(await service.findById(company.id)).toMatchObject({
+      enrichment_uncertain: true,
+      enrichment_flags: ["address_outside_us", "missing_phone"],
+    });
+  });
+
+  // The user's rule: there is no such thing as a permanently failed company.
+  // A search that filled nothing in is recorded as having found nothing, and
+  // the company stays open to a later search.
+  test("a search that filled nothing in leaves the company not done", async () => {
+    const { company } = await service.create({ name: "Found Nothing Co" });
+
+    await service.saveEnrichment(company.id, {}, ["missing_address", "missing_phone"], AT);
+
+    expect(await service.findById(company.id)).toMatchObject({
+      enriched_at: null,
+      enrichment_status: "failed",
+    });
+  });
+
+  test("a website alone is enough to mark the company done", async () => {
+    const { company } = await service.create({ name: "Found Website Only Co" });
+
+    await service.saveEnrichment(company.id, { website: "https://example.com" }, [], AT);
+
+    expect((await service.findById(company.id))?.enriched_at).toEqual(AT);
+  });
+
+  // A field the search did not fill is written empty rather than left
+  // standing, because the search is the only thing that writes these and a
+  // later run must not read a value this one did not find.
+  test("a field the search did not fill reads as empty", async () => {
+    const { company } = await service.create({ name: "Found Partial Co" });
+
+    await service.saveEnrichment(company.id, { address: FOUND.address }, ["missing_phone"], AT);
+
+    expect(await service.findById(company.id)).toMatchObject({
+      address: FOUND.address,
+      phone: null,
+      website: null,
+    });
+  });
+});

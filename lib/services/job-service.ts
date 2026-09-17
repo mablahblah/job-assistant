@@ -21,6 +21,17 @@ export interface UpdateResult {
   outcome: JobWriteOutcome;
 }
 
+// Just enough of a job to name it back to the user. The change-status skill
+// is handed an employer and roughly a role rather than an id, and this is
+// what it shows when several jobs answer to those words.
+export interface JobSearchMatch {
+  id: string;
+  title: string | null;
+  company_name: string | null;
+  status: string;
+  posting_date: Date | null;
+}
+
 export interface DeleteResult {
   deleted: boolean;
   // The active row that refused the delete, so the caller can warn naming it.
@@ -30,6 +41,12 @@ export interface DeleteResult {
 export interface JobService {
   update(entry: JobListEntry, priorityList: readonly string[]): Promise<UpdateResult>;
   delete(id: string): Promise<DeleteResult>;
+  // Reads one row and writes nothing. Update creates a row where it finds
+  // none, and a status change carries no collection date, so that create
+  // refuses with a message about a missing column — which names the wrong
+  // fault when the real answer is that no job holds the id. A caller reads
+  // here first and answers for itself.
+  findById(id: string): Promise<JobListEntry | null>;
   // The three lookups dedupe's database compare runs. Each asks the table a
   // different question on an indexed column, so dedupe runs all three every
   // time and any of them can name a row the other two missed. They live here
@@ -76,6 +93,17 @@ export interface JobService {
   // four phase gates are left off every row for the same reason as above.
   findNeedingScores(): Promise<JobListEntry[]>;
   findUnclassified(): Promise<JobListEntry[]>;
+  // Crosses the Company relation and reports on the employer rather than the
+  // full job row, so it returns its own shape instead of bending toward
+  // JobListEntry the way every other read here does. An empty or absent
+  // status list means every status, because the caller that narrows by status
+  // is the skill, and a caller with no reason to narrow should not have to
+  // name all twelve.
+  findByCompanyNameMatch(options: {
+    companyNamePart: string;
+    titlePart?: string;
+    statuses?: readonly string[];
+  }): Promise<JobSearchMatch[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -211,6 +239,15 @@ export function createJobService(db: PipelineDb): JobService {
       return { deleted: true, blockedBy: null };
     },
 
+    // The phase gate fields stay on the row here, unlike the job-list reads
+    // below. Those strip them because their entries are carried on to a save
+    // and must hold no stale copy of a flag another phase owns; this hands
+    // back one whole row for a caller to look at.
+    async findById(id) {
+      const row = await db.job.findUnique({ where: { id } });
+      return row ? toJobListEntry(row) : null;
+    },
+
     // Both match-key columns are indexed and neither is unique, so several
     // rows can hold one key — every match comes back, not just the first.
     findByOriginalUrlMatchKey(matchKey) {
@@ -300,6 +337,42 @@ export function createJobService(db: PipelineDb): JobService {
         omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
       });
       return rows.map((row) => row as unknown as JobListEntry);
+    },
+
+    // `contains` compiles to SQLite's LIKE, which is already case-insensitive
+    // for ASCII, so the user typing "figma" or "FIGMA" reaches the same rows.
+    // Prisma's SQLite provider rejects `mode: "insensitive"` outright, so
+    // neither is asked for here.
+    async findByCompanyNameMatch({ companyNamePart, titlePart, statuses }) {
+      const rows = await db.job.findMany({
+        where: {
+          company: { name: { contains: companyNamePart } },
+          ...(titlePart ? { title: { contains: titlePart } } : {}),
+          ...(statuses && statuses.length > 0 ? { status: { in: [...statuses] } } : {}),
+        },
+        select: {
+          id: true,
+          title: true,
+          raw_title: true,
+          status: true,
+          posting_date: true,
+          company: { select: { name: true } },
+        },
+        // SQLite sorts null below every real value, so descending order
+        // already sinks a job with no posting date beneath the dated ones
+        // rather than letting it head the list.
+        orderBy: { posting_date: "desc" },
+      });
+
+      // A job normalization has not reached yet still has to be nameable, so
+      // the published title stands in where the tidied one is empty.
+      return rows.map((row) => ({
+        id: row.id,
+        title: row.title ?? row.raw_title,
+        company_name: row.company?.name ?? null,
+        status: row.status,
+        posting_date: row.posting_date,
+      }));
     },
   };
 }

@@ -193,6 +193,14 @@ describe("db-reset", () => {
   // Criterion 75.
   test("no table was dropped", () => {
     expect(tablesAfter).toEqual(tablesBefore);
-    expect(tablesBefore).toEqual(["AtsSlug", "Company", "Job", "Place", "Setting", "Trace"]);
+    expect(tablesBefore).toEqual([
+      "AtsSlug",
+      "Company",
+      "Job",
+      "Place",
+      "Setting",
+      "Trace",
+      "WorkLogEntry",
+    ]);
   });
 });

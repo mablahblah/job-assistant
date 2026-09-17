@@ -120,4 +120,29 @@ describe("the check covers every model the schema declares", () => {
     await probe?.read();
     expect(asked).toEqual(["atsSlug"]);
   });
+
+  // The work log is a legal filing. A command that wrote a status change and
+  // then failed to write the entry beside it would leave the user believing a
+  // record exists, so the table it lands in is read before the run starts.
+  test("the work log table is one of the tables read", async () => {
+    const asked: string[] = [];
+    const db = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          return {
+            findFirst: async () => {
+              asked.push(String(property));
+              return null;
+            },
+          };
+        },
+      }
+    ) as Parameters<typeof schemaProbesFor>[0];
+
+    const probe = schemaProbesFor(db).find((candidate) => candidate.name === "WorkLogEntry");
+    expect(probe, "no probe named WorkLogEntry").toBeDefined();
+    await probe?.read();
+    expect(asked).toEqual(["workLogEntry"]);
+  });
 });
