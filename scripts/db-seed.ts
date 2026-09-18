@@ -1,9 +1,9 @@
-// Seeds the pipeline database with the settings and ATS boards collection
-// needs. It fills what is absent and overwrites nothing, so running it after a
-// schema change adds the new setting and leaves everything else as it was.
+// Seeds the pipeline database with the settings collection needs. It fills
+// what is absent and overwrites nothing, so running it after a schema change
+// adds the new setting and leaves everything else as it was. It creates no
+// board rows and marks nothing as polled: polling is earned by promotion
+// alone, and a slug list here would re-arm the boards on every reseed.
 import { createPipelineDb } from "../lib/db/pipeline-db";
-import { createCompanyService, type CompanyService } from "../lib/services/company-service";
-import { createAtsSlugService, type AtsSlugService } from "../lib/services/ats-slug-service";
 import { COLLECTORS } from "../lib/collectors/registry";
 import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
 
@@ -62,32 +62,6 @@ const SETTING_DEFAULTS = {
   // How long a guessed category stands. Shorter than the score expiry,
   // because a guess is a placeholder rather than research.
   guessed_score_expiry_days: 30,
-};
-
-// The boards each ATS collector polls. A collector finds its work by asking
-// for the companies carrying its platform and a slug.
-// The boards the three ATS collectors poll, keyed by the collector that polls
-// them. A seeded row carries that collector from the start, which is what puts
-// the board on a polling list; a row written later by company matching carries
-// none until promotion fills it in.
-const SLUGS_BY_COLLECTOR: Record<string, string[]> = {
-  greenhouse: [
-    "gitlab",
-    "duolingo",
-    "stripe",
-    "asana",
-    "lyft",
-    "dropbox",
-    "squarespace",
-    "hellofresh",
-    "intercom",
-    "coursera",
-    "modernhealth",
-    "calm",
-    "figma",
-  ],
-  lever: ["gohighlevel", "USMobile", "bhvr"],
-  ashby: ["hinge-health", "legora", "bjakcareer", "voodoo", "scorewarrior"],
 };
 
 // The full ranking a database should end up holding. It sits apart from
@@ -233,68 +207,12 @@ async function seedSourcePriority(prisma: PipelineDb): Promise<void> {
   console.log(`Source priority list: added ${missing.join(", ")} to the bottom`);
 }
 
-async function seedBoards(
-  companyService: CompanyService,
-  atsSlugs: AtsSlugService
-): Promise<void> {
-  let created = 0;
-  let present = 0;
-  const warnings: string[] = [];
-
-  for (const [collector, slugs] of Object.entries(SLUGS_BY_COLLECTOR)) {
-    for (const slug of slugs) {
-      const existing = await atsSlugs.findBySlug(slug);
-
-      if (existing) {
-        if (existing.collector === collector) {
-          present += 1;
-          continue;
-        }
-
-        // A slug belongs to exactly one board, so the same slug under a
-        // different collector means the seed list and the database disagree
-        // about who owns it. That is a question for the user, not something
-        // to settle by overwriting a row that a real run may depend on.
-        const holder = existing.collector ?? "no collector";
-        warnings.push(`Warning: slug "${slug}" wanted by ${collector} is held by ${holder}`);
-        continue;
-      }
-
-      const company = await companyService.createNameless();
-      // The board's postings are read by the parser of the same name as the
-      // collector that polls the board, so one value serves both.
-      const { created: wasCreated } = await atsSlugs.record({
-        slug,
-        company_id: company.id,
-        parser: collector,
-      });
-
-      if (!wasCreated) {
-        // Something else wrote this slug between the lookup and the write, so
-        // the row we are looking at is no longer ours to attach a collector
-        // to.
-        warnings.push(`Warning: slug "${slug}" was claimed while seeding`);
-        continue;
-      }
-
-      await atsSlugs.addCollector(slug, collector);
-      created += 1;
-    }
-  }
-
-  console.log(`Boards: created ${created}, already present ${present}`);
-  for (const warning of warnings) {
-    console.log(warning);
-  }
-}
-
 async function main(): Promise<void> {
   const prisma = createPipelineDb();
   try {
     await seedSettings(prisma);
     // After seedSettings, which is what creates the row when it is absent.
     await seedSourcePriority(prisma);
-    await seedBoards(createCompanyService(prisma), createAtsSlugService(prisma));
   } finally {
     await prisma.$disconnect();
   }

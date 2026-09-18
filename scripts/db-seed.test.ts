@@ -31,25 +31,6 @@ const EXPECTED_PROMOTION_THRESHOLD = 3.5;
 const EXPECTED_SCORE_EXPIRY_DAYS = 90;
 const EXPECTED_GUESSED_SCORE_EXPIRY_DAYS = 30;
 
-const GREENHOUSE_SLUGS = [
-  "gitlab",
-  "duolingo",
-  "stripe",
-  "asana",
-  "lyft",
-  "dropbox",
-  "squarespace",
-  "hellofresh",
-  "intercom",
-  "coursera",
-  "modernhealth",
-  "calm",
-  "figma",
-];
-const LEVER_SLUGS = ["gohighlevel", "USMobile", "bhvr"];
-const ASHBY_SLUGS = ["hinge-health", "legora", "bjakcareer", "voodoo", "scorewarrior"];
-const ALL_ATS_SLUGS = [...GREENHOUSE_SLUGS, ...LEVER_SLUGS, ...ASHBY_SLUGS];
-
 interface SettingRow {
   search_terms: string[] | null;
   title_head_nouns: string[] | null;
@@ -65,19 +46,6 @@ interface SettingRow {
   score_expiry_days: number | null;
   guessed_score_expiry_days: number | null;
   modified_at: string;
-}
-
-interface BoardRow {
-  // Nullable, because a company seeded from a board slug is created without a
-  // name and nothing invents one for it.
-  name: string | null;
-  collector: string | null;
-  slug: string;
-  parser: string;
-  // Nullable, because it is built from the name. A nameless company has to
-  // store null rather than an empty string: match_key is unique, and SQLite
-  // treats two nulls as different but two empty strings as the same.
-  match_key: string | null;
 }
 
 // An absolute url, because a relative Prisma url resolves from the directory
@@ -168,30 +136,6 @@ async function readSetting(url: string): Promise<SettingRow> {
   }
 }
 
-// Reads one row per board, joined to the company it names, which is the
-// shape the two columns on Company used to hold.
-async function readBoards(url: string): Promise<BoardRow[]> {
-  const client = createClient({ url });
-  try {
-    const result = await client.execute(
-      "SELECT Company.name, Company.match_key, AtsSlug.slug, AtsSlug.parser, " +
-        "AtsSlug.collector FROM AtsSlug JOIN Company ON Company.id = AtsSlug.company_id"
-    );
-    return result.rows.map((row) => {
-      const record = row as unknown as Record<string, unknown>;
-      return {
-        name: record["name"] === null ? null : String(record["name"]),
-        collector: record["collector"] === null ? null : String(record["collector"]),
-        slug: String(record["slug"]),
-        parser: String(record["parser"]),
-        match_key: record["match_key"] === null ? null : String(record["match_key"]),
-      };
-    });
-  } finally {
-    client.close();
-  }
-}
-
 async function countRows(url: string, table: string): Promise<number> {
   const client = createClient({ url });
   try {
@@ -216,113 +160,88 @@ async function runSql(
   }
 }
 
-// The slugs a collector would poll for one platform, which is how a collector
-// finds its boards: the companies carrying that platform and a slug.
-function slugsFor(companies: BoardRow[], platform: string): string[] {
-  return companies
-    .filter((board) => board.collector === platform)
-    .map((board) => board.slug)
-    .sort();
-}
-
-describe("AC17: a seeded board names a collector and its company has no name", () => {
+// Criteria "The seed creates no board rows" and "The seed marks no employer
+// polled". From the switch over on, polling is earned by promotion alone, and
+// seeding is a routine, repeatable command — a slug list left in it would
+// re-arm the boards on the next reseed.
+describe("the seed arms no polling", () => {
   let dir: string;
-  let companies: BoardRow[];
+  let boardRows: number;
+  let companyRows: number;
 
   beforeAll(async () => {
-    const temp = createAndSeed("pipeline-seed-ac17-");
+    const temp = createAndSeed("pipeline-seed-no-boards-");
     dir = temp.dir;
-    companies = await readBoards(temp.url);
+    boardRows = await countRows(temp.url, "AtsSlug");
+    companyRows = await countRows(temp.url, "Company");
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  // Without this the two tests below would pass over an empty table.
-  test("one board row is seeded per ATS slug", () => {
-    expect(companies).toHaveLength(ALL_ATS_SLUGS.length);
+  test("it creates no board rows", () => {
+    expect(boardRows).toBe(0);
   });
 
-  test("no seeded company carries a name", () => {
-    const named = companies.filter((company) => company.name !== null);
-    expect(named).toEqual([]);
-  });
-
-  // A seeded board is one we poll every run, so its row carries a collector
-  // from the start. A row written later by company matching carries none.
-  test("every seeded board carries a collector", () => {
-    const unpolled = companies.filter((board) => board.collector === null);
-    expect(unpolled).toEqual([]);
-  });
-
-  test("every seeded board names the parser that reads it", () => {
-    const unparsed = companies.filter((board) => board.parser === "");
-    expect(unparsed).toEqual([]);
+  // The seed used to create a nameless company per board slug, which is what
+  // marked those employers as polled. No boards means no companies either.
+  test("it creates no companies", () => {
+    expect(companyRows).toBe(0);
   });
 });
 
-describe("AC18: a slug another company already holds is warned about, not seeded again", () => {
+describe("the seed leaves an existing unpolled board unpolled", () => {
   let dir: string;
-  let output: string;
-  let figma: BoardRow[];
+  let collectorAfter: string | null;
 
   beforeAll(async () => {
-    const temp = makeTempDb("pipeline-seed-ac18-");
+    const temp = makeTempDb("pipeline-seed-unpolled-");
     dir = temp.dir;
     runScript("db-create.ts", temp.url);
-    // A company holding the "figma" slug on a different board than the seed
-    // wants to file it under. modified_at has no database default, so a raw
-    // insert has to supply it.
+    // A board row promotion has not filled yet, the state company matching
+    // leaves behind. modified_at has no database default, so a raw insert
+    // has to supply it.
     await runSql(
       temp.url,
       "INSERT INTO Company (id, name, match_key, created_at, modified_at) " +
-        "VALUES ('squatter', 'Figma Squatter', 'figmasquatter', " +
-        "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        "VALUES ('met-once', 'Figma', 'figma', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
     );
     await runSql(
       temp.url,
-      "INSERT INTO AtsSlug (id, slug, company_id, parser, collector, created_at, modified_at) " +
-        "VALUES ('squatter-board', 'figma', 'squatter', 'lever', 'lever', " +
+      "INSERT INTO AtsSlug (id, slug, company_id, parser, created_at, modified_at) " +
+        "VALUES ('met-once-board', 'figma', 'met-once', 'greenhouse', " +
         "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
     );
-    output = runScriptForOutput("db-seed.ts", temp.url);
-    const companies = await readBoards(temp.url);
-    figma = companies.filter((board) => board.slug === "figma");
+    runScript("db-seed.ts", temp.url);
+
+    const client = createClient({ url: temp.url });
+    try {
+      const result = await client.execute("SELECT collector FROM AtsSlug WHERE slug = 'figma'");
+      const row = result.rows[0] as unknown as Record<string, unknown> | undefined;
+      collectorAfter = row?.["collector"] === null ? null : String(row?.["collector"]);
+    } finally {
+      client.close();
+    }
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("only one row holds the clashing slug", () => {
-    expect(figma).toHaveLength(1);
-  });
-
-  test("the row already holding it is left as it was", () => {
-    expect(figma[0]?.collector).toBe("lever");
-  });
-
-  test("the seed warns, naming the slug", () => {
-    expect(output).toMatch(/figma/);
-    expect(output.toLowerCase()).toMatch(/warn/);
-  });
-
-  test("every other slug is still seeded", () => {
-    expect(output).toMatch(/created 20/);
+  test("the board still names no collector", () => {
+    expect(collectorAfter).toBeNull();
   });
 });
 
 describe("AC6: seeding a fresh database fills every setting collection needs", () => {
   let dir: string;
   let setting: SettingRow;
-  let companies: BoardRow[];
 
   beforeAll(async () => {
     const temp = createAndSeed("pipeline-seed-ac6-");
     dir = temp.dir;
     setting = await readSetting(temp.url);
-    companies = await readBoards(temp.url);
   }, SEED_TIMEOUT_MS);
 
   afterAll(() => {
@@ -368,11 +287,6 @@ describe("AC6: seeding a fresh database fills every setting collection needs", (
   test("writes both score expiries", () => {
     expect(setting.score_expiry_days).toBe(EXPECTED_SCORE_EXPIRY_DAYS);
     expect(setting.guessed_score_expiry_days).toBe(EXPECTED_GUESSED_SCORE_EXPIRY_DAYS);
-  });
-
-  test("writes one company per ATS slug", () => {
-    const slugs = companies.map((board) => board.slug).sort();
-    expect(slugs).toEqual([...ALL_ATS_SLUGS].sort());
   });
 
 });
@@ -486,130 +400,6 @@ describe("AC8: seeding writes only the setting that is missing", () => {
 
   test("leaves the expiry threshold untouched while filling another setting", () => {
     expect(refilled.expiry_threshold).toBe(EXPECTED_EXPIRY_THRESHOLD);
-  });
-});
-
-describe("AC12: the Greenhouse slug list holds the boards that return jobs", () => {
-  let dir: string;
-  let greenhouse: string[];
-
-  beforeAll(async () => {
-    const temp = createAndSeed("pipeline-seed-ac12-");
-    dir = temp.dir;
-    greenhouse = slugsFor(await readBoards(temp.url), "greenhouse");
-  }, SEED_TIMEOUT_MS);
-
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  test("holds the 13 boards measured to return jobs", () => {
-    expect(greenhouse).toEqual([...GREENHOUSE_SLUGS].sort());
-  });
-
-  test("does not hold hubspot, which returns none", () => {
-    expect(greenhouse).not.toContain("hubspot");
-  });
-});
-
-describe("AC13: the Lever and Ashby slug lists give each collector something to poll", () => {
-  let dir: string;
-  let lever: string[];
-  let ashby: string[];
-
-  beforeAll(async () => {
-    const temp = createAndSeed("pipeline-seed-ac13-");
-    dir = temp.dir;
-    const companies = await readBoards(temp.url);
-    lever = slugsFor(companies, "lever");
-    ashby = slugsFor(companies, "ashby");
-  }, SEED_TIMEOUT_MS);
-
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  test("Lever holds the boards measured to return matching jobs", () => {
-    expect(lever).toEqual([...LEVER_SLUGS].sort());
-  });
-
-  test("Lever has at least one board to poll", () => {
-    expect(lever.length).toBeGreaterThan(0);
-  });
-
-  test("Ashby holds the boards measured to return matching jobs", () => {
-    expect(ashby).toEqual([...ASHBY_SLUGS].sort());
-  });
-
-  test("Ashby has at least one board to poll", () => {
-    expect(ashby.length).toBeGreaterThan(0);
-  });
-});
-
-describe("a seeded company's match key is null, not an empty string", () => {
-  let dir: string;
-  let companies: BoardRow[];
-
-  beforeAll(async () => {
-    const temp = createAndSeed("pipeline-seed-match-key-");
-    dir = temp.dir;
-    companies = await readBoards(temp.url);
-  }, SEED_TIMEOUT_MS);
-
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  // Without this the test below would pass over an empty table.
-  test("one company is seeded per ATS slug", () => {
-    expect(companies).toHaveLength(ALL_ATS_SLUGS.length);
-  });
-
-  // match_key is unique, and SQLite treats two nulls as different but two
-  // empty strings as the same. A seeded company has no name to build a key
-  // from, so writing "" would let the first company save and refuse every
-  // one after it.
-  test("every seeded company's match key is null, not an empty string", () => {
-    const keyed = companies.filter((company) => company.match_key !== null);
-    expect(keyed).toEqual([]);
-  });
-});
-
-describe("AC19: a second seed run does not duplicate companies or warn", () => {
-  let dir: string;
-  let first: number;
-  let second: number;
-  let secondOutput: string;
-
-  beforeAll(async () => {
-    const temp = createAndSeed("pipeline-seed-twice-");
-    dir = temp.dir;
-    first = await countRows(temp.url, "Company");
-    // The output is captured as well as the count, because a run that
-    // deleted one company and created another would leave the count alone.
-    secondOutput = runScriptForOutput("db-seed.ts", temp.url);
-    second = await countRows(temp.url, "Company");
-  }, MULTI_SEED_TIMEOUT_MS);
-
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  test("the company count is the same after a second seed", () => {
-    expect(second).toBe(first);
-  });
-
-  test("the second run reports creating nothing and finding every company already present", () => {
-    expect(secondOutput).toContain(
-      `Boards: created 0, already present ${ALL_ATS_SLUGS.length}`
-    );
-  });
-
-  // Finding a company already there is the ordinary case on every run after
-  // the first. If it ever started warning, every routine run would print 21
-  // false warning lines.
-  test("the second run prints no warning", () => {
-    expect(secondOutput).not.toContain("Warning:");
   });
 });
 

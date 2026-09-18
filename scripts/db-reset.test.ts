@@ -117,9 +117,23 @@ describe("db-reset", () => {
   beforeAll(async () => {
     temp = makeTempDb("db-reset-");
     runScript("db-create.ts", temp.url);
-    // The seed supplies the settings row and the ATS companies, which are the
-    // two things the reset has to leave alone.
+    // The seed supplies the settings row, which the reset has to leave alone.
     runScript("db-seed.ts", temp.url);
+
+    // The seed no longer creates board rows, so the configuration company the
+    // reset must spare is written here the way promotion would write it.
+    await runSql(
+      temp.url,
+      `INSERT INTO Company (id, name, match_key, modified_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
+      ["company-board", "Polled Employer", "polledemployer"]
+    );
+    await runSql(
+      temp.url,
+      `INSERT INTO AtsSlug (id, slug, company_id, parser, collector, created_at, modified_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      ["board-row", "polledemployer", "company-board", "greenhouse", "greenhouse"]
+    );
 
     seededSlugCount = await countRows(temp.url, "AtsSlug");
 
