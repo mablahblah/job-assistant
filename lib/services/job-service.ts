@@ -33,6 +33,11 @@ export interface JobSearchMatch {
   company_name: string | null;
   status: string;
   posting_date: Date | null;
+  // The resume skill fetches the posting by these links and tailors to the
+  // location, through find-jobs' machine-readable answer.
+  original_url: string | null;
+  resolved_url: string | null;
+  location_match_place: string | null;
 }
 
 export interface DeleteResult {
@@ -397,6 +402,9 @@ export function createJobService(db: PipelineDb): JobService {
           status: true,
           posting_date: true,
           company: { select: { name: true } },
+          original_url: true,
+          resolved_url: true,
+          location_match_place: true,
         },
         // SQLite sorts null below every real value, so descending order
         // already sinks a job with no posting date beneath the dated ones
@@ -412,6 +420,9 @@ export function createJobService(db: PipelineDb): JobService {
         company_name: row.company?.name ?? null,
         status: row.status,
         posting_date: row.posting_date,
+        original_url: row.original_url,
+        resolved_url: row.resolved_url,
+        location_match_place: row.location_match_place,
       }));
     },
 

@@ -95,9 +95,12 @@ beforeAll(async () => {
   await run(
     url,
     `INSERT INTO Job (id, company_id, title, status, posting_date, collected_at,
-                      created_at, modified_at, is_resolved, is_parsed, is_classified)
+                      created_at, modified_at, is_resolved, is_parsed, is_classified,
+                      original_url, resolved_url, location_match_place)
      VALUES ('job-newer', 'co-figma', 'Staff Product Engineer', 'app. sent',
-             '2026-02-01', '2026-01-01', '2026-01-01', '2026-01-01', 1, 1, 1)`
+             '2026-02-01', '2026-01-01', '2026-01-01', '2026-01-01', 1, 1, 1,
+             'https://aggregator.example.com/jobs/9', 'https://boards.example.com/figma/9',
+             'Austin, TX')`
   );
   await run(
     url,
@@ -191,4 +194,49 @@ describe("searching for a job", () => {
     },
     RUN_TIMEOUT_MS
   );
+});
+
+// Phase 13, criteria "A machine-readable answer exists", "The answer names
+// the job", "The answer carries both links", and "The answer carries the
+// location". The resume skill parses this answer instead of the printed
+// lines, so it is structured data on stdout and nothing else.
+describe("the machine-readable answer", () => {
+  function parseJson(stdout: string): Array<Record<string, unknown>> {
+    return JSON.parse(stdout) as Array<Record<string, unknown>>;
+  }
+
+  test("the answer parses as structured data", () => {
+    const result = runFind(url, ["--company", "figma", "--json"]);
+
+    expect(result.status).toBe(0);
+    const matches = parseJson(result.stdout);
+    expect(Array.isArray(matches)).toBe(true);
+    expect(matches).toHaveLength(2);
+  }, RUN_TIMEOUT_MS);
+
+  test("a match carries the fields the printed lines already show", () => {
+    const result = runFind(url, ["--company", "figma", "--json"]);
+    const match = parseJson(result.stdout).find((row) => row["id"] === "job-newer");
+
+    expect(match?.["title"]).toBe("Staff Product Engineer");
+    expect(match?.["company_name"]).toBe("Figma");
+    expect(match?.["status"]).toBe("app. sent");
+    expect(String(match?.["posting_date"])).toContain("2026-02-01");
+  }, RUN_TIMEOUT_MS);
+
+  test("a match carries the collected link, the source posting's link, and the location", () => {
+    const result = runFind(url, ["--company", "figma", "--json"]);
+    const match = parseJson(result.stdout).find((row) => row["id"] === "job-newer");
+
+    expect(match?.["original_url"]).toBe("https://aggregator.example.com/jobs/9");
+    expect(match?.["resolved_url"]).toBe("https://boards.example.com/figma/9");
+    expect(match?.["location"]).toBe("Austin, TX");
+  }, RUN_TIMEOUT_MS);
+
+  test("no match is an empty list, not prose", () => {
+    const result = runFind(url, ["--company", "nothing-holds-this", "--json"]);
+
+    expect(result.status).toBe(0);
+    expect(parseJson(result.stdout)).toEqual([]);
+  }, RUN_TIMEOUT_MS);
 });

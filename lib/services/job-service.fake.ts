@@ -282,6 +282,9 @@ export function fakeJobService(
         company_name: job.raw_company_name ?? null,
         status: job.status ?? "backlog",
         posting_date: job.posting_date ?? null,
+        original_url: job.original_url ?? null,
+        resolved_url: job.resolved_url ?? null,
+        location_match_place: job.location_match_place ?? null,
       }));
   }
 

@@ -54,9 +54,26 @@ function matchLine(job: JobSearchMatch): string {
   return `  ${job.id}: ${title} at ${employer} — ${job.status}${posted}`;
 }
 
+// Shapes a match for --json. Same fields the service already returns, except
+// location_match_place is renamed to location — the criterion and the resume
+// skill both talk about the job's "location", not its "match place".
+function toJsonMatch(job: JobSearchMatch) {
+  return {
+    id: job.id,
+    title: job.title,
+    company_name: job.company_name,
+    status: job.status,
+    posting_date: job.posting_date,
+    original_url: job.original_url,
+    resolved_url: job.resolved_url,
+    location: job.location_match_place,
+  };
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const companyNamePart = flagValue(argv, "company");
+  const jsonMode = argv.includes("--json");
 
   // Checked before the database is opened, so a missing flag leaves no side
   // effect to reason about.
@@ -93,6 +110,13 @@ async function main(): Promise<void> {
       ...(titlePart === undefined ? {} : { titlePart }),
       ...(statuses === undefined ? {} : { statuses }),
     });
+
+    if (jsonMode) {
+      // The resume skill parses this array instead of the printed lines
+      // below — an empty search is a real, valid answer, not an error.
+      console.log(JSON.stringify(matches.map(toJsonMatch), null, 2));
+      return;
+    }
 
     const searched = describeSearch(companyNamePart, titlePart, statuses);
 
