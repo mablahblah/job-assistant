@@ -9,7 +9,8 @@ arguments:
     description: Optional role title, used to narrow the lookup when a company has several open jobs
 argument-hint: "{company} [role]"
 allowed-tools:
-  - Bash(npx tsx scripts/cli.ts:*)
+  - Bash(npm run find-jobs:*)
+  - Bash(npm run fetch-rendered-page:*)
   - Bash(node scripts/generate-pdf.js:*)
   - Bash(mkdir:*)
   - Bash(rm:*)
@@ -34,47 +35,52 @@ allowed-tools:
 
 ## Phase 1: Find the Job
 
-1. Run from the job-assistant project root, omitting `{role}` when the user gave none:
+1. Run from the job-assistant project root, omitting `--title {role}` when the user gave no role:
 
    ```bash
-   npx tsx scripts/cli.ts find-job {company} {role}
+   npm run find-jobs -- --company "{company}" --title "{role}" --json
    ```
 
-2. Parse the JSON array:
-   - If the command exits non-zero or the array is empty: tell the user no matching jobs were found and stop.
+2. Parse the JSON array the command prints:
+   - If the command exits non-zero: report its error to the user and stop.
+   - If the array is empty: tell the user no matching jobs were found and stop.
    - If exactly one job matches: use it.
-   - If several match: present a numbered list of company, title, status, and location, and ask the user to pick one.
-3. Note the chosen job's `url`, `id`, `company`, and `title`. Later phases use all four.
+   - If several match: present a numbered list of `company_name`, `title`, `status`, and `location`, and ask the user to pick one.
+3. Note the chosen job's `id`, `company_name`, `title`, `original_url` (the address the job was collected with), and `resolved_url` (the source posting's own address). Later phases use them all.
 
 ## Phase 2: Fetch the Posting
 
-1. Run from the job-assistant project root:
+1. Choose the link to fetch: `resolved_url` where it is not null, `original_url` otherwise.
+2. Run from the job-assistant project root:
 
    ```bash
-   npx tsx scripts/cli.ts fetch-page {url}
+   npm run fetch-rendered-page -- --url "{url}"
    ```
 
-2. Judge the result.
+   The command opens the page in a browser, waits for its scripts to finish, and prints the finished HTML.
+
+3. Judge the result.
+
+### If the command fails (non-zero exit, an error message instead of HTML):
+
+This is a tool failure — a fact about the fetch, not about the job. Never treat it as a dead posting.
+
+4a. Report the tool failure to the user, quoting the command's error text.
+5a. Ask whether to retry the fetch or to paste the page contents instead, and continue with whichever they choose.
 
 ### If the posting loads:
 
-3a. Carry the HTML into Phase 3.
+4b. Carry the HTML into Phase 3.
 
-### If the posting is dead (404, empty body, error page, or wording such as "this posting has been removed"):
+### If the posting loads but reads as dead (404, empty body, error page, or wording such as "this posting has been removed"):
 
-3b. Tell the user the posting at `{url}` appears dead, and ask them to check whether it is still live.
-4b. If the user says it is live: retry the `fetch-page` command and return to step 2.
-5b. If the user confirms it is dead: ask whether to mark the job expired. When they agree, run from the job-assistant project root, then stop:
-
-    ```bash
-    npx tsx scripts/cli.ts status <<'EOF'
-    [{"jobId":"{id}","status":"expired"}]
-    EOF
-    ```
+4c. Tell the user the posting at `{url}` appears dead, and ask them to check whether it is still live.
+5c. If the user says it is live: retry the fetch command and return to step 3.
+6c. If the user confirms it is dead: tell them a resume cannot be written from a dead posting, leave the job's status untouched, and stop.
 
 ### If the posting loads but the content cannot be read:
 
-3c. Ask the user to paste the page contents into the conversation, and continue with what they paste.
+4d. Ask the user to paste the page contents into the conversation, and continue with what they paste.
 
 ## Phase 3: Read the Resume Inventory
 
@@ -140,7 +146,7 @@ allowed-tools:
    }
    ```
 
-   `bullets` carries a key for every job whose `bullets.items` is non-empty, even when the value is an empty array. Jobs with no configurable bullets are omitted entirely. `company` is the name from the Phase 1 lookup, not the shortened filename form.
+   `bullets` carries a key for every job whose `bullets.items` is non-empty, even when the value is an empty array. Jobs with no configurable bullets are omitted entirely. `company` is the `company_name` from the Phase 1 lookup, not the shortened filename form.
 
 3. Render, from the portfolio project root:
 
