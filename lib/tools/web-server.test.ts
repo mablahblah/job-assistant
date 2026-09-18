@@ -136,7 +136,9 @@ describe("starting against a mismatched database", () => {
     expect(printed.join("\n")).toContain("Company, WorkLogEntry");
   });
 
-  test("it names the command that rebuilds them", async () => {
+  // Phase 13 reworded the advice: after the switch over a rebuild destroys
+  // real records, so the message names the safe migration command instead.
+  test("it names the command that migrates them", async () => {
     const server = createWebServer({
       readContents: async () => EMPTY_PAGE,
       probes: [probeThatFails("Job")],
@@ -145,7 +147,7 @@ describe("starting against a mismatched database", () => {
 
     await server.start(0);
 
-    expect(printed.join("\n")).toContain("npm run db:create");
+    expect(printed.join("\n")).toContain("npm run db:migrate");
   });
 });
 

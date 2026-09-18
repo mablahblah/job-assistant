@@ -110,7 +110,7 @@ export function createWebServer(options: WebServerOptions): WebServer {
     if (failing.length > 0) {
       console.log("The database does not match the schema this code expects.");
       console.log(`Tables that could not be read: ${failing.join(", ")}`);
-      console.log("Rebuild it with: npm run db:create && npm run db:seed");
+      console.log("Migrate it with: npm run db:migrate");
       return false;
     }
 

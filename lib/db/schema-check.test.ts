@@ -146,3 +146,26 @@ describe("the check covers every model the schema declares", () => {
     expect(asked).toEqual(["workLogEntry"]);
   });
 });
+
+// Criterion "No message advises the wipe". After the switch over the real
+// database holds records a rebuild would destroy, so every command printing
+// the schema-mismatch message has to point at the path that keeps them.
+describe("what the recovery messages advise", () => {
+  const filesPrintingTheMessage = [
+    path.join("lib", "tools", "web-server.ts"),
+    path.join("scripts", "find-jobs.ts"),
+    path.join("scripts", "change-status.ts"),
+    path.join("scripts", "score-save.ts"),
+    path.join("scripts", "score-gather.ts"),
+    path.join("scripts", "job-search.ts"),
+  ];
+
+  test("no command tells the user to rebuild, and each names the safe path", () => {
+    const repoRoot = path.resolve(__dirname, "..", "..");
+    for (const file of filesPrintingTheMessage) {
+      const source = readFileSync(path.join(repoRoot, file), "utf-8");
+      expect(source, `${file} still advises the wipe`).not.toContain("db:create");
+      expect(source, `${file} names no safe path`).toContain("npm run db:migrate");
+    }
+  });
+});

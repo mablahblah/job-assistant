@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     if (drifted.length > 0) {
       console.log("The database does not match the schema this code expects.");
       console.log(`Tables that could not be read: ${drifted.join(", ")}`);
-      console.log("Rebuild it with: npm run db:create && npm run db:seed");
+      console.log("Migrate it with: npm run db:migrate");
       process.exitCode = 1;
       return;
     }

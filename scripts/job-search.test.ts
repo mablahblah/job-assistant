@@ -291,8 +291,10 @@ describe("phase 8b AC 14, 15, 16: a database that does not match the code stops 
     expect(result.stdout).toContain("Trace");
   });
 
-  test("names the command that rebuilds the database", () => {
-    expect(result.stdout).toContain("npm run db:create");
+  // Phase 13 reworded the advice: after the switch over a rebuild destroys
+  // real records, so the message names the safe migration command instead.
+  test("names the command that migrates the database", () => {
+    expect(result.stdout).toContain("npm run db:migrate");
   });
 
   // AC 16. A run that recorded nothing must not look like a run that worked.
