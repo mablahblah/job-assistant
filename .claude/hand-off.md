@@ -13,29 +13,54 @@
 
 ## Current Task
 
-**Phase 13, migration and switch over: tasks 1 through 11 of 15 are built and committed.** Each task landed test first as its own commit on `feature/unified-pipeline`. The working tree is clean. The suite was verified at session end: 155 files, 3,266 passed, 17 deliberately skipped. Lint and the type check pass.
+**Phase 13 is built and closed. The Unified Job Pipeline has one box left: Ship.** Every phase from 0 through 13 is checked in `docs/CURRENT-FEATURE.md`.
 
-Tasks 12 through 15 remain, unchecked in `docs/CURRENT-FEATURE.md`: the resume skill re-home, the run identifier, deleting `legacy/`, and the by-eye switch over, which needs the user present.
+The switch over happened. Real job searches now run on this branch against `pipeline.db`. `legacy/` is deleted, and `dev.db` is kept only as an archive.
+
+Suite at session end: 158 files, 3,287 passed, 17 skipped. Lint and the type check pass.
+
+**Uncommitted, and not from this session.** `docs/BACKLOG.md` and `docs/features/collector-parser-expansion/feature_r&d.md` are modified, and `docs/features/unjudged-jobs-in-backlog/` is untracked. These came from another session. The user was asked and said they are fine, so they were left alone.
+
+Also untracked at the repo root: `pipeline.db.2026-09-18T04-04-11.backup`, written automatically by `db:migrate` before the baseline was adopted.
 
 ## Completed This Session
 
-Eleven tasks. The rebuild command (`scripts/db-create.ts`) takes an explicit target and always refuses the file `.env` names. Six recovery messages advise `npm run db:migrate` instead of the wipe. `scripts/db-migrate.ts` is the schema-change command: dated copy first, baseline adoption, then `prisma migrate dev`; `prisma/migrations/0_init/` is the committed baseline. The seed creates no board rows. The reset script is deleted; `scripts/retired-commands.test.ts` proves its absence. `scripts/db-migrate-data.ts` is the one-time data migration — four refusals, no trace rows, live-count verification, and the three migrators: work log entries, employers, jobs. `find-jobs` gained `--json`. `lib/tools/rendered-page-fetcher.ts` ports the browser-driven fetch, with a fake beside it.
+Four commits, then the phase close.
+
+1. **The resume skill re-homed.** `scripts/fetch-rendered-page.ts` is a new command wrapping the rendered-page fetcher. The skill looks jobs up with `npm run find-jobs -- --company X --json`, fetches `resolved_url` when present and `original_url` otherwise, reports a failed fetch as a tool failure, and closes the dead-posting branch with a message and no status write.
+2. **The run identifier prints and travels.** `npm run job-search` prints `Run: {id}` first. Both skills carry it. `score:gather` warns when handed an identifier matching no trace rows, and never warns on one it minted.
+3. **The old folder deleted.** `legacy/` and the `cli` npm entry are gone. The add-external-jobs skill carries a note naming the switch over as its break.
+4. **The switch over ran, checked by eye.** 54 employers, 59 active jobs, 70 work log entries crossed. The migration verified every count against the old database itself.
+
+Then the first real job search on the new pipeline, and the phase close: architecture doc, `CLAUDE.md`, and `CURRENT-FEATURE.md` corrected.
 
 ## Session Context
 
-- **The pipeline.db incident.** Before the guard existed, the first run of the new guard tests rebuilt the real `pipeline.db`. It lost only test output from phases 1 through 12 — 313 jobs, 191 employers, trace rows — and the file is now an empty, unseeded schema. `dev.db` is untouched: 70 work log entries, 2,208 jobs. The switch over plan rebuilds `pipeline.db` from empty anyway. The tests were rewritten so a re-run can only wipe scratch files.
-- **The migration command reads `DATABASE_URL` as its source** and `PIPELINE_DATABASE_URL` as its target, both the names `.env` already holds. It reads the old file raw with libsql and writes through the company, job, and work log services.
-- **Migrated jobs keep their old ids.** Work log entries name jobs by id, and the work log page walks entry to job to employer.
-- **The migration tests seed their target** (`makeDbs` runs `db-seed.ts`) because the job migrator reads the seeded source priority list through the settings service. The real runbook order is the same: rebuild, seed, migrate.
-- **`db-create.ts` compares its argument against `.env` parsed directly**, never `process.env`, so a shell override cannot make a wipe of the real file look safe.
-- **Prisma 7 removed `--skip-generate`.** Measured: `migrate dev` with nothing pending neither prompts nor regenerates the client, which is what makes it safe inside the suite.
-- **Deviation from crowd-code:** pure deletions (seed boards, reset script) were edited directly rather than through writer tournaments — a deletion has no second spelling. Failing tests still came first everywhere.
-- **An old schema test died deliberately:** the one proving `db-create` read its url from `.env`, retired by the named-target criterion. Two other tests flipped from expecting `db:create` advice to `db:migrate`.
-- **Docs to correct at phase close:** `CLAUDE.md`'s command table still describes `db:create` without its target argument and does not list `db:migrate`; the architecture doc's claim that all three database commands retire is already flagged in the r&d file.
+- **The decisions the user made are in the feature decision log.** One entry was drafted this session and the user rejected it. Do not re-propose it.
+- **The runbook's "rebuild once" step could not run.** `db:create` refuses the file `PIPELINE_DATABASE_URL` names, which is exactly what task 1 built. The target was already empty, so the switch over ran `db:migrate` to adopt the `0_init` baseline, then seed, then migrate. `db:migrate` wrote a dated backup first.
+- **The fetch command was an extra file beyond the spec's 15 tasks.** The spec assumed the skill would reach the fetcher somehow but never said how.
+- **Skill-file criteria are proven by reading the file**, per the spec. Two new test files do it: `scripts/generate-resume-skill.test.ts` and `scripts/run-identifier-skills.test.ts`.
+- **Deleting `legacy/` needed two steps.** `git rm -r` left untracked leftovers behind, including two zero-byte `dev.db` files. Both were confirmed empty before `rm -rf`. The live `dev.db` at the repo root, 2.1 MB, was never touched.
+- **Eleven work log entries name jobs that did not migrate.** Those jobs were rejected, so they stayed behind. All eleven carry their own employer name and job title, so the Texas filing still fills. This is the design, not a fault.
+- **Figma's migrated address reads "test".** This is the known placeholder the spec predicted.
+- **Two false alarms on the resume PDF, both from this session's own checking.** Listing the resumes folder with `tail -5` hid the new file, which sorts earlier alphabetically. A crude text extraction reported the PDF empty because it embeds partial fonts. Read the PDF properly instead.
+- **`cd` into the portfolio project resets the shell working directory afterwards.** Use absolute paths.
+
+## What the First Live Run Exposed
+
+Run `644ac69f-e797-4a27-94e3-e41a76fe49fc`, 2026-09-18. It finished cleanly and exited zero.
+
+- **238 collected, 138 resolved, 60 parsed.** 53 duplicates dropped.
+- **82 jobs could not be parsed** because no reader exists for their site: Workday 18, Workable 17, Adzuna 9, Experteer 6, SmartRecruiters 5. These leave the backlog as `unparseable` and never reach scoring.
+- **23 backlog jobs stayed unresolved.** 22 pages refused the browser and 1 would not load. Both reasons are treated as retryable, so those jobs keep their backlog status for the next run. Mostly JSearch and Adzuna links.
+- **18 jobs scored, 32 employers researched.** Eleven employers fully, 21 partly guessed where nothing public existed.
+- **Four employers earned direct polling**, which cleared the cold-start warnings on its own.
+
+No new backlog item came out of this. The parser gap is **Remaining ATS Parsers** and **Collector & Parser Expansion**; the refused pages are **Unjudged Jobs Show in the Backlog** and **Resolver Refinements**.
 
 ## Next Steps
 
-1. **Task 12 — the resume skill re-homes.** New lookup syntax (`find-jobs --company X --json`), best-link fetch (resolved link, else collected), a tool-failure branch distinct from the dead-posting branch, dead branch closes with a message and no status write. Criteria proven by reading the skill file, per the spec's test-suite note.
-2. **Task 13 — the run identifier prints and travels.** `scripts/job-search.ts:82` mints it; print it first, name it in the job-search skill's output contract, pass it to scoring, warn on a stranger identifier.
-3. **Task 14 — delete `legacy/`** plus the `cli` npm entry, add the add-external-jobs skill note, keep the five location-research scripts, prove with lint and the suite.
-4. **Task 15 — the switch over, by eye, with the user present:** rebuild once, seed, migrate, verify; read every migrated contact detail (one known placeholder address says "test"); generate one real resume end to end.
+1. **Ship the feature.** Run `/ship-feature`. It is the only unchecked box in `docs/CURRENT-FEATURE.md`.
+2. **Expect a backlog cleanup during ship.** The feature spec requires every item the shipped pipeline made redundant to be proposed for removal, with the user approving the list before anything is deleted.
+3. **Decide what happens to the other session's uncommitted doc changes** before shipping, so the branch is clean when it merges.
+4. **Leave `dev.db` alone.** Backlog item 34 covers deleting it once the migration has proved itself over time.
