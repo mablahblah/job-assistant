@@ -7,6 +7,7 @@
     "serve": "npx tsx scripts/serve.ts",
     "postinstall": "npx prisma generate",
     "db:create": "npx tsx scripts/db-create.ts",
+    "db:migrate": "npx tsx scripts/db-migrate.ts",
     "db:seed": "npx tsx scripts/db-seed.ts",
     "db:reset": "npx tsx scripts/db-reset.ts",
     "job-search": "npx tsx scripts/job-search.ts",
