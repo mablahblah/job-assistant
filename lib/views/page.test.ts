@@ -98,12 +98,19 @@ describe("moving between lists", () => {
     expect(page()).toContain("/styles/styles.css");
   });
 
+  // What is hidden is said with a class the stylesheet defines, rather than a
+  // style written into the markup, so the browser script has something to
+  // switch rather than a value to set.
   test("only the first list is showing when the page opens", () => {
     const html = page();
 
-    expect(html).toContain(`data-panel="active" style="display: none;"`);
-    expect(html).toContain(`data-panel="disqualified" style="display: none;"`);
-    expect(html).toContain(`data-panel="work-log" style="display: none;"`);
+    expect(html).toContain(`data-panel="active" class="is-hidden"`);
+    expect(html).toContain(`data-panel="disqualified" class="is-hidden"`);
+    expect(html).toContain(`data-panel="work-log" class="is-hidden"`);
+  });
+
+  test("the list that opens first is not hidden", () => {
+    expect(page()).toContain(`<div data-panel="backlog">`);
   });
 });
 

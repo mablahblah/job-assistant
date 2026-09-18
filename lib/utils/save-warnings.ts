@@ -28,6 +28,14 @@ export type SaveWarning =
       // The job that never became a row.
       entry: JobListEntry;
       thrown: unknown;
+    }
+  | {
+      kind: "company_write_failed";
+      collector: string;
+      // The employer's id alone. An employer met only as a board holds no
+      // name, so the id is the one thing every one of them can be opened by.
+      companyId: string;
+      thrown: unknown;
     };
 
 export function saveWarnings(warnings: SaveWarning[]): CollectionIssue[] {
@@ -60,6 +68,11 @@ export function saveWarnings(warnings: SaveWarning[]): CollectionIssue[] {
         return {
           collector: warning.collector,
           message: `Database write failed for ${labelJob(warning.entry)}, so the job was not saved: ${messageFromThrown(warning.thrown)}`,
+        };
+      case "company_write_failed":
+        return {
+          collector: warning.collector,
+          message: `Company ${warning.companyId} could not be saved: ${messageFromThrown(warning.thrown)}`,
         };
       default: {
         // Exhaustiveness check: if a new SaveWarning kind is added without

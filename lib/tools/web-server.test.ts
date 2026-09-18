@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import type { SchemaProbe } from "../db/schema-check";
 import type { PageContents } from "../views/page";
 import { createWebServer } from "./web-server";
@@ -163,5 +166,102 @@ describe("starting against a database that matches", () => {
 
     expect(await server.start(0)).toBe(true);
     await server.stop();
+  });
+});
+
+// The stylesheet and the browser script are the only files the dashboard
+// serves besides the page itself. Nothing exercised this path, so the page
+// could have gone on rendering while arriving unstyled and inert.
+describe("serving the stylesheet and the browser script", () => {
+  function server() {
+    return createWebServer({
+      readContents: async () => EMPTY_PAGE,
+      probes: [probeThatPasses("Job")],
+      publicDir: "public",
+    });
+  }
+
+  test("the stylesheet is handed back as a stylesheet", async () => {
+    const response = await server().respondTo("/styles/styles.css");
+
+    expect(response.status).toBe(200);
+    expect(response.contentType).toBe("text/css");
+    expect(response.body.length).toBeGreaterThan(0);
+  });
+
+  test("the browser script is handed back as a script", async () => {
+    const response = await server().respondTo("/scripts/dashboard.js");
+
+    expect(response.status).toBe(200);
+    expect(response.contentType).toBe("text/javascript");
+    expect(response.body.length).toBeGreaterThan(0);
+  });
+
+  test("a file that is not there is not found", async () => {
+    const response = await server().respondTo("/styles/no-such-file.css");
+
+    expect(response.status).toBe(404);
+  });
+
+  test("a path outside the two folders is not found", async () => {
+    const response = await server().respondTo("/private/notes.css");
+
+    expect(response.status).toBe(404);
+  });
+});
+
+// The two tests below need real files on disk to mean anything. Asking for a
+// file that is simply absent returns 404 whether or not the guards exist, so
+// a guard could be deleted and a test built that way would still pass. These
+// build a folder holding the exact files each guard is supposed to refuse.
+describe("what the dashboard refuses to serve", () => {
+  let publicDir: string;
+  let outsideDir: string;
+
+  beforeEach(() => {
+    const root = mkdtempSync(join(tmpdir(), "web-server-public-"));
+    publicDir = join(root, "public");
+    outsideDir = root;
+    mkdirSync(join(publicDir, "styles"), { recursive: true });
+    writeFileSync(join(publicDir, "styles", "styles.css"), "body { color: black; }");
+    // Inside the served folder, but not a type the dashboard ships. Readable,
+    // so only the allowed-types list can be what refuses it.
+    writeFileSync(join(publicDir, "styles", "secrets.env"), "APIFY_API_TOKEN=real-token");
+    // Outside the served folder and readable, and named .css so the type
+    // check passes. Only the climbing-out guard can refuse this one.
+    writeFileSync(join(outsideDir, "outside.css"), "body { color: red; }");
+  });
+
+  function server() {
+    return createWebServer({
+      readContents: async () => EMPTY_PAGE,
+      probes: [probeThatPasses("Job")],
+      publicDir,
+    });
+  }
+
+  test("a readable file inside the folder is served where its type is shipped", async () => {
+    const response = await server().respondTo("/styles/styles.css");
+
+    expect(response.status).toBe(200);
+  });
+
+  // Proves the allowed-types list is what refuses this, not the file being
+  // absent: the file is there and readable.
+  test("a readable file whose type is not shipped is refused", async () => {
+    const response = await server().respondTo("/styles/secrets.env");
+
+    expect(response.status).toBe(404);
+    expect(String(response.body)).not.toContain("real-token");
+  });
+
+  // Proves the climbing-out guard is what refuses this: the file is there,
+  // readable, and named so that the type check would let it through.
+  test("a readable file outside the folder is refused", async () => {
+    // Two levels: one out of `styles`, one out of the served folder itself.
+    const response = await server().respondTo("/styles/../../outside.css");
+
+    expect(response.status).toBe(404);
+    expect(String(response.body)).not.toContain("color: red");
   });
 });

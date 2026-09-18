@@ -17,5 +17,5 @@
     "target": "ES2017"
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules", "generated", "legacy", "docs"]
+  "exclude": ["node_modules", "generated", "docs"]
 }

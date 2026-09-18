@@ -24,33 +24,13 @@ import type { WorkLogService } from "../services/work-log-service";
 import { activityFromStatus } from "../utils/work-log-activity";
 import { entryTitleFromJob } from "../utils/work-log-title";
 import { messageFromThrown } from "../utils/thrown-message";
+import type { ChangeOutcome, ChangedJob } from "../types/changed-job";
 
 export interface StatusChange {
   job_id: string;
   status: string;
   // Supplied on a second run, for a job the first run asked about.
   company_name?: string;
-}
-
-export type ChangeOutcome =
-  | "changed"
-  | "no_such_job"
-  | "needs_company_name"
-  | "no_title"
-  | "entry_failed";
-
-export interface ChangedJob {
-  job_id: string;
-  status: string;
-  outcome: ChangeOutcome;
-  entry_written: boolean;
-  company_id: string | null;
-  company_name: string | null;
-  // The place this job's location matched, carried back because the search
-  // that runs next puts it into the query — a common employer name finds the
-  // wrong business on its own. A job moved straight out of the backlog was
-  // never classified and matched no place, so this is often empty.
-  place: string | null;
 }
 
 export interface ChangeStatusesOptions {

@@ -35,7 +35,7 @@ import { saveCompanies, saveJobs } from "../handlers/save";
 import type { PlaceService } from "../services/place-service";
 import type { Geocoder } from "../tools/geocoder";
 import type { SettingsService } from "../services/settings-service";
-import { messageFromThrown } from "../utils/thrown-message";
+import { createFailureTracker, type RunFailure } from "../utils/run-failure";
 import type { TitleVocabularies } from "../utils/title";
 import type { TraceService } from "../services/trace-service";
 
@@ -61,14 +61,9 @@ function entriesIn(result: HandlerResult): number {
   return result.jobs === undefined ? result.companies.length : result.jobs.length;
 }
 
-export interface RunJobSearchFailure {
-  // Where the run stopped. A handler's step name, or the name of one of the
-  // reads and lookups the run makes between handlers.
-  at: string;
-  // Always a string, because a thrown value is not guaranteed to be an Error
-  // and a report a caller has to unwrap is no report at all.
-  reason: string;
-}
+// The same shape the scoring runner reports, so it is declared once beside
+// the tracker that fills it in rather than separately in each runner.
+export type RunJobSearchFailure = RunFailure;
 
 export interface RunJobSearchResult {
   jobs: JobListEntry[];
@@ -160,15 +155,10 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
   // letting it carry on to the one catch below. The name is passed in rather
   // than tracked in a variable the next line has to remember to update, so a
   // handler added by a later phase cannot be reported under the last one's
-  // name.
-  async function at<T>(spot: string, run: () => Promise<T>): Promise<T> {
-    try {
-      return await run();
-    } catch (thrown) {
-      report.failure = { at: spot, reason: messageFromThrown(thrown) };
-      throw thrown;
-    }
-  }
+  // name. The tracker is shared with the scoring runner, which is what keeps
+  // the two from drifting on which failure a run reports.
+  const failures = createFailureTracker();
+  const at = failures.at;
 
   // The same, for a handler, which additionally earns its line on the
   // finished list. A handler that threw never reaches the push, because the
@@ -619,5 +609,6 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
   // by step.
   report.traceFailures = options.trace.failureCount();
 
+  report.failure = failures.failure();
   return report;
 }

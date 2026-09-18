@@ -24,7 +24,13 @@ export type AssociationWarning =
       // not handed, so the slug travels with the warning instead.
       targetSlug?: string;
       heldBy: CompanyRecord;
-    };
+    }
+  // The lookup itself threw, so there is no pair of companies to describe —
+  // only what went wrong. Kept apart from the one below because a job whose
+  // lookup failed has no company at all, and one whose slug write failed has
+  // its company and is missing only the record of the board it posts on.
+  | { kind: "company_lookup_failed"; collector: string; message: string }
+  | { kind: "board_slug_failed"; collector: string; message: string };
 
 // A company's name is its readable label. Where it has none, the board slug
 // the job arrived on stands in, since being nameless is an ordinary state and
@@ -49,6 +55,16 @@ export function associationWarnings(warnings: AssociationWarning[]): CollectionI
         return {
           collector: warning.collector,
           message: `Could not write the name "${warning.name}" to ${labelCompany(warning.target, warning.targetSlug)} because ${labelCompany(warning.heldBy)} already holds that name. Merge these two company rows by hand.`,
+        };
+      case "company_lookup_failed":
+        return {
+          collector: warning.collector,
+          message: `Could not look up a company for this job, so it goes on without one: ${warning.message}`,
+        };
+      case "board_slug_failed":
+        return {
+          collector: warning.collector,
+          message: `Found this job's company but could not record the board it posts on: ${warning.message}`,
         };
       default: {
         // Exhaustiveness check: if a new AssociationWarning kind is added

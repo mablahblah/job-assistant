@@ -19,12 +19,10 @@ import type { JobService } from "../services/job-service";
 import type { CompanyService } from "../services/company-service";
 import type { WorkLogService } from "../services/work-log-service";
 import type { CompanySearch } from "../tools/company-search";
-import { changeStatuses, type ChangedJob, type StatusChange } from "../handlers/status-change";
-import {
-  enrichCompanies,
-  type EnrichedCompany,
-  type EnrichmentTarget,
-} from "../handlers/enrichment";
+import { changeStatuses, type StatusChange } from "../handlers/status-change";
+import { enrichCompanies, type EnrichmentTarget } from "../handlers/enrichment";
+import type { ChangedJob } from "../types/changed-job";
+import type { EnrichedCompany } from "../types/enriched-company";
 
 export interface RunStatusChangeOptions {
   jobs: JobService;

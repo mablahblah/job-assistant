@@ -8,14 +8,7 @@ import {
   createRenderedPageFetcher,
   type RenderedPageFetcher,
 } from "../lib/tools/rendered-page-fetcher";
-
-// Reads a `--name value` pair off the command line. Undefined when the flag
-// is absent, so the caller decides what that means.
-function flagValue(argv: string[], name: string): string | undefined {
-  const index = argv.indexOf(`--${name}`);
-  if (index === -1) return undefined;
-  return argv[index + 1];
-}
+import { flagValue } from "../lib/utils/cli-args";
 
 export async function runFetchRenderedPage(
   argv: string[],

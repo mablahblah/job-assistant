@@ -9,6 +9,18 @@ import type { Collector, CollectorResult } from "./collector";
 
 const SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/us/search/1";
 
+// The lowest pay worth being shown, asked of Adzuna rather than filtered
+// afterwards, so the one page it returns is not spent on jobs that would be
+// dropped anyway. Paired with salary_include_unknown below, which keeps the
+// jobs publishing no figure at all — most of them — rather than letting this
+// floor throw them out for saying nothing.
+//
+// Inline rather than a setting, unlike the location and the radius beside it,
+// because nothing else in the pipeline filters on pay and a second place to
+// set it would be the only one. It moves to settings the day a second source
+// needs the same number.
+const MINIMUM_SALARY = "100000";
+
 interface AdzunaJob {
   id: string;
   title: string;
@@ -83,9 +95,21 @@ async function runSearch(
       return;
     }
     const body = await safeJson<AdzunaSearchResponse>(res, label);
-    for (const job of body.results ?? []) {
+    const results = body.results ?? [];
+    for (const job of results) {
       if (jobs.length >= limit) break;
       jobs.push(toJobListEntry(job));
+    }
+    // Adzuna hands back one fixed page. `count` is everything that matched,
+    // so a count above the page means postings exist that this run never
+    // saw. Measured against the page rather than against what was kept, so
+    // the caller's own ceiling is never reported as a loss. Worth saying and
+    // not worth a second request: whether to fetch further pages is a
+    // decision to make once these numbers have been read.
+    if (results.length < body.count) {
+      warnings.push(
+        `${label} matched ${body.count} postings, only ${results.length} fit on one page`
+      );
     }
   } catch (err) {
     warnings.push(`${label} failed: ${messageFromThrown(err)}`);
@@ -122,7 +146,7 @@ export const adzunaCollector: Collector = {
         app_key: apiKey,
         title_only: term,
         max_days_old: String(expiryThreshold),
-        salary_min: "100000",
+        salary_min: MINIMUM_SALARY,
         salary_include_unknown: "1",
         sort_by: "date",
         results_per_page: "50",

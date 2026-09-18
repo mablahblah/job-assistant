@@ -6,7 +6,7 @@
 // other command, because a dashboard has to refuse to listen rather than
 // merely exit.
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { schemaProbesFor } from "../lib/db/schema-check";
 import { createJobService, type JobService } from "../lib/services/job-service";
@@ -79,4 +79,10 @@ async function main(): Promise<void> {
   // is stopped by hand.
 }
 
-void main();
+// Guarded so importing this module — the test does, for readPageContents —
+// starts no server. Unguarded, the import bound a real port, which meant the
+// suite could not run on a machine already serving the dashboard and a real
+// uncaught error was indistinguishable from that clash.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
+}

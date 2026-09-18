@@ -10,16 +10,13 @@ document.addEventListener("DOMContentLoaded", function () {
     tab.addEventListener("click", function () {
       var target = tab.getAttribute("data-tab");
 
-      // update active tab style
       tabs.forEach(function (t) {
         t.classList.remove("tab-nav-item-active");
       });
       tab.classList.add("tab-nav-item-active");
 
-      // show target panel, hide others
       panels.forEach(function (p) {
-        p.style.display =
-          p.getAttribute("data-panel") === target ? "" : "none";
+        p.classList.toggle("is-hidden", p.getAttribute("data-panel") !== target);
       });
     });
   });
@@ -32,16 +29,13 @@ document.addEventListener("DOMContentLoaded", function () {
     btn.addEventListener("click", function () {
       var target = btn.getAttribute("data-week");
 
-      // update active sidebar item
       weekButtons.forEach(function (b) {
         b.classList.remove("work-log-sidebar-item--active");
       });
       btn.classList.add("work-log-sidebar-item--active");
 
-      // show target week, hide others
       weekSections.forEach(function (s) {
-        s.style.display =
-          s.getAttribute("data-week-content") === target ? "" : "none";
+        s.classList.toggle("is-hidden", s.getAttribute("data-week-content") !== target);
       });
     });
   });

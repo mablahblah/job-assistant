@@ -11,27 +11,15 @@ import { createSettingsService } from "../lib/services/settings-service";
 import { createTraceService } from "../lib/services/trace-service";
 import type { CollectionIssue } from "../lib/types/collection-issue";
 import { runScoringGather } from "../lib/orchestrators/scoring";
-import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
+import { schemaProbesFor } from "../lib/db/schema-check";
+import { schemaHasDrifted } from "../lib/db/schema-drift";
+import { flagValue } from "../lib/utils/cli-args";
+import { issueLines } from "../lib/utils/print-issues";
 
-// One line per issue, naming both the collector and its own message, since
-// that message is what names the board or search behind it.
+// Prints what the shared builder laid out, so the wording of a reported
+// problem lives in one place and only the printing is local.
 function printIssues(label: string, issues: CollectionIssue[]): void {
-  if (issues.length === 0) {
-    console.log(`${label}: none`);
-    return;
-  }
-  console.log(`${label}:`);
-  for (const issue of issues) {
-    console.log(`  ${issue.collector}: ${issue.message}`);
-  }
-}
-
-// Reads a `--name value` pair off the command line. Undefined when the flag
-// is absent, so the caller decides what that means.
-function flagValue(argv: string[], name: string): string | undefined {
-  const index = argv.indexOf(`--${name}`);
-  if (index === -1) return undefined;
-  return argv[index + 1];
+  for (const line of issueLines(label, issues)) console.log(line);
 }
 
 async function main(): Promise<void> {
@@ -57,11 +45,7 @@ async function main(): Promise<void> {
   try {
     // Same reasoning as job-search.ts: a database that cannot be read should
     // stop the run here, loudly, rather than fail silently partway through.
-    const drifted = await modelsFailingSchemaCheck(schemaProbesFor(prisma));
-    if (drifted.length > 0) {
-      console.log("The database does not match the schema this code expects.");
-      console.log(`Tables that could not be read: ${drifted.join(", ")}`);
-      console.log("Migrate it with: npm run db:migrate");
+    if (await schemaHasDrifted(schemaProbesFor(prisma))) {
       process.exitCode = 1;
       return;
     }

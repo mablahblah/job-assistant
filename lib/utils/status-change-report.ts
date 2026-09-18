@@ -10,8 +10,8 @@
 // job needs an employer name" from "no job holds that id" in order to know
 // whether to ask for a name, so those two wordings are fixed values rather
 // than labels anyone may reword.
-import type { ChangedJob } from "../handlers/status-change";
-import type { EnrichedCompany } from "../handlers/enrichment";
+import type { ChangedJob } from "../types/changed-job";
+import type { EnrichedCompany } from "../types/enriched-company";
 
 export interface StatusChangeReportInput {
   changes: ChangedJob[];

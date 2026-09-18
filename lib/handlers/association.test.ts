@@ -497,3 +497,58 @@ describe("writing down the board a company posts on", () => {
     expect(result.jobs[0]?.company_id).toBeDefined();
   });
 });
+
+// A lookup can fail for a reason that has nothing to do with the job — a
+// dropped connection, a locked file. Four other handlers in this folder guard
+// their own per-job work so one such failure costs one job. This one does not,
+// and a single failure throws out every job already matched.
+describe("a job whose company lookup fails outright", () => {
+  // The service throws for the middle job only. The two around it are
+  // ordinary jobs carrying an employer name, which would match on their own.
+  function companiesFailingOn(failingName: string): CompanyService {
+    return companiesHolding([], {
+      findByMatchKey: async (matchKey: string) => {
+        if (matchKey === companyMatchKey(failingName)) {
+          throw new Error("the database went away");
+        }
+        return null;
+      },
+    });
+  }
+
+  test("the jobs around it still come back", async () => {
+    const jobs = [
+      baseJob({ id: "job-1", raw_company_name: "First Co" }),
+      baseJob({ id: "job-2", raw_company_name: "Broken Co" }),
+      baseJob({ id: "job-3", raw_company_name: "Third Co" }),
+    ];
+
+    const result = await associateCompanies(jobs, {
+      companies: companiesFailingOn("Broken Co"),
+    });
+
+    expect(result.jobs.map((job) => job.id)).toEqual(["job-1", "job-2", "job-3"]);
+  });
+
+  test("the job it failed on travels on without a company", async () => {
+    const jobs = [baseJob({ id: "job-2", raw_company_name: "Broken Co" })];
+
+    const result = await associateCompanies(jobs, {
+      companies: companiesFailingOn("Broken Co"),
+    });
+
+    expect(result.jobs[0]?.company_id ?? null).toBeNull();
+  });
+
+  test("the failure is reported rather than swallowed", async () => {
+    const jobs = [baseJob({ id: "job-2", collector: "adzuna", raw_company_name: "Broken Co" })];
+
+    const result = await associateCompanies(jobs, {
+      companies: companiesFailingOn("Broken Co"),
+    });
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.collector).toBe("adzuna");
+    expect(result.warnings[0]?.message).toContain("the database went away");
+  });
+});

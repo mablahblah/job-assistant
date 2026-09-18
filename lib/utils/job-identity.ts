@@ -1,5 +1,6 @@
 import type { JobListEntry } from "../types/job-list-entry";
 import { urlMatchKey } from "./url-match-key";
+import { DAY_MS } from "./durations";
 
 // The three ways two entries are recognized as one job, tried in this order.
 // A shared link is proof and stands on its own; company and title is a guess,
@@ -7,9 +8,8 @@ import { urlMatchKey } from "./url-match-key";
 // are written into a trace row, so they are never renamed or reworded.
 export type JobIdentityClause = "original_url" | "resolved_url" | "company_and_title";
 
-const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 const COMPANY_AND_TITLE_WINDOW_DAYS = 30;
-const COMPANY_AND_TITLE_WINDOW_MS = COMPANY_AND_TITLE_WINDOW_DAYS * ONE_DAY_IN_MS;
+const COMPANY_AND_TITLE_WINDOW_MS = COMPANY_AND_TITLE_WINDOW_DAYS * DAY_MS;
 
 // Fires where both sides carry the same link, read through its match key so a
 // differing query string still counts as the same posting. Either side

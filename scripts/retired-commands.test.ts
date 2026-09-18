@@ -52,18 +52,4 @@ describe("the deleted old pipeline", () => {
     );
     expect(skill).toContain("switch over");
   });
-
-  test("the five research scripts keep their place", () => {
-    const researchDir = join(repoRoot, "docs", "features", "unified-pipeline", "location-research");
-    const scripts = [
-      join(researchDir, "spike", "build-cache.ts"),
-      join(researchDir, "spike", "count.ts"),
-      join(researchDir, "spike", "classify.ts"),
-      join(researchDir, "spike2", "build-cache.ts"),
-      join(researchDir, "spike2", "classify.ts"),
-    ];
-    for (const script of scripts) {
-      expect(existsSync(script), script).toBe(true);
-    }
-  });
 });

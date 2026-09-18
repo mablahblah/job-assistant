@@ -14,19 +14,14 @@ import { createGeocoder } from "../lib/tools/geocoder";
 import { summaryFromTraceCounts } from "../lib/utils/run-summary";
 import { createTraceService } from "../lib/services/trace-service";
 import { COLLECTORS } from "../lib/collectors/registry";
-import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
+import { schemaProbesFor } from "../lib/db/schema-check";
+import { schemaHasDrifted } from "../lib/db/schema-drift";
+import { issueLines } from "../lib/utils/print-issues";
 
-// One line per issue, naming both the collector and its own message, since
-// that message is what names the board or search behind it.
+// Prints what the shared builder laid out, so the wording of a reported
+// problem lives in one place and only the printing is local.
 function printIssues(label: string, issues: CollectionIssue[]): void {
-  if (issues.length === 0) {
-    console.log(`${label}: none`);
-    return;
-  }
-  console.log(`${label}:`);
-  for (const issue of issues) {
-    console.log(`  ${issue.collector}: ${issue.message}`);
-  }
+  for (const line of issueLines(label, issues)) console.log(line);
 }
 
 // Reads `--limit N` off the command line. Omitted means collect everything.
@@ -51,11 +46,7 @@ async function main(): Promise<void> {
     // write it cannot make, so a run would collect jobs for minutes and end
     // with no history of having done it. Stopping here costs nothing; going
     // on costs the whole run's record.
-    const drifted = await modelsFailingSchemaCheck(schemaProbesFor(prisma));
-    if (drifted.length > 0) {
-      console.log("The database does not match the schema this code expects.");
-      console.log(`Tables that could not be read: ${drifted.join(", ")}`);
-      console.log("Migrate it with: npm run db:migrate");
+    if (await schemaHasDrifted(schemaProbesFor(prisma))) {
       process.exitCode = 1;
       return;
     }

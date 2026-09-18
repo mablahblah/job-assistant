@@ -6,14 +6,13 @@
 // cleanup, promotion and classification all call, so the clock cannot drift
 // between them.
 import type { JobDateFields } from "./job-dates";
+import { DAY_MS } from "./durations";
 
 // collected_at is always present once a job is saved, unlike the two date
 // fields it joins — this is the shape a caller measuring age actually holds.
 export interface JobAgeFields extends JobDateFields {
   collected_at: Date;
 }
-
-const DAY_MS = 86400000;
 
 // Every unit below captures its number in the first group, so pulling that
 // number out lives here rather than at each match.
@@ -68,7 +67,7 @@ export function isPastThreshold(days: number, threshold: number): boolean {
 export function ageToDate(age: string, now: Date = new Date()): Date | null {
   const days = parseAgeToDays(age);
   if (days === null) return null;
-  return new Date(now.getTime() - days * 86400000);
+  return new Date(now.getTime() - days * DAY_MS);
 }
 
 // The date a source last changed a posting is closer to its real age than the

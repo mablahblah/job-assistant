@@ -3,6 +3,7 @@
 // them at once, which a stored number could not do.
 import type { JobRow } from "../types/job-row";
 import { YEARLY_MULTIPLIERS } from "./salary-periods";
+import { DAY_MS } from "./durations";
 
 // What each of the five categories is worth when it scores five out of five.
 // Together they come to 125, which is the sum before the age and pay parts
@@ -40,7 +41,7 @@ function ratingOrMiddle(value: number | null | undefined): number {
 // job posted again from it would make an old role look new.
 function agePart(postingDate: Date | null | undefined, now: Date): number {
   if (postingDate == null) return 1;
-  const daysOld = (now.getTime() - postingDate.getTime()) / (1000 * 60 * 60 * 24);
+  const daysOld = (now.getTime() - postingDate.getTime()) / DAY_MS;
   if (daysOld < 1) return 1.2;
   if (daysOld <= 3) return 1;
   return Math.max(0.5, 1 - (daysOld - 3) * 0.05);

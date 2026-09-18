@@ -354,6 +354,12 @@ export function createCompanyService(db: PipelineDb): CompanyService {
           db.company.findUniqueOrThrow({ where: { id }, select: COMPANY_RECORD_SELECT }),
           findBlocker(columnFromRefusal(error), name, match_key),
         ]);
+        // Reading the refusal as a clash is only safe once the company doing
+        // the blocking has been found. Where the lookup finds nobody, the
+        // refusal came from something else, and answering with an ordinary
+        // clash would file a real fault as everyday news. Create does the
+        // same above.
+        if (!heldBy) throw error;
         return { company: toCompanyRecord(row), filled: false, heldBy };
       }
     },

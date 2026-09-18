@@ -17,10 +17,15 @@ export interface RenderedPageFetcherOptions {
   timeoutMs?: number;
 }
 
+// How long one page gets to finish. Generous next to the pipeline's own
+// limits because this tool is reached for by hand, one posting at a time,
+// where waiting is cheaper than being told to try again.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export function createRenderedPageFetcher(
   options: RenderedPageFetcherOptions = {}
 ): RenderedPageFetcher {
-  const timeoutMs = options.timeoutMs ?? 30_000;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   return {
     async fetch(url: string): Promise<string> {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { statusChangeReport } from "./status-change-report";
-import type { ChangedJob } from "../handlers/status-change";
-import type { EnrichedCompany } from "../handlers/enrichment";
+import type { ChangedJob } from "../types/changed-job";
+import type { EnrichedCompany } from "../types/enriched-company";
 
 function changed(fields: Partial<ChangedJob> = {}): ChangedJob {
   return {

@@ -151,7 +151,17 @@ describe("the check covers every model the schema declares", () => {
 // database holds records a rebuild would destroy, so every command printing
 // the schema-mismatch message has to point at the path that keeps them.
 describe("what the recovery messages advise", () => {
-  const filesPrintingTheMessage = [
+  // Nothing prints this message itself any more. Every entry point that stops
+  // on a database it cannot read calls the shared check, so there is one
+  // place the words live and one place they can be got wrong.
+  const filesPrintingTheMessage = [path.join("lib", "db", "schema-drift.ts")];
+
+  // The commands themselves must still never advise the rebuild, wherever
+  // their message now comes from: rebuilding deletes the database, and
+  // offering that as the way out of a mismatch is offering to destroy the
+  // user's jobs and their Texas filings.
+  const filesThatMustNotAdviseTheWipe = [
+    ...filesPrintingTheMessage,
     path.join("lib", "tools", "web-server.ts"),
     path.join("scripts", "find-jobs.ts"),
     path.join("scripts", "change-status.ts"),
@@ -160,12 +170,30 @@ describe("what the recovery messages advise", () => {
     path.join("scripts", "job-search.ts"),
   ];
 
-  test("no command tells the user to rebuild, and each names the safe path", () => {
-    const repoRoot = path.resolve(__dirname, "..", "..");
-    for (const file of filesPrintingTheMessage) {
+  const repoRoot = path.resolve(__dirname, "..", "..");
+
+  test("nothing tells the user to rebuild", () => {
+    for (const file of filesThatMustNotAdviseTheWipe) {
       const source = readFileSync(path.join(repoRoot, file), "utf-8");
       expect(source, `${file} still advises the wipe`).not.toContain("db:create");
+    }
+  });
+
+  test("the message names the safe path", () => {
+    for (const file of filesPrintingTheMessage) {
+      const source = readFileSync(path.join(repoRoot, file), "utf-8");
       expect(source, `${file} names no safe path`).toContain("npm run db:migrate");
+    }
+  });
+
+  // The check above only proves the words exist in a file. This proves the
+  // five commands actually reach the shared message rather than having lost
+  // it along with their own copy.
+  test("every command reaches the shared check", () => {
+    const commands = filesThatMustNotAdviseTheWipe.filter((file) => file.startsWith("scripts"));
+    for (const file of commands) {
+      const source = readFileSync(path.join(repoRoot, file), "utf-8");
+      expect(source, `${file} runs no schema check`).toContain("schemaHasDrifted");
     }
   });
 });

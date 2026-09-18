@@ -4,11 +4,11 @@
 // the employer's name: Lever's posting API never carries it, so this parser
 // makes one extra request for the board page and reads the name off its
 // <title>.
-import { nameFromBoardTitle, titleFromHtml } from "../utils/board-title-name";
+import { employerNameFromBoardPage } from "../tools/board-employer-name";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
 import { withFieldsFromDescription } from "../utils/description-fallback";
 import { jobFieldsFromLeverPosting, type LeverPosting } from "../utils/lever-fields";
-import { BROWSER_USER_AGENT, fetchPageHtml } from "../tools/page-fetcher";
+import { BROWSER_USER_AGENT } from "../tools/page-fetcher";
 import type { Parser } from "./parser";
 
 const postingUrl = (slug: string, postingId: string) =>
@@ -60,16 +60,9 @@ export const leverParser: Parser = {
     // board page's title instead. This is deliberately never cached — search
     // terms narrow each board down to a handful of jobs, so the repeated
     // fetch is small, and caching costs nothing to add later if that changes.
-    try {
-      const html = await fetchPageHtml(boardUrl(slug));
-      const title = titleFromHtml(html);
-      const name = title ? nameFromBoardTitle(title) : null;
-      if (name) {
-        fields.raw_company_name = name;
-      }
-    } catch {
-      // A board page that will not load costs the name, not the parse — a
-      // missing employer name is an ordinary state the app already handles.
+    const name = await employerNameFromBoardPage(boardUrl(slug));
+    if (name) {
+      fields.raw_company_name = name;
     }
 
     return withFieldsFromDescription(fields, posting.descriptionPlain || posting.description);

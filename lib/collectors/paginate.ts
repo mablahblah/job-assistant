@@ -76,6 +76,10 @@ function noCardsAnywhereWarning(searches: number): string {
   return `no result cards were found in any of its ${searches} searches, so the card selector may have broken`;
 }
 
+function noCardsForSearchWarning(search: string): string {
+  return `${search}: found no result cards, so the search term may be wrong or the site may have stopped carrying this kind of job`;
+}
+
 function poorYieldWarning(search: string, readCards: number, matched: number): string {
   return `${search}: only ${readCards} of ${matched} matched elements yielded a card`;
 }
@@ -192,13 +196,19 @@ export async function paginate(options: PaginateOptions): Promise<PaginateResult
 
 // Whether a collector's empty searches are worth telling the user about.
 //
-// One search finding nothing is ordinary: a site has no jobs matching it, and
-// saying so every run teaches the reader to skip the line. A card selector
-// that has broken finds nothing for every search, so that is what earns a
-// warning — one line about the collector rather than one per search, because
-// the collector is what would need fixing.
+// A broken card selector still reads as every search finding nothing, so that
+// stays one line about the collector rather than one per search — the
+// collector is what would need fixing, not any one search term. But an empty
+// search sitting next to siblings that found cards proves the selector works,
+// which rules out that explanation and leaves only ones specific to that
+// search: the term stopped matching, or the site stopped carrying that kind
+// of job. Either is something the user can fix, and folding it into a summary
+// that only fires when everything is empty would hide it behind the searches
+// that worked.
 export function noCardsWarnings(results: readonly PaginateResult[]): string[] {
   if (results.length === 0) return [];
-  if (results.some((result) => !result.foundNoCards)) return [];
-  return [noCardsAnywhereWarning(results.length)];
+  const empty = results.filter((result) => result.foundNoCards);
+  if (empty.length === 0) return [];
+  if (empty.length === results.length) return [noCardsAnywhereWarning(results.length)];
+  return empty.map((result) => noCardsForSearchWarning(result.search));
 }

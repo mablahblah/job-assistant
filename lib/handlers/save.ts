@@ -207,7 +207,7 @@ export async function saveCompanies(
 ): Promise<SaveCompaniesResult> {
   const { companyService, trace, runId, step } = options;
   const savedCompanies: CompanyRecord[] = [];
-  const warnings: CollectionIssue[] = [];
+  const warnings: SaveWarning[] = [];
 
   // Sequential and awaited, never Promise.all: these are writes to one table
   // through one service, and two entries pointing at the same row have to
@@ -229,9 +229,14 @@ export async function saveCompanies(
       // The company came back unwritten, so the list hands back what was
       // handed in rather than what the database now holds.
       savedCompanies.push(company);
+      // Built through the same helper the job half uses, so both sides of
+      // this file word a failed write the same way and a change to that
+      // wording reaches both.
       warnings.push({
+        kind: "company_write_failed",
         collector: "save",
-        message: `Company ${company.id} could not be saved: ${messageFromThrown(thrown)}`,
+        companyId: company.id,
+        thrown,
       });
 
       if (trace && runId !== undefined && step !== undefined) {
@@ -246,5 +251,5 @@ export async function saveCompanies(
     }
   }
 
-  return { companies: savedCompanies, warnings };
+  return { companies: savedCompanies, warnings: saveWarnings(warnings) };
 }

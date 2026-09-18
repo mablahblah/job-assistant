@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { parse as parseEnvFile } from "dotenv";
+import { isSameFile } from "../lib/utils/same-file";
 
 // This script lives in scripts/, so the repo root is one level up. Prisma
 // resolves a relative database url from the directory holding
@@ -44,7 +45,11 @@ if (existsSync(envPath)) {
   const realDbUrl = parsedEnv["PIPELINE_DATABASE_URL"];
   if (realDbUrl) {
     const realDbPath = resolveDbPath(realDbUrl);
-    if (targetPath === realDbPath) {
+    // Asked of the filesystem rather than of the two strings. A disk that
+    // folds case makes `Pipeline.db` another name for `pipeline.db`, and a
+    // shortcut makes any name at all another name for it, so a string
+    // comparison hands the real database to the deletion below.
+    if (isSameFile(targetPath, realDbPath)) {
       refuse(`Refusing: ${targetPath} is the real database named by PIPELINE_DATABASE_URL in .env.`);
     }
   }

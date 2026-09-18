@@ -1416,6 +1416,66 @@ describe("the browser the run launched", () => {
     expect(log.launches).toBe(1);
     expect(log.closes).toBe(1);
   });
+
+  // The whole reason the step holds its browser in a try/finally. A run that
+  // stops partway still has to give the machine its browser back, or a failed
+  // search leaves one running with nothing holding a handle to it.
+  test("is shut down even when the step it was opened for fails", async () => {
+    const log = { launches: 0, closes: 0 };
+    vi.mocked(resolveJobs).mockRejectedValueOnce(new Error("resolution exploded"));
+    const { report } = resolutionStepOver([unresolvedRow("a")], [], log);
+
+    await report;
+
+    expect(log.launches).toBe(1);
+    expect(log.closes).toBe(1);
+  });
+
+  // The browser is shut after the step, so its own failure lands second. The
+  // report has room for one failure, and the one worth keeping is the one
+  // that stopped the run — a browser that will not shut is a consequence,
+  // and reporting it instead sends the reader after the wrong thing.
+  test("failing to shut does not replace the failure that stopped the run", async () => {
+    const trace = makeTraceService();
+    // Resolution runs inside the step, before the browser is shut. Every
+    // handler under it guards its own per-job work, so a whole-handler
+    // failure is what a dead database or a bad setting looks like here.
+    vi.mocked(resolveJobs).mockRejectedValueOnce(new Error("the database went away"));
+    const report = runJobSearch({
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
+      collectors: [],
+      atsSlugs: fakeAtsSlugService(),
+      companies: fakeCompanyService([]),
+      jobService: fakeJobService([unresolvedRow("a")], { findUnparsed: async () => [] }),
+      settings: fakeSettingsService({
+        getResolutionFastConcurrency: async () => 1,
+        getResolutionSlowConcurrency: async () => 1,
+        getResolutionSlowPauseSeconds: async () => 0,
+        getSourcePriorityList: async () => PRIORITY_LIST,
+      }),
+      openBrowser: async () => ({
+        openPage: async () => ({
+          page: fakeResolutionPage([arrivesAt("https://employer.example/9")][0]),
+          close: async () => {},
+        }),
+        close: async () => {
+          throw new Error("the browser would not shut");
+        },
+      }),
+      collectedAt: stubCollectedAt,
+      runId: stubRunId,
+      trace,
+      waitForLoad: NO_WAIT,
+    });
+
+    const result = await report.catch((thrown) => thrown);
+
+    // The run still stops, and the reason it stopped is still readable.
+    const failure = (result as { failure?: { at: string; reason: string } }).failure;
+    expect(failure?.at).toBe("resolution");
+    expect(failure?.reason).toContain("the database went away");
+  });
 });
 
 describe("AC 8, 9: a handler that throws stops the run and is named in the report", () => {
@@ -1449,36 +1509,59 @@ describe("AC 8, 9: a handler that throws stops the run and is named in the repor
     });
   }
 
+  // Association used to be the handler driven here, because it called the
+  // company service with nothing catching underneath it. It now guards its
+  // own per-job work, so one job's failed lookup costs that job alone — see
+  // the test below. Resolution is driven instead: a handler that throws
+  // whole still has to stop the run and be named, which is what AC 8 and 9
+  // are about, and the position in the run changes nothing about that.
+  async function runWithFailingResolution() {
+    vi.mocked(resolveJobs).mockRejectedValueOnce(new Error("resolution exploded"));
+    const { report } = resolutionStepOver([unresolvedRow("a")], []);
+    return report;
+  }
+
   test("the run returns a report rather than throwing", async () => {
-    await expect(runWithFailingAssociation()).resolves.toBeDefined();
+    await expect(runWithFailingResolution()).resolves.toBeDefined();
   });
 
   test("the report names the step that threw and the reason", async () => {
-    const report = await runWithFailingAssociation();
+    const report = await runWithFailingResolution();
     expect(report.failure).toEqual({
-      at: "post_collection_association",
-      reason: "company lookup exploded",
+      at: "resolution",
+      reason: "resolution exploded",
     });
   });
 
   // Entries rather than jobs, because a handler may be handed any list.
   test("the report lists each finished handler and how many entries its list held", async () => {
-    const report = await runWithFailingAssociation();
-    expect(report.handlers).toEqual([
-      { step: "backlog_cleanup", entries: 0 },
-      { step: "backlog_cleanup_companies", entries: 0 },
-      { step: "backlog_cleanup_company_save", entries: 0 },
-      { step: "post_backlog_cleanup_save", entries: 0 },
-      { step: "collection", entries: 1 },
-      { step: "post_collection_normalization", entries: 1 },
-    ]);
+    const report = await runWithFailingResolution();
+    const steps = report.handlers.map((finished) => finished.step);
+
+    // Everything before the throw finished and is listed. The throwing
+    // handler itself never earns its line, because the throw leaves before
+    // the push.
+    expect(steps).toContain("collection");
+    expect(steps).toContain("post_collection_save");
+    expect(steps).not.toContain("resolution");
   });
 
-  test("no later handler runs, so nothing reaches save", async () => {
-    const report = await runWithFailingAssociation();
+  test("no later handler runs, so nothing reaches the save after it", async () => {
+    const report = await runWithFailingResolution();
     const steps = report.handlers.map((finished) => finished.step);
-    expect(steps).not.toContain("post_collection_dedupe");
-    expect(steps).not.toContain("post_collection_save");
+    expect(steps).not.toContain("post_resolution_dedupe");
+    expect(steps).not.toContain("post_resolution_save");
+  });
+
+  // The other half of the same rule. A handler that guards its own per-job
+  // work does not stop the run, because one job's failed lookup says nothing
+  // about the jobs around it.
+  test("a company lookup failing on one job does not stop the run", async () => {
+    const report = await runWithFailingAssociation();
+
+    expect(report.failure).toBeNull();
+    const steps = report.handlers.map((finished) => finished.step);
+    expect(steps).toContain("post_collection_save");
   });
 
   test("a run where nothing throws reports a null failure", async () => {

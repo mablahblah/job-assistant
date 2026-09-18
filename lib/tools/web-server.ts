@@ -7,8 +7,10 @@
 import { readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { extname, join } from "node:path";
-import { modelsFailingSchemaCheck, type SchemaProbe } from "../db/schema-check";
+import type { SchemaProbe } from "../db/schema-check";
+import { schemaHasDrifted } from "../db/schema-drift";
 import { escapeHtml } from "../utils/escape-html";
+import { messageFromThrown } from "../utils/thrown-message";
 import { pageView, type PageContents } from "../views/page";
 
 export interface WebResponse {
@@ -68,7 +70,14 @@ export function createWebServer(options: WebServerOptions): WebServer {
 
     try {
       return { status: 200, contentType, body: await readFile(join(publicDir, path)) };
-    } catch {
+    } catch (thrown) {
+      // A file that is simply not there is ordinary and says nothing worth
+      // printing. Anything else — a permission refused, a disk that failed —
+      // is a fault the page cannot show, and answering both with a bare 404
+      // leaves the reader hunting a typo that is not there.
+      if ((thrown as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.log(`Could not read ${path}: ${messageFromThrown(thrown)}`);
+      }
       return NOT_FOUND;
     }
   }
@@ -106,13 +115,9 @@ export function createWebServer(options: WebServerOptions): WebServer {
     // Checked before listening rather than on the first request. A dashboard
     // that starts and then serves an empty page cannot be told apart from an
     // empty backlog, which is the mistake the old one made.
-    const failing = await modelsFailingSchemaCheck(probes);
-    if (failing.length > 0) {
-      console.log("The database does not match the schema this code expects.");
-      console.log(`Tables that could not be read: ${failing.join(", ")}`);
-      console.log("Migrate it with: npm run db:migrate");
-      return false;
-    }
+    // The same check and the same words every command prints, so a database
+    // the code cannot read is explained one way whichever way it was reached.
+    if (await schemaHasDrifted(probes)) return false;
 
     return new Promise((resolve) => {
       // Everything goes through respondTo, so the path a browser takes and

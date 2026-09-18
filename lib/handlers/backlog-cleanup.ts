@@ -22,6 +22,7 @@ import {
   type CompanyRecord,
   type ScoreCategory,
 } from "../services/company-service";
+import { DAY_MS } from "../utils/durations";
 
 export interface CleanBacklogJobsOptions {
   expiryThresholdDays: number;
@@ -161,7 +162,7 @@ type CompanyCleanOutcome = "kept" | "scores_cleared" | "guesses_cleared";
 // as brand new rather than as a negative age.
 function companyAgeInDays(scoredAt: Date, referenceInstant: Date): number {
   const elapsedMs = referenceInstant.getTime() - scoredAt.getTime();
-  return Math.max(0, elapsedMs / 86_400_000);
+  return Math.max(0, elapsedMs / DAY_MS);
 }
 
 // Empties one category's score and the sentence explaining it. The switch is

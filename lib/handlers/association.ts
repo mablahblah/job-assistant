@@ -15,6 +15,7 @@ import type { JobListEntry } from "../types/job-list-entry";
 import { companyMatchKey } from "../utils/company-match-key";
 import { associationWarnings, type AssociationWarning } from "../utils/association-warnings";
 import { truncateDetail } from "../utils/trace-detail";
+import { messageFromThrown } from "../utils/thrown-message";
 
 export interface AssociateCompaniesOptions {
   companies: CompanyService;
@@ -217,12 +218,47 @@ export async function associateCompanies(
   // Sequential and awaited, never Promise.all: two jobs naming the same
   // absent employer must end on one company, which only holds if the
   // second job's lookup runs after the first job's create has finished.
+  type AssociateJobOutcome = Awaited<ReturnType<typeof associateJob>>;
+
   for (const job of jobs) {
-    const { job: associatedJob, traceRows, warning } = await associateJob(job, companies);
+    let associatedJob: AssociateJobOutcome["job"];
+    let traceRows: AssociateJobOutcome["traceRows"] = [];
+    let warning: AssociateJobOutcome["warning"];
+
+    try {
+      ({ job: associatedJob, traceRows, warning } = await associateJob(job, companies));
+    } catch (thrown) {
+      // A lookup that fails for its own reasons — a dropped connection, a
+      // locked file — costs this job and no other. Unguarded it would leave
+      // the loop, discarding every job already matched and never reaching
+      // the ones still queued, none of which is anything to do with it.
+      associatedJob = job;
+      if (job.id && job.collector) {
+        warnings.push({
+          kind: "company_lookup_failed",
+          collector: job.collector,
+          message: messageFromThrown(thrown),
+        });
+      }
+    }
+
     associatedJobs.push(associatedJob);
 
     if (associatedJob.company_id) {
-      await recordBoardSlug(associatedJob, associatedJob.company_id, atsSlugs);
+      try {
+        await recordBoardSlug(associatedJob, associatedJob.company_id, atsSlugs);
+      } catch (thrown) {
+        // The job already has its company by this point, so a failure here
+        // takes nothing away from it. Only the note of which board the
+        // employer posts on is lost, and the next run writes it again.
+        if (job.id && job.collector) {
+          warnings.push({
+            kind: "board_slug_failed",
+            collector: job.collector,
+            message: messageFromThrown(thrown),
+          });
+        }
+      }
     }
 
     // A trace row and a warning are both keyed by job id and collector, so a

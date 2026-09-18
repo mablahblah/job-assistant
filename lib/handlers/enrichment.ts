@@ -20,29 +20,15 @@ import { MissingSearchCredentialError } from "../tools/company-search";
 import { queryFromCompany } from "../utils/enrichment-query";
 import { matchesCompanyName } from "../utils/enrichment-name-match";
 import { contactFromText, type ContactDetails } from "../utils/enrichment-contact";
-import { doubtsFromContact, type EnrichmentDoubt } from "../utils/enrichment-doubts";
+import { doubtsFromContact } from "../utils/enrichment-doubts";
 import { messageFromThrown } from "../utils/thrown-message";
+import type { EnrichedCompany } from "../types/enriched-company";
 
 export interface EnrichmentTarget {
   company_id: string;
   // The place the job's location matched, where the job carrying this
   // employer had one.
   place?: string | null;
-}
-
-export type EnrichOutcome =
-  | "filled"
-  | "already_filled"
-  | "no_name"
-  | "found_nothing"
-  | "no_credential"
-  | "failed";
-
-export interface EnrichedCompany {
-  company_id: string;
-  company_name: string | null;
-  outcome: EnrichOutcome;
-  doubts: EnrichmentDoubt[];
 }
 
 export interface EnrichCompaniesOptions {

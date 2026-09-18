@@ -6,16 +6,10 @@
 // It only reads. Nothing here writes, which is why a run that matches nothing
 // is an ordinary answer rather than a failure.
 import { createPipelineDb } from "../lib/db/pipeline-db";
-import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
+import { schemaProbesFor } from "../lib/db/schema-check";
+import { schemaHasDrifted } from "../lib/db/schema-drift";
 import { createJobService, type JobSearchMatch } from "../lib/services/job-service";
-
-// Reads a `--name value` pair off the command line. Undefined when the flag
-// is absent, so the caller decides what that means.
-function flagValue(argv: string[], name: string): string | undefined {
-  const index = argv.indexOf(`--${name}`);
-  if (index === -1) return undefined;
-  return argv[index + 1];
-}
+import { flagValue } from "../lib/utils/cli-args";
 
 // A comma-separated flag arrives as one string carrying whatever spacing and
 // stray commas were typed. A trailing comma must not become a phantom status
@@ -91,11 +85,7 @@ async function main(): Promise<void> {
     // The same check every other command runs, before anything is read. It
     // reads each table whole and reports only the table's name, which is why
     // the message names tables rather than columns.
-    const drifted = await modelsFailingSchemaCheck(schemaProbesFor(prisma));
-    if (drifted.length > 0) {
-      console.log("The database does not match the schema this code expects.");
-      console.log(`Tables that could not be read: ${drifted.join(", ")}`);
-      console.log("Migrate it with: npm run db:migrate");
+    if (await schemaHasDrifted(schemaProbesFor(prisma))) {
       process.exitCode = 1;
       return;
     }

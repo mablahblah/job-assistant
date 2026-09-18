@@ -151,3 +151,44 @@ describe("the list it was handed", () => {
     expect(result.companies.map((company) => company.id)).toEqual(["c1"]);
   });
 });
+
+// A board lookup can fail for a reason that has nothing to do with the
+// company — a dropped connection, a locked file. Unguarded, one such failure
+// throws out of the handler and every company still queued behind it is never
+// looked at, even though nothing is wrong with them.
+describe("a company whose board lookup fails outright", () => {
+  function slugsFailingOn(failingCompanyId: string) {
+    const service = fakeAtsSlugService([slugRow(), slugRow({ id: "s2", slug: "otherco", company_id: "c2" })]);
+    return {
+      ...service,
+      listForCompany: async (companyId: string) => {
+        if (companyId === failingCompanyId) throw new Error("the database went away");
+        return service.listForCompany(companyId);
+      },
+    };
+  }
+
+  test("the companies around it are still considered", async () => {
+    const companies = [
+      scoredCompany({ id: "c1" }),
+      scoredCompany({ id: "c2", name: "Other Co", match_key: "otherco" }),
+    ];
+
+    const result = await promoteCompanies(companies, {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: slugsFailingOn("c1"),
+    });
+
+    expect(result.companies.map((company) => company.id)).toEqual(["c1", "c2"]);
+  });
+
+  test("the failure is reported rather than swallowed", async () => {
+    const result = await promoteCompanies([scoredCompany({ id: "c1" })], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: slugsFailingOn("c1"),
+    });
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.message).toContain("the database went away");
+  });
+});

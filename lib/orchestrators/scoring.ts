@@ -18,11 +18,11 @@ import type { TraceService } from "../services/trace-service";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { CollectionIssue } from "../types/collection-issue";
 import { messageFromThrown } from "../utils/thrown-message";
+import { createFailureTracker, type RunFailure } from "../utils/run-failure";
 
-export interface ScoringFailure {
-  at: string;
-  reason: string;
-}
+// The same shape the job search runner reports, so it is declared once beside
+// the tracker that fills it in rather than separately in each runner.
+export type ScoringFailure = RunFailure;
 
 export interface RunScoringGatherOptions {
   settings: SettingsService;
@@ -58,15 +58,11 @@ export async function runScoringGather(
 
   // Names the spot for the result and runs it, recording a throw before
   // letting it carry on to the one catch below. The name is passed in rather
-  // than tracked in a variable the next line has to remember to update.
-  async function at<T>(spot: string, run: () => Promise<T>): Promise<T> {
-    try {
-      return await run();
-    } catch (thrown) {
-      result.failure = { at: spot, reason: messageFromThrown(thrown) };
-      throw thrown;
-    }
-  }
+  // than tracked in a variable the next line has to remember to update. The
+  // tracker is shared with the job search runner, which is what keeps the two
+  // from drifting on which failure a run reports.
+  const failures = createFailureTracker();
+  const at = failures.at;
 
   try {
     const expiryThresholdDays = await at("expiry_threshold", () =>
@@ -175,6 +171,7 @@ export async function runScoringGather(
   }
 
   result.traceFailures = options.trace.failureCount();
+  result.failure = failures.failure();
   return result;
 }
 
@@ -230,16 +227,10 @@ export async function runScoringSave(
   };
 
   // Names the spot for the result and runs it, recording a throw before
-  // letting it carry on to the one catch below. This copy is local because
-  // the result it closes over is this call's own.
-  async function at<T>(spot: string, run: () => Promise<T>): Promise<T> {
-    try {
-      return await run();
-    } catch (thrown) {
-      result.failure = { at: spot, reason: messageFromThrown(thrown) };
-      throw thrown;
-    }
-  }
+  // letting it carry on to the one catch below. A tracker of its own, because
+  // the result it fills in is this call's own.
+  const failures = createFailureTracker();
+  const at = failures.at;
 
   try {
     // There is nothing to write, and no collector to look up, without a job
@@ -380,7 +371,7 @@ export async function runScoringSave(
       const promotionThreshold = await at("promotion_threshold", () =>
         options.settings.getPromotionThreshold()
       );
-      await at("company_promotion", () =>
+      const promoted = await at("company_promotion", () =>
         promoteCompanies(savedCompanies, {
           promotionThreshold,
           atsSlugs: options.atsSlugs,
@@ -389,6 +380,9 @@ export async function runScoringSave(
           step: "company_promotion",
         })
       );
+      // A company whose board lookup failed is judged again next run, so the
+      // only record of it having been skipped is this warning.
+      result.warnings.push(...promoted.warnings);
     }
   } catch {
     // Nothing to read off the throw here: `at` named the spot and wrote the
@@ -396,5 +390,6 @@ export async function runScoringSave(
   }
 
   result.traceFailures = options.trace.failureCount();
+  result.failure = failures.failure();
   return result;
 }

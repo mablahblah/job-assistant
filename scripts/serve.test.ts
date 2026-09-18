@@ -102,3 +102,21 @@ describe("what the dashboard records", () => {
     expect(source).not.toContain("Trace");
   });
 });
+
+// This file imports `readPageContents` from the command. Without a guard on
+// the command's own start-up, that import starts a real dashboard on a real
+// port — so the suite could not run on a machine already serving one, and a
+// genuine uncaught error would look exactly like that clash.
+describe("importing the command", () => {
+  test("starts nothing on its own", () => {
+    const source = readFileSync(join(repoRoot, "scripts", "serve.ts"), "utf8");
+
+    expect(source).not.toMatch(/^void main\(\);$/m);
+  });
+
+  test("runs only when it is the command being run", () => {
+    const source = readFileSync(join(repoRoot, "scripts", "serve.ts"), "utf8");
+
+    expect(source).toContain("import.meta.url === pathToFileURL(process.argv[1]).href");
+  });
+});

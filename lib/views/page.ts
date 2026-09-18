@@ -52,13 +52,13 @@ export function pageView(contents: PageContents, now?: Date): string {
     <div data-panel="backlog">
       ${jobTableView(backlog, "backlog", now)}
     </div>
-    <div data-panel="active" style="display: none;">
+    <div data-panel="active" class="is-hidden">
       ${jobTableView(active, "active", now)}
     </div>
-    <div data-panel="disqualified" style="display: none;">
+    <div data-panel="disqualified" class="is-hidden">
       ${jobTableView(disqualified, "disqualified", now)}
     </div>
-    <div data-panel="work-log" style="display: none;">
+    <div data-panel="work-log" class="is-hidden">
       ${workLogView(workLog, now)}
     </div>
   </div>

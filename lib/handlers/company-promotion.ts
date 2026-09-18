@@ -8,6 +8,8 @@
 import { SCORE_CATEGORIES, type CompanyRecord } from "../services/company-service";
 import type { AtsSlugService } from "../services/ats-slug-service";
 import type { TraceEvent, TraceService } from "../services/trace-service";
+import type { CollectionIssue } from "../types/collection-issue";
+import { messageFromThrown } from "../utils/thrown-message";
 
 export interface PromoteCompaniesOptions {
   promotionThreshold: number;
@@ -19,6 +21,7 @@ export interface PromoteCompaniesOptions {
 
 export interface PromoteCompaniesResult {
   companies: CompanyRecord[];
+  warnings: CollectionIssue[];
 }
 
 // One place mapping a board's parser to the collector that can poll it, so
@@ -95,6 +98,7 @@ export async function promoteCompanies(
   options: PromoteCompaniesOptions
 ): Promise<PromoteCompaniesResult> {
   const { promotionThreshold, atsSlugs, trace, runId, step } = options;
+  const warnings: CollectionIssue[] = [];
 
   for (const company of companies) {
     // All three of trace, runId and step are needed before a row is
@@ -110,7 +114,26 @@ export async function promoteCompanies(
       await trace.write({ run_id: runId, company_id: company.id, step, event: "company_entered" });
     }
 
-    const outcome = await evaluateCompany(company, atsSlugs, promotionThreshold);
+    let outcome: Awaited<ReturnType<typeof evaluateCompany>>;
+
+    try {
+      outcome = await evaluateCompany(company, atsSlugs, promotionThreshold);
+    } catch (thrown) {
+      // A board lookup that fails for its own reasons costs this company and
+      // no other. Unguarded it would leave the loop, so every company still
+      // queued goes unjudged over a fault that has nothing to do with it.
+      // The company keeps whatever polling it already had; the next run
+      // judges it again.
+      warnings.push({
+        // Every other warning names the collector that produced its job. A
+        // company reaches this step from the score table rather than from a
+        // source, so the step's own name stands in — the same word the
+        // trace rows for this step are grouped under.
+        collector: "company_promotion",
+        message: `Could not judge ${company.name ?? company.id} for direct polling: ${messageFromThrown(thrown)}`,
+      });
+      continue;
+    }
 
     if (recording) {
       // Built conditionally rather than passing `reason: outcome.reason`
@@ -129,5 +152,5 @@ export async function promoteCompanies(
     }
   }
 
-  return { companies };
+  return { companies, warnings };
 }

@@ -510,18 +510,21 @@ describe("a search that matched nothing renders no results list", () => {
   });
 });
 
-// Dribbble anchors one search of each pair to the user's location. A site
-// with no jobs in that place is ordinary, and warning about it every run
-// would train the reader to skip the line the one time it matters.
+// Dribbble anchors one search of each pair to the user's location, so the
+// empty half of a pair is the commonest shape this warning takes here. AC 54
+// asks for it anyway: the sibling finding cards proves the selector works, so
+// the empty one is about the term or the place and is the user's to act on.
 describe("a search that finds nothing beside one that finds cards", () => {
-  test("raises no no-cards warning at all", async () => {
+  test("names the search that found nothing", async () => {
     const term = "Product Design";
     stubFetch(singleTermRoutes(term, [], [dribbbleCard({ id: 1 })]));
 
     const result = await collect({ settings: makeSettings({ searchTerms: [term] }) });
 
+    const noCards = result.warnings.filter((warning) => warning.includes("no result cards"));
     expect(result.jobs).toHaveLength(1);
-    expect(result.warnings.filter((warning) => warning.includes("no result cards"))).toEqual([]);
+    expect(noCards).toHaveLength(1);
+    expect(noCards[0]).toContain(term);
   });
 });
 

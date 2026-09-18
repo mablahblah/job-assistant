@@ -13,7 +13,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createPipelineDb } from "../lib/db/pipeline-db";
-import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
+import { schemaProbesFor } from "../lib/db/schema-check";
+import { schemaHasDrifted } from "../lib/db/schema-drift";
 import { createSettingsService } from "../lib/services/settings-service";
 import { createJobService } from "../lib/services/job-service";
 import { createCompanyService } from "../lib/services/company-service";
@@ -21,16 +22,9 @@ import { createWorkLogService } from "../lib/services/work-log-service";
 import { createCompanySearch } from "../lib/tools/company-search";
 import { runStatusChange } from "../lib/orchestrators/status-change";
 import { statusChangeReport } from "../lib/utils/status-change-report";
-import { isValidStatus } from "../lib/utils/job-status";
+import { isValidStatus, VALID_STATUSES } from "../lib/utils/job-status";
 import type { StatusChange } from "../lib/handlers/status-change";
-
-// Reads a `--name value` pair off the command line. Undefined when the flag
-// is absent, so the caller decides what that means.
-function flagValue(argv: string[], name: string): string | undefined {
-  const index = argv.indexOf(`--${name}`);
-  if (index === -1) return undefined;
-  return argv[index + 1];
-}
+import { flagValue } from "../lib/utils/cli-args";
 
 // An entry as it arrives off disk, before it has earned the right to be a
 // StatusChange.
@@ -106,7 +100,7 @@ async function main(): Promise<void> {
   for (const change of changes) {
     if (!isValidStatus(change.status)) {
       console.error(
-        `Refused: "${change.status}" is not one of the twelve statuses the database accepts.`
+        `Refused: "${change.status}" is not one of the ${VALID_STATUSES.length} statuses the database accepts.`
       );
       process.exitCode = 1;
       return;
@@ -118,11 +112,7 @@ async function main(): Promise<void> {
     // The same check every other command runs, before anything is written. It
     // reads each table whole and reports only the table's name, which is why
     // the message names tables rather than columns.
-    const drifted = await modelsFailingSchemaCheck(schemaProbesFor(prisma));
-    if (drifted.length > 0) {
-      console.log("The database does not match the schema this code expects.");
-      console.log(`Tables that could not be read: ${drifted.join(", ")}`);
-      console.log("Migrate it with: npm run db:migrate");
+    if (await schemaHasDrifted(schemaProbesFor(prisma))) {
       process.exitCode = 1;
       return;
     }

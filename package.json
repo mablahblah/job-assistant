@@ -20,13 +20,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.14",
     "@libsql/client": "^0.17.0",
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "apify-client": "^2.22.3",
     "dotenv": "^17.3.1",
-    "hono": "^4.12.14",
     "linkedom": "^0.18.13",
     "playwright": "^1.58.2",
     "prisma": "^7.5.0",

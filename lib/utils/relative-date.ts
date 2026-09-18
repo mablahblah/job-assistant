@@ -7,8 +7,10 @@
 //
 // The present moment is a second argument so a test can fix it rather than
 // depend on the clock the suite happens to run under.
+import { DAY_MS } from "./durations";
+
 export function relativeDate(date: Date, now: Date = new Date()): string {
-  const days = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.floor((now.getTime() - date.getTime()) / DAY_MS);
   if (days === 0) return "Today";
   if (days === 1) return "1d ago";
   return `${days}d ago`;

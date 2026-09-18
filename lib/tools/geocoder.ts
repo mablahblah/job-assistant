@@ -8,6 +8,7 @@
 // places cannot afford to back off and wait, and a place that comes back empty
 // is simply tried again on the next run.
 import type { MapShape } from "../utils/point-in-shape";
+import { fetchWithTimeout } from "../utils/fetch-utils";
 
 const SEARCH_URL = "https://geocode.maps.co/search";
 
@@ -110,7 +111,12 @@ export function createGeocoder(): Geocoder {
       nextRequestAt = Date.now() + GEOCODE_PACING_MS;
 
       try {
-        const response = await fetch(requestUrl(query, apiKey));
+        // Through the shared helper, like every collector and parser, so a
+        // mapping service that stops answering cannot hold a run open. On its
+        // own `fetch` waits indefinitely, and this call sits inside a loop
+        // pacing itself at roughly one request a second — so one hung request
+        // would stall every job still waiting to be judged.
+        const response = await fetchWithTimeout(requestUrl(query, apiKey));
         if (!response.ok) return null;
 
         const body: unknown = await response.json();
@@ -119,6 +125,10 @@ export function createGeocoder(): Geocoder {
         const first: unknown = body[0];
         return first === undefined ? null : readPlace(first);
       } catch {
+        // A place that cannot be looked up is an ordinary outcome: the job
+        // simply goes unjudged on location and is judged again next run. It
+        // is deliberately not a throw, because one unreachable place must not
+        // cost the classification of every job behind it.
         return null;
       }
     },

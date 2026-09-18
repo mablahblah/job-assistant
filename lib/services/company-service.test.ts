@@ -105,6 +105,26 @@ function columnlessRefusalDb(real: PipelineDb): PipelineDb {
   return withCompany(real, company);
 }
 
+// Refuses every company update as a name clash while no company actually
+// holds the name. A driver reporting a constraint the data does not support
+// looks like this from the service's side, and so does a refusal raised by
+// something other than the name.
+function phantomRefusalDb(real: PipelineDb): PipelineDb {
+  const company = new Proxy(real.company, {
+    get(target, property) {
+      if (property !== "update") return Reflect.get(target, property, target);
+      return async () => {
+        throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { target: ["name"] },
+        });
+      };
+    },
+  });
+  return withCompany(real, company);
+}
+
 // One scratch database serves the whole file. Every test uses names and slugs
 // of its own, so nothing collides and the prisma CLI runs once.
 let dir: string;
@@ -323,6 +343,18 @@ describe("filling a company's empty name", () => {
     expect(result.company.id).toBe(target.id);
     expect(result.company.name).toBeNull();
     expect(result.heldBy?.id).toBe(holder.company.id);
+  });
+
+  // A refusal is read as "another company already holds this name", and that
+  // reading is only safe once that company has been found. Where the lookup
+  // finds nobody the refusal came from something else, and answering with an
+  // ordinary clash would file a real fault as everyday news. The create path
+  // beside this one already re-throws in exactly this case.
+  test("a refusal naming nobody is raised rather than reported as a clash", async () => {
+    const target = await service.createNameless();
+    const haunted = createCompanyService(phantomRefusalDb(db));
+
+    await expect(haunted.fillName(target.id, "Nobody Holds This Name")).rejects.toThrow();
   });
 });
 
@@ -776,6 +808,100 @@ describe("saving what a search found", () => {
       address: FOUND.address,
       phone: null,
       website: null,
+    });
+  });
+});
+
+// Backlog cleanup empties a judgement that has aged out, then hands the whole
+// record back to be written as it now stands. These two are the pair that
+// makes that possible: one finds every company carrying a judgement, the
+// other writes the block back wholesale, blanks included. Nothing else in the
+// codebase can clear a score, so a change to either silently stops stale
+// judgements from ever being cleared.
+describe("the pair backlog cleanup uses to clear stale judgements", () => {
+  const SCORED = new Date("2026-06-01T00:00:00.000Z");
+
+  async function scoredCompanyNamed(name: string): Promise<string> {
+    const { company } = await service.create({ name });
+    await service.saveScores(
+      company.id,
+      {
+        employee_satisfaction: { score: 4, rationale: "well reviewed", guessed: false },
+        customer_satisfaction: { score: 3, rationale: "mixed", guessed: true },
+      },
+      SCORED
+    );
+    return company.id;
+  }
+
+  test("a company that has been scored is found", async () => {
+    const id = await scoredCompanyNamed("Found By Scored Co");
+
+    const found = await service.findScored();
+
+    expect(found.map((company) => company.id)).toContain(id);
+  });
+
+  // A company nothing has scored has no date to measure from and nothing to
+  // empty, so sweeping it would be work with no possible outcome.
+  test("a company nothing has scored is not found", async () => {
+    const { company } = await service.create({ name: "Never Scored Co" });
+
+    const found = await service.findScored();
+
+    expect(found.map((one) => one.id)).not.toContain(company.id);
+  });
+
+  test("writing a record back empties every score it holds empty", async () => {
+    const id = await scoredCompanyNamed("Cleared Scores Co");
+    const before = await service.findById(id);
+    expect(before?.employee_satisfaction).toBe(4);
+
+    await service.writeScores({
+      ...before!,
+      employee_satisfaction: null,
+      customer_satisfaction: null,
+      work_life_balance: null,
+      political_alignment: null,
+      employee_satisfaction_rationale: null,
+      customer_satisfaction_rationale: null,
+      work_life_balance_rationale: null,
+      political_alignment_rationale: null,
+      scored_at: null,
+      scores_guessed: [],
+    });
+
+    expect(await service.findById(id)).toMatchObject({
+      employee_satisfaction: null,
+      customer_satisfaction: null,
+      employee_satisfaction_rationale: null,
+      scored_at: null,
+    });
+  });
+
+  // The whole point of the pair: a company cleared this way stops being found
+  // by the sweep, so the next run does not clear it again.
+  test("a company whose scores were cleared is no longer found", async () => {
+    const id = await scoredCompanyNamed("No Longer Scored Co");
+    const before = await service.findById(id);
+
+    await service.writeScores({ ...before!, scored_at: null });
+
+    const found = await service.findScored();
+    expect(found.map((company) => company.id)).not.toContain(id);
+  });
+
+  // saveScores merges a partial answer into what is stored. writeScores does
+  // not, and that difference is the reason both exist.
+  test("writing a record back leaves the fields outside the score block alone", async () => {
+    const id = await scoredCompanyNamed("Untouched Fields Co");
+    const before = await service.findById(id);
+
+    await service.writeScores({ ...before!, employee_satisfaction: null });
+
+    expect(await service.findById(id)).toMatchObject({
+      name: "Untouched Fields Co",
+      employee_satisfaction: null,
     });
   });
 });

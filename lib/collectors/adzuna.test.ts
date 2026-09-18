@@ -590,3 +590,63 @@ describe("when salary_is_predicted is absent, the salary is left unset", () => {
     expect(job.salary_period).toBeUndefined();
   });
 });
+
+// Adzuna answers with one page and states how many postings matched in all.
+// The collector takes the page and ignores the total, so a search matching
+// more postings than fit on one page loses the rest without a word. The
+// warning is what makes that visible, so the size of the loss can be judged
+// before deciding whether to fetch further pages.
+describe("a search matching more postings than one page holds", () => {
+  test("warns that postings were left behind", async () => {
+    stubFetch([
+      {
+        match: matchesRemoteSearch,
+        respond: () => jsonResponse({ results: [], count: 0 }),
+      },
+      {
+        // One posting handed over, two hundred said to exist.
+        match: matchesAustinSearch,
+        respond: () => jsonResponse({ results: [seniorProductDesigner], count: 200 }),
+      },
+    ]);
+
+    const result = await adzunaCollector.collect({
+      settings: makeSettings(SEARCH_TERMS),
+      atsSlugs: NO_BOARDS,
+      limit: Infinity,
+    });
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("200");
+  });
+
+  test("the warning names the search that lost them", async () => {
+    stubFetch([
+      { match: matchesRemoteSearch, respond: () => jsonResponse({ results: [], count: 0 }) },
+      {
+        match: matchesAustinSearch,
+        respond: () => jsonResponse({ results: [seniorProductDesigner], count: 200 }),
+      },
+    ]);
+
+    const result = await adzunaCollector.collect({
+      settings: makeSettings(SEARCH_TERMS),
+      atsSlugs: NO_BOARDS,
+      limit: Infinity,
+    });
+
+    expect(result.warnings[0]).toContain("Product Design");
+  });
+
+  test("a search whose postings all fit says nothing", async () => {
+    stubFetch(routesFor({ austin: [seniorProductDesigner] }));
+
+    const result = await adzunaCollector.collect({
+      settings: makeSettings(SEARCH_TERMS),
+      atsSlugs: NO_BOARDS,
+      limit: Infinity,
+    });
+
+    expect(result.warnings).toEqual([]);
+  });
+});

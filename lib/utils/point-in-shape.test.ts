@@ -1,13 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { pointInShape, type MapShape } from "./point-in-shape";
-import boundaries from "../../docs/features/unified-pipeline/location-research/spike2/boundaries.json";
+import boundaries from "./boundaries.fixture.json";
 
 // 30.2711, -97.7437 is 78701, the anchor every measurement in this project was
 // taken from.
 const ANCHOR = { latitude: 30.2711, longitude: -97.7437 };
 
 // Shapes fetched from the live mapping service during planning and committed
-// beside the spike, so these run offline and still prove the real thing.
+// here, so these run offline and still prove the real thing. The research
+// folder keeps its own copy as part of that record; this one is the test's,
+// beside the code it covers like every other fixture.
 const REAL: Record<string, { geojson: MapShape | null }> = boundaries;
 
 function outlineOf(place: string): MapShape | null {

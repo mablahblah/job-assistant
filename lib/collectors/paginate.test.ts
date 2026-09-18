@@ -798,10 +798,17 @@ describe("noCardsWarnings decides whether empty searches are worth saying", () =
     };
   }
 
-  test("says nothing while any search still found cards", () => {
+  // AC 54. A search coming back empty while its siblings returned cards is
+  // the one the user can act on: the term is wrong, or the site has stopped
+  // carrying that kind of job. Saying nothing hides it behind the searches
+  // that worked.
+  test("names a search that found nothing while another search found cards", () => {
     const results = [emptySearch("in 78701"), fullSearch("anywhere")];
 
-    expect(noCardsWarnings(results)).toEqual([]);
+    const warnings = noCardsWarnings(results);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("in 78701");
   });
 
   test("warns once when every search came back empty", () => {

@@ -98,13 +98,13 @@ export function workLogView(rows: WorkLogRow[], now: Date = new Date()): string 
     .map((week, position) => {
       const key = week.toISOString();
       const held = filed.get(key) ?? [];
-      const hidden = position > 0 ? ' style="display: none;"' : "";
+      const hidden = position > 0 ? " is-hidden" : "";
       const entries =
         held.length === 0
           ? `<p class="work-log-empty">No activities this week.</p>`
           : `<div class="work-log-entries">${held.map(entryView).join("\n")}</div>`;
 
-      return `<section class="work-log-week-section" data-week-content="${key}"${hidden}>
+      return `<section class="work-log-week-section${hidden}" data-week-content="${key}">
       <div class="work-log-week-header">
         <h2 class="work-log-week-title">${weekLabel(week)}</h2>
       </div>
