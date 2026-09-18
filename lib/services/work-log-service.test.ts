@@ -256,3 +256,17 @@ describe("reading every entry", () => {
     });
   });
 });
+
+// Phase 13, criterion "The week is the activity's week". A migrated entry has
+// to carry the date its activity happened, not the day the migration ran, or
+// 21 of the 70 real filings land in the wrong TWC week.
+describe("writing an entry carrying its own date", () => {
+  test("the given date is stored as the entry's date", async () => {
+    const activityDate = new Date("2026-08-02T00:00:00.000Z");
+    const written = await service.write(
+      entryFor("job-dated", { created_at: activityDate })
+    );
+
+    expect(written.created_at).toEqual(activityDate);
+  });
+});

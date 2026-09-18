@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { activityFromStatus } from "./work-log-activity";
+import { activityFromStatus, isWorkLogActivity } from "./work-log-activity";
 import { VALID_STATUSES, WORK_LOG_STATUSES } from "./job-status";
 
 // Criteria 19, 20 and 21. The wording is the form's, not ours: a Texas
@@ -57,4 +57,20 @@ describe("a status naming something every object carries", () => {
       expect(activityFromStatus(status)).toBeUndefined();
     }
   );
+});
+
+// Phase 13, criterion "Accepted wording only". The migration checks each old
+// entry's wording against the form's three phrases before writing it, so the
+// vocabulary answers membership as well as translation.
+describe("whether a wording is one the form accepts", () => {
+  test.each(["Applied for job", "Had phone screen", "Had interview"])(
+    "%s is accepted",
+    (wording) => {
+      expect(isWorkLogActivity(wording)).toBe(true);
+    }
+  );
+
+  test.each(["Networking event", "applied for job", ""])("%s is not", (wording) => {
+    expect(isWorkLogActivity(wording)).toBe(false);
+  });
 });

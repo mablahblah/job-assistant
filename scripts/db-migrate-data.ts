@@ -2,7 +2,9 @@ import "dotenv/config";
 import { createClient, type Client } from "@libsql/client";
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
+import { createWorkLogService, type WorkLogService } from "../lib/services/work-log-service";
 import { ACTIVE_STATUSES } from "../lib/utils/job-status";
+import { isWorkLogActivity } from "../lib/utils/work-log-activity";
 
 // Every count query below aliases its aggregate as "count" so this helper
 // never has to guess a column name back out of the SQL it was given.
@@ -10,6 +12,51 @@ async function scalarCount(client: Client, sql: string, args: string[] = []): Pr
   const result = await client.execute({ sql, args });
   const value = result.rows[0]?.["count"];
   return Number(value ?? 0);
+}
+
+async function migrateWorkLogEntries(source: Client, workLog: WorkLogService): Promise<void> {
+  const result = await source.execute(`
+    SELECT
+      WorkSearchEntry.jobId AS job_id,
+      WorkSearchEntry.date AS date,
+      WorkSearchEntry.activityType AS activity,
+      Job.title AS job_title,
+      Company.name AS company_name
+    FROM WorkSearchEntry
+    JOIN Job ON Job.id = WorkSearchEntry.jobId
+    JOIN Company ON Company.id = Job.companyId
+    ORDER BY WorkSearchEntry.date
+  `);
+
+  let migrated = 0;
+
+  for (const raw of result.rows) {
+    const row = raw as unknown as Record<string, unknown>;
+    const jobId = String(row["job_id"]);
+    const activity = String(row["activity"]);
+
+    // The Texas work log form only accepts a fixed set of activity wordings.
+    // An old entry with wording outside that set would produce a filing the
+    // form itself would reject, so the whole run stops rather than write it.
+    if (!isWorkLogActivity(activity)) {
+      throw new Error(`Unknown work log activity "${activity}" on entry for job ${jobId}`);
+    }
+
+    await workLog.write({
+      job_id: jobId,
+      company_name: String(row["company_name"]),
+      job_title: String(row["job_title"]),
+      activity,
+      // created_at carries the activity's own date, not the old row's
+      // written-date: the two differ on 21 of 70 real filings, and the
+      // weekly grouping reads created_at.
+      created_at: new Date(String(row["date"])),
+    });
+
+    migrated += 1;
+  }
+
+  console.log(`Work log entries migrated: ${migrated}`);
 }
 
 async function main(): Promise<void> {
@@ -63,13 +110,14 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Migration steps land here, across the next three tasks, in this order:
-    //   1. Employers (companies) — copied first, because a job points at one.
-    //   2. Jobs — copied second, because a work log entry names one.
-    //   3. Work log entries — copied last.
+    // Migration steps run in this order — employers, then jobs, then work
+    // log entries — because a job points at its employer and an entry names
+    // its job. The employer and job migrators land in the next two tasks.
     // No trace service is built here and nothing is written to the Trace
     // table: a one-time data migration is not a job search, so it leaves
     // no trace of being one.
+    const workLog = createWorkLogService(prisma);
+    await migrateWorkLogEntries(source, workLog);
 
     // Verification counts both databases live, at this exact moment,
     // instead of trusting a running tally kept during migration — a live

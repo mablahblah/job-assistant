@@ -28,3 +28,12 @@ export function activityFromStatus(status: string): WorkLogActivity | undefined 
   if (!isWorkLogStatus(status)) return undefined;
   return ACTIVITY_BY_STATUS[status as WorkLogStatus];
 }
+
+// Membership matters to the phase 13 migration, which checks each old entry's
+// wording against these exact phrases before writing it — the form rejects
+// any other.
+export const WORK_LOG_ACTIVITIES = Object.values(ACTIVITY_BY_STATUS);
+
+export function isWorkLogActivity(wording: string): boolean {
+  return (WORK_LOG_ACTIVITIES as string[]).includes(wording);
+}

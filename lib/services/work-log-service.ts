@@ -20,6 +20,10 @@ export interface WorkLogInput {
   company_name: string;
   job_title: string;
   activity: string;
+  // Only the phase 13 migration supplies this, carrying the old activity's
+  // date so a migrated filing lands in its real TWC week. Live callers omit
+  // it; the row takes the write's moment.
+  created_at?: Date;
 }
 
 export interface WorkLogRecord extends WorkLogInput {

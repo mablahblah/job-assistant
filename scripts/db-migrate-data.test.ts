@@ -296,3 +296,107 @@ describe("criteria 216, 217: verification counts both sides live", () => {
     expect(result.output.toLowerCase()).toContain("work log");
   });
 });
+
+describe("criteria 180 to 185: the work log entries migrate", () => {
+  let dbs: TempDbs;
+  let result: RunResult;
+  let rows: Array<Record<string, unknown>>;
+
+  beforeAll(async () => {
+    dbs = await makeDbs("migrate-work-log-");
+    // A rejected job, so nothing else migrates and the entries stand alone.
+    // The entry's own date differs from the row-written date deliberately:
+    // the activity's date is the one that must survive.
+    await withClient(dbs.sourceUrl, async (client) => {
+      await client.execute(
+        "INSERT INTO Company (id, name, updatedAt) " +
+          "VALUES ('old-co', 'Pyramid Consulting, Inc.', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+          "VALUES ('old-job-log', 'old-co', 'Senior UX Designer', 'https://example.com/log-job', " +
+          "'2026-07-01T00:00:00.000Z', '', 'rejected', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO WorkSearchEntry (id, jobId, date, activityType, createdAt) " +
+          "VALUES ('e1', 'old-job-log', '2026-08-02T00:00:00.000Z', 'Applied for job', " +
+          "'2026-08-04T00:00:00.000Z')"
+      );
+      await client.execute(
+        "INSERT INTO WorkSearchEntry (id, jobId, date, activityType) " +
+          "VALUES ('e2', 'old-job-log', '2026-08-10T00:00:00.000Z', 'Had interview')"
+      );
+    });
+
+    result = runMigration(dbs);
+    rows = await withClient(dbs.targetUrl, async (client) => {
+      const read = await client.execute("SELECT * FROM WorkLogEntry ORDER BY created_at");
+      return read.rows.map((row) => ({ ...(row as unknown as Record<string, unknown>) }));
+    });
+  }, SETUP_TIMEOUT_MS);
+
+  // Criterion "Every entry arrives".
+  test("one migrated entry exists per old entry, and the run verifies clean", () => {
+    expect(result.exitCode).toBe(0);
+    expect(rows).toHaveLength(2);
+  });
+
+  // Criteria "The employer name stands alone" and "The job title stands
+  // alone": both are values on the entry itself, not reads through a row.
+  test("each entry carries the employer name and job title as its own values", () => {
+    for (const row of rows) {
+      expect(row["company_name"]).toBe("Pyramid Consulting, Inc.");
+      expect(row["job_title"]).toBe("Senior UX Designer");
+    }
+  });
+
+  // Criterion "The week is the activity's week".
+  test("the entry's date is the activity's date, not the row-written date", () => {
+    expect(String(rows[0]?.["created_at"])).toContain("2026-08-02");
+  });
+
+  // Criterion "The job id survives without its job": the rejected job never
+  // migrates, and the id rides along as a plain value anyway.
+  test("the entry keeps its job's id although that job did not migrate", () => {
+    for (const row of rows) {
+      expect(row["job_id"]).toBe("old-job-log");
+    }
+  });
+
+  // Criterion "Accepted wording only".
+  test("every migrated activity is a wording the Texas form accepts", () => {
+    const accepted = ["Applied for job", "Had phone screen", "Had interview"];
+    for (const row of rows) {
+      expect(accepted).toContain(row["activity"]);
+    }
+  });
+});
+
+describe("an old entry whose wording the form does not accept", () => {
+  test(
+    "stops the migration rather than migrating a filing the form would reject",
+    async () => {
+      const dbs = await makeDbs("migrate-bad-wording-");
+      await withClient(dbs.sourceUrl, async (client) => {
+        await client.execute(
+          "INSERT INTO Company (id, name, updatedAt) VALUES ('old-co', 'Figma', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+            "VALUES ('old-job-bad', 'old-co', 'Designer', 'https://example.com/bad', " +
+            "'2026-07-01T00:00:00.000Z', '', 'rejected', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO WorkSearchEntry (id, jobId, date, activityType) " +
+            "VALUES ('bad', 'old-job-bad', '2026-08-02T00:00:00.000Z', 'Networking event')"
+        );
+      });
+
+      const result = runMigration(dbs);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain("Networking event");
+    },
+    SETUP_TIMEOUT_MS
+  );
+});
