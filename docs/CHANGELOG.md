@@ -2,6 +2,40 @@
 
 <!-- Newest at top -->
 
+## September 18, 2026 - v1.0.0
+
+### New Features
+
+#### One Command for a Whole Job Search
+
+A job search used to be a sequence you drove by hand, one command at a time, remembering which step came next and what it had left half-finished. Now `npm run job-search` runs the whole thing: it clears out jobs that have gone stale, gathers new ones from every source, follows each link back to the employer's own posting, reads that posting, works out whether the job is close enough to you, and saves at every stage. Scoring follows straight after. Because every stage writes to the database before the next one starts, a search interrupted halfway keeps everything it had already finished, and running it again picks up exactly where it stopped rather than starting over.
+
+#### Your Job History Is Recorded and Can Be Asked Questions
+
+You could see the jobs in your backlog, but never how any of them got there, and a job removed as a duplicate vanished without trace. Every job now leaves a record of each thing that happened to it — which source found it, whether its link was followed successfully, whether its posting could be read, whether it matched on location, and why it was dropped if it was. Those records outlive the jobs themselves, so a duplicate that was merged away can still be followed to the job it became. Because each record names the search it belongs to, you can ask which sources actually produce the jobs you apply to, and watch that change over time.
+
+#### Employers You Rate Highly Get Watched Directly
+
+Good employers reached you by luck: an aggregator happened to list one of their jobs, and you happened to see it. Now, when you score an employer well and they post on a hiring site the app can read, they are added to the list of employers it checks directly from the next search onward. You stop depending on a middleman to mention them. Nothing is watched by default — an employer earns it by being scored, so the list only ever grows with employers you have actually judged, and never fills up with ones met once and forgotten.
+
+#### The Same Job from Two Sources Is Recognised as One Job
+
+Two sites listing one job would give you two entries, because they spelled the employer or the title differently — "Acme, Inc." against "Acme", or "Sr. Prod Designer" against "Senior Product Designer". Titles and employer names are now put into a consistent form before anything is compared, and jobs are matched on their links, or on employer and title where the dates agree. What a source actually published is kept untouched alongside, so nothing is lost if the matching rules change later. A job posted again under a fresh date is recognised as the same role rather than a new one, and returns to your backlog instead of staying expired.
+
+#### Jobs Are Judged Against Where You Actually Are
+
+Whether a job was close enough used to be decided by comparing place names, which meant a remote job open to all of Texas could be missed while a job in a same-named town two states away slipped through. Your location is now a postcode and a distance, and every job's locations are tested against them by actual geography. A remote job matches if the place it is open to contains you — Texas does, and so does the United States — or if it is inside your distance. Every location a job lists is paired against every way of working it offers, so a job open to several places gets every chance to match.
+
+### Improvements
+
+- **Dashboard** Jobs whose link could not be followed, or whose posting could not be read, now appear in their own list rather than silently disappearing, so the dashboard is where you go to fix them.
+- **Dashboard** The reasoning behind a score now appears when you hover that score, so a job's reasoning and an employer's reasoning are each reachable from the number they explain.
+- **Dashboard** A job's total score is hidden once you have applied or ruled it out, where it no longer informs anything, while the ratings behind it stay.
+- **Dashboard** You see both the date a job was originally posted and the date it was posted again, with the repost marked.
+- **Work Log** A work log entry now survives its job being deleted or overwritten, because it keeps its own copy of the employer name and job title. Your Texas filings can no longer be lost to a change in the job behind them.
+- **Job Search** A search that hits a problem now says which step stopped it and why, and still reports everything the steps before it finished.
+- **Job Search** Sources that turn the app away are now told apart from pages that are genuinely missing. A source refusing one request no longer writes the job off for good — it is tried again on the next search.
+
 ## July 17, 2026 - v0.3.0
 
 ### New Features

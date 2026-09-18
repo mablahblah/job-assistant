@@ -26,6 +26,7 @@ npm run job-search                        # Run the whole pipeline; prints its r
 npm run score:gather -- --out FILE        # Write out every job and company still needing a score
 npm run score:save -- --in FILE           # Write the scores an agent worked out back to the database
 npm run find-jobs -- --company X --json   # Find a job by part of its employer's name
+npm run change-status -- --in FILE        # Set a job's status by hand; files a work log entry where Texas counts it
 npm run fetch-rendered-page -- --url URL  # Print a page's finished HTML, after its scripts have run
 npm run serve                             # Start the dashboard from scripts/serve.ts
 npm run db:migrate  # Change the schema, keeping every row; writes a dated backup first
@@ -41,9 +42,9 @@ npm run test        # Vitest — docs/ is excluded
 
 ## Architecture
 
-One pipeline whose only differentiated code is collectors and parsers. Every deterministic step, from backlog cleanup through classification, is built and runs end to end from `npm run job-search`. Scoring is built too, and the `job-search` skill runs it straight after the pipeline, through two commands of its own — an agent does the judging, and no single command can pause while it thinks. The work log is not built. Every step ends in a database write, so no step depends on another holding a list in memory.
+One pipeline whose only differentiated code is collectors and parsers. Every deterministic step, from backlog cleanup through classification, is built and runs end to end from `npm run job-search`. Scoring is built too, and the `job-search` skill runs it straight after the pipeline, through two commands of its own — an agent does the judging, and no single command can pause while it thinks. The work log is built as well, but no job search reaches it: it runs when the user changes a job's status by hand, through `npm run change-status`. Every step ends in a database write, so no step depends on another holding a list in memory.
 
-**[`architecture.md`](docs/features/unified-pipeline/architecture.md) describes the system as built — read it before changing code.**
+**[`architecture.md`](docs/architecture.md) describes the system as built — read it before changing code.**
 
 Every file in `lib/` sits in a folder named for the kind of thing it is, and `lib/` holds no file of its own. The map is in [`.claude/rules/naming.md`](.claude/rules/naming.md).
 
@@ -61,19 +62,25 @@ Every file in `lib/` sits in a folder named for the kind of thing it is, and `li
 | `lib/utils/`         | Plain functions taking values and returning values              |
 | `lib/views/`         | The code that turns data into a screen                          |
 
-Planning lives in [`docs/features/unified-pipeline/`](docs/features/unified-pipeline/):
+Planning lives in [`docs/features/_complete/unified-pipeline/`](docs/features/_complete/unified-pipeline/):
 
 | File                 | What it is                                                        |
 | -------------------- | ----------------------------------------------------------------- |
-| `architecture.md`    | The system as built — read this first                             |
 | `decision-log.md`    | Signed-off decisions                                              |
 | `feature_spec.md`    | What is being built, the phases, the working flow                 |
 | `phases/`            | An r&d file per phase, and a spec once the phase is planned       |
 | `feature_r&d.md`     | Brain dump, measured database facts, title-normalization research |
 | `db-entries.md`      | Field-by-field shape of the current Job and Company records       |
-| `location-research/` | Proposed `location_match` rule, tested against all 1,853 jobs     |
 
-Path-scoped rules describing the old architecture were deleted with it. The rules that govern this pipeline are `naming.md`, `handler-contract.md` and `source-registry.md` in `.claude/rules/`.
+Path-scoped rules describing the old architecture were deleted with it. The rules that govern this pipeline sit in `.claude/rules/`:
+
+| Rule                  | Answers                                                              |
+| --------------------- | -------------------------------------------------------------------- |
+| `part-ownership.md`   | Where new behaviour goes, and what each kind of part may never do     |
+| `naming.md`           | What a file of that kind is called, and what shape it takes           |
+| `handler-contract.md` | What the code that runs at one pipeline position must look like       |
+| `source-registry.md`  | What has to happen when a collector or parser is added or renamed     |
+| `run-summary.md`      | What a command prints when it finishes                                |
 
 ## Terminology
 
@@ -85,6 +92,16 @@ Path-scoped rules describing the old architecture were deleted with it. The rule
 - **Util:** A plain function taking values and returning values, reaching no database — `companyMatchKey(name)`, `normalizeCompanyName(raw)`.
 - **User:** Me, the person who built this app.
 - **Web View**: A simple, semi-static web representation of our data
+
+## Working Agreements
+
+**Build broadly, not for the case in front of you.** A rule that exists only to make one observed example come out right is a defect. Break it into a general step that already exists.
+
+**No guardrail for a failure nobody has seen.** A measured occurrence is what justifies building against it. Until then the risk is written down, not coded around.
+
+**An exception is a closed list, never a judgement.** Where a rule allows an exception, it names the exact files or cases. An exception left to be judged is one that gets taken every time.
+
+**Knowledge about a job site is data, never code.** A rule may read a list of websites. A rule may not contain one. Source-specific judgement lives in collectors and parsers and nowhere else.
 
 <!-- code-review-graph MCP tools -->
 
