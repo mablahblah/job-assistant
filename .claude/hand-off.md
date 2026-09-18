@@ -13,32 +13,29 @@
 
 ## Current Task
 
-**Phase 13, migration and switch over, is planned and not built.** The spec is written and approved: `docs/features/unified-pipeline/phases/phase-13-cutover-spec.md` — 13 stories, 17 edge cases, criteria 180 to 254, 15 tasks. Nothing is committed. Seven files carry this session's work: five modified (backlog, tracking file, decision log, feature spec, the phase r&d file) and two new (the spec, the meeting notes).
+**Phase 13, migration and switch over: tasks 1 through 11 of 15 are built and committed.** Each task landed test first as its own commit on `feature/unified-pipeline`. The working tree is clean. The suite was verified at session end: 155 files, 3,266 passed, 17 deliberately skipped. Lint and the type check pass.
 
-The suite was verified green at session end: 150 files, 3,229 passed, 17 deliberately skipped.
+Tasks 12 through 15 remain, unchecked in `docs/CURRENT-FEATURE.md`: the resume skill re-home, the run identifier, deleting `legacy/`, and the by-eye switch over, which needs the user present.
 
 ## Completed This Session
 
-One unit: the whole planning cycle for phase 13. Brain dump, orientation, discovery, a three-agent stress test with every finding re-verified against code and both live databases, criteria drafted and agent-graded twice, the spec assembled and approved through spec-review, and the full wrap-up — meeting notes, ten decision log entries, feature spec correction, backlog item 33.
+Eleven tasks. The rebuild command (`scripts/db-create.ts`) takes an explicit target and always refuses the file `.env` names. Six recovery messages advise `npm run db:migrate` instead of the wipe. `scripts/db-migrate.ts` is the schema-change command: dated copy first, baseline adoption, then `prisma migrate dev`; `prisma/migrations/0_init/` is the committed baseline. The seed creates no board rows. The reset script is deleted; `scripts/retired-commands.test.ts` proves its absence. `scripts/db-migrate-data.ts` is the one-time data migration — four refusals, no trace rows, live-count verification, and the three migrators: work log entries, employers, jobs. `find-jobs` gained `--json`. `lib/tools/rendered-page-fetcher.ts` ports the browser-driven fetch, with a fake beside it.
 
 ## Session Context
 
-The user's decisions are in the feature decision log, all dated 2026-09-17. Read them there.
-
-**Phase 12 was closed by a parallel session while this one planned.** Its close and commit are already on the branch. Do not look for phase 12 work here.
-
-**Measurements are already taken — do not re-measure.** The r&d file's stress-test section holds the verified facts: the live new database's test contents and collisions, the work log's date divergence (21 of 70 entries would misfile by week), the old database's counts. All counts go stale by design; the migration counts live.
-
-**A gotcha with the question tool.** A project hook blocks every tool call after a multiple-choice question until the user's next real message — even after they answer the question itself. Ask questions in plain text in this project.
-
-**Criteria are referenced by title, never number.** The spec rubric enforces it; this spec's tasks already comply. The phase 12 spec predates the enforcement — do not copy its numbered style.
-
-**One approach was abandoned.** A rebuild guard that reads the data (refuse when work log entries exist) was dropped as brittle at the user's call; the built design is path-scoped instead. The migration script itself still uses the content check, where it is correct.
-
-**Write plainly.** Carried from the last hand-off and reinforced once this session: short sentences, the literal thing named, technical names explained beside their use.
+- **The pipeline.db incident.** Before the guard existed, the first run of the new guard tests rebuilt the real `pipeline.db`. It lost only test output from phases 1 through 12 — 313 jobs, 191 employers, trace rows — and the file is now an empty, unseeded schema. `dev.db` is untouched: 70 work log entries, 2,208 jobs. The switch over plan rebuilds `pipeline.db` from empty anyway. The tests were rewritten so a re-run can only wipe scratch files.
+- **The migration command reads `DATABASE_URL` as its source** and `PIPELINE_DATABASE_URL` as its target, both the names `.env` already holds. It reads the old file raw with libsql and writes through the company, job, and work log services.
+- **Migrated jobs keep their old ids.** Work log entries name jobs by id, and the work log page walks entry to job to employer.
+- **The migration tests seed their target** (`makeDbs` runs `db-seed.ts`) because the job migrator reads the seeded source priority list through the settings service. The real runbook order is the same: rebuild, seed, migrate.
+- **`db-create.ts` compares its argument against `.env` parsed directly**, never `process.env`, so a shell override cannot make a wipe of the real file look safe.
+- **Prisma 7 removed `--skip-generate`.** Measured: `migrate dev` with nothing pending neither prompts nor regenerates the client, which is what makes it safe inside the suite.
+- **Deviation from crowd-code:** pure deletions (seed boards, reset script) were edited directly rather than through writer tournaments — a deletion has no second spelling. Failing tests still came first everywhere.
+- **An old schema test died deliberately:** the one proving `db-create` read its url from `.env`, retired by the named-target criterion. Two other tests flipped from expecting `db:create` advice to `db:migrate`.
+- **Docs to correct at phase close:** `CLAUDE.md`'s command table still describes `db:create` without its target argument and does not list `db:migrate`; the architecture doc's claim that all three database commands retire is already flagged in the r&d file.
 
 ## Next Steps
 
-1. **Commit the planning work.** Seven files, one unit: phase 13 planned.
-2. **Build phase 13, task by task, test first.** The task list is in the spec and mirrored in `docs/CURRENT-FEATURE.md`. Task 1 is the rebuild command's target guard. Task 15's runbook and hand checks come last and need the user present.
-3. **At phase close, correct the architecture doc.** It says all three database commands retire at the switch over; only the reset script does. This is recorded in the r&d file's dropped-findings section.
+1. **Task 12 — the resume skill re-homes.** New lookup syntax (`find-jobs --company X --json`), best-link fetch (resolved link, else collected), a tool-failure branch distinct from the dead-posting branch, dead branch closes with a message and no status write. Criteria proven by reading the skill file, per the spec's test-suite note.
+2. **Task 13 — the run identifier prints and travels.** `scripts/job-search.ts:82` mints it; print it first, name it in the job-search skill's output contract, pass it to scoring, warn on a stranger identifier.
+3. **Task 14 — delete `legacy/`** plus the `cli` npm entry, add the add-external-jobs skill note, keep the five location-research scripts, prove with lint and the suite.
+4. **Task 15 — the switch over, by eye, with the user present:** rebuild once, seed, migrate, verify; read every migrated contact detail (one known placeholder address says "test"); generate one real resume end to end.
