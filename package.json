@@ -9,7 +9,6 @@
     "db:create": "npx tsx scripts/db-create.ts",
     "db:migrate": "npx tsx scripts/db-migrate.ts",
     "db:seed": "npx tsx scripts/db-seed.ts",
-    "db:reset": "npx tsx scripts/db-reset.ts",
     "job-search": "npx tsx scripts/job-search.ts",
     "find-jobs": "npx tsx scripts/find-jobs.ts",
     "change-status": "npx tsx scripts/change-status.ts",
