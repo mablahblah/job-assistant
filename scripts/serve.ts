@@ -1,130 +1,88 @@
-// scripts/serve.ts
-// Local web server — serves the read-only job dashboard
-// Start: npx tsx scripts/serve.ts | Kill: Ctrl+C
+// Starts the read-only job dashboard. The page shows what the pipeline has
+// already decided, so this command owns almost nothing of its own: it gathers
+// the four lists and hands the server tool a way to read them.
+//
+// The schema check lives inside the server rather than here, unlike every
+// other command, because a dashboard has to refuse to listen rather than
+// merely exit.
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createPipelineDb } from "../lib/db/pipeline-db";
+import { schemaProbesFor } from "../lib/db/schema-check";
+import { createJobService, type JobService } from "../lib/services/job-service";
+import { createWorkLogService, type WorkLogService } from "../lib/services/work-log-service";
+import { createWebServer } from "../lib/tools/web-server";
+import type { WorkLogRow } from "../lib/types/work-log-row";
+import { ACTIVE_STATUSES, RULED_OUT_STATUSES } from "../lib/utils/job-status";
+import type { PageContents } from "../lib/views/page";
 
-import { Hono } from "hono";
-import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { prisma } from "../lib/prisma";
-import { generateWeekSlots } from "../lib/work-search-weeks";
-import { calculateScore } from "../lib/scoring";
-import { renderPage } from "../lib/web/render";
-import type { WebJob, WebWorkLogEntry } from "../lib/web/types";
-import type { Company, Job } from "../lib/types";
+// The port the project's own serve config already names.
+const DEFAULT_PORT = 3001;
 
-const app = new Hono();
+// The three status lists are read from the one file that declares them rather
+// than named again here, so the page and the pipeline cannot disagree about
+// what a list covers.
+export async function readPageContents(
+  jobs: JobService,
+  workLog: WorkLogService
+): Promise<PageContents> {
+  const [backlog, active, disqualified, entries] = await Promise.all([
+    jobs.findByStatuses(["backlog"]),
+    jobs.findByStatuses(ACTIVE_STATUSES),
+    jobs.findByStatuses(RULED_OUT_STATUSES),
+    workLog.findAll(),
+  ]);
 
-// Serve static CSS and JS files from public/
-app.use("/styles/*", serveStatic({ root: "./public" }));
-app.use("/scripts/*", serveStatic({ root: "./public" }));
+  // An entry copies the employer's name at the moment it is filed, but never
+  // the contact details, which a search finds later. So the employer is read
+  // through the job the entry names — once for every entry, not once each.
+  const named = Array.from(new Set(entries.map((entry) => entry.job_id)));
+  const linked = await jobs.findByIds(named);
+  const employerByJobId = new Map(linked.map((row) => [row.job.id, row.company]));
 
-// Single route: query all data, render the full page
-app.get("/", async (c) => {
-  // Run all four queries in parallel
-  const [backlogRaw, activeRaw, disqualifiedRaw, workLogRaw] =
-    await Promise.all([
-      // Backlog: all jobs with status "backlog" — scored and sorted in JS below
-      // Feature 1 (auto-expire) handles removing stale jobs — no date filter needed
-      prisma.job.findMany({
-        where: { status: "backlog" },
-        include: { company: true },
-      }),
-
-      // Active: jobs in the application pipeline
-      prisma.job.findMany({
-        where: {
-          status: {
-            in: ["app. sent", "screening", "interview", "test", "offer"],
-          },
-        },
-        include: { company: true },
-        orderBy: { modifiedAt: "desc" },
-      }),
-
-      // Disqualified: jobs with terminal statuses
-      prisma.job.findMany({
-        where: {
-          status: {
-            in: ["expired", "too far", "rejected", "won't apply"],
-          },
-        },
-        include: { company: true },
-        orderBy: { modifiedAt: "desc" },
-      }),
-
-      // Work log: all entries with job + company relations
-      prisma.workSearchEntry.findMany({
-        include: {
-          job: {
-            include: {
-              company: {
-                select: {
-                  name: true,
-                  address: true,
-                  phone: true,
-                  website: true,
-                  enrichmentStatus: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { date: "desc" },
-      }),
-    ]);
-
-  // Compute scores at request time — Prisma returns Date objects where Job type expects strings,
-  // but calculateScore's ageModifier handles both via new Date()
-  function addScores(rows: typeof backlogRaw): WebJob[] {
-    return rows.map((r) => ({
-      ...r,
-      score: calculateScore(r as unknown as Job, r.company as unknown as Company),
-    })) as unknown as WebJob[];
-  }
-
-  const backlog = addScores(backlogRaw).sort((a, b) => b.score - a.score);
-  const active = addScores(activeRaw);
-  const disqualified = addScores(disqualifiedRaw);
-
-  // Convert work log dates to ISO strings for groupEntriesByWeek
-  const workLogEntries: WebWorkLogEntry[] = workLogRaw.map((e) => ({
-    id: e.id,
-    date: e.date.toISOString(),
-    activityType: e.activityType,
-    result: e.result,
-    job: {
-      title: e.job.title,
-      company: {
-        name: e.job.company.name,
-        address: e.job.company.address,
-        phone: e.job.company.phone,
-        website: e.job.company.website,
-        enrichmentStatus: e.job.company.enrichmentStatus,
-      },
-    },
+  const workLogRows: WorkLogRow[] = entries.map((entry) => ({
+    entry,
+    // An entry is built to outlive the job it names, so a job that has gone
+    // reads as details not found rather than as an error.
+    company: employerByJobId.get(entry.job_id) ?? null,
   }));
 
-  // Generate week slots from earliest entry to now
-  // workLogRaw is ordered date:desc, so last element is the oldest entry
-  const earliest =
-    workLogRaw.length > 0
-      ? workLogRaw[workLogRaw.length - 1].date
-      : new Date();
-  const weekSlots = generateWeekSlots(earliest, new Date());
+  return { backlog, active, disqualified, workLog: workLogRows };
+}
 
-  const html = renderPage({
-    backlog,
-    active,
-    disqualified,
-    workLogEntries,
-    weekSlots,
+// An unset, empty or unreadable value falls back rather than becoming port 0,
+// which would put the dashboard on a port nobody was told about.
+function portFromEnvironment(): number {
+  const asked = Number(process.env.PORT);
+  return Number.isInteger(asked) && asked > 0 ? asked : DEFAULT_PORT;
+}
+
+async function main(): Promise<void> {
+  const prisma = createPipelineDb();
+  const jobs = createJobService(prisma);
+  const workLog = createWorkLogService(prisma);
+
+  const server = createWebServer({
+    readContents: () => readPageContents(jobs, workLog),
+    probes: schemaProbesFor(prisma),
+    publicDir: resolve(dirname(fileURLToPath(import.meta.url)), "..", "public"),
   });
 
-  return c.html(html);
-});
+  if (!(await server.start(portFromEnvironment()))) {
+    process.exitCode = 1;
+    await prisma.$disconnect();
+    return;
+  }
 
-// Start the server — honor PORT from the environment, default to 3000
-const port = Number(process.env.PORT) || 3000;
-serve({ fetch: app.fetch, port }, () => {
-  console.log(`\n  Dashboard → http://localhost:${port}\n`);
-});
+  // The database is left open on purpose. Unlike every other command here,
+  // this one never finishes a task — it goes on answering requests until it
+  // is stopped by hand.
+}
+
+// Guarded so importing this module — the test does, for readPageContents —
+// starts no server. Unguarded, the import bound a real port, which meant the
+// suite could not run on a machine already serving the dashboard and a real
+// uncaught error was indistinguishable from that clash.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
+}

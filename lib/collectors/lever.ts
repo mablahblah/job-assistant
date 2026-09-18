@@ -1,50 +1,69 @@
-// Fetches job listings from a company's Lever job board API and returns them as CollectedJob objects.
-import {
-  fetchWithTimeout,
-  safeJson,
-  httpError,
-  matchesQuery,
-} from "../scrapers/fetch-utils";
-import { mapLeverFields, type LeverApiPosting } from "../parsers/lever";
-import type { CollectedJob } from "./types";
+// Polls Lever's public postings API for jobs whose title matches the user's
+// search terms. Lever's API carries no employer name, so a job records the
+// slug of the board it came from and leaves the name to company association.
+import type { JobListEntry } from "../types/job-list-entry";
+import { jobFieldsFromLeverPosting, type LeverPosting } from "../utils/lever-fields";
+import { matchesSearchTerms } from "../utils/search-term-analyzer";
+import { readAtsBoards } from "./ats-boards";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
-// Fetches all postings from a company's Lever board, filters by query keywords, and returns CollectedJob[].
-export async function collectLeverCompany(
-  slug: string,
-  queries: string[]
-): Promise<CollectedJob[]> {
-  const url = `https://api.lever.co/v0/postings/${slug}?mode=json`;
-  const res = await fetchWithTimeout(url);
+// The collector's own name, which is what a slug row carries when its board
+// is on this collector's polling list.
+const COLLECTOR = "lever";
 
-  if (!res.ok) {
-    if (res.status === 404) throw new Error(`${slug} — board not found`);
-    throw httpError(`Lever/${slug}`, res.status);
-  }
+const postingsUrl = (slug: string) => `https://api.lever.co/v0/postings/${slug}?mode=json`;
 
-  const postings = await safeJson<LeverApiPosting[]>(res, `Lever/${slug}`);
-  if (!Array.isArray(postings)) return [];
-
-  // Keep postings whose title OR team name matches at least one query keyword.
-  const matchingPostings = postings.filter(
-    (posting) =>
-      matchesQuery(posting.text, queries) ||
-      matchesQuery(posting.categories?.team || "", queries)
-  );
-
-  return matchingPostings.map((posting) => {
-    const mapped = mapLeverFields(posting);
-    return {
-      url: `https://jobs.lever.co/${slug}/${posting.id}`,
-      source: "lever-api",
-      externalId: posting.id,
-      title: mapped.title,
-      // Capitalize slug as fallback — parser will resolve the real name later
-      companyName: slug.charAt(0).toUpperCase() + slug.slice(1),
-      location: mapped.location,
-      workMode: mapped.workMode,
-      dates: [new Date(posting.createdAt)],
-      salaryRange: mapped.salaryRange,
-      description: posting.descriptionPlain || posting.description || "",
-    };
-  });
+// The link and the phase gates are the collector's own: a Lever listing is
+// already the source posting, so it needs no resolving. Its description still
+// has to be read, which is a parser's job. Everything else comes from the
+// shared mapper, so the collector and the parser cannot disagree about what a
+// posting's fields mean.
+function toJobListEntry(posting: LeverPosting, slug: string): JobListEntry {
+  const url = `https://jobs.lever.co/${slug}/${posting.id}`;
+  return {
+    original_url: url,
+    resolved_url: url,
+    ...jobFieldsFromLeverPosting(posting, slug),
+    is_resolved: true,
+    is_parsed: false,
+    is_classified: false,
+  };
 }
+
+export const leverCollector: Collector = {
+  name: "lever",
+
+  async collect({ settings, atsSlugs, limit }): Promise<CollectorResult> {
+    const { boards, warnings } = await readAtsBoards(atsSlugs, COLLECTOR);
+    if (boards.length === 0) {
+      return { jobs: [], errors: [], warnings };
+    }
+
+    const searchTerms = await settings.getSearchTerms();
+    const jobs: JobListEntry[] = [];
+
+    for (const board of boards) {
+      if (jobs.length >= limit) break;
+
+      const res = await fetchWithTimeout(postingsUrl(board.ats_slug));
+      if (!res.ok) {
+        // A dead board is a degraded run, not a failed collector, so the
+        // remaining boards still get their turn.
+        warnings.push(httpError(`lever board "${board.ats_slug}"`, res.status).message);
+        continue;
+      }
+
+      const postings = await safeJson<LeverPosting[]>(res, `lever board "${board.ats_slug}"`);
+      // Matched on the title alone. A posting's team never decides a match.
+      const matched = postings.filter((posting) => matchesSearchTerms(posting.text, searchTerms));
+
+      for (const posting of matched) {
+        if (jobs.length >= limit) break;
+        jobs.push(toJobListEntry(posting, board.ats_slug));
+      }
+    }
+
+    return { jobs, errors: [], warnings };
+  },
+};

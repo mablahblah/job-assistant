@@ -2,13 +2,17 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { getPipelineDatabaseUrl } from "./lib/db/pipeline-env";
 
 export default defineConfig({
+  // The new pipeline's schema and migrations sit outside legacy/.
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Throws when the variable is missing, so a Prisma command run without it
+    // fails loudly instead of quietly reaching the old pipeline's database.
+    url: getPipelineDatabaseUrl(),
   },
 });

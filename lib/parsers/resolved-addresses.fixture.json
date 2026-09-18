@@ -1,0 +1,107 @@
+{
+  "note": "Every distinct resolved-link address in dev.db, harvested 2026-09-12 from 2,208 jobs and checked by hand. `domain` is the owned domain the address reduces to; `parser` is the parser the registry must hand it to, or null where no parser claims that domain. The last row, `historical`, is a stored value that is not a web address at all, which is why it is here. dev.db is main's live database and keeps growing, so this is a snapshot rather than a live read.",
+  "addresses": [
+    {
+      "address": "www.adzuna.com",
+      "jobs": 1416,
+      "domain": "adzuna.com",
+      "parser": null
+    },
+    {
+      "address": "jobs.ashbyhq.com",
+      "jobs": 276,
+      "domain": "ashbyhq.com",
+      "parser": "ashby"
+    },
+    {
+      "address": "jobs.lever.co",
+      "jobs": 143,
+      "domain": "lever.co",
+      "parser": "lever"
+    },
+    {
+      "address": "job-boards.greenhouse.io",
+      "jobs": 137,
+      "domain": "greenhouse.io",
+      "parser": "greenhouse"
+    },
+    {
+      "address": "dribbble.com",
+      "jobs": 119,
+      "domain": "dribbble.com",
+      "parser": "dribbble"
+    },
+    {
+      "address": "boards.greenhouse.io",
+      "jobs": 98,
+      "domain": "greenhouse.io",
+      "parser": "greenhouse"
+    },
+    {
+      "address": "www.linkedin.com",
+      "jobs": 6,
+      "domain": "linkedin.com",
+      "parser": null
+    },
+    {
+      "address": "uiuxjobsboard.com",
+      "jobs": 3,
+      "domain": "uiuxjobsboard.com",
+      "parser": null
+    },
+    {
+      "address": "jobs.dropbox.com",
+      "jobs": 2,
+      "domain": "dropbox.com",
+      "parser": null
+    },
+    {
+      "address": "historical",
+      "jobs": 1,
+      "domain": null,
+      "parser": null
+    },
+    {
+      "address": "job-boards.eu.greenhouse.io",
+      "jobs": 1,
+      "domain": "greenhouse.io",
+      "parser": "greenhouse"
+    },
+    {
+      "address": "jobs.bnsf.com",
+      "jobs": 1,
+      "domain": "bnsf.com",
+      "parser": null
+    },
+    {
+      "address": "meredith.wd5.myworkdayjobs.com",
+      "jobs": 1,
+      "domain": "myworkdayjobs.com",
+      "parser": null
+    },
+    {
+      "address": "www.builtinboston.com",
+      "jobs": 1,
+      "domain": "builtinboston.com",
+      "parser": null
+    },
+    {
+      "address": "www.jobleads.com",
+      "jobs": 1,
+      "domain": "jobleads.com",
+      "parser": null
+    },
+    {
+      "address": "www.workingnomads.com",
+      "jobs": 1,
+      "domain": "workingnomads.com",
+      "parser": null
+    },
+    {
+      "address": "www.ziprecruiter.com",
+      "jobs": 1,
+      "domain": "ziprecruiter.com",
+      "parser": null
+    }
+  ]
+}

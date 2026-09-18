@@ -1,78 +1,28 @@
-// Greenhouse parser — API-based. Fetches job data via the public Job Board API.
-// Shared field mapper is used by both this parser and the Greenhouse collector.
-//
-// Work mode validation (2026-04-27): Greenhouse API has no structured work mode
-// field. Text detection on content+location catches "remote" and "hybrid" when
-// mentioned. Jobs without signals (e.g. "Seattle, WA" with no mode keywords)
-// return empty work mode — correct behavior, since the pipeline defaults those
-// to in-person during classification. No Playwright scrape would improve this;
-// the rendered page has the same data as the API.
-//
-// Bonus: the API returns `company_name` directly on each job object, which
-// could replace the separate /boards/{slug} call. Left as a future optimization.
+// The Greenhouse job-posting parser. Greenhouse publishes a public JSON API
+// for each posting, so this reads that API directly rather than a rendered
+// page — no browser is opened, unlike the page-reading parsers.
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import { jobFieldsFromGreenhousePosting, type GreenhousePosting } from "../utils/greenhouse-fields";
+import { BROWSER_USER_AGENT } from "../tools/page-fetcher";
+import type { Parser } from "./parser";
 
-import type { Browser } from "playwright";
-import type { ParsedFields, ParserResult } from "./types";
-import { TRACKED_FIELDS } from "./types";
-import { detectWorkModeFromText, parseSalaryFromText, fetchWithTimeout, safeJson } from "../scrapers/fetch-utils";
-import { resolveCompanyName } from "./company-cache";
+// pay_transparency=true matters: without it the board withholds the pay field
+// even where one exists, so a parser that dropped the flag would read no pay
+// and nothing would say so.
+const postingUrl = (slug: string, jobId: string) =>
+  `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs/${jobId}?content=true&pay_transparency=true`;
 
-// Shape of the Greenhouse Job Board API response for a single job
-export interface GreenhouseApiJob {
-  id: number;
-  title: string;
-  location: { name: string };
-  updated_at: string;
-  first_published?: string; // undocumented field — present on some boards
-  content?: string;
-  pay_input_ranges?: Array<{
-    min_cents: number;
-    max_cents: number;
-    currency_type: string;
-    title: string;
-  }>;
-}
-
-// Shared field mapper — converts a Greenhouse API job into our normalized fields.
-// Used by both the parser and the collector (Task 9).
-export function mapGreenhouseFields(job: GreenhouseApiJob): {
-  title: string;
-  location: string;
-  workMode: string;
-  dates: string[];
-  salaryRange: string;
-} {
-  const title = job.title;
-  const location = job.location?.name || "";
-
-  // Work mode: scan content + location text (Greenhouse API has no structured field)
-  const workMode = detectWorkModeFromText((job.content || "") + " " + location);
-
-  // Dates: first_published (when it exists) then updated_at — both are ISO datetimes,
-  // slice to date portion only (no timezone conversion)
-  const dates: string[] = [];
-  if (job.first_published) dates.push(job.first_published.slice(0, 10));
-  if (job.updated_at) dates.push(job.updated_at.slice(0, 10));
-
-  // Salary: use structured pay_input_ranges first, fall back to scanning the text
-  let salaryRange = "?";
-  if (job.pay_input_ranges?.length) {
-    const range = job.pay_input_ranges[0];
-    const minK = Math.round(range.min_cents / 100000);
-    const maxK = Math.round(range.max_cents / 100000);
-    salaryRange = `$${minK}-${maxK}k`;
-  } else if (job.content) {
-    salaryRange = parseSalaryFromText(job.content);
-  }
-
-  return { title, location, workMode, dates, salaryRange };
-}
-
-// Extract slug and job ID from a Greenhouse URL.
-// Handles: boards.greenhouse.io/{slug}/jobs/{id} and {company}.greenhouse.{tld}/jobs/{id}
-export function extractGreenhouseSlugAndId(
-  url: string,
-): { slug: string; jobId: string } | null {
+// Reads the board slug and posting id out of a Greenhouse link. Two shapes
+// exist: a shared board (boards.greenhouse.io/{slug}/jobs/{id}, and its
+// job-boards.greenhouse.io / job-boards.eu.greenhouse.io equivalents) carries
+// the slug in the path, right before "jobs". An employer's own address
+// ({company}.greenhouse.io/jobs/{id}) has "jobs" as the FIRST path segment,
+// so there the slug comes from the hostname instead. Which shape a link is
+// gets decided by where "jobs" sits in the path — not by matching the host,
+// because a separate registry has already confirmed this link's domain is
+// greenhouse.io before this function is ever called.
+export function extractGreenhouseSlugAndId(url: string): { slug: string; jobId: string } | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -80,94 +30,59 @@ export function extractGreenhouseSlugAndId(
     return null;
   }
 
-  const hostname = parsed.hostname.toLowerCase();
-  const pathParts = parsed.pathname.split("/").filter(Boolean);
-
-  // Standard board URLs: boards.greenhouse.io, job-boards.greenhouse.io, job-boards.eu.greenhouse.io
-  // All use /{slug}/jobs/{id} path structure where slug = company name
-  if (/boards.*greenhouse/.test(hostname)) {
-    const jobsIdx = pathParts.indexOf("jobs");
-    if (jobsIdx > 0 && jobsIdx + 1 < pathParts.length) {
-      return { slug: pathParts[jobsIdx - 1], jobId: pathParts[jobsIdx + 1] };
-    }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  const jobsIndex = segments.indexOf("jobs");
+  if (jobsIndex === -1) {
     return null;
   }
 
-  // Custom subdomain: {company}.greenhouse.{tld}/jobs/{id}
-  const ghMatch = hostname.match(/^([^.]+)\.greenhouse\.\w+$/);
-  if (ghMatch) {
-    const jobsIdx = pathParts.indexOf("jobs");
-    if (jobsIdx >= 0 && jobsIdx + 1 < pathParts.length) {
-      return { slug: ghMatch[1], jobId: pathParts[jobsIdx + 1] };
-    }
+  const jobId = segments[jobsIndex + 1];
+  if (!jobId) {
     return null;
   }
 
-  return null;
+  if (jobsIndex === 0) {
+    // Employer's own address: "jobs" leads the path, so the slug is the
+    // first label of the hostname instead of a path segment.
+    const slug = parsed.hostname.split(".")[0];
+    if (!slug) {
+      return null;
+    }
+    return { slug, jobId };
+  }
+
+  const slug = segments[jobsIndex - 1];
+  return { slug, jobId };
 }
 
-// Fetch the real company name from the Greenhouse board info endpoint
-async function fetchGreenhouseCompanyName(slug: string): Promise<string | null> {
-  try {
-    const res = await fetchWithTimeout(`https://boards-api.greenhouse.io/v1/boards/${slug}`);
-    if (!res.ok) return null;
-    const data = await safeJson<{ name?: string }>(res, `Greenhouse board/${slug}`);
-    return data.name || null;
-  } catch {
-    return null;
-  }
-}
+export const greenhouseParser: Parser = {
+  name: "greenhouse",
 
-// Parser entry point — extracts slug/ID from URL, fetches via API, maps fields.
-export async function parseGreenhouseJob(
-  url: string,
-  _browser: Browser,
-): Promise<ParserResult> {
-  try {
-    const extracted = extractGreenhouseSlugAndId(url);
-    if (!extracted) {
-      return {
-        success: false, url, finalUrl: url, parser: "greenhouse",
-        fields: {}, failedFields: [...TRACKED_FIELDS],
-        error: "Could not extract slug/jobId from URL",
-      };
+  async parse({ url }) {
+    const identifiers = extractGreenhouseSlugAndId(url);
+    if (!identifiers) {
+      // A link this parser cannot read is a parse error, not an empty read.
+      throw new Error(`greenhouse: could not read a board slug and posting id from ${url}`);
     }
+    const { slug, jobId } = identifiers;
+    const label = `greenhouse (${slug}/${jobId})`;
 
-    const { slug, jobId } = extracted;
-
-    // Fetch job data from Greenhouse public API (pay_transparency=true surfaces pay_input_ranges)
-    const apiUrl = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs/${jobId}?content=true&pay_transparency=true`;
-    const res = await fetchWithTimeout(apiUrl);
+    const res = await fetchWithTimeout(postingUrl(slug, jobId), {
+      headers: { "user-agent": BROWSER_USER_AGENT },
+    });
     if (!res.ok) {
-      return {
-        success: false, url, finalUrl: url, parser: "greenhouse",
-        fields: {}, failedFields: [...TRACKED_FIELDS],
-        error: `Greenhouse API returned ${res.status}`,
-      };
+      throw httpError(label, res.status);
     }
 
-    const job = await safeJson<GreenhouseApiJob>(res, `Greenhouse/${slug}/${jobId}`);
-    const mapped = mapGreenhouseFields(job);
+    const posting = await safeJson<GreenhousePosting>(res, label);
 
-    // Resolve company name via DB cache, then API fallback
-    const companyName = await resolveCompanyName(
-      "greenhouse", slug, fetchGreenhouseCompanyName,
-    );
+    // Verified live on 2026-09-12 against the stripe board: the single-posting
+    // endpoint returns exactly the same object shape as the board-list
+    // endpoint — first_published, company_name and all — so the shared
+    // mapper reads it unchanged and no second request is needed to find the
+    // employer's name.
+    const fields = jobFieldsFromGreenhousePosting(posting, slug);
 
-    const fields: Partial<ParsedFields> = { ...mapped };
-    if (companyName) fields.companyName = companyName;
-
-    const failedFields = TRACKED_FIELDS.filter((f) => !fields[f]);
-
-    return {
-      success: true, url, finalUrl: url, parser: "greenhouse",
-      fields, failedFields,
-    };
-  } catch (err) {
-    return {
-      success: false, url, finalUrl: url, parser: "greenhouse",
-      fields: {}, failedFields: [...TRACKED_FIELDS],
-      error: err instanceof Error ? err.message : "Unknown error",
-    };
-  }
-}
+    return withFieldsFromDescription(fields, posting.content);
+  },
+};

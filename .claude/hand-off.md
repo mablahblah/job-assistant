@@ -6,44 +6,61 @@
 >
 > 1. Read `CLAUDE.md` and `docs/APP.md` for project context and conventions.
 > 2. Read the **Current Task** section below to understand what's in progress.
-> 3. Read the **Decisions & Context** section for reasoning that isn't captured elsewhere.
+> 3. Read the **Session Context** section for reasoning that isn't captured elsewhere. The decisions the user made are not in this document — read the feature decision log for those.
 > 4. Read the **Next Steps** section and confirm your understanding before proceeding.
 >
 > Do not re-discover what's already documented here. Ask if anything is unclear.
 
 ## Current Task
 
-**Feature:** Export Parsable PDF Resume (`minor` `M`) — see `docs/features/export-parsable-pdf-resume/feature_spec.md`.
+**Phase 13 is built and closed. The Unified Job Pipeline has one box left: Ship.** Every phase from 0 through 13 is checked in `docs/CURRENT-FEATURE.md`.
 
-**In progress:** Reconnecting the `/generate-resume` pipeline after the portfolio project was rebuilt from a static HTML site into a React SPA (renamed `home-site` → `mablahblah_com`). The `generate-pdf.js` CLI contract survived the rebuild unchanged — **the skill needs no logic changes; only the environment moved.** Verified end-to-end via smoke test.
+The switch over happened. Real job searches now run on this branch against `pipeline.db`. `legacy/` is deleted, and `dev.db` is kept only as an archive.
 
-**Validation gate:** The user is running a real job search and applying to jobs with `/generate-resume` — this is the first true end-to-end exercise of the skill (find-job → fetch-page → selection → PDF) and of the PDF's visual layout. **If that goes smoothly, it's the green light to ship Task 3 and then the feature.**
+Suite at session end: 158 files, 3,287 passed, 17 skipped. Lint and the type check pass.
 
-**Modified files (grouped):**
-- *This feature — commit together:* `.claude/skills/generate-resume/SKILL.md` (portfolio path `home-site` → `mablahblah_com`, ×3), `docs/features/export-parsable-pdf-resume/integration-contract.md` (Node 22, `npm install` prereq, auto-build note, `src/data/resume.json` ×3), plus June-24 closeout edits to `feature_spec.md` / `decision-log.md` / `CURRENT-FEATURE.md` / `BACKLOG.md`, the untracked `task_generate-resume-skill/` docs, and the `docs/ideas/fetch-page-paste-fallback/` idea.
-- *Unrelated — do NOT sweep into feature commits:* `docs/research/*`, `prisma/schema.prisma` + `prisma/migrations/20260628000000_work_search_entry_restrict_delete/`, `scripts/backfill-work-log.ts`, `.claude/skills/serve/SKILL.md`, `docs/search-issues.md`.
+**Uncommitted, and not from this session.** `docs/BACKLOG.md` and `docs/features/collector-parser-expansion/feature_r&d.md` are modified, and `docs/features/unjudged-jobs-in-backlog/` is untracked. These came from another session. The user was asked and said they are fine, so they were left alone.
+
+Also untracked at the repo root: `pipeline.db.2026-09-18T04-04-11.backup`, written automatically by `db:migrate` before the baseline was adopted.
 
 ## Completed This Session
 
-- Smoke-tested `generate-pdf.js` against the rebuilt React portfolio: `--inventory` returns valid JSON; `--selections`/`--output` produced a real 32 KB `%PDF-`. Contract confirmed intact.
-- Refreshed `integration-contract.md`: Node v18+ → v22, added `npm install` prerequisite, added the one-command auto-build/serve behavior, and `data/resume.json` → `src/data/resume.json` (3 spots).
-- Added two `2026-07-17` entries to the feature decision log (React target + contract-unchanged; Task 3 framing).
+Four commits, then the phase close.
 
-## Decisions & Context
+1. **The resume skill re-homed.** `scripts/fetch-rendered-page.ts` is a new command wrapping the rendered-page fetcher. The skill looks jobs up with `npm run find-jobs -- --company X --json`, fetches `resolved_url` when present and `original_url` otherwise, reports a failed fetch as a tool failure, and closes the dead-posting branch with a message and no status write.
+2. **The run identifier prints and travels.** `npm run job-search` prints `Run: {id}` first. Both skills carry it. `score:gather` warns when handed an identifier matching no trace rows, and never warns on one it minted.
+3. **The old folder deleted.** `legacy/` and the `cli` npm entry are gone. The add-external-jobs skill carries a note naming the switch over as its break.
+4. **The switch over ran, checked by eye.** 54 employers, 59 active jobs, 70 work log entries crossed. The migration verified every count against the old database itself.
 
-- **Portfolio is now a React SPA at `~/Documents/Projects/code/mablahblah_com`.** The `generate-pdf.js` contract is unchanged (flags, selections format, `ERROR:` semantics). New env requirements: Node 22, `npm install` in the portfolio, the script auto-builds/serves itself, inventory at `src/data/resume.json`. You never start a dev/preview server.
-- **Task 2 was built and worked pre-rebuild, then the migration broke its environment.** Rather than ship a broken Task 2, the reconnection is tracked as **Task 3 (Reconnect Resume Generation to React Portfolio)** — env/doc only, no code. Task 3's ship is the real deliverable; Task 2 is not shipped independently.
-- **Workflow mechanics:** a task "Ship" is a marker commit *on the feature branch* (e.g. `f90c8b2 Ship: Job Lookup CLI Commands`), NOT a merge to main. Only the **feature** ship merges to main via PR (`Close feature:` convention). Nothing broken can reach main before the feature ship.
-- **Open question:** whether to check Task 2 off as *built-but-superseded* (recommended — honestly records build → external change → adapt) or leave it unchecked. User's call, still unresolved.
-- **`feature_spec.md` Architectural Blueprint is stale** — still says portfolio path `home-site` and `data/resume.json`. Needs updating as part of the Task 3 ship (not yet done).
+Then the first real job search on the new pipeline, and the phase close: architecture doc, `CLAUDE.md`, and `CURRENT-FEATURE.md` corrected.
+
+## Session Context
+
+- **The decisions the user made are in the feature decision log.** One entry was drafted this session and the user rejected it. Do not re-propose it.
+- **The runbook's "rebuild once" step could not run.** `db:create` refuses the file `PIPELINE_DATABASE_URL` names, which is exactly what task 1 built. The target was already empty, so the switch over ran `db:migrate` to adopt the `0_init` baseline, then seed, then migrate. `db:migrate` wrote a dated backup first.
+- **The fetch command was an extra file beyond the spec's 15 tasks.** The spec assumed the skill would reach the fetcher somehow but never said how.
+- **Skill-file criteria are proven by reading the file**, per the spec. Two new test files do it: `scripts/generate-resume-skill.test.ts` and `scripts/run-identifier-skills.test.ts`.
+- **Deleting `legacy/` needed two steps.** `git rm -r` left untracked leftovers behind, including two zero-byte `dev.db` files. Both were confirmed empty before `rm -rf`. The live `dev.db` at the repo root, 2.1 MB, was never touched.
+- **Eleven work log entries name jobs that did not migrate.** Those jobs were rejected, so they stayed behind. All eleven carry their own employer name and job title, so the Texas filing still fills. This is the design, not a fault.
+- **Figma's migrated address reads "test".** This is the known placeholder the spec predicted.
+- **Two false alarms on the resume PDF, both from this session's own checking.** Listing the resumes folder with `tail -5` hid the new file, which sorts earlier alphabetically. A crude text extraction reported the PDF empty because it embeds partial fonts. Read the PDF properly instead.
+- **`cd` into the portfolio project resets the shell working directory afterwards.** Use absolute paths.
+
+## What the First Live Run Exposed
+
+Run `644ac69f-e797-4a27-94e3-e41a76fe49fc`, 2026-09-18. It finished cleanly and exited zero.
+
+- **238 collected, 138 resolved, 60 parsed.** 53 duplicates dropped.
+- **82 jobs could not be parsed** because no reader exists for their site: Workday 18, Workable 17, Adzuna 9, Experteer 6, SmartRecruiters 5. These leave the backlog as `unparseable` and never reach scoring.
+- **23 backlog jobs stayed unresolved.** 22 pages refused the browser and 1 would not load. Both reasons are treated as retryable, so those jobs keep their backlog status for the next run. Mostly JSearch and Adzuna links.
+- **18 jobs scored, 32 employers researched.** Eleven employers fully, 21 partly guessed where nothing public existed.
+- **Four employers earned direct polling**, which cleared the cold-start warnings on its own.
+
+No new backlog item came out of this. The parser gap is **Remaining ATS Parsers** and **Collector & Parser Expansion**; the refused pages are **Unjudged Jobs Show in the Backlog** and **Resolver Refinements**.
 
 ## Next Steps
 
-_Do these only if the job applications went smoothly (skill works end-to-end)._
-
-1. **Add Task 3 to `feature_spec.md`:** "Reconnect Resume Generation to React Portfolio — env/doc only; update SKILL.md path, integration-contract.md, and the Architectural Blueprint." Check off Task 2 per the open-question decision.
-2. **Update the `feature_spec.md` Architectural Blueprint:** portfolio path → `mablahblah_com`, `data/resume.json` → `src/data/resume.json`, note Node 22 + auto-build.
-3. **Check off the feature's Acceptance Criteria** now satisfied by the successful end-to-end run.
-4. **Stage ONLY this feature's files** (see grouping above) — keep the unrelated changes out. Commit the Task 3 work.
-5. **Ship Task 3** — marker commit on the feature branch (`Ship: Reconnect Resume Generation to React Portfolio`).
-6. **Ship the feature** — run the `merge` skill to audit/QA/test, open the PR, merge to main, and verify a clean tree. Handle the unrelated uncommitted changes separately (their own commits) so the tree is clean before the merge.
+1. **Ship the feature.** Run `/ship-feature`. It is the only unchecked box in `docs/CURRENT-FEATURE.md`.
+2. **Expect a backlog cleanup during ship.** The feature spec requires every item the shipped pipeline made redundant to be proposed for removal, with the user approving the list before anything is deleted.
+3. **Decide what happens to the other session's uncommitted doc changes** before shipping, so the branch is clean when it merges.
+4. **Leave `dev.db` alone.** Backlog item 34 covers deleting it once the migration has proved itself over time.

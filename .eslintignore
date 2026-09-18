@@ -1,0 +1,4 @@
+node_modules
+generated
+# Research spikes, not app code
+docs

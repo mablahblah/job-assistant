@@ -1,54 +1,76 @@
-// Fetches job listings from a company's Greenhouse job board API and returns them as CollectedJob objects.
+// Polls Greenhouse's public boards API for postings whose title matches the
+// user's search terms.
 import {
-  fetchWithTimeout,
-  safeJson,
-  httpError,
-  matchesQuery,
-} from "../scrapers/fetch-utils";
-import { mapGreenhouseFields, type GreenhouseApiJob } from "../parsers/greenhouse";
-import type { CollectedJob } from "./types";
+  jobFieldsFromGreenhousePosting,
+  type GreenhouseJobsResponse,
+  type GreenhousePosting,
+} from "../utils/greenhouse-fields";
+import type { JobListEntry } from "../types/job-list-entry";
+import { matchesSearchTerms } from "../utils/search-term-analyzer";
+import { readAtsBoards } from "./ats-boards";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import type { Collector, CollectorResult } from "./collector";
 
-// Top-level shape of the Greenhouse API response.
-interface GreenhouseResponse {
-  jobs: GreenhouseApiJob[];
+// The collector's own name, which is what a slug row carries when its board
+// is on this collector's polling list.
+const COLLECTOR = "greenhouse";
+
+const jobsUrl = (slug: string) =>
+  `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true&pay_transparency=true`;
+
+// The link and the phase gates are the collector's own: a Greenhouse listing
+// is already the source posting, so it needs no resolving. Its description
+// still has to be read, which is a parser's job. Everything else comes from
+// the shared mapper, so the collector and the parser cannot disagree about
+// what a posting's fields mean.
+function toJobListEntry(posting: GreenhousePosting, slug: string): JobListEntry {
+  const url = `https://boards.greenhouse.io/${slug}/jobs/${posting.id}`;
+  return {
+    original_url: url,
+    resolved_url: url,
+    ...jobFieldsFromGreenhousePosting(posting, slug),
+    is_resolved: true,
+    is_parsed: false,
+    is_classified: false,
+  };
 }
 
-// Fetches all jobs from a company's Greenhouse board, filters by query keywords, and returns CollectedJob[].
-export async function collectGreenhouseCompany(
-  slug: string,
-  queries: string[]
-): Promise<CollectedJob[]> {
-  const url = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true&pay_transparency=true`;
-  const res = await fetchWithTimeout(url);
+export const greenhouseCollector: Collector = {
+  name: "greenhouse",
 
-  if (!res.ok) {
-    if (res.status === 404) throw new Error(`${slug} — board not found`);
-    throw httpError(`Greenhouse/${slug}`, res.status);
-  }
+  async collect({ settings, atsSlugs, limit }): Promise<CollectorResult> {
+    const { boards, warnings } = await readAtsBoards(atsSlugs, COLLECTOR);
+    if (boards.length === 0) {
+      return { jobs: [], errors: [], warnings };
+    }
 
-  const data = await safeJson<GreenhouseResponse>(res, `Greenhouse/${slug}`);
-  if (!data.jobs) return [];
+    const searchTerms = await settings.getSearchTerms();
+    const jobs: JobListEntry[] = [];
 
-  // Only keep jobs whose titles match at least one query keyword.
-  const matchingJobs = data.jobs.filter((job) => matchesQuery(job.title, queries));
+    for (const board of boards) {
+      if (jobs.length >= limit) break;
 
-  return matchingJobs.map((job) => {
-    const mapped = mapGreenhouseFields(job);
-    return {
-      url: `https://boards.greenhouse.io/${slug}/jobs/${job.id}`,
-      source: "greenhouse-api",
-      externalId: String(job.id),
-      title: mapped.title,
-      // Capitalize slug as fallback — parser will resolve the real name later
-      companyName: slug.charAt(0).toUpperCase() + slug.slice(1),
-      location: mapped.location,
-      workMode: mapped.workMode,
-      dates: [
-        ...(job.first_published ? [new Date(job.first_published)] : []),
-        new Date(job.updated_at),
-      ],
-      salaryRange: mapped.salaryRange,
-      description: job.content || "",
-    };
-  });
-}
+      const res = await fetchWithTimeout(jobsUrl(board.ats_slug));
+      if (!res.ok) {
+        // A dead board is a degraded run, not a failed collector, so the
+        // remaining boards still get their turn.
+        warnings.push(httpError(`greenhouse board "${board.ats_slug}"`, res.status).message);
+        continue;
+      }
+
+      const body = await safeJson<GreenhouseJobsResponse>(
+        res,
+        `greenhouse board "${board.ats_slug}"`
+      );
+      // The board endpoint accepts no query, so the terms are applied here.
+      const matched = body.jobs.filter((posting) => matchesSearchTerms(posting.title, searchTerms));
+
+      for (const posting of matched) {
+        if (jobs.length >= limit) break;
+        jobs.push(toJobListEntry(posting, board.ats_slug));
+      }
+    }
+
+    return { jobs, errors: [], warnings };
+  },
+};

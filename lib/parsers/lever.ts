@@ -1,57 +1,22 @@
-// Lever parser — pure API-based. Company name resolved via HTTP fetch of page title.
-// Shared field mapper is used by both this parser and the Lever collector.
+// The Lever job-posting parser. Lever publishes a public JSON API for each
+// posting, so this reads that API directly rather than a rendered page — no
+// browser is opened, unlike the page-reading parsers. The one exception is
+// the employer's name: Lever's posting API never carries it, so this parser
+// makes one extra request for the board page and reads the name off its
+// <title>.
+import { employerNameFromBoardPage } from "../tools/board-employer-name";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import { jobFieldsFromLeverPosting, type LeverPosting } from "../utils/lever-fields";
+import { BROWSER_USER_AGENT } from "../tools/page-fetcher";
+import type { Parser } from "./parser";
 
-import type { Browser } from "playwright";
-import type { ParsedFields, ParserResult } from "./types";
-import { TRACKED_FIELDS } from "./types";
-import { detectWorkModeFromData, detectWorkModeFromText, parseSalaryFromText, fetchWithTimeout, safeJson } from "../scrapers/fetch-utils";
-import { resolveCompanyName } from "./company-cache";
+const postingUrl = (slug: string, postingId: string) =>
+  `https://api.lever.co/v0/postings/${slug}/${postingId}`;
 
-// Shape of a Lever posting from the API (subset of fields we use)
-export interface LeverApiPosting {
-  id: string;
-  text: string;
-  categories: { location?: string; team?: string; commitment?: string };
-  createdAt: number; // epoch ms
-  workplaceType?: string;
-  descriptionPlain?: string;
-  description?: string;
-  additional?: string;
-}
+const boardUrl = (slug: string) => `https://jobs.lever.co/${slug}`;
 
-// Shared field mapper — converts a Lever API posting into our normalized fields.
-// Used by both the parser and the collector.
-export function mapLeverFields(posting: LeverApiPosting): {
-  title: string;
-  location: string;
-  workMode: string;
-  dates: string[];
-  salaryRange: string;
-} {
-  const title = posting.text;
-  const location = posting.categories?.location || "";
-
-  // Work mode: structured workplaceType first, then text detection fallback
-  const workMode =
-    detectWorkModeFromData({ workplaceType: posting.workplaceType }) ||
-    detectWorkModeFromText(posting.descriptionPlain || posting.description || "");
-
-  // Dates: createdAt epoch ms converted to ISO date string (UTC)
-  const dates: string[] = [];
-  if (posting.createdAt) dates.push(new Date(posting.createdAt).toISOString().slice(0, 10));
-
-  // Salary: scan description text (Lever API has no structured salary field)
-  const salaryRange = parseSalaryFromText(
-    posting.descriptionPlain || posting.description || posting.additional || "",
-  );
-
-  return { title, location, workMode, dates, salaryRange };
-}
-
-// Extract slug and posting ID from a Lever URL: jobs.lever.co/{slug}/{id}
-export function extractLeverSlugAndId(
-  url: string,
-): { slug: string; postingId: string } | null {
+export function extractLeverSlugAndId(url: string): { slug: string; postingId: string } | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -59,81 +24,47 @@ export function extractLeverSlugAndId(
     return null;
   }
 
-  if (parsed.hostname !== "jobs.lever.co") return null;
-
-  // Split and filter removes empty strings (handles trailing slash)
-  const parts = parsed.pathname.split("/").filter(Boolean);
-  if (parts.length >= 2) {
-    return { slug: parts[0], postingId: parts[1] };
-  }
-  return null;
-}
-
-// Fetch company name from the Lever board page's <title> tag (no Playwright needed).
-// The Lever API doesn't include company name, but the HTML title is just the company name.
-async function fetchLeverCompanyName(slug: string): Promise<string | null> {
-  try {
-    const res = await fetchWithTimeout(`https://jobs.lever.co/${slug}`);
-    if (!res.ok) return null;
-    const html = await res.text();
-    const match = html.match(/<title>([^<]+)<\/title>/i);
-    return match ? match[1].trim() : null;
-  } catch {
+  // No host check here — a separate registry has already established the
+  // link's owned domain is lever.co before this is ever called.
+  const segments = parsed.pathname.split("/").filter((segment) => segment.length > 0);
+  if (segments.length < 2) {
     return null;
   }
+
+  return { slug: segments[0], postingId: segments[1] };
 }
 
-// Parser entry point — extracts slug/ID from URL, fetches via API, maps fields.
-// Uses Playwright only for first-time company name resolution.
-export async function parseLeverJob(
-  url: string,
-  browser: Browser,
-): Promise<ParserResult> {
-  try {
-    const extracted = extractLeverSlugAndId(url);
-    if (!extracted) {
-      return {
-        success: false, url, finalUrl: url, parser: "lever",
-        fields: {}, failedFields: [...TRACKED_FIELDS],
-        error: "Could not extract slug/postingId from URL",
-      };
+export const leverParser: Parser = {
+  name: "lever",
+
+  async parse({ url }) {
+    const identifiers = extractLeverSlugAndId(url);
+    if (!identifiers) {
+      // A link this parser cannot read is a parse error, not an empty read.
+      throw new Error(`lever: could not read a board slug and posting id from ${url}`);
     }
+    const { slug, postingId } = identifiers;
+    const label = `lever (${slug}/${postingId})`;
 
-    const { slug, postingId } = extracted;
-
-    // Fetch posting data from Lever public API
-    const apiUrl = `https://api.lever.co/v0/postings/${slug}/${postingId}`;
-    const res = await fetchWithTimeout(apiUrl);
+    const res = await fetchWithTimeout(postingUrl(slug, postingId), {
+      headers: { "user-agent": BROWSER_USER_AGENT },
+    });
     if (!res.ok) {
-      return {
-        success: false, url, finalUrl: url, parser: "lever",
-        fields: {}, failedFields: [...TRACKED_FIELDS],
-        error: `Lever API returned ${res.status}`,
-      };
+      throw httpError(label, res.status);
     }
 
-    const posting = await safeJson<LeverApiPosting>(res, `Lever/${slug}/${postingId}`);
-    const mapped = mapLeverFields(posting);
+    const posting = await safeJson<LeverPosting>(res, label);
+    const fields = jobFieldsFromLeverPosting(posting, slug);
 
-    // Resolve company name via DB cache → HTTP fetch fallback
-    const companyName = await resolveCompanyName(
-      "lever", slug, fetchLeverCompanyName,
-    );
+    // Lever's API never carries the employer's name, so it is read off the
+    // board page's title instead. This is deliberately never cached — search
+    // terms narrow each board down to a handful of jobs, so the repeated
+    // fetch is small, and caching costs nothing to add later if that changes.
+    const name = await employerNameFromBoardPage(boardUrl(slug));
+    if (name) {
+      fields.raw_company_name = name;
+    }
 
-    const fields: Partial<ParsedFields> = { ...mapped };
-    if (companyName) fields.companyName = companyName;
-
-    const failedFields = TRACKED_FIELDS.filter((f) => !fields[f]);
-
-    return {
-      success: true, url, finalUrl: url, parser: "lever",
-      fields, failedFields,
-    };
-  } catch (err) {
-    return {
-      success: false, url, finalUrl: url, parser: "lever",
-      fields: {}, failedFields: [...TRACKED_FIELDS],
-      error: err instanceof Error ? err.message : "Unknown error",
-    };
-  }
-}
+    return withFieldsFromDescription(fields, posting.descriptionPlain || posting.description);
+  },
+};

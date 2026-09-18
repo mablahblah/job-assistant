@@ -7,88 +7,107 @@ A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, t
 - **Runtime:** TypeScript via tsx (no build step), Node.js
 - **Database:** SQLite via Prisma ORM (libsql adapter)
 - **Browser Automation:** Playwright (collector scrapers)
+- **HTML Reading:** linkedom — turns an HTML string into a queryable document in plain Node, so page-reading code runs without a browser and is testable offline
 - **Dashboard:** Server-rendered HTML, vanilla CSS/JS
 - **Testing:** Vitest
 - **Linting:** ESLint with @typescript-eslint
 - **Workflows:** Claude Code skills orchestrating CLI subcommands
 
+## Branch: unified pipeline rebuild
+
+**The old pipeline is gone.** `legacy/` was deleted at the switch over, with everything worth keeping copied out beforehand rather than imported.
+
+Real job searches now run on this branch, against `pipeline.db`. Both database files are untracked and survive branch switches. `dev.db` at the repo root is the old one, kept as the migration's source and read by nothing.
+
 ## Commands
 
 ```bash
-npx tsx scripts/cli.ts backlog        # Shows ranked backlog jobs, auto-expires posts older than 8 days
-npx tsx scripts/cli.ts active         # Shows jobs currently in the application pipeline
-npx tsx scripts/cli.ts log            # Shows TWC work search activity log
-npx tsx scripts/cli.ts enrich-log     # Fills in missing company address/phone/website on log entries
-npx tsx scripts/cli.ts status         # Batch update job statuses via JSON on stdin
-npx tsx scripts/cli.ts score          # Save company scores for a single company
-npx tsx scripts/cli.ts alignment      # Batch update job alignment scores via JSON on stdin
-npx tsx scripts/cli.ts flag-mismatch  # Batch flag work-mode mismatches via JSON on stdin
-npx tsx scripts/cli.ts unscored       # Lists companies that haven't been scored yet
-npx tsx scripts/cli.ts new-jobs       # Lists jobs collected in the most recent run
-npx tsx scripts/cli.ts expire         # Marks backlog jobs older than 8 days as expired
-npx tsx scripts/cli.ts geocode-class  # Manage geocoding class allow/block rules
-npx tsx scripts/cli.ts classify-held-back <file>  # Re-classify and save held-back jobs after updating geo class rules
-npx tsx scripts/cli.ts find-job <company> [role]  # Look up jobs by fuzzy company name and optional role
-npx tsx scripts/cli.ts fetch-page <url>           # Fetch fully-rendered HTML from a URL via headless Chromium
-npx tsx scripts/serve.ts              # Starts local dashboard (default port 3000, override with PORT)
-npm run lint                          # Run ESLint across the project
-npm run test                          # Run all Vitest tests
+npm run job-search                        # Run the whole pipeline; prints its run identifier first
+npm run score:gather -- --out FILE        # Write out every job and company still needing a score
+npm run score:save -- --in FILE           # Write the scores an agent worked out back to the database
+npm run find-jobs -- --company X --json   # Find a job by part of its employer's name
+npm run change-status -- --in FILE        # Set a job's status by hand; files a work log entry where Texas counts it
+npm run fetch-rendered-page -- --url URL  # Print a page's finished HTML, after its scripts have run
+npm run serve                             # Start the dashboard from scripts/serve.ts
+npm run db:migrate  # Change the schema, keeping every row; writes a dated backup first
+npm run db:create FILE   # Rebuild a named database from the schema; refuses the real one
+npm run db:seed     # Fill absent settings and the source priority list, overwriting nothing
+npm run lint        # ESLint, then the type check — docs/ is ignored
+npm run test        # Vitest — docs/ is excluded
 ```
+
+**`db:migrate` is the only way to change the schema.** `db:create` deletes its target and rebuilds it, so it takes an explicit file argument and refuses the database `PIPELINE_DATABASE_URL` names in `.env`.
+
+**After editing `prisma/schema.prisma`, run `npx prisma generate`.** Neither database command regenerates the client, so it otherwise goes on describing the old schema. A fresh clone is covered by `postinstall`, which generates on install.
 
 ## Architecture
 
-```
-lib/
-├── collectors/       # Job collection from external sources (API + Playwright)
-├── geocoding/        # Geo-based location classification (geocode, cache, prefilter, classify)
-├── parsers/          # ATS-specific job page parsers (Greenhouse, Lever, Ashby, etc.)
-├── scrapers/         # Legacy scrapers (replaced by collectors + parsers)
-├── shared-utils/     # Pure utility functions shared across lib/ modules
-├── web/              # Dashboard HTML rendering and helpers
-├── pipeline.ts       # Collect → dedupe → resolve → route → parse → dedupe → geo-classify → save
-├── pipeline-save.ts  # Save parsed pipeline results to DB
-├── dedupe.ts         # Three-stage deduplication with parser priority
-├── scoring.ts        # Company + job composite scoring
-├── url-resolver.ts   # Follow redirects to resolve final job URLs
-├── blacklist.ts      # Company blacklist filtering
-├── batch-update.ts   # Batch status, alignment, and flag-mismatch updates
-├── location.ts       # Location parsing and normalization
-├── company-enrichment.ts  # Enrich companies with address/phone/website
-├── work-search-log.ts     # TWC work search activity log entries
-├── find-job.ts       # Fuzzy job lookup by company/role
-├── fetch-page.ts     # Rendered HTML retrieval via headless Chromium
-└── prisma.ts         # Prisma client singleton
-scripts/
-├── cli.ts            # CLI subcommands for DB operations
-├── serve.ts          # Local dashboard web server
-├── pipeline.ts       # Dry-run pipeline for parser development
-├── resolve-urls.ts   # Bulk URL resolution diagnostic
-├── validate-adzuna.ts # Adzuna collector diagnostic
-└── seed-repost-dates.ts  # Seed repostedAt for RP pill visual testing
-prisma/               # Schema, migrations, seed data
-public/               # Dashboard static assets (CSS, JS)
-docs/                 # Human-facing documentation, not read during normal tasks
-docs/CURRENT-FEATURE.md  # Current feature we are actively working on
-docs/BACKLOG.md          # Future work we have not started yet
-```
+One pipeline whose only differentiated code is collectors and parsers. Every deterministic step, from backlog cleanup through classification, is built and runs end to end from `npm run job-search`. Scoring is built too, and the `job-search` skill runs it straight after the pipeline, through two commands of its own — an agent does the judging, and no single command can pause while it thinks. The work log is built as well, but no job search reaches it: it runs when the user changes a job's status by hand, through `npm run change-status`. Every step ends in a database write, so no step depends on another holding a list in memory.
+
+**[`architecture.md`](docs/architecture.md) describes the system as built — read it before changing code.**
+
+Every file in `lib/` sits in a folder named for the kind of thing it is, and `lib/` holds no file of its own. The map is in [`.claude/rules/naming.md`](.claude/rules/naming.md).
+
+| Folder               | Holds                                                          |
+| -------------------- | -------------------------------------------------------------- |
+| `lib/collectors/`    | The code that pulls a raw job list from one source              |
+| `lib/db/`            | The database connection, its environment, and the schema check  |
+| `lib/handlers/`      | The code that runs at one pipeline position                     |
+| `lib/orchestrators/` | The runner that calls every handler in order                    |
+| `lib/parsers/`       | The code that reads one source's job posting                    |
+| `lib/resolvers/`     | The code that follows a job link toward its source posting      |
+| `lib/services/`      | The code that owns one table or one row                         |
+| `lib/tools/`         | Wrappers around something outside the app, and their interfaces |
+| `lib/types/`         | Shapes shared across folders, holding no logic                  |
+| `lib/utils/`         | Plain functions taking values and returning values              |
+| `lib/views/`         | The code that turns data into a screen                          |
+
+Planning lives in [`docs/features/_complete/unified-pipeline/`](docs/features/_complete/unified-pipeline/):
+
+| File                 | What it is                                                        |
+| -------------------- | ----------------------------------------------------------------- |
+| `decision-log.md`    | Signed-off decisions                                              |
+| `feature_spec.md`    | What is being built, the phases, the working flow                 |
+| `phases/`            | An r&d file per phase, and a spec once the phase is planned       |
+| `feature_r&d.md`     | Brain dump, measured database facts, title-normalization research |
+| `db-entries.md`      | Field-by-field shape of the current Job and Company records       |
+
+Path-scoped rules describing the old architecture were deleted with it. The rules that govern this pipeline sit in `.claude/rules/`:
+
+| Rule                  | Answers                                                              |
+| --------------------- | -------------------------------------------------------------------- |
+| `part-ownership.md`   | Where new behaviour goes, and what each kind of part may never do     |
+| `naming.md`           | What a file of that kind is called, and what shape it takes           |
+| `handler-contract.md` | What the code that runs at one pipeline position must look like       |
+| `source-registry.md`  | What has to happen when a collector or parser is added or renamed     |
+| `run-summary.md`      | What a command prints when it finishes                                |
 
 ## Terminology
 
-- **Collector:** Tool that pulls raw job list from Aggregators and ATS Systems
+- **Collector:** Pulls raw job list from Aggregators and ATS Systems
 - **Dedupe:** Three-stage system that removes duplicate jobs at different pipeline points (by URL ×2, then by content with parser priority)
 - **Resolver/Resolution:** Following job posting links and redirects, especially from aggregators, in an attempt to find the source posting with the most accurate information.
 - **Parser:** Tool that takes the best job posting url and extracts key information.
+- **Service:** A reusable piece built from the database connection. It is handed that connection and hands back a small object holding a few functions, owning one table or one row — `createSettingsService(db)`, `createTraceService(db)`. Never called a store, a repository, or a DAO, whatever the function it returns is named.
+- **Util:** A plain function taking values and returning values, reaching no database — `companyMatchKey(name)`, `normalizeCompanyName(raw)`.
 - **User:** Me, the person who built this app.
 - **Web View**: A simple, semi-static web representation of our data
 
+## Working Agreements
+
+**Build broadly, not for the case in front of you.** A rule that exists only to make one observed example come out right is a defect. Break it into a general step that already exists.
+
+**No guardrail for a failure nobody has seen.** A measured occurrence is what justifies building against it. Until then the risk is written down, not coded around.
+
+**An exception is a closed list, never a judgement.** Where a rule allows an exception, it names the exact files or cases. An exception left to be judged is one that gets taken every time.
+
+**Knowledge about a job site is data, never code.** A rule may read a list of websites. A rule may not contain one. Source-specific judgement lives in collectors and parsers and nowhere else.
+
 <!-- code-review-graph MCP tools -->
+
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore the codebase.** The graph is faster, cheaper (fewer tokens), and gives you structural context (callers, dependents, test coverage) that file scanning cannot.
 
 ### When to use graph tools FIRST
 
@@ -102,13 +121,13 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
 ### Key Tools
 
-| Tool | Use when |
-|------|----------|
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
+| Tool                        | Use when                                               |
+| --------------------------- | ------------------------------------------------------ |
+| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
+| `get_review_context`        | Need source snippets for review — token-efficient      |
+| `get_impact_radius`         | Understanding blast radius of a change                 |
+| `get_affected_flows`        | Finding which execution paths are impacted             |
+| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
+| `get_architecture_overview` | Understanding high-level codebase structure            |
+| `refactor_tool`             | Planning renames, finding dead code                    |

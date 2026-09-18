@@ -1,133 +1,246 @@
-import { describe, it, expect } from "vitest";
-import { parseAshbyHtml } from "./ashby";
-import type { AshbyAppData } from "./ashby";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { ashbyParser, extractAshbySlug } from "./ashby";
 
-const emptyHtml = "<html><body></body></html>";
+const realFetch = globalThis.fetch;
 
-describe("parseAshbyHtml", () => {
-  // -- Title --
+afterEach(() => {
+  globalThis.fetch = realFetch;
+  vi.restoreAllMocks();
+});
 
-  it("prefers title from appData", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">{"@type": "JobPosting", "title": "JSON-LD Title"}</script>
-    </head></html>`;
-    const appData: AshbyAppData = { title: "AppData Title" };
-    expect(parseAshbyHtml(html, appData).title).toBe("AppData Title");
+const JOB_URL = "https://jobs.ashbyhq.com/hinge-health/abc-123";
+const API_URL = "https://api.ashbyhq.com/posting-api/job-board/hinge-health?includeCompensation=true";
+const BOARD_URL = "https://jobs.ashbyhq.com/hinge-health";
+
+const POSTING = {
+  title: "Senior Product Designer",
+  isListed: true,
+  jobUrl: JOB_URL,
+  publishedAt: "2026-08-01T09:00:00Z",
+  location: "Remote - US",
+  secondaryLocations: [],
+  workplaceType: "Remote",
+  descriptionPlain: "Design things.",
+  descriptionHtml: "<p>Design things.</p>",
+  compensation: {
+    summaryComponents: [
+      {
+        compensationType: "Salary",
+        interval: "1 YEAR",
+        currencyCode: "USD",
+        minValue: 140000,
+        maxValue: 180000,
+      },
+    ],
+  },
+};
+
+const OTHER_POSTING = {
+  ...POSTING,
+  title: "Staff Engineer",
+  jobUrl: "https://jobs.ashbyhq.com/hinge-health/zzz-999",
+};
+
+// Answers per-url from a small map the test builds, recording every call.
+function stubFetch(routes: Record<string, () => Response>): string[] {
+  const calls: string[] = [];
+  globalThis.fetch = (async (input: unknown) => {
+    const url = String(input);
+    calls.push(url);
+    const respond = routes[url];
+    if (respond === undefined) {
+      throw new Error(`no fetch stub set up for ${url}`);
+    }
+    return respond();
+  }) as unknown as typeof globalThis.fetch;
+  return calls;
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status });
+}
+
+function boardPage(title: string, status = 200): Response {
+  return new Response(`<html><head><title>${title}</title></head><body></body></html>`, {
+    status,
+  });
+}
+
+function defaultRoutes(jobs: unknown[] = [OTHER_POSTING, POSTING]): Record<string, () => Response> {
+  return {
+    [API_URL]: () => jsonResponse({ jobs, apiVersion: "1" }),
+    [BOARD_URL]: () => boardPage("Hinge Health Jobs"),
+  };
+}
+
+describe("extractAshbySlug: the board slug is read off the link", () => {
+  test("the first path segment is the board", () => {
+    expect(extractAshbySlug(JOB_URL)).toBe("hinge-health");
   });
 
-  it("falls back to JSON-LD title when no appData", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">{"@type": "JobPosting", "title": "Senior Product Designer"}</script>
-    </head></html>`;
-    expect(parseAshbyHtml(html).title).toBe("Senior Product Designer");
+  test("a link naming no board gives nothing", () => {
+    expect(extractAshbySlug("https://jobs.ashbyhq.com/")).toBeNull();
   });
 
-  it("falls back to h1 when no appData or JSON-LD title", () => {
-    expect(parseAshbyHtml("<html><body><h1>Staff Designer</h1></body></html>").title).toBe("Staff Designer");
+  test("a string that is not a link gives nothing rather than throwing", () => {
+    expect(extractAshbySlug("not-a-url")).toBeNull();
+  });
+});
+
+describe("ashbyParser: the posting is found in the board answer", () => {
+  test("AC 16: the posting is matched on its link key, not on exact text", async () => {
+    // The stored link carries a query string the board's own link does not.
+    stubFetch(defaultRoutes());
+
+    const fields = await ashbyParser.parse({ url: `${JOB_URL}?utm_source=jobboard` });
+
+    expect(fields.raw_title).toBe("Senior Product Designer");
   });
 
-  // -- Company --
+  test("the right posting is picked out of a board holding several", async () => {
+    stubFetch(defaultRoutes());
 
-  it("extracts company from JSON-LD (not in appData)", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">{"@type": "JobPosting", "hiringOrganization": {"name": "Notion"}}</script>
-    </head></html>`;
-    expect(parseAshbyHtml(html).companyName).toBe("Notion");
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_title).toBe("Senior Product Designer");
   });
 
-  // -- Work mode --
+  test("a posting no longer on the board gives no fields at all", async () => {
+    stubFetch(defaultRoutes([OTHER_POSTING]));
 
-  it("uses appData workplaceType for work mode", () => {
-    expect(parseAshbyHtml(emptyHtml, { workplaceType: "Hybrid" }).workMode).toBe("hybrid");
-    expect(parseAshbyHtml(emptyHtml, { workplaceType: "Remote" }).workMode).toBe("remote");
-    expect(parseAshbyHtml(emptyHtml, { workplaceType: "On-Site" }).workMode).toBe("in-person");
+    await expect(ashbyParser.parse({ url: JOB_URL })).resolves.toEqual({});
   });
 
-  it("defaults to in-person when workplaceType is null but location exists", () => {
-    expect(parseAshbyHtml(emptyHtml, { locationName: "London" }).workMode).toBe("in-person");
+  test("AC 9: every request says it is a browser", async () => {
+    const seen: (Record<string, string> | undefined)[] = [];
+    globalThis.fetch = (async (input: unknown, options: unknown) => {
+      seen.push((options as { headers?: Record<string, string> })?.headers);
+      return defaultRoutes()[String(input)]();
+    }) as unknown as typeof globalThis.fetch;
+
+    await ashbyParser.parse({ url: JOB_URL });
+
+    expect(seen).toHaveLength(2);
+    for (const headers of seen) {
+      expect(headers?.["user-agent"]).toMatch(/Mozilla/);
+    }
   });
 
-  it("does not set work mode when no appData at all", () => {
-    expect(parseAshbyHtml(emptyHtml).workMode).toBeUndefined();
+  test("the posting's own fields come back", async () => {
+    stubFetch(defaultRoutes());
+
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_company_slug).toBe("hinge-health");
+    expect(fields.raw_location_list).toEqual(["Remote - US"]);
+    expect(fields.raw_mode_list).toEqual(["Remote"]);
+    expect(fields.description).toBe("Design things.");
   });
 
-  // -- Location --
+  test("AC 11 and 12: no link and no phase gate come back", async () => {
+    stubFetch(defaultRoutes());
 
-  it("combines primary + secondary locations from appData", () => {
-    const appData: AshbyAppData = {
-      locationName: "Denver",
-      secondaryLocationNames: ["Toronto", "San Francisco"],
-    };
-    expect(parseAshbyHtml(emptyHtml, appData).location).toBe("Denver, Toronto, San Francisco");
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    for (const field of ["resolved_url", "original_url", "is_parsed"]) {
+      expect(field in fields).toBe(false);
+    }
+  });
+});
+
+describe("ashbyParser: the employer is named off the board page", () => {
+  test("AC 13: the board page title becomes the employer name", async () => {
+    stubFetch(defaultRoutes());
+
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_company_name).toBe("Hinge Health");
   });
 
-  it("uses only primary location when no secondary", () => {
-    const appData: AshbyAppData = { locationName: "Seattle HQ" };
-    expect(parseAshbyHtml(emptyHtml, appData).location).toBe("Seattle HQ");
+  test("AC 14: a board page answering with an error writes no employer name", async () => {
+    stubFetch({ ...defaultRoutes(), [BOARD_URL]: () => boardPage("Not Found", 404) });
+
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_company_name).toBeUndefined();
   });
 
-  it("falls back to JSON-LD location when no appData", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">
-        {"@type": "JobPosting", "jobLocation": {"address": {"addressLocality": "San Francisco", "addressRegion": "CA"}}}
-      </script>
-    </head></html>`;
-    expect(parseAshbyHtml(html).location).toBe("San Francisco, CA");
+  test("a board page that will not load costs the name, not the parse", async () => {
+    stubFetch({
+      ...defaultRoutes(),
+      [BOARD_URL]: () => {
+        throw new Error("network is down");
+      },
+    });
+
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_title).toBe("Senior Product Designer");
+    expect(fields.raw_company_name).toBeUndefined();
   });
 
-  it("deduplicates JSON-LD location when region equals country", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">
-        {"@type": "JobPosting", "jobLocation": {"address": {"addressLocality": "London", "addressRegion": "United Kingdom", "addressCountry": "United Kingdom"}}}
-      </script>
-    </head></html>`;
-    expect(parseAshbyHtml(html).location).toBe("London, United Kingdom");
+  test("a posting no longer on the board costs no request for a name", async () => {
+    const calls = stubFetch(defaultRoutes([OTHER_POSTING]));
+
+    await ashbyParser.parse({ url: JOB_URL });
+
+    expect(calls).not.toContain(BOARD_URL);
+  });
+});
+
+describe("ashbyParser: the description fills what the board did not publish", () => {
+  test("AC 19: a published pay range is not replaced by one in the description", async () => {
+    stubFetch(
+      defaultRoutes([{ ...POSTING, descriptionPlain: "Pays $10 - $12 per hour." }])
+    );
+
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_salary).toEqual({
+      salary_min: 140000,
+      salary_max: 180000,
+      salary_period: "1 YEAR",
+      salary_currency: "USD",
+    });
   });
 
-  // -- Posted date --
+  test("AC 20: a pay range stated only in the description is read out of it", async () => {
+    stubFetch(
+      defaultRoutes([
+        {
+          ...POSTING,
+          compensation: { summaryComponents: [] },
+          descriptionPlain: "The range is $120,000 - $150,000 per year.",
+        },
+      ])
+    );
 
-  it("prefers publishedDate from appData", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">{"@type": "JobPosting", "datePosted": "2026-04-10"}</script>
-    </head></html>`;
-    const appData: AshbyAppData = { publishedDate: "2026-04-15" };
-    expect(parseAshbyHtml(html, appData).dates).toContain("2026-04-15");
+    const fields = await ashbyParser.parse({ url: JOB_URL });
+
+    expect(fields.raw_salary).toEqual({
+      salary_min: 120000,
+      salary_max: 150000,
+      salary_period: "year",
+    });
+  });
+});
+
+describe("ashbyParser: a parse that cannot read its source throws", () => {
+  test("a link naming no board throws rather than answering nothing", async () => {
+    stubFetch(defaultRoutes());
+
+    await expect(ashbyParser.parse({ url: "https://jobs.ashbyhq.com/" })).rejects.toThrow();
   });
 
-  it("falls back to JSON-LD datePosted", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">{"@type": "JobPosting", "datePosted": "2026-04-15"}</script>
-    </head></html>`;
-    expect(parseAshbyHtml(html).dates).toContain("2026-04-15");
+  test("the board refusing the request throws an error naming the status", async () => {
+    stubFetch({ ...defaultRoutes(), [API_URL]: () => jsonResponse({}, 503) });
+
+    await expect(ashbyParser.parse({ url: JOB_URL })).rejects.toThrow(/503/);
   });
+});
 
-  // -- Salary --
-
-  it("extracts salary from JSON-LD baseSalary", () => {
-    const html = `<html><head>
-      <script type="application/ld+json">
-        {"@type": "JobPosting", "baseSalary": {"value": {"minValue": 150000, "maxValue": 200000}}}
-      </script>
-    </head></html>`;
-    expect(parseAshbyHtml(html).salaryRange).toBe("$150-200k");
-  });
-
-  it("falls back to appData compensationTierSummary", () => {
-    const appData: AshbyAppData = { compensationTierSummary: "$126.5K – $169K • Offers Equity" };
-    expect(parseAshbyHtml(emptyHtml, appData).salaryRange).toBe("$127-169k");
-  });
-
-  it("falls back to page text for salary", () => {
-    const html = "<html><body><p>Compensation: $120,000 - $160,000 annually</p></body></html>";
-    expect(parseAshbyHtml(html).salaryRange).toBe("$120-160k");
-  });
-
-  // -- Empty page --
-
-  it("returns empty fields for pages with no extractable data", () => {
-    const result = parseAshbyHtml(emptyHtml);
-    expect(result.title).toBeUndefined();
-    expect(result.companyName).toBeUndefined();
-    expect(result.salaryRange).toBeUndefined();
+describe("ashbyParser: the parser names itself", () => {
+  test("its name is the one the source priority list uses", () => {
+    expect(ashbyParser.name).toBe("ashby");
   });
 });

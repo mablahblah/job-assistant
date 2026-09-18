@@ -1,86 +1,40 @@
-// Greenlit domain registry — maps ATS domains to their page parsers
+// The list of every job-posting parser a run has, keyed by the domain its
+// source owns. A parser joins the pipeline by being listed here and nowhere
+// else — the parser equivalent of lib/collectors/registry.ts.
+//
+// Keyed by owned domain, not exact host, on purpose. Greenhouse serves from
+// boards.greenhouse.io, job-boards.greenhouse.io and
+// job-boards.eu.greenhouse.io — all one greenhouse.io — and a hand-written
+// host list would have missed the .eu variant, which appears exactly once in
+// the live data. The case that decided this runs the other way: a platform
+// giving every employer its own web address (meredith.wd5.myworkdayjobs.com)
+// reads as many unrelated singletons under exact-host matching, which hides
+// the one parser worth building. Collapsing to owned domain is what makes a
+// failing platform countable. This replaces a legacy registry that kept
+// hand-listed hosts plus a Greenhouse wildcard regex.
+import { registrableDomainFromUrl } from "../utils/registrable-domain";
+import { ashbyParser } from "./ashby";
+import { dribbbleParser } from "./dribbble";
+import { greenhouseParser } from "./greenhouse";
+import { leverParser } from "./lever";
+import type { Parser } from "./parser";
 
-import type { ParserFn, PipelineJob } from "./types";
+export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
+  "greenhouse.io": greenhouseParser,
+  "lever.co": leverParser,
+  "ashbyhq.com": ashbyParser,
+  "dribbble.com": dribbbleParser,
+};
 
-// Greenhouse uses custom subdomains (e.g. acme.greenhouse.io, job-boards.greenhouse.io).
-// Match any hostname ending with greenhouse.<tld>.
-const GREENHOUSE_PATTERN = /\.?greenhouse\.\w+$/i;
+// Looks up the parser that owns a link's domain. Returns null for anything
+// that is not a web address, a bare IP, localhost, or a domain no entry
+// names — never throws.
+export function parserForUrl(url: string): Parser | null {
+  const domain = registrableDomainFromUrl(url);
 
-// Internal parser registry — populated by registerParser() at startup
-const registry: Record<string, ParserFn> = {};
-
-// Register a parser for a greenlit domain
-export function registerParser(domain: string, parser: ParserFn): void {
-  registry[domain] = parser;
-}
-
-// Get the parser for a domain, or null if none registered
-export function getParser(domain: string): ParserFn | null {
-  return registry[domain] ?? null;
-}
-
-// Reset registry — used in tests to isolate state between runs
-export function clearRegistry(): void {
-  for (const key of Object.keys(registry)) {
-    delete registry[key];
-  }
-}
-
-// Single matching function: given a hostname, return the registry key
-// of the parser that handles it, or null. Checks in order:
-// 1. Exact match against registry keys
-// 2. Greenhouse wildcard (*.greenhouse.*) → resolves to boards.greenhouse.io
-// 3. Subdomain match (www.adzuna.com → adzuna.com)
-export function matchDomain(domain: string): string | null {
-  if (!domain) return null;
-  const lower = domain.toLowerCase();
-
-  // 1. Exact match
-  if (registry[lower]) return lower;
-
-  // 2. Greenhouse wildcard — any *.greenhouse.* resolves to the registered Greenhouse parser
-  if (GREENHOUSE_PATTERN.test(lower)) {
-    return registry["boards.greenhouse.io"] ? "boards.greenhouse.io" : null;
-  }
-
-  // 3. Subdomain match — check if this is a subdomain of any registered domain
-  for (const key of Object.keys(registry)) {
-    if (lower.endsWith(`.${key}`)) return key;
-  }
-
-  return null;
-}
-
-// Check if a URL is on a greenlit domain. Returns the registry key or null.
-// Convenience wrapper over matchDomain that handles URL parsing.
-export function isGreenlitDomain(url: string): string | null {
-  let hostname: string;
-  try {
-    hostname = new URL(url).hostname.toLowerCase();
-  } catch {
+  if (domain === null) {
     return null;
   }
-  return matchDomain(hostname);
-}
 
-// Route pipeline jobs to their parsers by final domain.
-// Groups by registry key (so getParser() works on the keys).
-export function routeByDomain(jobs: PipelineJob[]): {
-  matched: Record<string, PipelineJob[]>;
-  unmatched: PipelineJob[];
-} {
-  const matched: Record<string, PipelineJob[]> = {};
-  const unmatched: PipelineJob[] = [];
-
-  for (const job of jobs) {
-    const key = matchDomain(job.finalDomain);
-    if (key) {
-      if (!matched[key]) matched[key] = [];
-      matched[key].push(job);
-    } else {
-      unmatched.push(job);
-    }
-  }
-
-  return { matched, unmatched };
+  return PARSERS_BY_DOMAIN[domain] ?? null;
 }

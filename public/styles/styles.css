@@ -280,6 +280,13 @@ body {
   gap: 0.25rem;
 }
 
+/* A panel or a week the page is not showing right now. A class rather than a
+   style written into the markup, so what is visible is described in one place
+   and the browser script has something to switch rather than a value to set. */
+.is-hidden {
+  display: none;
+}
+
 /* Hidden on desktop, shown on tablet as a rollup of individual scores */
 .col-avg-rating {
   display: none;
@@ -464,7 +471,7 @@ body {
   margin-top: 0.5rem;
   padding: 0.75rem;
   background: var(--color-bg-secondary);
-  border-radius: 6px;
+  border-radius: var(--radius-lg);
   font-size: 0.8125em;
   color: var(--color-foreground-muted);
 }

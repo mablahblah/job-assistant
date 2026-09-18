@@ -1,180 +1,164 @@
-// Dribbble parser — static HTML fetch. Extracts job data from server-rendered
-// HTML: inline script data (Dribbble.JobListing.initialize) > JSON-LD > description text.
+// The Dribbble job-posting parser. Dribbble serves finished server-rendered
+// HTML for each job page — unlike the API-backed parsers, this is the one
+// parser of four that reads a rendered page. A plain fetch and a parse do
+// everything a browser would here, so no browser is opened.
+import { parseHTML } from "linkedom";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import type { MappedJobFields } from "../types/job-list-entry";
+import { fetchPageHtml } from "../tools/page-fetcher";
+import type { Parser } from "./parser";
 
-import type { Browser } from "playwright";
-import type { ParsedFields, ParserResult } from "./types";
-import { TRACKED_FIELDS } from "./types";
-import { extractJsonLd, stripHtml } from "./parse-utils";
-import { fetchWithTimeout, parseSalaryFromText } from "../scrapers/fetch-utils";
-
-// Shape of the tracking properties in Dribbble.JobListing.initialize()
-interface DribbbleTrackingProps {
+// The fields read out of Dribbble.JobListing.initialize({...})'s
+// trackingProperties sub-object.
+interface DribbbleTrackingProperties {
   job_title?: string;
   job_company?: string;
-  job_id?: string;
   job_location?: string;
   job_location_country?: string;
   job_location_state?: string;
-  job_role_type?: string;
 }
 
-// Shape of the full initialize() argument
-interface DribbbleAppData {
-  locationType?: string;
-  trackingProperties?: DribbbleTrackingProps;
-}
-
-// Extract the Dribbble.JobListing.initialize({...}) argument from HTML.
-// Uses targeted field regexes instead of JSON.parse — real pages have HTML entities
-// and URLs in string values that break naive JS-to-JSON conversion.
-function extractDribbbleAppData(html: string): DribbbleAppData | null {
-  // Allow whitespace between ( and { — real pages split across lines
-  const initMatch = html.match(
-    /Dribbble\.JobListing\.initialize\(\s*\{([\s\S]*?)\}\s*\)/,
-  );
-  if (!initMatch) return null;
-
-  const block = initMatch[1];
-
-  // Extract a string value by key from a JS object block
-  const strVal = (src: string, key: string) => {
-    const m = src.match(new RegExp(key + ':\\s*"([^"]*)"'));
-    return m?.[1];
-  };
-
-  // Extract trackingProperties sub-object
-  const tpMatch = block.match(/trackingProperties:\s*\{([\s\S]*?)\}/);
-  let trackingProperties: DribbbleTrackingProps | undefined;
-  if (tpMatch) {
-    const tp = tpMatch[1];
-    trackingProperties = {
-      job_title: strVal(tp, "job_title"),
-      job_company: strVal(tp, "job_company"),
-      job_id: strVal(tp, "job_id"),
-      job_location: strVal(tp, "job_location"),
-      job_location_country: strVal(tp, "job_location_country"),
-      job_location_state: strVal(tp, "job_location_state"),
-      job_role_type: strVal(tp, "job_role_type"),
+// The JobPosting JSON-LD block Dribbble embeds in every job page.
+interface DribbbleJsonLd {
+  title?: string;
+  description?: string;
+  datePosted?: string;
+  hiringOrganization?: { name?: string };
+  jobLocation?: {
+    address?: {
+      addressLocality?: string | null;
+      addressRegion?: string | null;
+      addressCountry?: string | null;
     };
-  }
-
-  return {
-    locationType: strVal(block, "locationType"),
-    trackingProperties,
   };
 }
 
-// Pure extraction — all fields from static HTML
-export function parseDribbbleHtml(html: string): Partial<ParsedFields> {
-  const fields: Partial<ParsedFields> = {};
-  const appData = extractDribbbleAppData(html);
-  const ld = extractJsonLd(html);
-  const tp = appData?.trackingProperties;
+// Pulls one quoted string value for `key` out of a block of JS object
+// literal text. The inline block cannot be JSON.parse'd — real pages carry
+// HTML entities and raw URLs inside string values that break any naive
+// JS-to-JSON conversion — so each key is read individually with its own
+// targeted regex instead.
+function extractStringValue(block: string, key: string): string | undefined {
+  const match = new RegExp(`${key}:\\s*"([^"]*)"`).exec(block);
+  return match?.[1];
+}
 
-  // Title: app data > JSON-LD
-  if (tp?.job_title) {
-    fields.title = tp.job_title;
-  } else if (ld.title) {
-    fields.title = ld.title;
+// Reads trackingProperties as its own sub-block first, so a key of the same
+// name elsewhere in the initialize() block cannot be picked up by mistake.
+function parseTrackingProperties(initializeBlock: string): DribbbleTrackingProperties {
+  const match = /trackingProperties:\s*\{([\s\S]*?)\}/.exec(initializeBlock);
+  if (match === null) return {};
+  const block = match[1];
+  return {
+    job_title: extractStringValue(block, "job_title"),
+    job_company: extractStringValue(block, "job_company"),
+    job_location: extractStringValue(block, "job_location"),
+    job_location_country: extractStringValue(block, "job_location_country"),
+    job_location_state: extractStringValue(block, "job_location_state"),
+  };
+}
+
+function parseJsonLd(html: string): DribbbleJsonLd | undefined {
+  const { document } = parseHTML(html);
+  const script = document.querySelector('script[type="application/ld+json"]');
+  if (script === null) return undefined;
+  try {
+    return JSON.parse(script.textContent ?? "") as DribbbleJsonLd;
+  } catch {
+    // A page whose JSON-LD is malformed is ignored, not thrown over — the
+    // inline block still has whatever fields it carries.
+    return undefined;
   }
+}
 
-  // Company: app data > JSON-LD
-  if (tp?.job_company) {
-    fields.companyName = tp.job_company;
-  } else if (ld.hiringOrganization?.name) {
-    fields.companyName = ld.hiringOrganization.name;
+// Dribbble's own work-mode words are not ones the app's normalizer
+// recognises, so they are translated here. The JSON-LD's own jobLocationType
+// is deliberately not read: it says TELECOMMUTE for both hybrid and remote
+// postings, so it contradicts locationType and would erase the distinction
+// this translation exists to preserve.
+function mapLocationType(locationType: string | undefined): string[] {
+  switch (locationType) {
+    case "remote":
+    case "remote_only":
+      return ["remote"];
+    case "onsite_or_remote":
+      return ["hybrid"];
+    case "onsite_only":
+      return ["in-person"];
+    default:
+      return [];
   }
+}
 
-  // Work mode: map Dribbble's locationType to our values.
-  // JSON-LD jobLocationType "TELECOMMUTE" is unreliable (used for both hybrid and remote).
-  if (appData?.locationType) {
-    const lt = appData.locationType;
-    if (lt === "remote" || lt === "remote_only") fields.workMode = "remote";
-    else if (lt === "onsite_or_remote") fields.workMode = "hybrid";
-    else if (lt === "onsite_only") fields.workMode = "in-person";
-    else fields.workMode = "";
-  } else if (appData) {
-    // App data exists but no locationType — unknown
-    fields.workMode = "";
-  }
+// Builds the ordered, deduplicated list of place fragments from every source
+// that names one. job_location can be a composite like "Austin, TX", so it is
+// split into its own fragments up front — so each sub-fragment dedupes
+// individually against whatever comes after it, rather than the composite
+// string blocking a later exact match.
+function buildLocationList(
+  tracking: DribbbleTrackingProperties,
+  jsonLd: DribbbleJsonLd | undefined
+): string[] {
+  const candidates: Array<string | null | undefined> = [
+    ...(tracking.job_location?.split(",") ?? []),
+    tracking.job_location_country,
+    tracking.job_location_state,
+    jsonLd?.jobLocation?.address?.addressLocality,
+    jsonLd?.jobLocation?.address?.addressRegion,
+    jsonLd?.jobLocation?.address?.addressCountry,
+  ];
 
-  // Location: combine all fragments from app data + JSON-LD, deduplicate.
-  // Gives classifyLocation max surface area to match Austin-area keywords.
-  const locationParts: string[] = [];
-
-  // job_location can be a composite like "Austin, TX" — split so sub-fragments dedup individually
-  if (tp?.job_location) {
-    for (const frag of tp.job_location.split(",").map((s) => s.trim()).filter(Boolean)) {
-      locationParts.push(frag);
+  const result: string[] = [];
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed && !result.includes(trimmed)) {
+      result.push(trimmed);
     }
   }
-  if (tp?.job_location_country) locationParts.push(tp.job_location_country);
-  if (tp?.job_location_state) locationParts.push(tp.job_location_state);
+  return result;
+}
 
-  if (ld.jobLocation?.address) {
-    const addr = ld.jobLocation.address;
-    if (addr.addressLocality) locationParts.push(addr.addressLocality);
-    if (addr.addressRegion) locationParts.push(addr.addressRegion);
-    if (addr.addressCountry) locationParts.push(addr.addressCountry);
+export function parseDribbbleHtml(html: string): MappedJobFields {
+  const initializeMatch = /Dribbble\.JobListing\.initialize\(\s*\{([\s\S]*?)\}\s*\)/.exec(html);
+  const initializeBlock = initializeMatch?.[1] ?? "";
+  const tracking = parseTrackingProperties(initializeBlock);
+  const locationType = extractStringValue(initializeBlock, "locationType");
+  const jsonLd = parseJsonLd(html);
+
+  const fields: MappedJobFields = {};
+
+  const rawTitle = tracking.job_title ?? jsonLd?.title;
+  if (rawTitle !== undefined) fields.raw_title = rawTitle;
+
+  const rawCompanyName = tracking.job_company ?? jsonLd?.hiringOrganization?.name;
+  if (rawCompanyName !== undefined) fields.raw_company_name = rawCompanyName;
+
+  fields.raw_mode_list = mapLocationType(locationType);
+  fields.raw_location_list = buildLocationList(tracking, jsonLd);
+
+  if (jsonLd?.datePosted !== undefined) {
+    fields.posting_date = new Date(jsonLd.datePosted);
   }
 
-  // Deduplicate exact-match fragments
-  const seen = new Set<string>();
-  const dedupedParts: string[] = [];
-  for (const part of locationParts) {
-    if (!seen.has(part)) {
-      seen.add(part);
-      dedupedParts.push(part);
-    }
-  }
-
-  if (dedupedParts.length > 0) {
-    fields.location = dedupedParts.join(", ");
-  }
-
-  // Dates: JSON-LD datePosted, first 10 chars (date portion only, no TZ conversion)
-  if (ld.datePosted) {
-    fields.dates = [ld.datePosted.slice(0, 10)];
-  }
-
-  // Salary: scan JSON-LD description text (no structured salary field on Dribbble)
-  if (ld.description) {
-    const salary = parseSalaryFromText(stripHtml(ld.description));
-    if (salary !== "?") fields.salaryRange = salary;
+  // The description is written as-is, not merely scanned for a salary and
+  // then discarded — that is what the legacy Dribbble parser did, which left
+  // Dribbble the one source reaching scoring blind. Its collector stores no
+  // description either, so this parser is the only place it can come from.
+  if (jsonLd?.description !== undefined) {
+    fields.description = jsonLd.description;
   }
 
   return fields;
 }
 
-// Entry point — fetches HTML via HTTP (no Playwright needed), delegates to pure parser.
-export async function parseDribbbleJob(
-  url: string,
-  _browser: Browser,
-  _collectorData?: import("../collectors/types").CollectedJob,
-): Promise<ParserResult> {
-  try {
-    const res = await fetchWithTimeout(url);
-    if (!res.ok) {
-      return {
-        success: false, url, finalUrl: url, parser: "dribbble",
-        fields: {}, failedFields: [...TRACKED_FIELDS],
-        error: `Dribbble returned ${res.status}`,
-      };
-    }
+export const dribbbleParser: Parser = {
+  name: "dribbble",
 
-    const html = await res.text();
+  async parse({ url }) {
+    const html = await fetchPageHtml(url);
     const fields = parseDribbbleHtml(html);
-    const failedFields = TRACKED_FIELDS.filter((f) => !fields[f]);
-
-    return {
-      success: true, url, finalUrl: url, parser: "dribbble",
-      fields, failedFields,
-    };
-  } catch (err) {
-    return {
-      success: false, url, finalUrl: url, parser: "dribbble",
-      fields: {}, failedFields: [...TRACKED_FIELDS],
-      error: err instanceof Error ? err.message : "Unknown error",
-    };
-  }
-}
+    // Dribbble publishes no pay field of its own, so any salary here comes
+    // only from scanning the description this parser just wrote.
+    return withFieldsFromDescription(fields, fields.description ?? undefined);
+  },
+};

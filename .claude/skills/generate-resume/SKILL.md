@@ -1,213 +1,160 @@
 ---
 name: generate-resume
-description: Generate a tailored, ATS-parsable PDF resume for a specific job posting - /generate-resume [company] [role]
+description: Generate a tailored, ATS-parsable PDF resume for a specific job posting. Looks the job up in the job-assistant database, reads the live posting, matches existing resume inventory items against its requirements, and renders a named PDF. Selection is pick-only — no resume text is written or edited, only which items are shown.
+disable-model-invocation: true
+arguments:
+  - name: company
+    description: Company to look up in the job-assistant database
+  - name: role
+    description: Optional role title, used to narrow the lookup when a company has several open jobs
+argument-hint: "{company} [role]"
+allowed-tools:
+  - Bash(npm run find-jobs:*)
+  - Bash(npm run fetch-rendered-page:*)
+  - Bash(node scripts/generate-pdf.js:*)
+  - Bash(mkdir:*)
+  - Bash(rm:*)
+  - Read
+  - Write
 ---
 
 # Generate Resume
 
-Generate a tailored PDF resume for a job posting. The job description drives all content selections — no resume text is edited, only which items are shown.
+# Execution Policy
 
-- `/generate-resume Acme senior product designer`
-- `/generate-resume Omada`
+- Do NOT write, reword, or invent resume text. Selection is pick-only from the inventory.
+- Do NOT generate a PDF before the user has approved both the selections and the filename.
+- Do NOT abbreviate the selections display. Every item in every section is shown, chosen and rejected alike.
+- ASK the user before deviating from any step.
 
 ## Reference
 
 - **Portfolio project root:** `~/Documents/Projects/code/mablahblah_com`
 - **Job-assistant project root:** `~/Documents/Projects/code/job-assistant`
-- **Integration contract:** `docs/features/export-parsable-pdf-resume/integration-contract.md` (read this if you need full details on selection rules or validation)
+- **Integration contract:** `scripts/job-assistant-contract.md` in the portfolio root. Read it when a command fails, an error string is unfamiliar, or the selections format needs confirming.
 
-## Instructions
+## Phase 1: Find the Job
 
-### Step 1: Look up the job
+1. Run from the job-assistant project root, omitting `--title {role}` when the user gave no role:
 
-Run from the job-assistant project root:
-
-```bash
-npx tsx scripts/cli.ts find-job {company} {role}
-```
-
-`{company}` is required. `{role}` is optional — use it if the user provided one.
-
-Parse the JSON array output:
-
-- **No matches** (non-zero exit, error on stderr): tell the user no matching jobs were found and stop.
-- **One match**: proceed with that job.
-- **Multiple matches**: present a numbered list showing each job's company, title, status, and location. Ask the user to pick one.
-
-Note the selected job's `url` (for Step 2), `id` (for potential status update), and `company` + `title` (for Step 5).
-
-### Step 2: Fetch the job posting
-
-Run from the job-assistant project root:
-
-```bash
-npx tsx scripts/cli.ts fetch-page {url}
-```
-
-Use the `url` from the selected job.
-
-**If the page loads successfully:** proceed to Step 3 with the HTML content.
-
-**If the page appears dead** (404, empty content, error page, or the HTML clearly shows a "job not found" / "this posting has been removed" message):
-
-1. Tell the user: "The posting at `{url}` appears to be dead. Can you check if it's still live?"
-2. If the user says it's not dead: retry the `fetch-page` command.
-3. If the user confirms it's dead: ask "Would you like me to mark this job as expired?" If yes, run:
    ```bash
-   npx tsx scripts/cli.ts status <<'EOF'
-   [{"jobId":"{jobId}","status":"expired"}]
-   EOF
-   ```
-   Then stop.
-
-**If the page is accessible but the content cannot be read or processed:** ask the user to copy the page contents and paste them into the conversation, then continue with the pasted content.
-
-### Step 3: Get resume inventory
-
-Run from the portfolio project root:
-
-```bash
-cd ~/Documents/Projects/code/mablahblah_com && node scripts/generate-pdf.js --inventory
-```
-
-Parse the JSON output. The key structures are:
-
-- `titles.items` — title options (pick exactly 1 by `id`)
-- `summaries.items` — summary options (pick exactly 1 by `id`)
-- `skills.items` — skill options (pick 0 to `constraints.skills` by `id`)
-- `tools.items` — tool options (pick 0 to `constraints.tools` by `id`)
-- `experience[]` — each job entry; if `bullets.items.length > 0`, that job has configurable bullets
-- `constraints.bullets` — max total bullets across ALL jobs combined
-
-Each item has: `id` (used in selections), `text` (what appears on the resume), `default` (whether active by default).
-
-### Step 4: Analyze and present selections
-
-Analyze the job description from Step 2 against the inventory from Step 3. For each section, select the items that best match the job requirements.
-
-Present the full inventory for each section using this format:
-
-**Title** (pick 1):
-
-```
-✅  {text} | {rationale tied to the job description}
-❌  {text}
-```
-
-**Summary** (pick 1):
-
-```
-✅  {text} | {rationale tied to the job description}
-❌  {text}
-```
-
-**Skills** (max {constraints.skills}):
-
-```
-✅  {text} | {rationale tied to the job description}
-❌  {text}
-```
-
-**Tools** (max {constraints.tools}):
-
-```
-✅  {text} | {rationale tied to the job description}
-❌  {text}
-```
-
-**Bullets — {experience.company} ({experience.role})** (max {constraints.bullets} total across all jobs):
-
-```
-✅  {text} | {rationale tied to the job description}
-❌  {text}
-```
-
-Repeat the bullets subsection for every job in the inventory where `bullets.items.length > 0`, even if no bullets were selected for that job.
-
-Rules:
-
-- Every item in each section is shown — selected and deselected
-- ✅ items include a brief rationale tied to the job description
-- ❌ items do not need a rationale
-- Total bullets across all jobs must not exceed `constraints.bullets`
-
-### Step 5: Propose filename
-
-Propose a filename:
-
-`Matt_Mannello-Resume-{Company}-{Shortened_Role}-{Year}.pdf`
-
-- **Company**: shortened to the recognizable core name, underscores for spaces. Examples: "Acme International Dynamics, Inc" becomes "Acme", "Google LLC" becomes "Google".
-- **Role**: shortened with common abbreviations, underscores for spaces. Examples: "Senior Product Designer" becomes "Sr_Prod_Designer", "Lead UX Designer" becomes "Lead_UX_Designer".
-- **Year**: current year, 4 digits.
-
-Present the proposed filename. The user can accept or adjust.
-
-### Step 6: User approval
-
-Present the selections and filename together, then ask:
-
-"Here are my selections and proposed filename. Want me to proceed, or would you like to adjust anything?"
-
-- **Approve**: proceed to Step 7.
-- **Request changes**: adjust the selections or filename as requested, re-present the affected sections, and ask again.
-- **Cancel**: stop without generating.
-
-### Step 7: Generate PDF
-
-1. Create the output directory if it doesn't exist:
-
-```bash
-mkdir -p ~/Documents/Projects/code/job-assistant/resumes
-```
-
-2. Build the selections JSON from the approved selections. The required format:
-
-```json
-{
-  "title": "{selected-title-id}",
-  "summary": "{selected-summary-id}",
-  "bullets": {
-    "{job-id}": ["{bullet-id-1}", "{bullet-id-2}"],
-    "{job-id-2}": []
-  },
-  "skills": ["{skill-id-1}", "{skill-id-2}"],
-  "tools": ["{tool-id-1}", "{tool-id-2}"],
-  "company": "{company-name-from-db}"
-}
-```
-
-The `bullets` object must include a key for every job where `bullets.items.length > 0` in the inventory — even if the value is an empty array. Jobs where `bullets.items` is empty must NOT appear. The `company` field is the company name from the DB lookup in Step 1.
-
-3. Write the selections JSON to a temp file (use epoch seconds for the timestamp):
-
-```bash
-cat > /tmp/resume-selections-$(date +%s).json <<'EOF'
-{the selections JSON}
-EOF
-```
-
-Note the exact path used (including the timestamp) for the next command.
-
-4. Generate the PDF from the portfolio project root:
-
-```bash
-cd ~/Documents/Projects/code/mablahblah_com && node scripts/generate-pdf.js --selections {selections-file-path} --output ~/Documents/Projects/code/job-assistant/resumes/{approved-filename}
-```
-
-5. If the command exits with `ERROR:` lines on stderr: read each error message, fix the selections JSON to address all errors, write the corrected file to the same path, and retry step 4.
-
-6. On success, delete the temp file:
-
-```bash
-rm {selections-file-path}
-```
-
-7. Report the saved path and the resume's portfolio link together:
-
-   ```
-   Resume saved to `resumes/{approved-filename}`
-   Portfolio link on this resume: https://www.mablahblah.com/c/{company-path}
+   npm run find-jobs -- --company "{company}" --title "{role}" --json
    ```
 
-   `{company-path}` is the DB company name from Step 1 run through the same rule the generator uses (`src/resume/companyPath.js`): fold accents to plain letters, lowercase, turn each run of non-alphanumeric characters into a single hyphen, and trim hyphens off both ends. "Tailscale" becomes `tailscale`; "Lumen Solutions Group Inc." becomes `lumen-solutions-group-inc`.
+2. Parse the JSON array the command prints:
+   - If the command exits non-zero: report its error to the user and stop.
+   - If the array is empty: tell the user no matching jobs were found and stop.
+   - If exactly one job matches: use it.
+   - If several match: present a numbered list of `company_name`, `title`, `status`, and `location`, and ask the user to pick one.
+3. Note the chosen job's `id`, `company_name`, `title`, `original_url` (the address the job was collected with), and `resolved_url` (the source posting's own address). Later phases use them all.
+
+## Phase 2: Fetch the Posting
+
+1. Choose the link to fetch: `resolved_url` where it is not null, `original_url` otherwise.
+2. Run from the job-assistant project root:
+
+   ```bash
+   npm run fetch-rendered-page -- --url "{url}"
+   ```
+
+   The command opens the page in a browser, waits for its scripts to finish, and prints the finished HTML.
+
+3. Judge the result.
+
+### If the command fails (non-zero exit, an error message instead of HTML):
+
+This is a tool failure — a fact about the fetch, not about the job. Never treat it as a dead posting.
+
+4a. Report the tool failure to the user, quoting the command's error text.
+5a. Ask whether to retry the fetch or to paste the page contents instead, and continue with whichever they choose.
+
+### If the posting loads:
+
+4b. Carry the HTML into Phase 3.
+
+### If the posting loads but reads as dead (404, empty body, error page, or wording such as "this posting has been removed"):
+
+4c. Tell the user the posting at `{url}` appears dead, and ask them to check whether it is still live.
+5c. If the user says it is live: retry the fetch command and return to step 3.
+6c. If the user confirms it is dead: tell them a resume cannot be written from a dead posting, leave the job's status untouched, and stop.
+
+### If the posting loads but the content cannot be read:
+
+4d. Ask the user to paste the page contents into the conversation, and continue with what they paste.
+
+## Phase 3: Read the Resume Inventory
+
+1. Run from the portfolio project root:
+
+   ```bash
+   node scripts/generate-pdf.js --inventory
+   ```
+
+2. Parse the JSON. It holds:
+   - `titles.items` — pick exactly 1 by `id`
+   - `summaries.items` — pick exactly 1 by `id`
+   - `skills.items` — pick 0 to `constraints.skills` by `id`
+   - `tools.items` — pick 0 to `constraints.tools` by `id`
+   - `experience[]` — one entry per job; a job has configurable bullets when `bullets.items` is non-empty
+   - `constraints.bullets` — the maximum total bullets across every job combined
+
+   Each item carries `id` for selections, `text` for what prints, and `default` for its resting state.
+
+## Phase 4: Match Content to the Posting
+
+1. Read the posting from Phase 2 against the inventory from Phase 3, and choose the items that answer what the posting asks for.
+2. Present every section in this shape, listing all items — chosen and rejected:
+
+   ```
+   ✅  {text} | {why this posting wants it}
+   ❌  {text}
+   ```
+
+   In order: **Title** (pick 1), **Summary** (pick 1), **Skills** (max `{constraints.skills}`), **Tools** (max `{constraints.tools}`), then **Bullets — {company} ({role})** for each job whose `bullets.items` is non-empty, including jobs where nothing was chosen.
+
+3. Confirm the chosen bullets total no more than `constraints.bullets` across all jobs. Reduce the weakest matches until they do.
+
+## Phase 5: Get Approval
+
+1. Propose a filename: `Matt_Mannello-Resume-{Company}-{Shortened_Role}-{Year}.pdf`
+   - **Company** — the recognisable core name, underscores for spaces. "Acme International Dynamics, Inc" gives `Acme`.
+   - **Shortened_Role** — common abbreviations, underscores for spaces. "Senior Product Designer" gives `Sr_Prod_Designer`.
+   - **Year** — the current year, four digits.
+2. Present the selections and the filename together, then ask whether to proceed or adjust.
+   - If approved: continue to Phase 6.
+   - If changes are requested: revise, re-present the affected sections, and ask again.
+   - If cancelled: stop without generating.
+
+## Phase 6: Generate the PDF
+
+1. Create the output directory:
+
+   ```bash
+   mkdir -p ~/Documents/Projects/code/job-assistant/resumes
+   ```
+
+2. Write the approved selections to `/tmp/resume-selections.json`:
+
+   ```json
+   {
+     "title": "{title-id}",
+     "summary": "{summary-id}",
+     "bullets": { "{job-id}": ["{bullet-id}"], "{job-id-2}": [] },
+     "skills": ["{skill-id}"],
+     "tools": ["{tool-id}"],
+     "company": "{company}"
+   }
+   ```
+
+   `bullets` carries a key for every job whose `bullets.items` is non-empty, even when the value is an empty array. Jobs with no configurable bullets are omitted entirely. `company` is the `company_name` from the Phase 1 lookup, not the shortened filename form.
+
+3. Render, from the portfolio project root:
+
+   ```bash
+   node scripts/generate-pdf.js --selections /tmp/resume-selections.json --output ~/Documents/Projects/code/job-assistant/resumes/{filename}
+   ```
+
+   The script builds the app when needed, serves it, prints in headless Chromium, and shuts down. Never start a server yourself. The first run after a portfolio change is slower.
+
+4. On failure the script writes `ERROR:` lines to stderr and exits 1, generating nothing. Read every error, correct the selections file, and return to step 3.
+5. On success, delete `/tmp/resume-selections.json` and report: "Resume saved to `resumes/{filename}`".

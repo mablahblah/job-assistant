@@ -58,26 +58,14 @@ resumes/
 # CodeGraph index — generated locally, includes a running daemon's socket and pid
 .codegraph/
 
-# --- workflow-profile: waterfall (managed by sync-workflow, do not edit) ---
+# --- workflow-profile: rocket-ship (managed by sync-workflow, do not edit) ---
 .claude/workflow-profile.json
-.claude/skills/add-to-backlog
-.claude/skills/merge
+.claude/skills/crowd-code
+.claude/skills/end-work-session
 .claude/skills/plan-feature
-.claude/skills/plan-task
-.claude/skills/prio
 .claude/skills/ship-feature
-.claude/skills/ship-task
 .claude/skills/start-feature
-.claude/skills/start-task
-.claude/skills/subagent-driven-development
-.claude/skills/wrap-up-planning
-.claude/skills/writing-plans
-.claude/rules/changelog-comprehensive.md
-.claude/rules/changelog-shared.md
-.claude/rules/changelog-user-facing.md
-.claude/rules/decision-log.md
-.claude/rules/meeting-notes.md
-.claude/rules/roadmap-backlog.md
+.claude/skills/start-work-session
 # --- end workflow-profile ---
 
 .serve.json

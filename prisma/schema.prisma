@@ -1,110 +1,650 @@
+// Schema for the new pipeline's database. It grows a phase at a time; the
+// tables collection needs are added with the schema task.
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../generated/pipeline"
 }
 
 datasource db {
   provider = "sqlite"
 }
 
-model Company {
-  id                   String    @id @default(cuid())
-  name                 String    @unique
-  employeeSatisfaction Int?      // 1–5
-  customerSatisfaction Int?      // 1–5
-  workLifeBalance      Int?      // 1–5
-  politicalAlignment   Int?      // 1–5
-  note                 String?   // brief scoring rationale from Claude
-  // enrichment fields for TWC work search log (address/phone populated by Feature 2)
-  address              String?
-  phone                String?
-  website              String?
-  enrichedAt           DateTime? // null = not yet enriched; prevents redundant API calls
-  enrichmentStatus     String?   // null = never triggered, "pending", "complete", "failed"
-  enrichmentUncertain  Boolean   @default(false) // true if any heuristic flag tripped during enrichment
-  enrichmentFlags      String?   // comma-separated reasons, e.g. "address_outside_us,name_mismatch"
-  atsPlatform          String?   // "greenhouse", "lever", "ashby", etc.
-  atsSlug              String?   // board slug, e.g. "gitlab", "plaid"
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-  jobs                 Job[]
-}
-
+// A single job posting. Collection fills what its source supplied and leaves
+// the rest empty, so a later phase can tell what still needs doing.
 model Job {
-  id          String      @id @default(cuid())
-  companyId   String
-  company     Company     @relation(fields: [companyId], references: [id])
-  title       String
-  url         String
-  location    String      @default("")
-  workMode    String      @default("remote") // in-person, hybrid, remote
-  firstPublished  DateTime
-  repostedAt      DateTime?
-  salaryRange String
-  status          String      @default("backlog") // backlog, too far, won't apply, app. sent, rejected, screening, interview, test, offer, expired
-  locationFlagged Boolean     @default(false) // true when auto-set to "too far" because remote location didn't match inclusion/exclusion lists
-  jobAlignment          Int?        // 1–5, alignment score evaluated by Claude against profile in job-alignment.md
-  titleMismatch         Boolean     @default(false) // true when job title doesn't match the user's search intent
-  titleMismatchReason   String?     // Claude's explanation of why title was flagged
-  source          String?     // which collector found this job (e.g. "adzuna", "dribbble", "external")
-  parser          String?     // which parser processed it (e.g. "ashby", "collector-only"), null if unparsed
-  originalUrl     String?     // original collector URL (provenance — where the collector found this job)
-  modifiedAt      DateTime?   // tracks when status was last changed (null = never changed)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  workSearchEntries WorkSearchEntry[] // auto-created when status moves to app. sent/screening/interview
+  id                       String    @id @default(cuid())
+  // Which company this job belongs to. Company association decides it and
+  // save writes the column.
+  company_id               String?
+  // The employer as the collector spelled it. The normalized name lives on
+  // the company record.
+  raw_company_name         String?
+  // The board slug an ATS collector polled. A stronger identity than a name,
+  // and what company association looks up first.
+  raw_company_slug         String?
+  // The title as the source published it, kept exactly.
+  raw_title                String?
+  // The title reshaped into one wording, as "{level} {role} - {team}",
+  // built from raw_title. Two sources publishing the same role produce the
+  // same title here.
+  title                    String?
+  // The link the collector found, often an aggregator redirect.
+  original_url             String?
+  // original_url squashed down for matching: the scheme, the lowercased host,
+  // and the path with any trailing slash dropped. The whole query string and
+  // any fragment go, so a source minting a fresh token every request still
+  // matches its own earlier link. The published link is never altered, since
+  // stripping a query breaks it.
+  original_url_match_key   String?
+  // The source posting, found by following original_url.
+  resolved_url             String?
+  // resolved_url squashed down the same way.
+  resolved_url_match_key   String?
+  // When the source says the posting went live.
+  posting_date             DateTime?
+  // When the source says the posting last changed, where the source
+  // distinguishes the two.
+  posting_updated_date     DateTime?
+  created_at               DateTime  @default(now())
+  modified_at              DateTime  @updatedAt
+  // Phase gates. Each phase sets its own once it has handled the job.
+  is_resolved              Boolean   @default(false)
+  is_parsed                Boolean   @default(false)
+  is_classified            Boolean   @default(false)
+  // Lifecycle state. The first seven are non-active. The last five are
+  // what active means: the user has applied and has not been rejected,
+  // and an active row stays frozen except for its status. All twelve, in
+  // order: backlog, expired, too far, won't apply, unresolvable,
+  // unparseable, rejected, app. sent, screening, interview, test, offer.
+  status                   String    @default("backlog")
+  // Every location collected, kept intact. Independent of the mode list,
+  // not paired by position.
+  raw_location_list        Json?
+  // Every raw_location_list entry cut into single places, with the words that
+  // surround a place rather than name one taken out. Normalization builds it,
+  // and classification judges each place on its own. A piece naming nothing on
+  // a map is kept, because a real place standing beside it still has to be
+  // judged.
+  normalized_location_list Json?
+  // Every work mode collected, kept intact. Independent of the location
+  // list, not paired by position.
+  raw_mode_list            Json?
+  // Every entry in raw_mode_list translated into one of remote, hybrid, or
+  // in-person, each held once. A source word outside those three is dropped
+  // rather than guessed at.
+  normalized_mode_list     Json?
+  // Which collector produced it.
+  collector                String?
+  // When this pipeline first saw the posting, written once by the
+  // orchestrator beside collector. A later sighting is not better
+  // information the way a later salary is, so nothing overwrites this
+  // and no default could supply it.
+  collected_at             DateTime
+  // Which parser read the posting, beside collector, which records which
+  // collector produced it. When two copies of a job contest a field, the
+  // winning side's collector and parser are both written onto the row.
+  parser                   String?
+  // Salary as the source published it, in a fixed five-key envelope whose
+  // values are untouched: salary_min, salary_max, salary_period,
+  // salary_currency, salary_unit. Normalization reshapes them.
+  raw_salary               Json?
+  // The bottom of the published salary range, in whole currency units.
+  salary_low               Int?
+  // The top of the published salary range, in whole currency units.
+  salary_high              Int?
+  // What the salary figures are per: year, month, week, day, or hour.
+  salary_period            String?
+  // The posting's own words, as the source supplied them. Scoring reads this
+  // rather than reopening the posting to fetch them again.
+  description              String?
+  // Whether any place and work mode pair put this job close enough to work.
+  // Three states rather than two: empty means no place on the job could be
+  // read at all, which is not the same answer as too far. A job sitting empty
+  // is left in the backlog for a later run to retry.
+  location_match           Boolean?
+  // The place text behind the pair that matched, and the work mode it was
+  // paired with. Where several pairs matched, the place whose centre is
+  // nearest is the one recorded, so a job passing on both a nearby city and a
+  // whole country shows the city.
+  location_match_place     String?
+  location_match_mode      String?
+  // Whether the posting's two dates sit further apart than the repost gap
+  // setting, which reads as the employer listing the role again rather than
+  // as two collectors disagreeing by hours about one posting.
+  is_repost                Boolean?
+  // How well this job fits the user, judged by an agent against the alignment
+  // rubric. Empty is what says the job still needs scoring, so the column
+  // carries no default. A job returning to the backlog after being posted
+  // again is emptied, because the posting it was judged on is not the one now
+  // on offer.
+  alignment_score          Int?
+  // The reasoning behind that score. One field rather than four, because
+  // alignment is one score.
+  alignment_rationale      String?
+  company                  Company?  @relation(fields: [company_id], references: [id])
 
-  @@unique([url])
-  @@index([companyId])
-  @@index([status])
+  // Dedupe's two link clauses look a match up on these keys, so each is
+  // indexed rather than scanned. Neither is unique: two rows for one posting
+  // hold the same key from the moment both are saved until the pass that
+  // collapses them, and a merge the active guardrail refuses leaves that pair
+  // standing for good.
+  @@index([original_url_match_key])
+  @@index([resolved_url_match_key])
+  // Dedupe's third clause searches on company and title together, so one
+  // combined index serves it rather than two the database would have to pick
+  // between. company_id leads because it narrows hardest: a title is shared
+  // across employers. Not unique, for the same reason the two above are not.
+  @@index([company_id, title])
 }
 
-
-// URLs of deleted jobs — scraper skips these so they don't reappear
-model BlockedJob {
-  id        String   @id @default(cuid())
-  url       String   @unique
-  createdAt DateTime @default(now())
+// An employer. Which boards a company posts on, and which of those we poll,
+// live in AtsSlug rather than here: a pair of columns on this row would force
+// the two facts to travel together.
+model Company {
+  id                              String    @id @default(cuid())
+  // Optional, because a company met only as a board slug has no name yet and
+  // nothing invents one for it.
+  name                            String?   @unique
+  // The name squashed down for matching: lowercased, stripped of everything
+  // that is not a letter or a digit, and shorn of trailing legal-entity
+  // words. Unique, so the database refuses a duplicate employer whatever the
+  // matching code does.
+  match_key                       String?   @unique
+  // The four judgements an agent researches the company on, each 1 to 5.
+  // Empty is what says a category still needs researching, so none of them
+  // carries a default: a seeded middle value would read as a judgement nobody
+  // made and would never be researched.
+  employee_satisfaction           Int?
+  customer_satisfaction           Int?
+  work_life_balance               Int?
+  political_alignment             Int?
+  // The reasoning behind each score, one field per category rather than one
+  // field holding all four. Re-scoring one category writes one field; a shared
+  // field would have to be read, changed and written back whole every time,
+  // and a partial re-score would leave it describing a score that was cleared.
+  employee_satisfaction_rationale String?
+  customer_satisfaction_rationale String?
+  work_life_balance_rationale     String?
+  political_alignment_rationale   String?
+  // When the company was last scored. One date covers all four categories, so
+  // a re-score restarts the clock for the researched ones too. A date per
+  // category was considered and dropped as too heavy.
+  scored_at                       DateTime?
+  // The categories the agent guessed at because nothing public existed, held
+  // as a list of category names. The rubric awards a 3 in that case, which is
+  // a guess wearing the same clothes as a judgement, so this is what tells the
+  // two apart. Backlog cleanup empties a guessed category sooner than a
+  // researched one.
+  scores_guessed                  Json?
+  // The contact details the Texas Workforce Commission form asks for, filled
+  // in by an internet search the first time one of this company's jobs takes
+  // a status that writes a work log entry. Empty is the ordinary state: most
+  // companies never have a job reach one of those statuses.
+  address                         String?
+  phone                           String?
+  website                         String?
+  // When a search last filled one of the three fields above in. This is the
+  // only thing that marks a company as done, so a search that found nothing
+  // leaves it empty and the company is searched again next time. Recording
+  // that a search found nothing and blocking a later search are two different
+  // things, and only the first is wanted.
+  enriched_at                     DateTime?
+  // What the last search did: pending, written before the search starts so a
+  // run cut short partway is told apart from one never tried, then complete
+  // or failed. Empty means no search has ever been made.
+  enrichment_status               String?
+  // Set where the search raised any doubt about what it wrote, so the user
+  // checks those details before filing rather than after.
+  enrichment_uncertain            Boolean   @default(false)
+  // Which doubts were raised, held as a list of reason names the way
+  // scores_guessed holds a list of category names.
+  enrichment_flags                Json?
+  created_at                      DateTime  @default(now())
+  modified_at                     DateTime  @updatedAt
+  jobs                            Job[]
+  ats_slugs                       AtsSlug[]
 }
 
-model ScrapingRun {
-  id          String    @id @default(cuid())
-  source      String    // e.g. "adzuna", "greenhouse", "linkedin"
-  status      String    @default("pending") // pending, running, completed, failed
-  jobsFound   Int       @default(0)
-  jobsNew     Int       @default(0)
-  startedAt   DateTime  @default(now())
-  completedAt DateTime?
+// One row per applicant tracking system board we know about. The pair of
+// columns this replaces forced two different facts to travel together: that a
+// company posts on a hiring system, and that we poll its board every run.
+// Here the slug and the parser carry the first, and the collector carries the
+// second. Company matching writes a row as soon as a posting is read, with no
+// collector. Promotion fills the collector in later, and filling it in is what
+// puts the company on a polling list.
+model AtsSlug {
+  id          String   @id @default(cuid())
+  // The company's board slug on its hiring system. Unique across the table,
+  // because a job carries a slug without carrying which board it came from,
+  // so a slug held by two rows could not be resolved to one company.
+  slug        String   @unique
+  // The company whose board this is.
+  company_id  String
+  // Which parser read the posting the slug was found on. The parser rather
+  // than the hiring system itself, because the parser is what owns the link
+  // the slug was read out of.
+  parser      String
+  // Which collector polls this board every run. Empty until the company is
+  // promoted, and filling it in is what starts the polling.
+  collector   String?
+  created_at  DateTime @default(now())
+  modified_at DateTime @updatedAt
+  company     Company  @relation(fields: [company_id], references: [id])
+
+  // Each ATS collector asks for the rows carrying its own name, so that lookup
+  // reads an index rather than every row in the table.
+  @@index([collector])
 }
 
-// One row per qualifying status change — feeds the TWC weekly work search log
-model WorkSearchEntry {
+// Single-row configuration. A seed script fills whatever is absent and
+// overwrites nothing; the settings service reads only and throws when a
+// setting is missing, so an empty default never reaches a collector.
+// One row per place the mapping service was asked about, so a run only pays
+// for places it has never seen. Across the current database 3,975 lookups
+// resolve to 789 distinct places, because postings name the same cities over
+// and over.
+//
+// Only a place that resolved is stored. A text the service found nothing for
+// writes no row, so the same text is tried again next run — what changes
+// between runs is how locations are cut up, not the map.
+model Place {
   id           String   @id @default(cuid())
-  jobId        String
-  job          Job      @relation(fields: [jobId], references: [id], onDelete: Restrict)
-  date         DateTime // when the status change happened
-  activityType String   // "Applied for job", "Had phone screen", "Had interview"
-  result       String   @default("Application filed") // TWC result checkbox value
-  createdAt    DateTime @default(now())
-
-  @@index([jobId])
-  @@index([date])
+  // The location fragment that was looked up, and the whole identity here. A
+  // place is found again by the text that produced it rather than by the name
+  // the service chose, because the text is what the next job will carry.
+  lookup_text  String   @unique
+  latitude     Float
+  longitude    Float
+  // What the service called the place and what kind of thing it is — a city,
+  // a county, a country, a road. Kept for reading a stored row back, not for
+  // judging: no allow list and no block list reads this.
+  place_type   String
+  display_name String
+  // The place's own shape on the map, which is what decides whether the user
+  // stands inside it. Absent where the service returned a line or a single
+  // point, and those fall back on distance, because only an area can contain
+  // anything.
+  outline      Json?
+  created_at   DateTime @default(now())
 }
 
-// Caches geocoded coordinates for location strings — one API call per unique string
-model LocationCache {
-  id             String   @id @default(cuid())
-  locationString String   @unique // normalized post-prefilter string
-  lat            Float
-  lon            Float
-  displayName    String   // full resolved name from geocoding
-  createdAt      DateTime @default(now())
+model Setting {
+  id                            Int      @id @default(1)
+  // The terms every collector searches for.
+  search_terms                  Json?
+  // The location the Austin searches read.
+  location                      String?
+  // Search radius around that location, in miles.
+  radius                        Int?
+  // How many days old a posting may be before it counts as expired. The
+  // browser collectors stop paginating once they reach it.
+  expiry_threshold              Int?
+  // The closed list of words that name a job: designer, researcher,
+  // engineer, manager. Finding one is what tells the title rule which part
+  // of a title is the role.
+  title_head_nouns              Json?
+  // Each stored seniority spelling with the spellings that match it, held
+  // as a list of objects with a store string and a match list. senior, sr,
+  // and sr. all store as Sr.
+  title_levels                  Json?
+  // Word endings that name a person doing a job, like -er, -or, and -ist.
+  // Used when no head noun matched, so a profession the list has never
+  // seen is still recognized.
+  title_suffixes                Json?
+  // Words taken out of a title's team part only, never out of the role,
+  // because each one can legitimately appear in a real role.
+  title_removal_words           Json?
+  // One flat ordered list ranking every parser and collector together,
+  // each entry prefixed by its kind, so parser:greenhouse and
+  // collector:greenhouse are two separate entries. Every field except the
+  // dates and collected_at resolves by it. collector:user is seeded at
+  // the top, so a job entered by hand wins every contested field. A
+  // source absent from the list ranks below every source in it. npm run
+  // db:seed appends any missing registry name to the bottom and never
+  // reorders or removes.
+  source_priority_list          Json?
+  // Resolution runs in two lanes, and these three pace them. Every job starts
+  // in the fast lane; a host that refuses us sends its remaining jobs to the
+  // slow lane, which runs once the fast lane is done and that host has had
+  // time to cool off. Nothing here names a host — which hosts end up in the
+  // slow lane is decided by what they did during the run.
+  //
+  // How many jobs the fast lane resolves at a time. A headed browser holds
+  // focus for as long as it runs, so the machine is unusable while a run
+  // lasts and shortening that is what raising this buys. The four-page limit
+  // is not a setting beside it: it stays a constant in code, changed against
+  // real numbers rather than turned up in the moment.
+  resolution_fast_concurrency   Int?
+  // How many jobs the slow lane resolves at a time. Every job there belongs
+  // to a host that already refused us once this run, so this is normally one.
+  resolution_slow_concurrency   Int?
+  // How long the slow lane waits between jobs. Measured against Adzuna on
+  // 2026-09-12: around 25 page visits per five minutes passed and about 30
+  // was refused, so twelve seconds sits just under the ceiling the strictest
+  // host we have met was enforcing.
+  resolution_slow_pause_seconds Int?
+  // How far apart a posting's two dates must be before the job counts as
+  // posted again rather than as one listing two collectors disagree about.
+  // Measured in days and compared as an exact duration, so the hours between
+  // two collectors seeing the same posting are absorbed rather than counted.
+  repost_gap_days               Int?
+  // The score a company's four categories must average above before its board
+  // joins a polling list. The average rather than every category on its own:
+  // the company rubric awards a 3 when nothing public was found, so a
+  // per-category test would block a strong company forever on one unknown.
+  promotion_threshold           Float?
+  // How many days a company's scores stand before backlog cleanup empties
+  // them. A judgement about an employer ages, and a stale one would rank a
+  // job against a company that has since changed.
+  score_expiry_days             Int?
+  // How many days a guessed category stands. Shorter than the score expiry,
+  // because a 3 the agent guessed at is a placeholder rather than research.
+  guessed_score_expiry_days     Int?
+  created_at                    DateTime @default(now())
+  modified_at                   DateTime @updatedAt
 }
 
-// Allow/block decisions for Nominatim response classes (e.g. "boundary" allowed, "amenity" blocked)
-model GeocodingClassRule {
-  id        String   @id @default(cuid())
-  className String   @unique // Nominatim class value (e.g. "boundary", "amenity")
-  action    String   // "allow" or "block"
-  createdAt DateTime @default(now())
+// One row per event in a job's path through the pipeline. A job enters at
+// collection, passes through each step, and either reaches the end or hits a
+// dead end recording when and why. This is a record of each job's path, not validation,
+// not source-health monitoring, not run reporting. Only a job search writes
+// traces.
+//
+// step names the pipeline stage, in order: backlog_cleanup,
+// post_backlog_cleanup_save, collection, post_collection_normalization,
+// post_collection_association, post_collection_dedupe, post_collection_save,
+// resolution, post_resolution_dedupe, post_resolution_save, parsing,
+// post_parsing_normalization, post_parsing_association, post_parsing_dedupe,
+// post_parsing_save, promotion, post_promotion_save, classification,
+// post_classification_save, scoring, company_promotion.
+// Every one of them writes today.
+//
+// scoring and company_promotion are the two the pipeline itself never
+// reaches: an agent does the judging, so they are written by the scoring
+// orchestrator's two commands instead. They still carry the job search's own
+// run id, so one run's rows stay countable together.
+//
+// Backlog cleanup opens the run, before any collector, so the backlog being
+// added to has already been swept. Promotion and classification close it,
+// because an expired job only gains a fresh date once collection has found
+// the new listing and dedupe has merged it in.
+//
+// event names what happened, and every event about a job carries the job_
+// prefix, so the subject of a row reads off its event name alone. Collection
+// writes job_collected and job_abandoned;
+// normalization writes job_updated where a field was normalized and
+// normalization_failed where a raw value it could act on produced nothing;
+// company association writes company_associated where the job came out with a
+// company, company_dbrow_updated where it filled a company's empty name,
+// association_failed where the job came out with none, and
+// company_update_failed where the name it went to write was already taken.
+// Save writes job_dbrow_created where a row is written for a job not already
+// on file, carrying the collection-time id; job_dbrow_updated where an
+// existing row takes merged fields; job_dbrow_status_updated where an active
+// row takes a different status and nothing else; and job_dbrow_deleted where
+// a row that dedupe marked for removal is deleted. It reuses collection's
+// job_abandoned for a write that throws, so the entry never lands; step and
+// reason are what tell the two job_abandoned populations apart. Save also
+// writes job_dbrow_delete_refused, where the active guardrail kept a row
+// dedupe had marked. It reuses association's company_dbrow_updated for a
+// company row that took its new score block, because both are one write to
+// one company row and step is what tells them apart. Dedupe writes
+// job_abandoned for every entry it marks away, whether or
+// not that entry held a row, and writes job_added_to_list where a stored row
+// joined this run's list; that row's job_id and collector both come from the
+// stored row, because that row is the job the event describes. Resolution
+// writes job_resolved where a job's resolution reached a page the rules accepted and
+// resolution_failed where it did not, and reuses job_abandoned where a
+// collected job's resolution reached a blacklisted host. Collection writes
+// job_resolved too, for a job a self-resolving collector handed over already
+// pointing at the employer's own posting; step and reason tell the two
+// populations apart.
+// Parsing writes job_parsed where a parser read the employer's own posting
+// and came back with at least one field, and parsing_failed where it did not.
+// It reuses no earlier step's event, because reading a posting is not
+// something any earlier step does. Its name carries the step's own spelling,
+// the way every other step's failure event does.
+//
+// The three judging steps write seven between them, and each writes
+// job_entered as a job arrives, so a summary heading can say what a step was
+// handed even where the step later died. Backlog cleanup then writes job_kept
+// for a job it left alone and job_expired for one past the threshold.
+// Promotion writes job_promoted. Classification writes job_reposted for a job
+// whose two posting dates sit further apart than the repost gap, then exactly
+// one outcome: job_classified where a place and work mode pair put the job
+// close enough, job_expired where it was too old to judge, or
+// classification_failed where it was too far away or unreadable. The repost
+// row is written before the outcome row, so a job's fate still reads off its
+// latest row. Classification reuses backlog cleanup's job_expired, and step is
+// what tells the two populations apart.
+//
+// job_abandoned ends a job's path through the pipeline and makes no claim
+// about whether a row existed. What became of the row is a separate event:
+// job_dbrow_deleted where save carried the delete out, or
+// job_dbrow_delete_refused where the active guardrail kept it. A job taking a
+// disqualifying status never takes job_abandoned, because it keeps its row
+// and can be repaired.
+//
+// reason names why a dead end happened, and for normalization also how
+// completely a field came through.
+//
+// Collection's usability check writes six codes: no_original_url (no link at
+// all), original_url_not_a_url (a link that is not a URL; detail carries the
+// offending value), no_raw_title (no title), no_company_identity (neither a
+// company name nor a company slug), posting_date_unparseable (a posting date
+// that is set and does not parse), posting_updated_date_unparseable (an
+// updated date that is set and does not parse).
+//
+// Normalization writes nine, one set per field, chosen by whether every raw
+// value that was present got normalized — all of them, some, or none:
+// title_normalized and missing_role_noun, where the title carried no known
+// job noun to build the standard shape around and a tidied fallback was
+// stored instead (a title has one input, so it is
+// never partial); salary_normalized, salary_partially_normalized and
+// salary_unusable; work_mode_normalized, work_mode_partially_normalized and
+// work_mode_unusable; and company_name_normalized, which has no failure
+// twin because a cosmetic tidy cannot fail. salary_unusable and
+// work_mode_unusable are the two that warn at the end of a run. Locations add
+// a tenth, location_unusable, sitting under normalization_failed where every
+// location a job carried cut away to no place at all. It has no success twin,
+// because a summary block counting successful cuts would say nothing, and it
+// warns nobody: a posting naming no readable place is the source's doing.
+//
+// Company association writes six. Three sit under company_associated and say
+// how the company was reached: matched_by_slug, matched_by_name, and
+// company_created where neither lookup found one. company_name_filled sits
+// under company_dbrow_updated, where a company holding no name took the job's.
+// no_company_name sits under association_failed, where the job's slug
+// matched nothing and it carried no name to fall back on; it is spelled apart
+// from collection's no_company_identity so a query grouping by reason alone
+// does not merge two different populations. Scoring writes no_company_name
+// too, for a company row holding no name to research, and the event is what
+// tells that population from this one. company_name_clash sits under
+// company_update_failed, where another company already holds that name.
+// no_company_name and company_name_clash are the two that warn.
+//
+// Save writes one reason of its own: db_write_failed, sitting under
+// job_abandoned, where the write throws and the entry never reaches the
+// table. It passes dedupe's reason through unchanged onto job_dbrow_deleted,
+// job_dbrow_delete_refused and the job_abandoned it writes for a marked entry
+// that never held a row, so the reason names the match rather than the active
+// status.
+//
+// Dedupe writes four. hard_match_in_list and repost_match_in_list sit under
+// job_abandoned, where an entry merged into another entry on the same list;
+// the two are told apart by whether the merged job's pooled dates fall less
+// than 24 hours apart. matched_db_row sits under job_abandoned where the
+// entry left the list for a stored row having never been saved, and under
+// job_dbrow_deleted where it already held a row of its own.
+// matched_list_entry sits under job_added_to_list, on the stored row that
+// joined the list.
+//
+// Collection writes one reason under job_resolved: collector_provided, where
+// an ATS board or Dribbble hosted the posting and supplied its url, so the job
+// never reaches resolution. It is recorded rather than worked out afterwards,
+// because jobs saved minus jobs resolved counts two different populations —
+// resolution also processes jobs an earlier run collected.
+//
+// Resolution writes ten. Four sit under job_resolved and name the rule that
+// accepted the page: no_apply_links, where the page offered nowhere further
+// to go; link_left_site, where resolution left the host and arrived;
+// stayed_on_site, where it stayed within the same site, never left, and
+// the page was dropped; and page_limit_reached, where the ceiling was reached
+// with a same-host link left unfollowed. Five sit only under
+// resolution_failed: dead_end, for a login wall, signup wall or paywall;
+// page_unavailable, where a page is not there — a 404 for a filled job, or a
+// 401 wanting a login we do not have; page_refused, where the source turned
+// us away for now, being a 403, a 429 or a server error, which is the one
+// status group worth asking again, and the one that sends its host to the
+// slow lane; page_load_failed, where the browser could not load a page at
+// all; and posting_gone, where a page answered successfully while its own
+// address carried an error flag, which is how a board redirects a dead job
+// id to its whole listing.
+// page_limit_reached sits there too, for a ceiling reached with an off-host
+// link left unfollowed — one population split by outcome, which is what lets
+// a single query answer how often four pages is the binding constraint. The
+// tenth, blacklisted_url, sits under resolution_failed for a hand-entered
+// job and under job_abandoned for a collected one, whose row is marked for
+// deletion instead.
+//
+// page_refused and page_load_failed are the two that leave a job's status
+// untouched, so it returns to the next run's queue. Every other failure
+// parks the job as unresolvable. Both describe the moment rather than the
+// job: a source turning us away and a browser that could not load a page
+// both say nothing about whether the posting is any good.
+//
+// normalization_failed does not mean nothing was written. A title that
+// matched no job noun still stores its cleaned fallback, so missing_role_noun
+// records that the rule found nothing to fire on rather than that the field
+// was left empty.
+//
+// A normalization event's detail carries from and to, each cut at 200
+// characters, so a collector bug putting a description in the wrong field
+// cannot bloat this table in the run someone needs to read. A company name's
+// from is the only surviving record of the spelling the source published,
+// since the cleaned name overwrites it in place.
+//
+// Parsing writes three, all sitting under parsing_failed.
+// no_parser_for_domain, where no parser owns the domain the resolved link
+// belongs to, or the link yields no owned domain at all; the job takes
+// unparseable, because a later run would reach the same verdict.
+// parser_errored, where the parser threw or its source refused the request;
+// and nothing_parsed, where the parser ran and returned no field at all.
+// Those last two keep the job in the backlog, because both describe an
+// outage rather than a verdict on the job, and the next run tries again. A
+// parsing_failed row also carries the owned domain in the domain column and the
+// full resolved link in detail, so a failing platform can be counted and any
+// one failure chased back to the exact address it happened on.
+//
+// The judging steps write three. past_expiration_threshold sits under
+// job_expired at backlog cleanup and again at classification, naming the one
+// rule both apply. no_location_match sits under classification_failed where
+// every place and work mode pair was too far away, and location_unusable sits
+// under it where no place on the job could be read at all — a job we could not
+// place is left in the backlog for a later run, so the two are never merged. A
+// refused map request is recorded as location_unusable too, because from the
+// job's point of view that is exactly what happened. Normalization writes
+// location_unusable as well, for a raw location that cut away to no place, and
+// the event is what tells the two populations apart. job_entered, job_kept,
+// job_promoted, job_classified and job_reposted carry no reason, because one
+// population needs nothing to group by.
+//
+// A company has a path of its own, shorter than a job's, and its rows carry
+// a company and never a job or a collector. Backlog cleanup writes
+// company_entered as each scored company arrives, then company_kept where the
+// judgement is still fresh. Where it is not, company_scores_cleared says every
+// score was emptied and placeholder_company_scores_cleared says only the
+// guessed ones were, both under past_expiration_threshold. The event carries
+// which scores went, because that is what happened to the company; the reason
+// names the one rule every expiry in the pipeline applies, the same word
+// job_expired carries. Save
+// writes company_dbrow_updated where the company's row took its new score
+// block, and reuses collection's job_abandoned under db_write_failed where
+// that write threw.
+//
+// Scoring writes eight events and seven reasons of its own, all under the
+// step scoring. It writes job_entered and company_entered as each job and
+// company is gathered, so a heading can say what scoring was handed even
+// where the run stopped part-way. A job then takes job_scored, or
+// scoring_failed under one of four reasons: no_posting_url, where the job
+// carried neither the posting's words nor a link to fetch them;
+// posting_unreadable, where the page at that link would not open;
+// scoring_agent_failed, where the helper came back with no score at all; and
+// db_write_failed, where the score could not be written. A company takes
+// company_scored where every category was researched,
+// company_partially_scored under insufficient_research where the helper had
+// to guess at one, or company_scoring_failed under no_company_name, where the
+// company is known only by a board slug, scoring_agent_failed, or
+// db_write_failed. scoring_agent_failed and db_write_failed each name one
+// population split by whether a job or a company was being scored, and the
+// event is what tells the two sides apart.
+//
+// No scoring row carries the score itself. A score is a counted value, so it
+// lives in a column on the row it describes and a reader joins to it.
+//
+// company_promotion writes three. company_entered as each scored company
+// arrives, then company_promoted where its board row gained the collector
+// that will poll it, or company_promotion_skipped under one of four reasons:
+// not_fully_scored, where a category is still empty and there is no average
+// to test; below_promotion_threshold, where the four scores average at or
+// below the setting; no_pollable_board, where no board of that company is one
+// a collector can poll; and already_polled, where every such board already
+// carries a collector. It is spelled apart from promotion, which means a
+// reposted job returning to the backlog, because scoring shares the job
+// search's run id and one name would put both in the same counting bucket.
+model Trace {
+  // An auto-incrementing integer key, so two events landing in the same
+  // millisecond still have a reliable order.
+  id         Int      @id @default(autoincrement())
+  // The job search during which the event happened.
+  run_id     String
+  // The job the event describes. A plain column with no relation, so a trace
+  // outlives the job it describes. Empty on a company event, which describes
+  // an employer rather than a posting.
+  job_id     String?
+  // The company the event describes, on the events that describe one. A plain
+  // column with no relation, for the same reason job_id is one. A row names a
+  // job or a company, never both.
+  company_id String?
+  // Where in the pipeline the event happened.
+  step       String
+  // What happened there.
+  event      String
+  // Why a dead end happened, where the event was one.
+  reason     String?
+  // Which collector produced the job. Empty on a company event, because a
+  // company score has no collector behind it.
+  collector  String?
+  // The domain the job's source owns, on the events where a source is what
+  // failed. It is a column of its own rather than a field inside detail
+  // because detail is JSON holding a different shape per event, and SQLite
+  // cannot group a web address out of it — a counted value has to be
+  // groupable.
+  domain     String?
+  // What is specific to this one event. Nothing that gets counted goes here.
+  detail     Json?
+  created_at DateTime @default(now())
+}
+
+// One row per job search activity recorded for the Texas Workforce
+// Commission. It is a legal filing that cannot be regenerated, so it stands
+// free of the job it describes: the pipeline is allowed to delete a job row,
+// and an entry that read through to that row would be destroyed with it.
+// Nothing revises an entry, so there is no last-changed column.
+model WorkLogEntry {
+  id           String   @id @default(cuid())
+  // The job the activity was for. A plain column with no relation, so the
+  // entry outlives the job it names, the way Trace.job_id already does.
+  job_id       String
+  // The employer's name as it stood when the entry was written, copied here
+  // rather than read through to the company row. The form names an employer,
+  // and a later write to that row must not change what was filed.
+  company_name String
+  // The job title as it stood when the entry was written, copied for the same
+  // reason the employer name is.
+  job_title    String
+  // What the activity was, in the wording Texas accepts: "Applied for job",
+  // "Had phone screen", or "Had interview".
+  activity     String
+  created_at   DateTime @default(now())
 }

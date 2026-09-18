@@ -1,162 +1,90 @@
-// Page parser for Ashby (jobs.ashbyhq.com) — extracts structured job data
-// Primary source: __appData (Ashby's React data blob) for most fields.
-// Fallback: JSON-LD for company name (not in __appData), HTML for title.
+// The Ashby job-posting parser. Ashby publishes a public JSON API for each
+// job board, so this reads that API directly rather than driving a browser —
+// the legacy Ashby parser used Playwright to scrape a React data blob out of
+// the rendered page; this one reads api.ashbyhq.com instead, the same
+// endpoint the Ashby collector reads. No browser is opened anywhere here.
+import { jobFieldsFromAshbyPosting, type AshbyJobBoardResponse } from "../utils/ashby-fields";
+import { employerNameFromBoardPage } from "../tools/board-employer-name";
+import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { withFieldsFromDescription } from "../utils/description-fallback";
+import { BROWSER_USER_AGENT } from "../tools/page-fetcher";
+import { urlMatchKey } from "../utils/url-match-key";
+import type { Parser } from "./parser";
 
-import type { Browser } from "playwright";
-import type { ParserResult, ParsedFields } from "./types";
-import { TRACKED_FIELDS } from "./types";
-import { extractJsonLd, stripHtml } from "./parse-utils";
-import { parseSalaryFromText } from "../scrapers/fetch-utils";
+const postingUrl = (slug: string) =>
+  `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`;
 
-// Fields we extract from Ashby's window.__appData
-export interface AshbyAppData {
-  title?: string;
-  workplaceType?: string; // "Remote", "Hybrid", "On-Site"
-  locationName?: string; // primary location display name
-  secondaryLocationNames?: string[]; // additional locations
-  publishedDate?: string; // ISO date string, e.g. "2026-04-06"
-  compensationTierSummary?: string; // e.g. "$126.5K – $169K • Offers Equity"
-}
+const boardUrl = (slug: string) => `https://jobs.ashbyhq.com/${slug}`;
 
-// Pure extraction — appData is the primary source, JSON-LD/HTML are fallbacks.
-export function parseAshbyHtml(
-  html: string,
-  appData?: AshbyAppData | null,
-): Partial<ParsedFields> {
-  const fields: Partial<ParsedFields> = {};
-  const ld = extractJsonLd(html);
-
-  // Title: __appData > JSON-LD > first h1
-  if (appData?.title) {
-    fields.title = appData.title;
-  } else if (ld.title) {
-    fields.title = ld.title;
-  } else {
-    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    if (h1Match) fields.title = stripHtml(h1Match[1]);
-  }
-
-  // Company: JSON-LD only (__appData doesn't include company name)
-  if (ld.hiringOrganization?.name) {
-    fields.companyName = ld.hiringOrganization.name;
-  }
-
-  // Work mode: __appData.workplaceType is authoritative
-  // (JSON-LD uses TELECOMMUTE for both hybrid and remote — unreliable)
-  // When not set but a location exists, default to in-person — a physical
-  // location with no mode means assume office-based.
-  if (appData?.workplaceType) {
-    const wt = appData.workplaceType.toLowerCase();
-    if (wt === "hybrid") fields.workMode = "hybrid";
-    else if (wt === "remote") fields.workMode = "remote";
-    else if (wt === "on-site" || wt === "onsite") fields.workMode = "in-person";
-    else fields.workMode = wt;
-  } else if (appData?.locationName) {
-    fields.workMode = "in-person";
-  }
-
-  // Location: __appData primary + secondary names combined
-  // classifyLocation checks this string for Austin-area cities
-  if (appData?.locationName) {
-    const allLocations = [
-      appData.locationName,
-      ...(appData.secondaryLocationNames ?? []),
-    ];
-    fields.location = allLocations.join(", ");
-  } else if (ld.jobLocation?.address) {
-    // Fallback to JSON-LD if no appData
-    const addr = ld.jobLocation.address;
-    const parts: string[] = [];
-    if (addr.addressLocality) parts.push(addr.addressLocality);
-    if (addr.addressRegion && addr.addressRegion !== addr.addressCountry) {
-      parts.push(addr.addressRegion);
-    }
-    if (addr.addressCountry) parts.push(addr.addressCountry);
-    if (parts.length > 0) fields.location = parts.join(", ");
-  }
-
-  // Dates: __appData > JSON-LD (raw string, no TZ conversion)
-  const dates: string[] = [];
-  if (appData?.publishedDate) dates.push(appData.publishedDate);
-  else if (ld.datePosted) dates.push(ld.datePosted);
-  if (dates.length > 0) fields.dates = dates;
-
-  // Salary: JSON-LD baseSalary > __appData summary > text scan
-  if (ld.baseSalary?.value) {
-    const { minValue, maxValue } = ld.baseSalary.value;
-    if (minValue && maxValue) {
-      const toK = (n: number) => Math.round(n / 1000);
-      fields.salaryRange = `$${toK(minValue)}-${toK(maxValue)}k`;
-    }
-  } else if (appData?.compensationTierSummary) {
-    // Expand "$126.5K" → "$126500" so parseSalaryFromText's regex can match
-    const expanded = appData.compensationTierSummary.replace(
-      /\$([\d.]+)K/gi,
-      (_, n) => `$${Math.round(parseFloat(n) * 1000)}`,
-    );
-    const salary = parseSalaryFromText(expanded);
-    if (salary !== "?") fields.salaryRange = salary;
-  } else {
-    const salary = parseSalaryFromText(html);
-    if (salary !== "?") fields.salaryRange = salary;
-  }
-
-  return fields;
-}
-
-// Playwright wrapper — opens its own page from the shared browser,
-// extracts __appData for mode/location, then HTML for the rest.
-export async function parseAshbyJob(
-  url: string,
-  browser: Browser,
-): Promise<ParserResult> {
-  const context = await browser.newContext();
-  const page = await context.newPage();
+// Reads the board slug off an Ashby link, shaped
+// https://jobs.ashbyhq.com/{slug}/{postingId} — the slug is the first path
+// segment. The link's domain has already been established by a registry
+// before this runs, so there is no host check here.
+export function extractAshbySlug(url: string): string | null {
+  let parsed: URL;
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
-    // Wait briefly for React to hydrate and populate __appData
-    await page.waitForTimeout(1500);
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return null;
+  }
+  return segments[0];
+}
 
-    // Extract Ashby's React data blob for work mode + locations
-    const appData: AshbyAppData | null = await page.evaluate(() => {
-      const raw = (window as Record<string, unknown>).__appData as Record<string, unknown> | undefined;
-      const d = (raw?.jobPosting ?? raw?.posting ?? raw) as Record<string, unknown> | undefined;
-      if (!d) return null;
-      return {
-        title: d.title as string | undefined,
-        workplaceType: d.workplaceType as string | undefined,
-        locationName: d.locationName as string | undefined,
-        secondaryLocationNames: d.secondaryLocationNames as string[] | undefined,
-        publishedDate: d.publishedDate as string | undefined,
-        compensationTierSummary: d.compensationTierSummary as string | undefined,
-      };
+export const ashbyParser: Parser = {
+  name: "ashby",
+
+  async parse({ url }) {
+    const slug = extractAshbySlug(url);
+    if (!slug) {
+      // A link this parser cannot read is a parse error, not an empty read.
+      throw new Error(`ashby: could not read a board slug from ${url}`);
+    }
+    const label = `ashby (${slug})`;
+
+    const res = await fetchWithTimeout(postingUrl(slug), {
+      headers: { "user-agent": BROWSER_USER_AGENT },
+    });
+    if (!res.ok) {
+      throw httpError(label, res.status);
+    }
+
+    const board = await safeJson<AshbyJobBoardResponse>(res, label);
+
+    // Ashby postings carry no stable id — the board only identifies a
+    // posting by its jobUrl, and query strings drift between the stored
+    // link and the board's own copy — so postings are matched on a link
+    // match key rather than exact text. A null key on either side must
+    // never be treated as matching another null key.
+    const wantedKey = urlMatchKey(url);
+    const posting = board.jobs.find((candidate) => {
+      const candidateKey = urlMatchKey(candidate.jobUrl);
+      return candidateKey !== null && wantedKey !== null && candidateKey === wantedKey;
     });
 
-    const html = await page.content();
-    const fields = parseAshbyHtml(html, appData);
+    if (!posting) {
+      // A posting no longer on the board is a parse that ran and found
+      // nothing, not an error — this leaves the job in the backlog to
+      // retry, and there is no name lookup worth making for it.
+      return {};
+    }
 
-    const failedFields = TRACKED_FIELDS.filter((f) => !fields[f]);
+    const fields = jobFieldsFromAshbyPosting(posting, slug);
 
-    return {
-      success: true,
-      url,
-      finalUrl: page.url(),
-      parser: "ashby",
-      fields,
-      failedFields,
-    };
-  } catch (err) {
-    return {
-      success: false,
-      url,
-      finalUrl: url,
-      parser: "ashby",
-      fields: {},
-      failedFields: [...TRACKED_FIELDS],
-      error: err instanceof Error ? err.message : "Unknown error",
-    };
-  } finally {
-    // Always close the context to free browser resources
-    await context.close();
-  }
-}
+    // Ashby's API never carries the employer's name at all — verified live
+    // on 2026-09-12 against the hinge-health board, whose answer holds only
+    // jobs and apiVersion — so it is read off the board page's title
+    // instead. This is deliberately never cached — search terms narrow each
+    // board down to a handful of jobs, so the repeated fetch is small, and
+    // caching costs nothing to add later if that changes.
+    const name = await employerNameFromBoardPage(boardUrl(slug));
+    if (name) {
+      fields.raw_company_name = name;
+    }
+
+    return withFieldsFromDescription(fields, posting.descriptionPlain || posting.descriptionHtml);
+  },
+};

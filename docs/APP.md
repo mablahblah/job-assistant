@@ -10,7 +10,7 @@ Manually checking many job boards is slow and repetitive. No single tool surface
 
 ## Vision
 
-A personal dashboard that surfaces best-fit jobs automatically, tracks application status, and helps prepare tailored application materials — so the job search becomes a triage task, not a full-time job.
+A personal dashboard that surfaces best-fit jobs automatically, tracks application status, and helps prepare tailored application materials — so the job search becomes a short daily task, not a full-time job.
 
 ## Scope
 
@@ -21,7 +21,7 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 #### Stories
 
 - As a user, I can run scrapers to pull new job postings from multiple boards into a unified list
-- As a user, I can see jobs scored and ranked by fit so I can triage quickly
+- As a user, I can see jobs scored and ranked by fit so I can decide what to apply to quickly
 - As a user, I can track each job through a status pipeline (backlog → applied → interviewing, etc.)
 - As a user, I can score companies so their jobs surface higher or lower in rankings
 - As a user, status changes auto-log TWC-compliant work search entries so I can fill out my weekly unemployment form without manual tracking

@@ -1,0 +1,1381 @@
+{
+  "note": "Real excerpts from the seeded Greenhouse, Lever and Ashby boards, harvested 2026-08-27. One excerpt per distinct published form. salary and mode carry the value the util must read; neither must read as nothing.",
+  "salary": [
+    {
+      "source": "greenhouse/gitlab",
+      "text": "e also eligible for incentive pay targeted at up to 100% of the offered base salary.United States Salary Range$139,200—$235,200 USDHow GitLab Supports Full-Time Employees Benefits to suppo",
+      "expect": {
+        "salary_low": 139200,
+        "salary_high": 235200,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "e also eligible for incentive pay targeted at up to 100% of the offered base salary.United States Salary Range$59,000—$84,000 USDHow GitLab Supports Full-Time Employees Benefits to suppo",
+      "expect": {
+        "salary_low": 59000,
+        "salary_high": 84000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "e also eligible for incentive pay targeted at up to 100% of the offered base salary.United States Salary Range$91,600—$154,200 USDHow GitLab Supports Full-Time Employees Benefits to suppo",
+      "expect": {
+        "salary_low": 91600,
+        "salary_high": 154200,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/duolingo",
+      "text": "rage you to talk with your recruiter for more information related to compensation for this role!Salary Range: $140,000—$210,000 USDBenefits: Take a peek at how we care for our employees' h",
+      "expect": {
+        "salary_low": 140000,
+        "salary_high": 210000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/duolingo",
+      "text": "rage you to talk with your recruiter for more information related to compensation for this role!Salary Range: £124,395—£186,592 GBPBenefits: Take a peek at how we care for our employees' h",
+      "expect": {
+        "salary_low": 124395,
+        "salary_high": 186592,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/duolingo",
+      "text": "rage you to talk with your recruiter for more information related to compensation for this role!Salary Range: £75,525—£102,181 GBPBenefits: Take a peek at how we care for our employees' h",
+      "expect": {
+        "salary_low": 75525,
+        "salary_high": 102181,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "industry and the payments ecosystem, including emerging technologies, trends, and market positioning Salary: $182,208 - $236,580/yr. This salary range represents the base salary range for",
+      "expect": {
+        "salary_low": 182208,
+        "salary_high": 236580,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "distributed systems; and Cloud based services, including: gRPC, GraphQL, Docker, Kubernetes, or AWS. Salary: $173,000.00 - $259,600.00/yr. This salary range represents the base salary range for",
+      "expect": {
+        "salary_low": 173000,
+        "salary_high": 259600,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "and implementing automations, workflows, and routing logic to reduce manual tasks for Support agents. Salary: $150,301 - $210,600/yr This salary range represents the base salary range for t",
+      "expect": {
+        "salary_low": 150301,
+        "salary_high": 210600,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "flexibility when possible. Pay and benefits The annual salary range for this role in the primary location is €94,600–€141,800. This range may change if you are hired in another location",
+      "expect": {
+        "salary_low": 94600,
+        "salary_high": 141800,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "nts; and 1 year of experience in designing and implementing large scale consumer payment experiments. Salary: $190,400 – $285,600/yr. This salary range represents the base salary range for",
+      "expect": {
+        "salary_low": 190400,
+        "salary_high": 285600,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "ating large data sets to deliver deep analyses and actionable insights. Multiple positions available. Salary: $155,800.00 - $233,600.00/yr This salary range represents the base salary range for t",
+      "expect": {
+        "salary_low": 155800,
+        "salary_high": 233600,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "uding creating dashboards in Hubble to track KPIs and operational performance; and Forecast Modeling. Salary: $152,069.00 - $199,200.00/Yr This salary range represents the base salary range for t",
+      "expect": {
+        "salary_low": 152069,
+        "salary_high": 199200,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "ancial partnership environment around the world. Note: The annual Canadian base salary range for this role is $160,000 - $240,000. What you’ll do Responsibilities Serve as product counsel t",
+      "expect": {
+        "salary_low": 160000,
+        "salary_high": 240000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "g distributed systems, event driven architecture, fault-tolerant systems, cost-effective engineering. Salary: $156,800.00 – $235,200.00/yr This salary range represents the base salary range for t",
+      "expect": {
+        "salary_low": 156800,
+        "salary_high": 235200,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "nfrastructure in compute, networking, databases, or service frameworks; and 1 year experience in SQL. Salary: $173,400 - $260,200 This salary range represents the base salary range for the r",
+      "expect": {
+        "salary_low": 173400,
+        "salary_high": 260200,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "why we check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings range is €61,500 - €65,000. The total OTE includes a base salary range of €43,050 - €4",
+      "expect": {
+        "salary_low": 61500,
+        "salary_high": 65000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $370,000 - $436,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 370000,
+        "salary_high": 436000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings (OTE) range is $162,000- $185,000. The total OTE includes a base salary range of $81,450-$92,",
+      "expect": {
+        "salary_low": 162000,
+        "salary_high": 185000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings (OTE) range is €150,000 – €190,000. The total OTE includes a base salary range of €82,500 – €1",
+      "expect": {
+        "salary_low": 150000,
+        "salary_high": 190000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings (OTE) range is €128,000 - €162,000. The total OTE includes a base salary range of €70,400 - €8",
+      "expect": {
+        "salary_low": 128000,
+        "salary_high": 162000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $306,000-$360,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 306000,
+        "salary_high": 360000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings (OTE) range is $247,000 - $281,000. The total OTE includes a base salary range of $123,500 - $",
+      "expect": {
+        "salary_low": 247000,
+        "salary_high": 281000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings (OTE) range is £175,000 - £200,000. The total OTE includes a base salary and performance-based",
+      "expect": {
+        "salary_low": 175000,
+        "salary_high": 200000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e check ourselves and conduct a yearly pay equity audit. For this role, the On-Target Earnings (OTE) range is $290,000 - $330,000. (Talent Acquisition Partner will update finalized OTE rang",
+      "expect": {
+        "salary_low": 290000,
+        "salary_high": 330000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between £86,100 - £109,900. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 86100,
+        "salary_high": 109900,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between €77,000 - €98,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 77000,
+        "salary_high": 98000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "are categorized into one of three geographic pay zones, and the ranges for the zones are as follows: Zone A: $223,200 - $262,400 Zone B: $200,800 - $236,000 Zone C: $178,400 - $210,000 For",
+      "expect": {
+        "salary_low": 223200,
+        "salary_high": 262400,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $218,000 -$256,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 218000,
+        "salary_high": 256000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $207,000 – $261,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 207000,
+        "salary_high": 261000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between CAD 132,000–150,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 132000,
+        "salary_high": 150000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "eck ourselves and conduct a yearly pay equity audit. For this role, the estimated OTE salary range is between €119,000 - €160,000. The actual compensation package will vary based on various",
+      "expect": {
+        "salary_low": 119000,
+        "salary_high": 160000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $125,000 - $139,000 CAD. The actual base salary will vary based on factors such",
+      "expect": {
+        "salary_low": 125000,
+        "salary_high": 139000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $156,000 - $187,000 CAD The actual base salary will vary based on various factor",
+      "expect": {
+        "salary_low": 156000,
+        "salary_high": 187000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $207,000 - $243,000 The actual base salary will vary based on various factors, i",
+      "expect": {
+        "salary_low": 207000,
+        "salary_high": 243000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between €57,000-63,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 57000,
+        "salary_high": 63000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": ", we still encourage you to apply. What we'll offer For this role, the estimated base salary range is between $194,000–$220,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 194000,
+        "salary_high": 220000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "e insurance MacBooks with all necessary accessories For this role, the estimated base salary range is between $106,000 - $120,000 CAD annually. The actual base salary will vary based on vari",
+      "expect": {
+        "salary_low": 106000,
+        "salary_high": 120000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $238,000-$270,000 CAD. The actual base salary will vary based on various facto",
+      "expect": {
+        "salary_low": 238000,
+        "salary_high": 270000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "alue based on a pay equity audit we conduct yearly. For this role, the estimated base salary range is between $176,000 - $200,000 (senior) or for the right candidate, $211,000 - $240,000 CAD",
+      "expect": {
+        "salary_low": 176000,
+        "salary_high": 200000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between €105,000 - 119,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 105000,
+        "salary_high": 119000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between $132,000 -$156,000 CAD The actual base salary will vary based on various factor",
+      "expect": {
+        "salary_low": 132000,
+        "salary_high": 156000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "and conduct a yearly pay equity audit. For this role, the estimated On-Target Earnings (OTE) range is between $150,000 - $158,000. The actual compensation package will vary based on various",
+      "expect": {
+        "salary_low": 150000,
+        "salary_high": 158000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "y we check ourselves and conduct a yearly pay equity audit. For this role, the estimated OTE range is between £106,000 - £120,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 106000,
+        "salary_high": 120000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between £86,100 - £98,000. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 86100,
+        "salary_high": 98000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "a yearly pay equity audit. For this role, the estimated On-Target Earnings (OTE) range for this role will be $355,000 – $380,000 OTE which includes a base salary range of $177,500 – $190,00",
+      "expect": {
+        "salary_low": 355000,
+        "salary_high": 380000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "or up to 4 weeks per year. #Hybrid The expected base pay range for this position in the San Francisco area is $77,600 - $97,000, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 77600,
+        "salary_high": 97000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "s par an. #Hybrid La fourchette de salaire de base prévue pour ce poste dans la région de Montréal est de CAD $72,000 - CAD 90,000. Les échelles salariales dépendent de divers facteurs, nota",
+      "expect": {
+        "salary_low": 72000,
+        "salary_high": 90000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "or up to 4 weeks per year. #Hybrid The expected base pay range for this position in the San Francisco area is $118,000 - $147,500, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 118000,
+        "salary_high": 147500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "ub or office location full time. #Onsite The expected base pay range for this position in the Toronto area is $88,560 - $110,700, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 88560,
+        "salary_high": 110700,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "sed in the Colorado metro area. #Remote The expected base pay range for this position in the Colorado area is $26.17 - $33.17 per hour, not inclusive of potential equity offering, bonus",
+      "expect": {
+        "salary_low": 26.17,
+        "salary_high": 33.17,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "the Los Angeles metro area. #Remote The expected base pay range for this position in the Los Angeles area is $161,920 - $202,400 not inclusive of potential equity offering, bonus or benefit",
+      "expect": {
+        "salary_low": 161920,
+        "salary_high": 202400,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "or up to 4 weeks per year. #Hybrid The expected base pay range for this position in the New York City area is $99,000-$123,750, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 99000,
+        "salary_high": 123750,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "e for up to 4 weeks per year. #Hybrid The expected base pay range for this position in the Canada area is CAD $172,000 - CAD 215,000, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 172000,
+        "salary_high": 215000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "re for up to 4 weeks per year. #Hybrid The expected base pay range for this position in the Nashville area is $157,440 - $196,800. In addition to the base pay, this role is eligible for com",
+      "expect": {
+        "salary_low": 157440,
+        "salary_high": 196800,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "nywhere for up to 4 weeks per year. #Hybrid The expected base pay range for this position in San Francisco is $192,000- $240,000. In addition to the base pay, this role is eligible for com",
+      "expect": {
+        "salary_low": 192000,
+        "salary_high": 240000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "or office location full time. #Onsite The expected base pay range for this position in the Nashville area is $16.62 - $20.27, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 16.62,
+        "salary_high": 20.27,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "or up to 4 weeks per year. #Hybrid The expected base pay range for this position in the San Francsico area is $176,000-$220,000, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 176000,
+        "salary_high": 220000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "up to 4 weeks per year. #Hybrid The expected base pay range for this position in the Washington D.C. area is $66,240 - $82,800 not inclusive of potential equity offering, bonus or benefit",
+      "expect": {
+        "salary_low": 66240,
+        "salary_high": 82800,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "re for up to 4 weeks per year. #Hybrid The expected base pay range for this position in the Nashville area is $72,160-$90,200. Salary ranges are dependent on a variety of factors, inclu",
+      "expect": {
+        "salary_low": 72160,
+        "salary_high": 90200,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "re for up to 4 weeks per year. #Hybrid The expected base pay range for this position in the Nashville area is $59.040 - $73,800, not inclusive of potential equity offering, bonus or benef",
+      "expect": {
+        "salary_low": 59040,
+        "salary_high": 73800,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/dropbox",
+      "text": "Chief People Officer, Melanie Rosenwasser. CompensationUS Zone 1 This role is not available in Zone 1US Zone 2$146,500—$198,300 USDUS Zone 3$130,200—$176,200 USD",
+      "expect": {
+        "salary_low": 146500,
+        "salary_high": 198300,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/dropbox",
+      "text": "h change, read this blog post from our Chief People Officer, Melanie Rosenwasser. CompensationCanada Pay Range$151,300—$204,700 CAD",
+      "expect": {
+        "salary_low": 151300,
+        "salary_high": 204700,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/dropbox",
+      "text": ", read this blog post from our Chief People Officer, Melanie Rosenwasser. CompensationUnited Kingdom Pay Range£132,200—£178,800 GBPIreland Pay Range€121.100—€163.900 EUR",
+      "expect": {
+        "salary_low": 132200,
+        "salary_high": 178800,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "og-friendly workplace Free lunch and snacks Private rooftop Hack week twice per year Cash Compensation Range: $148,500 - $215,000 USD The base salary for this position will vary based on job",
+      "expect": {
+        "salary_low": 148500,
+        "salary_high": 215000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "se proximity to cultural landmarks such as Dublin Castle and St. Patrick's Cathedral Cash Compensation Range: €93,000 - €143,000 EUR The base salary for this position will vary based on job",
+      "expect": {
+        "salary_low": 93000,
+        "salary_high": 143000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "se proximity to cultural landmarks such as Dublin Castle and St. Patrick's Cathedral Cash Compensation Range: €93,000 – €143,000 EUR The base salary for this position will vary based on job",
+      "expect": {
+        "salary_low": 93000,
+        "salary_high": 143000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "og-friendly workplace Free lunch and snacks Private rooftop Hack week twice per year Cash Compensation Range: $85,500 - $138,000 USD The base salary for this position will vary based on job",
+      "expect": {
+        "salary_low": 85500,
+        "salary_high": 138000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "cultural landmarks such as Dublin Castle and St. Patrick's Cathedral Cash Compensation Range Dublin, Ireland: € 88,500 - € 159,500 New York, NY: $148,000 - $267,500 The base salary for this p",
+      "expect": {
+        "salary_low": 88500,
+        "salary_high": 159500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "orkplace Free lunch and snacks Private rooftop Hack week twice per year Cash Compensation Range New York, NY: $148,000 - $267,500 Dublin, Ireland: € 88,500 - € 159,500 The base salary for th",
+      "expect": {
+        "salary_low": 148000,
+        "salary_high": 267500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "se proximity to cultural landmarks such as Dublin Castle and St. Patrick's Cathedral Cash Compensation Range: €56,500 - €86,900 EUR The base salary for this position will vary based on job",
+      "expect": {
+        "salary_low": 56500,
+        "salary_high": 86900,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "s verifying eligibility for employment or for benefits administration and background checks. Arizona Pay Range$63,000—$75,000 USD",
+      "expect": {
+        "salary_low": 63000,
+        "salary_high": 75000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "arital status, genetic information, disability or because he or she is a protected veteran. Illinois Pay Range$24.50—$24.50 USD",
+      "expect": {
+        "salary_low": 24.5,
+        "salary_high": 24.5,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "bilities as needed to meet changing business needs, operational requirements, or other factors.Texas Pay Range$21—$21 USD",
+      "expect": {
+        "salary_low": 21,
+        "salary_high": 21,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "a posting for an existing vacancy. We are actively seeking to fill this position. #JD1003Toronto, ON Pay Range$72,000—$82,000 CAD",
+      "expect": {
+        "salary_low": 72000,
+        "salary_high": 82000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "protected veteran, or any other protected classification under federal, state, or local law.Arizona Pay Range$122,850—$148,000 USDIllinois Pay Range$131,250—$159,000 USD",
+      "expect": {
+        "salary_low": 122850,
+        "salary_high": 148000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "verifying eligibility for employment or for benefits administration and background checks.Newark, NJ Pay Range$140,000—$170,000 USD",
+      "expect": {
+        "salary_low": 140000,
+        "salary_high": 170000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "r an existing vacancy. We are actively seeking to fill this position. #factor #JD1008Mississauga, ON Pay Range$90,000—$100,000 CAD",
+      "expect": {
+        "salary_low": 90000,
+        "salary_high": 100000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "ties as needed to meet changing business needs, operational requirements, or other factors. New York Pay Range$88,935—$121,000 USD",
+      "expect": {
+        "salary_low": 88935,
+        "salary_high": 121000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "s verifying eligibility for employment or for benefits administration and background checks.New York Pay Range$158,550—$191,500 USDColorado Pay Range$148,050—$179,000 USD",
+      "expect": {
+        "salary_low": 158550,
+        "salary_high": 191500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "s verifying eligibility for employment or for benefits administration and background checks.Colorado Pay Range$148,050—$179,000 USDTexas Pay Range$143,850—$174,000 USDNewark, NJ Pay Range$",
+      "expect": {
+        "salary_low": 148050,
+        "salary_high": 179000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "sting for an existing vacancy. We are actively seeking to fill this position. #JD1003Mississauga, ON Pay Range$23.75—$23.75 CAD",
+      "expect": {
+        "salary_low": 23.75,
+        "salary_high": 23.75,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "ilities as needed to meet changing business needs, operational requirements, or other factors. Texas Pay Range$127,890—$147,900 USDNewark, NJ Pay Range$147,000—$170,000 USDArizona Pay Rang",
+      "expect": {
+        "salary_low": 127890,
+        "salary_high": 147900,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "for an existing vacancy. We are actively seeking to fill this position. #factor #JD1008 Calgary, AB Pay Range$30—$30 CAD",
+      "expect": {
+        "salary_low": 30,
+        "salary_high": 30,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "to meet changing business needs, operational requirements, or other factors. #Factor #JD1008New York Pay Range$101,000—$117,000 USDArizona Pay Range$88,000—$102,000 USDIllinois Pay Range$9",
+      "expect": {
+        "salary_low": 101000,
+        "salary_high": 117000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "ties as needed to meet changing business needs, operational requirements, or other factors. New York Pay Range$79,538—$95,000 USDColorado Pay Range$74,813—$90,000 USD",
+      "expect": {
+        "salary_low": 79538,
+        "salary_high": 95000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "bilities as needed to meet changing business needs, operational requirements, or other factors.Texas Pay Range$91,140—$105,400 USDNewark, NJ Pay Range$105,105—$121,550 USDArizona Pay Rang",
+      "expect": {
+        "salary_low": 91140,
+        "salary_high": 105400,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "es as needed to meet changing business needs, operational requirements, or other factors. Newark, NJ Pay Range$63,000—$67,500 USDIllinois Pay Range$58,800—$63,000 USD",
+      "expect": {
+        "salary_low": 63000,
+        "salary_high": 67500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "marital status, genetic information, disability or because he or she is a protected veteran.Colorado Pay Range$94,815—$109,650 USDTexas Pay Range$82,000—$102,000 USDNewark, NJ Pay Range$1",
+      "expect": {
+        "salary_low": 94815,
+        "salary_high": 109650,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "ity to work in the United States is required. The OTE range for candidates within the Greater Chicago Area is $132,836-$171,745. Actual base pay will depend on a variety of factors such a",
+      "expect": {
+        "salary_low": 132836,
+        "salary_high": 171745,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "ity to work in the United States is required. The OTE range for candidates within the Greater Chicago Area is $203,500 - $243,058. Actual OTE pay will depend on a variety of factors such as",
+      "expect": {
+        "salary_low": 203500,
+        "salary_high": 243058,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "mmediate and cross-functional teammates The OTE range for candidates within the Greater San Francisco Area is $132,200 - $158,050. Actual pay will depend on a variety of factors such as edu",
+      "expect": {
+        "salary_low": 132200,
+        "salary_high": 158050,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "k in the United States is required. The base salary range for candidates within the San Francisco Bay Area is $155,700 - $186,000. Actual base pay will depend on a variety of factors such a",
+      "expect": {
+        "salary_low": 155700,
+        "salary_high": 186000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "y to work in the United States is required. The pay range for candidates within the San Francisco Bay Area is $41.96 - $53.23 per hour, along with incentive compensation ranging from app",
+      "expect": {
+        "salary_low": 41.96,
+        "salary_high": 53.23,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "ork in the United States is required. The base salary range for candidates within the Greater Chicago Area is $40.10-$47.91 per hour, along with incentive compensation ranging from app",
+      "expect": {
+        "salary_low": 40.1,
+        "salary_high": 47.91,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "es *Proof of eligibility to work in the United States is required. The OTE range for this role is targeted at $233,505 - $314,438 for the Greater Chicago Area. Actual base pay will depend on",
+      "expect": {
+        "salary_low": 233505,
+        "salary_high": 314438,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "work in the United States is required. The OTE salary range for candidates within the Greater Chicago Area is $99,000 - $130,000. Actual pay will depend on a variety of factors such as edu",
+      "expect": {
+        "salary_low": 99000,
+        "salary_high": 130000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "rs *Proof of eligibility to work in the United States is required. The OTE range for this role is targeted at $310,000 - $370,000 for the Chicago Area. Actual base pay will depend on a varie",
+      "expect": {
+        "salary_low": 310000,
+        "salary_high": 370000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "rs *Proof of eligibility to work in the United States is required. The OTE range for this role is targeted at $344,000 - $411,000 for the SF Area. Actual base pay will depend on a variety of",
+      "expect": {
+        "salary_low": 344000,
+        "salary_high": 411000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "work in the United States is required. The OTE salary range for candidates within the Greater Chicago Area is $208,170-$248,650 Actual base pay will depend on a variety of factors such as",
+      "expect": {
+        "salary_low": 208170,
+        "salary_high": 248650,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "ork in the United States is required. The base salary range for candidates within the Greater Chicago Area is $81,000 - $98,000. Actual base pay will depend on a variety of factors such a",
+      "expect": {
+        "salary_low": 81000,
+        "salary_high": 98000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "cing People Customer Analytics Compensation: This role is available in the following US Pay Zones: US Zone 1: $134,000 - $167,500 US Zone 2: $134,000 - $167,500US Zone 3: $114,000 - $142,500",
+      "expect": {
+        "salary_low": 134000,
+        "salary_high": 167500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "tics Compensation: Our job titles may span more than one career level. The starting base pay for this role is between $113,600 CAD and $142,000 CAD. The actual base pay is dependent upon many factors, suc",
+      "expect": {
+        "salary_low": 113600,
+        "salary_high": 142000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "eyond or closed before the anticipated application window. This is a hybrid role in Denver or Austin. Zone 3: $132,000-$166,000 #LI-KM3 #LI-U For more information about how Coursera collec",
+      "expect": {
+        "salary_low": 132000,
+        "salary_high": 166000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "ategy and Roadmapping (Microsoft) Compensation: This role is available in the following US Pay Zones: Zone 1: $218,000 - $273,000 Zone 2: $209,000 - $262,000 Zone 3: $194,000 - $243,000 Zone",
+      "expect": {
+        "salary_low": 218000,
+        "salary_high": 273000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "titles may span multiple career levels, and the targeted hiring base salary range for this role in Canada is CAD 78,400 to CAD 98,000. Actual compensation will depend on factors such as experie",
+      "expect": {
+        "salary_low": 78400,
+        "salary_high": 98000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "and Channel sales transactions. Compensation This role is available in the following US Pay Zones: US Zone 3: $121,550- $143,000US Zone 4: $113,000 - $133,000 At Coursera, we offer competi",
+      "expect": {
+        "salary_low": 121550,
+        "salary_high": 143000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "addition to a base salary, this role is also eligible for equity. Hiring Compensation Range Austin and Denver $156,400 - 195,500 Posting Date: 8/11/2026 Application Window: We anticipate th",
+      "expect": {
+        "salary_low": 156400,
+        "salary_high": 195500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "mplementing privacy compliance software. Compensation: This role is available in the US Pay Zones 4US Zone 4: $152,000 - $190,000At Coursera, we offer competitive, zone-based pay aligned to",
+      "expect": {
+        "salary_low": 152000,
+        "salary_high": 190000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "titles may span multiple career levels, and the targeted hiring base salary range for this role in Canada is $124,000 - $155,000. Actual compensation will depend on factors such as experie",
+      "expect": {
+        "salary_low": 124000,
+        "salary_high": 155000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "like these courses on Coursera: Learning How To Learn Gen AI for Product Managers Compensation US Zone 2 - 4 $212,000 – $265,000 USD The range(s) listed above is the expected annual base sa",
+      "expect": {
+        "salary_low": 212000,
+        "salary_high": 265000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/modernhealth",
+      "text": "ngs (OTE) and includes both base pay and commission at 100% achievement of established targets.Zone 1 Base Pay$176,000—$207,000 USDZone 2 Base Pay$158,400—$186,300 USDZone 3 Base Pay$158,4",
+      "expect": {
+        "salary_low": 176000,
+        "salary_high": 207000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/modernhealth",
+      "text": "Earnings (OTE) and includes both base pay and commission at 100% achievement of established targets.Pay Range$89,395—$111,744 USDBelow, we are asking you to complete identity information",
+      "expect": {
+        "salary_low": 89395,
+        "salary_high": 111744,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/modernhealth",
+      "text": "Earnings (OTE) and includes both base pay and commission at 100% achievement of established targets.Pay Range$67,200—$79,000 USDBelow, we are asking you to complete identity information",
+      "expect": {
+        "salary_low": 67200,
+        "salary_high": 79000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/calm",
+      "text": "ocation where an employee lives. For this position, the base pay range across Calm’s pay tiers is as follows: $172,200 - $225,000. The base pay range represents the low and high end of Calm",
+      "expect": {
+        "salary_low": 172200,
+        "salary_high": 225000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/figma",
+      "text": "plan terms and may be modified by Figma at any time, consistent with applicable law.Annual Base Salary Range:$165,000—$190,000 USDAt Figma we celebrate and support our differences. We kno",
+      "expect": {
+        "salary_low": 165000,
+        "salary_high": 190000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/figma",
+      "text": "plan terms and may be modified by Figma at any time, consistent with applicable law.Annual Base Salary Range:$70,500—$70,500 USDAt Figma we celebrate and support our differences. We kno",
+      "expect": {
+        "salary_low": 70500,
+        "salary_high": 70500,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/figma",
+      "text": "ursement. Figma’s compensation and benefits are subject to change and may be modified in the future.Internship$55—$55 USDAt Figma we celebrate and support our differences. We kno",
+      "expect": {
+        "salary_low": 55,
+        "salary_high": 55,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "greenhouse/figma",
+      "text": "ble plan terms and may be modified by Figma at any time, consistent with applicable law.Hourly Base Pay Range:$45.20—$80.30 USDAt Figma we celebrate and support our differences. We kno",
+      "expect": {
+        "salary_low": 45.2,
+        "salary_high": 80.3,
+        "salary_period": "hour"
+      }
+    },
+    {
+      "source": "lever/gohighlevel",
+      "text": "rable impact that keeps our talent—and our business—ahead of the curve. The salary range for this position is $108000 - $130000 annually.",
+      "expect": {
+        "salary_low": 108000,
+        "salary_high": 130000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "ashby/hinge-health",
+      "text": "c tools (Tableau, Mode, and/or Mixpanel); and digital marketing/campaign automation. Case HIN1016. Full time. $235,477 to $297,600 per year. Beware of Phishing Attempts: We've noticed an incr",
+      "expect": {
+        "salary_low": 235477,
+        "salary_high": 297600,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "nal structure - Remote work flexibility across the UK LOCATION REQUIREMENT Based in the UK COMPENSATION RANGE £55,000 – £85,000 base salary per annum Final compensation will be determined",
+      "expect": {
+        "salary_low": 55000,
+        "salary_high": 85000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "scale a function in a new market, this is your team. LOCATION REQUIREMENT Based in the UK Compensation Range £90,000 – £110,000 base salary per annum Final compensation will be determined",
+      "expect": {
+        "salary_low": 90000,
+        "salary_high": 110000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "international career opportunities. Compensations Range - We offer a highly competitive package, ranging from £100,000 to £150,000, reflecting both experience and suitability for this pivota",
+      "expect": {
+        "salary_low": 100000,
+        "salary_high": 150000,
+        "salary_period": "year"
+      }
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ck ourselves and conduct a yearly pay equity audit. For this role, the estimated base salary range is between 186,000 - 218,700 USD. The actual base salary will vary based on various factors,",
+      "expect": {
+        "salary_low": 186000,
+        "salary_high": 218700,
+        "salary_period": "year"
+      }
+    }
+  ],
+  "mode": [
+    {
+      "source": "greenhouse/gitlab",
+      "text": "sition becomes available that matches your skills and interests. An overview of this role This position is 100% remote and will be based in the United States and/ or Canada.GitLa",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "peline, forecast accurately, and support revenue goals across a wide range of deal sizes. This role will be 100% remote and will be based in the US or Mexico. What you’ll do Own a",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "filiated with, and do not endorse products or services of GitLab.An overview of this role This position is remote and ideally based in the United Kingdom or Ireland. As Lead",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "gh our public issue tracker, helping shape how GitLab serves the public sector over time. This role will be remote and will be based in Michigan, Ohio or Indiana. What you’ll",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/duolingo",
+      "text": "CEO to create clarity, flow, and follow-through across internal and external engagements. This is an in-person role with regular collaboration across executive leaders and EAs",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/duolingo",
+      "text": "s for Duolingo’s top priorities. This role is based in our New York City office. We use a hybrid work model of 4 days in the office per week. 🧠 You will... Develop ac",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "al teams and service providers, and help evolve Stripe’s global security operating model. This is a hybrid role. The successful candidate will spend 50% of their time in o",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "you are encouraged to apply. The preferred qualifications are a bonus, not a requirement. This role is remote but requires candidates to be located in the Mountain or Pa",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ith your recruiter to learn more about the total compensation and benefits for this role. #LI-Hybrid About us Asana is a leading platform for human + AI collabo",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "a security-first mindset. This role is based in our Warsaw office with an office-centric hybrid schedule. The standard in-office days are Monday, Tuesday, and Thurs",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/asana",
+      "text": "ith your recruiter to learn more about the total compensation and benefits for this role. #LI-Remote About us Asana is a leading platform for human + AI collabo",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "ally, hybrid roles have the flexibility to work from anywhere for up to 4 weeks per year. #Hybrid The expected base pay range for this position in the San Fr",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "lly remote in Florida, candidates for this role must be based in the Clermont metro area. #Remote The expected base pay range for this position in the San Fr",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/lyft",
+      "text": "Services LLC. This role is on-site at a Lyft Flexdrive hub or office location full time. #Onsite The expected base pay range for this position in the Toront",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": "e to not only solve problems for our users, but be a positive advocate of our brand. This remote role reports to a Customer Support Team Lead. Your first two wee",
+      "expect": "remote"
+    },
+    {
+      "source": "greenhouse/squarespace",
+      "text": ". You will report directly to the Engineering Director for the Financial Solutions Group. This position is a hybrid role located in our New York office. You’ll Get To… Lead th",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "that goes beyond the norm, with perks like a HelloFresh- subsidized Pension Scheme and a Hybrid working model. Elevate your lifestyle with exclusive discounts on your we",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "ll thoroughly review your details. We are excited to connect with you soon! #helloconnect #LI-Onsite",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "scheme Group Life Assurance Location: HelloFresh, 1, Holme Lane, Spondon, Derby DE21 7HW. This is an onsite role. Shifts: Any five days out of seven, day shifts, will inclu",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "Manager, Direct Mail & Growth Channels This is a hybrid position to the NYC HelloFresh Headquarters The Manager, Direct Mail",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "Manager, Fulfillment Technology This is a fully onsite position to one of the following HelloFresh Distribution Centers: Ne",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "across HelloFresh distribution centres in the UK market. This is a highly project-driven, hybrid role designed for someone who loves working with data just as mu",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "Schedule: This role will cover a full time onsite schedule of Monday to Friday (9 am to 5 pm). Flexibility required ou",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "This is an onsite position Wednesday to Saturday from 10am to 8pm and is not eligible",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "obal Warehouse Technology SHIFT: Wednesday - Saturday (OVERNIGHT SHIFT) 5:00pm - 3:00am - Onsite Role At HelloFresh, we want to change the way people eat forever",
+      "expect": "in-person"
+    },
+    {
+      "source": "greenhouse/intercom",
+      "text": "nd feedback to the table on how things could be better for our team and/or our customers. This position will be hybrid with the expectation to work from the office 3 days a week",
+      "expect": "hybrid"
+    },
+    {
+      "source": "greenhouse/modernhealth",
+      "text": "one who notices the office needs restocking before anyone has to ask. This is a hands-on, in-person role, split mostly between coordinating details for our hiring p",
+      "expect": "in-person"
+    },
+    {
+      "source": "ashby/hinge-health",
+      "text": "s, while carrying a small personal quota yourself. This is a salary plus commission role. This is a fully remote role for candidates based in the United States. WHAT YOU’LL ACCO",
+      "expect": "remote"
+    },
+    {
+      "source": "ashby/legora",
+      "text": "nternal teams - Comfortable working autonomously in a fast-paced, high-growth environment This is a full time, on-site position in Sydney, Australia. Legora is an Equal Opportunity Employ",
+      "expect": "in-person"
+    },
+    {
+      "source": "ashby/legora",
+      "text": "nes on track, and own a budget and forecast spend without drama. - Hands-on and present — this is a five-days-on-site role (you can't stage a new hire's desk or recover a dropped mee",
+      "expect": "in-person"
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "t growth. - Experience operating across multiple products, markets or countries. LOCATION This is a remote role. We hire globally and work across multiple countries and ti",
+      "expect": "remote"
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "inking, fast execution, and measurable outcomes. LOCATION This role is based in Malaysia. This is an on-site role. You are expected to work from our Malaysia office daily. L",
+      "expect": "in-person"
+    },
+    {
+      "source": "ashby/voodoo",
+      "text": "ther. This is an opportunity to have a strategic and critical impact on Voodoo’s success. This position is hybrid and requires 3 days per week in the office based in Paris.",
+      "expect": "hybrid"
+    },
+    {
+      "source": "ashby/voodoo",
+      "text": "mes like Mob Control, Hole.io, Paper.io2, alongside popular apps such as BeReal and Wizz. This position is fully remote as long as you can work within CET ±5h CET. TEAM Our Gaming",
+      "expect": "remote"
+    },
+    {
+      "source": "ashby/voodoo",
+      "text": "te Configuration, CI/CD and an SDK to support cloud save and multiplayer functionalities. This role is fully remote within any EU based country. ROLE We’re looking for a Staff",
+      "expect": "remote"
+    }
+  ],
+  "neither": [
+    {
+      "source": "greenhouse/gitlab",
+      "text": "w GitLab team members work, improve flow across the organization, and help advance our mission in a remote, asynchronous, and values-driven environment. What you'll do Diagnose business problems b"
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "to build lasting customer relationships, support customer success, and deliver predictable growth. Remote-GlobalHow GitLab Supports Full-Time Employees Benefits to support your health, finances,"
+    },
+    {
+      "source": "greenhouse/gitlab",
+      "text": "skills, including writing technical proposals and documentation, and collaborating effectively in a remote, asynchronous, cross-functional environment. About the team Agent Observability is a new"
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "ly important products in Stripe’s portfolio. Revenue suite Product Sales is tasked with attacking a $100B market opportunity for back office finance automation across billing, tax, revenue re"
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "n Stripe’s portfolio. Revenue and Finance Automation (RFA) Product Sales is tasked with attacking a $100B market opportunity for back office finance automation across billing, tax, revenue re"
+    },
+    {
+      "source": "greenhouse/hellofresh",
+      "text": "● Respectfully communicate with all employees and leads.● Provide coaching and development to shift hourly associates.● Provide all employees with necessary tools, proper training and corrective d"
+    },
+    {
+      "source": "greenhouse/coursera",
+      "text": "team to harden validated prototypes into production deployments Design and implement multi-tenant, hybrid, or customer-controlled deployment architectures, as per customer's data residency, priva"
+    },
+    {
+      "source": "greenhouse/modernhealth",
+      "text": "Kleiner Perkins, Founders Fund, John Doerr, Y Combinator, and Battery Ventures and raised more than $170 million in less than two years, making Modern Health the fastest entirely female-found"
+    },
+    {
+      "source": "lever/gohighlevel",
+      "text": "th rooted in real customer outcomes. To date, businesses operating on HighLevel have generated over $7 billion in ecosystem value, demonstrating the impact of shared infrastructure at scale."
+    },
+    {
+      "source": "ashby/hinge-health",
+      "text": "where you live. - Planning for the future: Start saving for the future with our traditional or Roth 401k retirement plan options which include a 2% company match. - Modern life stipends: Manage"
+    },
+    {
+      "source": "ashby/hinge-health",
+      "text": "fit programs for you and your dependents. - Flexible retirement savings through Traditional or Roth 401(k) investment paths. - Dedicated lifestyle stipends designed to fuel your professional growt"
+    },
+    {
+      "source": "ashby/legora",
+      "text": "ncluding Cleary Gottlieb, Goodwin, Linklaters, White & Case, Dentons, and Barclays. We’ve scaled to $100M+ in ARR, with teams across Europe, North America and APAC, and continue to expand thr"
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "sment. Applications are reviewed directly by our team. Interviews may be conducted virtually and/or onsite depending on location. We value speed, clarity, and direct communication throughout the p"
+    },
+    {
+      "source": "ashby/bjakcareer",
+      "text": "Applications are reviewed by members of our hiring teams. Interviews may be conducted virtually or onsite. We value speed, transparency and decisiveness throughout the process."
+    },
+    {
+      "source": "ashby/voodoo",
+      "text": "l and Block Jam, alongside popular apps such as BeReal and Wizz. TEAM Our Gaming team is made up of hybrid-casual, casual and midcore experts. Our 'Core' games team supports internal and external"
+    },
+    {
+      "source": "ashby/voodoo",
+      "text": "ames from initial concept to global launch, aiming to create the next wave of iconic, chart-topping hybrid-casual hits. With over eight billion downloads and counting, Voodoo is the world’s larges"
+    },
+    {
+      "source": "ashby/voodoo",
+      "text": "perate at the forefront of mobile marketing and ad tech across various types of games (hypercasual, hybrid, 100% IAP). Being part of the Growth Team at Voodoo requires both operational excellence"
+    },
+    {
+      "source": "greenhouse/stripe",
+      "text": "ion across our consumer brand Link, in close partnership with the Link Creative Director. This role is a hybrid mix of program management, project management, and creative"
+    }
+  ]
+}
