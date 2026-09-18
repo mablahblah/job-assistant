@@ -372,6 +372,166 @@ describe("criteria 180 to 185: the work log entries migrate", () => {
   });
 });
 
+describe("criteria 203 to 208: the employers migrate", () => {
+  let dbs: TempDbs;
+  let companies: Array<Record<string, unknown>>;
+
+  beforeAll(async () => {
+    dbs = await makeDbs("migrate-employers-");
+    await withClient(dbs.sourceUrl, async (client) => {
+      // Two employers with active jobs, one with contact details and scores,
+      // and a third employer whose only job is rejected.
+      await client.execute(
+        "INSERT INTO Company (id, name, address, phone, website, employeeSatisfaction, " +
+          "customerSatisfaction, workLifeBalance, politicalAlignment, enrichedAt, updatedAt) " +
+          "VALUES ('co-a', 'Pyramid Consulting, Inc.', '100 Main St', '512-555-0100', " +
+          "'https://pyramid.example', 4, 3, 5, 2, '2026-08-01T00:00:00.000Z', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Company (id, name, updatedAt) VALUES ('co-b', 'GitLab', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Company (id, name, updatedAt) VALUES ('co-c', 'Left Behind Co', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+          "VALUES ('job-a', 'co-a', 'Senior UX Designer', 'https://example.com/a', " +
+          "'2026-07-01T00:00:00.000Z', '', 'app. sent', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+          "VALUES ('job-b', 'co-b', 'Product Designer', 'https://example.com/b', " +
+          "'2026-07-01T00:00:00.000Z', '', 'interview', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+          "VALUES ('job-c', 'co-c', 'Designer', 'https://example.com/c', " +
+          "'2026-07-01T00:00:00.000Z', '', 'rejected', CURRENT_TIMESTAMP)"
+      );
+    });
+
+    // The job migrator does not exist yet, so the run's verification still
+    // fails on the job count — the employer rows are what these tests read.
+    runMigration(dbs);
+    companies = await withClient(dbs.targetUrl, async (client) => {
+      const read = await client.execute("SELECT * FROM Company ORDER BY name");
+      return read.rows.map((row) => ({ ...(row as unknown as Record<string, unknown>) }));
+    });
+  }, SETUP_TIMEOUT_MS);
+
+  // Criteria "Employers of active jobs arrive" and "Other employers do not
+  // arrive".
+  test("one row arrives per employer of an active job, and no other", () => {
+    expect(companies.map((company) => company["name"])).toEqual([
+      "GitLab",
+      "Pyramid Consulting, Inc",
+    ]);
+  });
+
+  // Criterion "Contact details carry".
+  test("every contact field on the old row is on the new row", () => {
+    const pyramid = companies.find((company) => company["name"] === "Pyramid Consulting, Inc");
+    expect(pyramid?.["address"]).toBe("100 Main St");
+    expect(pyramid?.["phone"]).toBe("512-555-0100");
+    expect(pyramid?.["website"]).toBe("https://pyramid.example");
+  });
+
+  // Criterion "No employer score arrives".
+  test("no rating arrives in any category", () => {
+    for (const company of companies) {
+      expect(company["employee_satisfaction"]).toBeNull();
+      expect(company["customer_satisfaction"]).toBeNull();
+      expect(company["work_life_balance"]).toBeNull();
+      expect(company["political_alignment"]).toBeNull();
+    }
+  });
+
+  // Criteria "The name is cleaned by the shared code" and "The match key
+  // comes from the shared code": the trailing period leaves the name, and
+  // the key folds the legal-entity words away exactly as collection would.
+  test("the name and the match key come out as collection would write them", () => {
+    const pyramid = companies.find((company) => company["name"] === "Pyramid Consulting, Inc");
+    expect(pyramid?.["match_key"]).toBe("pyramidconsulting");
+  });
+});
+
+describe("criteria 209 to 211: a collision among migrating employers stops the start", () => {
+  test(
+    "two employers folding to one match key stop the run before anything is written",
+    async () => {
+      const dbs = await makeDbs("migrate-collide-key-");
+      await withClient(dbs.sourceUrl, async (client) => {
+        await client.execute(
+          "INSERT INTO Company (id, name, updatedAt) VALUES ('co-1', 'Duolingo, Inc.', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Company (id, name, updatedAt) VALUES ('co-2', 'Duolingo Inc', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+            "VALUES ('job-1', 'co-1', 'Designer', 'https://example.com/1', " +
+            "'2026-07-01T00:00:00.000Z', '', 'app. sent', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+            "VALUES ('job-2', 'co-2', 'Designer II', 'https://example.com/2', " +
+            "'2026-07-01T00:00:00.000Z', '', 'interview', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO WorkSearchEntry (id, jobId, date, activityType) " +
+            "VALUES ('e1', 'job-1', '2026-08-02T00:00:00.000Z', 'Applied for job')"
+        );
+      });
+
+      const result = runMigration(dbs);
+
+      expect(result.exitCode).not.toBe(0);
+      // Criterion "A collision stop names the pair".
+      expect(result.output).toContain("Duolingo, Inc");
+      expect(result.output).toContain("Duolingo Inc");
+      expect(await countRows(dbs.targetUrl, "Company")).toBe(0);
+      expect(await countRows(dbs.targetUrl, "Job")).toBe(0);
+      expect(await countRows(dbs.targetUrl, "WorkLogEntry")).toBe(0);
+    },
+    SETUP_TIMEOUT_MS
+  );
+
+  test(
+    "two employers carrying one board slug stop the run before anything is written",
+    async () => {
+      const dbs = await makeDbs("migrate-collide-slug-");
+      await withClient(dbs.sourceUrl, async (client) => {
+        await client.execute(
+          "INSERT INTO Company (id, name, atsSlug, updatedAt) " +
+            "VALUES ('co-1', 'Figma', 'figma', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Company (id, name, atsSlug, updatedAt) " +
+            "VALUES ('co-2', 'Figma Europe', 'figma', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+            "VALUES ('job-1', 'co-1', 'Designer', 'https://example.com/1', " +
+            "'2026-07-01T00:00:00.000Z', '', 'app. sent', CURRENT_TIMESTAMP)"
+        );
+        await client.execute(
+          "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+            "VALUES ('job-2', 'co-2', 'Designer II', 'https://example.com/2', " +
+            "'2026-07-01T00:00:00.000Z', '', 'interview', CURRENT_TIMESTAMP)"
+        );
+      });
+
+      const result = runMigration(dbs);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain("Figma");
+      expect(result.output).toContain("Figma Europe");
+      expect(await countRows(dbs.targetUrl, "Company")).toBe(0);
+    },
+    SETUP_TIMEOUT_MS
+  );
+});
+
 describe("an old entry whose wording the form does not accept", () => {
   test(
     "stops the migration rather than migrating a filing the form would reject",

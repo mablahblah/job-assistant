@@ -2,7 +2,10 @@ import "dotenv/config";
 import { createClient, type Client } from "@libsql/client";
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
+import { createCompanyService, type CompanyService } from "../lib/services/company-service";
 import { createWorkLogService, type WorkLogService } from "../lib/services/work-log-service";
+import { companyMatchKey } from "../lib/utils/company-match-key";
+import { normalizeCompanyName } from "../lib/utils/company-name";
 import { ACTIVE_STATUSES } from "../lib/utils/job-status";
 import { isWorkLogActivity } from "../lib/utils/work-log-activity";
 
@@ -12,6 +15,135 @@ async function scalarCount(client: Client, sql: string, args: string[] = []): Pr
   const result = await client.execute({ sql, args });
   const value = result.rows[0]?.["count"];
   return Number(value ?? 0);
+}
+
+interface OldEmployer {
+  id: string;
+  name: string;
+  cleanedName: string;
+  matchKey: string;
+  atsSlug: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  enrichedAt: string | null;
+  updatedAt: string;
+}
+
+async function readMigratingEmployers(source: Client): Promise<OldEmployer[]> {
+  const activeStatuses = [...ACTIVE_STATUSES];
+  const placeholders = activeStatuses.map(() => "?").join(", ");
+
+  const result = await source.execute({
+    sql:
+      "SELECT DISTINCT Company.id AS id, Company.name AS name, Company.atsSlug AS atsSlug, " +
+      "Company.address AS address, Company.phone AS phone, Company.website AS website, " +
+      "Company.enrichedAt AS enrichedAt, Company.updatedAt AS updatedAt " +
+      "FROM Company JOIN Job ON Job.companyId = Company.id " +
+      `WHERE Job.status IN (${placeholders}) ORDER BY Company.name`,
+    args: activeStatuses,
+  });
+
+  const employers: OldEmployer[] = result.rows.map((raw) => {
+    const row = raw as unknown as Record<string, unknown>;
+    const name = String(row["name"]);
+    const cleanedName = normalizeCompanyName(name);
+    return {
+      id: String(row["id"]),
+      name,
+      cleanedName,
+      // Computed with the same shared code the target's create() uses, so a
+      // collision found here is guaranteed to also be a collision there.
+      matchKey: companyMatchKey(cleanedName),
+      atsSlug: row["atsSlug"] === null ? null : String(row["atsSlug"]),
+      address: row["address"] === null ? null : String(row["address"]),
+      phone: row["phone"] === null ? null : String(row["phone"]),
+      website: row["website"] === null ? null : String(row["website"]),
+      enrichedAt: row["enrichedAt"] === null ? null : String(row["enrichedAt"]),
+      updatedAt: String(row["updatedAt"]),
+    };
+  });
+
+  // Both pre-checks run here, before any migrator (the work log migrator
+  // included) has written a single row. Without this, a collision would only
+  // surface later as a unique-column failure on the target, after some rows
+  // were already committed, leaving a half-written database to clean up.
+
+  // Two employers whose cleaned names fold to the same match key would
+  // collide on the target's unique match_key column.
+  const byMatchKey = new Map<string, OldEmployer>();
+  for (const employer of employers) {
+    const existing = byMatchKey.get(employer.matchKey);
+    if (existing) {
+      throw new Error(
+        `Employer match-key collision: "${existing.cleanedName}" and ` +
+          `"${employer.cleanedName}" both fold to match key "${employer.matchKey}"`
+      );
+    }
+    byMatchKey.set(employer.matchKey, employer);
+  }
+
+  // Two employers sharing a non-null board slug would collide the same way.
+  // Employers with no slug are unrelated and never compared.
+  const byAtsSlug = new Map<string, OldEmployer>();
+  for (const employer of employers) {
+    if (employer.atsSlug === null) continue;
+    const existing = byAtsSlug.get(employer.atsSlug);
+    if (existing) {
+      throw new Error(
+        `Employer board-slug collision: "${existing.cleanedName}" and ` +
+          `"${employer.cleanedName}" both carry the slug "${employer.atsSlug}"`
+      );
+    }
+    byAtsSlug.set(employer.atsSlug, employer);
+  }
+
+  return employers;
+}
+
+async function migrateEmployers(
+  employers: OldEmployer[],
+  companies: CompanyService
+): Promise<Map<string, string>> {
+  const oldToNewCompanyId = new Map<string, string>();
+
+  for (const employer of employers) {
+    const { company, created } = await companies.create({ name: employer.cleanedName });
+    // The target is guarded empty and the pre-check already ruled out
+    // in-batch collisions, so create() finding an existing row here means
+    // something upstream is wrong — fail loudly instead of silently reusing
+    // a company that is not this employer's migration.
+    if (!created) {
+      throw new Error(
+        `Expected to create a new company for "${employer.cleanedName}" but one already existed`
+      );
+    }
+
+    if (employer.address !== null || employer.phone !== null || employer.website !== null) {
+      // Dated to the old enrichment, or failing that the old row's last
+      // write, rather than today — the migration never ran a contact-detail
+      // search, so it must not look like it just did.
+      const at =
+        employer.enrichedAt !== null ? new Date(employer.enrichedAt) : new Date(employer.updatedAt);
+      await companies.saveEnrichment(
+        company.id,
+        {
+          address: employer.address ?? undefined,
+          phone: employer.phone ?? undefined,
+          website: employer.website ?? undefined,
+        },
+        [],
+        at
+      );
+    }
+    // No scores are written here — create() writes none, so a migrated
+    // company starts with every score column empty for a fresh judgement.
+
+    oldToNewCompanyId.set(employer.id, company.id);
+  }
+
+  console.log(`Employers migrated: ${employers.length}`);
+  return oldToNewCompanyId;
 }
 
 async function migrateWorkLogEntries(source: Client, workLog: WorkLogService): Promise<void> {
@@ -116,6 +248,10 @@ async function main(): Promise<void> {
     // No trace service is built here and nothing is written to the Trace
     // table: a one-time data migration is not a job search, so it leaves
     // no trace of being one.
+    const employers = await readMigratingEmployers(source);
+    const companies = createCompanyService(prisma);
+    const oldToNewCompanyId = await migrateEmployers(employers, companies);
+    void oldToNewCompanyId; // the job migrator, next task, is its consumer
     const workLog = createWorkLogService(prisma);
     await migrateWorkLogEntries(source, workLog);
 
