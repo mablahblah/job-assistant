@@ -26,11 +26,12 @@ npm run job-search
 
 The output arrives on stdout in this order.
 
-1. `Errors:` — either `none`, or one indented line per error. An error means a source could not complete.
-2. `Warnings:` — either `none`, or one indented line per warning. A warning means a source completed while degraded, or a job was dropped because it could not travel.
-3. `Run stopped at ...` — present only when the run stopped early. It names where it stopped and why, then lists what finished first.
-4. `Trace failures: N` — present only when a diagnostic row failed to save. The run's work is unaffected.
-5. The summary. Always present. It reads like this:
+1. `Run: {run_id}` — always the first line. Note the identifier: scoring joins this search's records through it.
+2. `Errors:` — either `none`, or one indented line per error. An error means a source could not complete.
+3. `Warnings:` — either `none`, or one indented line per warning. A warning means a source completed while degraded, or a job was dropped because it could not travel.
+4. `Run stopped at ...` — present only when the run stopped early. It names where it stopped and why, then lists what finished first.
+5. `Trace failures: N` — present only when a diagnostic row failed to save. The run's work is unaffected.
+6. The summary. Always present. It reads like this:
 
 ```
 Collected: 100 jobs
@@ -63,7 +64,7 @@ A line with nothing to report is left out. A collector that found nothing still 
 
 ## Phase 4: Score what is in the backlog
 
-1. Invoke the `score-backlog` skill. It judges how well each job fits and researches each employer behind those jobs.
+1. Invoke the `score-backlog` skill, handing it the run identifier read from the `Run:` line, so its records land under this search's run. It judges how well each job fits and researches each employer behind those jobs.
 2. Report what it reports.
 
 ## Phase 5: Show the results

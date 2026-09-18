@@ -99,6 +99,38 @@ describe("the score-gather command against an empty backlog", () => {
   test("reports no failure", () => {
     expect(work.failure).toBeNull();
   });
+
+  // Phase 13 criterion "A stranger identifier draws a warning". "test-run"
+  // was handed in and no trace rows carry it, so the command says so rather
+  // than silently filing this scoring under a run that never happened.
+  test("warns that the handed identifier matches no trace rows", () => {
+    expect(result.stdout).toContain('run identifier "test-run" matches no trace rows');
+  });
+});
+
+// A minted identifier never matches existing trace rows either, but nobody
+// handed it over, so there is no mistake to warn about.
+describe("the score-gather command minting its own run identifier", () => {
+  let dir: string;
+  let result: RunResult;
+
+  beforeAll(() => {
+    const temp = makeTempDb("pipeline-score-gather-minted-");
+    dir = temp.dir;
+    runScript("db-create.ts", temp.url);
+    runScript("db-seed.ts", temp.url);
+
+    result = runGather(temp.url, ["--out", join(dir, "work.json")]);
+  }, SETUP_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("exits successfully and draws no stranger warning", () => {
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).not.toContain("matches no trace rows");
+  });
 });
 
 describe("the score-gather command without a destination", () => {

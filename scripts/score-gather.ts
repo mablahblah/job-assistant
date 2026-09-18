@@ -48,8 +48,10 @@ async function main(): Promise<void> {
   }
 
   // With no run id supplied, this run mints its own so its trace events can
-  // still be grouped and compared, the same as any other run.
-  const runId = flagValue(argv, "run-id") ?? crypto.randomUUID();
+  // still be grouped and compared, the same as any other run. The handed
+  // value keeps its own name so the stranger check below fires only on it.
+  const handedRunId = flagValue(argv, "run-id");
+  const runId = handedRunId ?? crypto.randomUUID();
 
   const prisma = createPipelineDb();
   try {
@@ -68,6 +70,18 @@ async function main(): Promise<void> {
     const trace = createTraceService(prisma);
     const companies = createCompanyService(prisma);
     const jobService = createJobService(prisma);
+
+    // Only a handed identifier can warn: a minted one never matches anything
+    // and nobody mistyped it. A stale or mistyped identifier would otherwise
+    // silently file this scoring under a run that never happened.
+    if (handedRunId !== undefined) {
+      const counts = await trace.countsForRun(handedRunId);
+      if (counts.length === 0) {
+        console.log(
+          `Warning: run identifier "${handedRunId}" matches no trace rows from an earlier run.`
+        );
+      }
+    }
 
     // Minted once so every age computed during this run is measured against
     // the same instant, rather than drifting as the gather takes time.

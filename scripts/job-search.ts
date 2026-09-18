@@ -80,6 +80,9 @@ async function main(): Promise<void> {
     // Names this job search so every trace event it produces can be grouped
     // and compared against other searches.
     const runId = crypto.randomUUID();
+    // Printed before anything else runs: the scoring skill reads this line to
+    // file its own trace rows under the same run.
+    console.log(`Run: ${runId}`);
     // The date written into every job's collected_at, so one run's jobs share
     // a single timestamp even when collection takes minutes.
     const collectedAt = new Date();

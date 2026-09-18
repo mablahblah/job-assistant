@@ -23,7 +23,7 @@ description: Scores every backlog job against the job alignment rubric and resea
 npm run score:gather -- --out {work_file}
 ```
 
-   If the user handed you a run identifier from a job search that just finished, add `--run-id {run_id}` so this scoring joins that run's records.
+   If you hold a run identifier for this scoring — read from a job search's `Run:` line, or handed over by the user — add `--run-id {run_id}` so this scoring joins that run's records.
 
 3. Read `{work_file}`. It holds:
    - `runId` — the identifier every record this run writes will carry

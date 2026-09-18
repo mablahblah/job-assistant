@@ -148,6 +148,13 @@ describe("AC 11: the job-search command runs the pipeline and reaches no source"
     expect(jobCount).toBe(0);
   });
 
+  // Phase 13 criterion "The run announces itself". Scoring files its trace
+  // rows under the same identifier, and this line is the only place a skill
+  // can read it from.
+  test("the first line printed is the run identifier", () => {
+    expect(result.stdout.split("\n")[0]).toMatch(/^Run: [0-9a-f-]{36}$/);
+  });
+
   test("leaves the seeded settings unchanged, because the command only reads them", () => {
     expect(settingsAfter).toEqual(settingsBefore);
   });
