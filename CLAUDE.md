@@ -15,24 +15,29 @@ A CLI Tool - via Claude Code skills - to automate job searching, prioritizing, t
 
 ## Branch: unified pipeline rebuild
 
-**No importing old code.** New code imports nothing from `legacy/`. Anything worth keeping is copied out, so shipping means deleting that folder in one move.
+**The old pipeline is gone.** `legacy/` was deleted at the switch over, with everything worth keeping copied out beforehand rather than imported.
 
-Real job searches run on `main`, where the old pipeline is untouched. The database is untracked and survives branch switches; `dev.db` at the repo root is the live one.
+Real job searches now run on this branch, against `pipeline.db`. Both database files are untracked and survive branch switches. `dev.db` at the repo root is the old one, kept as the migration's source and read by nothing.
 
 ## Commands
 
 ```bash
-npm run score:gather -- --out FILE   # Write out every job and company still needing a score
-npm run score:save -- --in FILE      # Write the scores an agent worked out back to the database
-npm run db:create   # Delete the pipeline database and rebuild it from the schema
-npm run db:seed     # Fill absent settings and ATS companies, overwriting nothing
-npm run lint        # ESLint — legacy/ and docs/ are ignored
-npm run test        # Vitest — legacy/ and docs/ are excluded
+npm run job-search                        # Run the whole pipeline; prints its run identifier first
+npm run score:gather -- --out FILE        # Write out every job and company still needing a score
+npm run score:save -- --in FILE           # Write the scores an agent worked out back to the database
+npm run find-jobs -- --company X --json   # Find a job by part of its employer's name
+npm run fetch-rendered-page -- --url URL  # Print a page's finished HTML, after its scripts have run
+npm run serve                             # Start the dashboard from scripts/serve.ts
+npm run db:migrate  # Change the schema, keeping every row; writes a dated backup first
+npm run db:create FILE   # Rebuild a named database from the schema; refuses the real one
+npm run db:seed     # Fill absent settings and the source priority list, overwriting nothing
+npm run lint        # ESLint, then the type check — docs/ is ignored
+npm run test        # Vitest — docs/ is excluded
 ```
 
-**After editing `prisma/schema.prisma`, run `npx prisma generate`.** `prisma db push` does not regenerate the client, so `db:create` alone leaves it describing the old schema. A fresh clone is covered by `postinstall`, which generates on install.
+**`db:migrate` is the only way to change the schema.** `db:create` deletes its target and rebuilds it, so it takes an explicit file argument and refuses the database `PIPELINE_DATABASE_URL` names in `.env`.
 
-`npm run cli` reaches into `legacy/` and is retired with it. `npm run serve` now starts the new dashboard from `scripts/serve.ts`.
+**After editing `prisma/schema.prisma`, run `npx prisma generate`.** Neither database command regenerates the client, so it otherwise goes on describing the old schema. A fresh clone is covered by `postinstall`, which generates on install.
 
 ## Architecture
 
@@ -68,7 +73,7 @@ Planning lives in [`docs/features/unified-pipeline/`](docs/features/unified-pipe
 | `db-entries.md`      | Field-by-field shape of the current Job and Company records       |
 | `location-research/` | Proposed `location_match` rule, tested against all 1,853 jobs     |
 
-Path-scoped rules describing the old architecture moved to `legacy/rules/`, so they no longer apply. The rules that govern the new pipeline are `naming.md`, `handler-contract.md` and `source-registry.md` in `.claude/rules/`.
+Path-scoped rules describing the old architecture were deleted with it. The rules that govern this pipeline are `naming.md`, `handler-contract.md` and `source-registry.md` in `.claude/rules/`.
 
 ## Terminology
 
