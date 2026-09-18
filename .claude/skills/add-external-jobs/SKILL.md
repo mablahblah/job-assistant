@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Add External Jobs
 
+> **Broken since the switch over.** The old pipeline this skill calls was deleted with `legacy/`; the Add External Job Orchestrator feature in the backlog rebuilds this flow on the new services.
+
 Follow the steps explicitly to add pasted external jobs, classify, and score them.
 
 ## Instructions
