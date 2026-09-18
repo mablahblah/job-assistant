@@ -3,10 +3,15 @@ import { createClient, type Client } from "@libsql/client";
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { modelsFailingSchemaCheck, schemaProbesFor } from "../lib/db/schema-check";
 import { createCompanyService, type CompanyService } from "../lib/services/company-service";
+import { createJobService, type JobService } from "../lib/services/job-service";
+import { createSettingsService } from "../lib/services/settings-service";
 import { createWorkLogService, type WorkLogService } from "../lib/services/work-log-service";
+import type { JobListEntry } from "../lib/types/job-list-entry";
 import { companyMatchKey } from "../lib/utils/company-match-key";
 import { normalizeCompanyName } from "../lib/utils/company-name";
 import { ACTIVE_STATUSES } from "../lib/utils/job-status";
+import { tidyTitle } from "../lib/utils/title";
+import { urlMatchKey } from "../lib/utils/url-match-key";
 import { isWorkLogActivity } from "../lib/utils/work-log-activity";
 
 // Every count query below aliases its aggregate as "count" so this helper
@@ -146,6 +151,80 @@ async function migrateEmployers(
   return oldToNewCompanyId;
 }
 
+// Old `source` values do not line up one to one with the new collector
+// names. "external" was the old pipeline's name for a job added by hand,
+// which the new pipeline calls "user"; "greenhouse-api" is now plain
+// "greenhouse"; and a missing source also means the job was added by hand.
+function migrateCollector(oldSource: unknown): string {
+  if (oldSource === null || oldSource === undefined) return "user";
+  const source = String(oldSource);
+  if (source === "external") return "user";
+  if (source === "greenhouse-api") return "greenhouse";
+  return source;
+}
+
+async function migrateJobs(
+  source: Client,
+  oldToNewCompanyId: Map<string, string>,
+  jobs: JobService,
+  priorityList: readonly string[]
+): Promise<void> {
+  const activeStatuses = [...ACTIVE_STATUSES];
+  const placeholders = activeStatuses.map(() => "?").join(", ");
+  const result = await source.execute({
+    sql:
+      "SELECT id, companyId, title, url, originalUrl, status, source AS collector_source " +
+      `FROM Job WHERE status IN (${placeholders}) ORDER BY id`,
+    args: activeStatuses,
+  });
+
+  // Computed once, outside the loop: every migrated job is first seen on
+  // the day of the migration, which is the day this pipeline first saw it.
+  const collectedAt = new Date();
+
+  let count = 0;
+  for (const raw of result.rows) {
+    const row = raw as unknown as Record<string, unknown>;
+
+    const oldId = String(row["id"]);
+    const oldCompanyId = String(row["companyId"]);
+    const newCompanyId = oldToNewCompanyId.get(oldCompanyId);
+    if (!newCompanyId) {
+      // The employer migrator runs first, so a hole here means the run is
+      // broken rather than a job to skip.
+      throw new Error(`Job ${oldId} has no migrated company for old company id ${oldCompanyId}`);
+    }
+
+    const oldTitle = String(row["title"]);
+    const oldUrl = String(row["url"]);
+    const oldOriginalUrl = row["originalUrl"] === null ? null : String(row["originalUrl"]);
+    // The old row recorded one link only where nothing separate was first
+    // found, so that single link fills both new fields.
+    const originalUrl = oldOriginalUrl !== null ? oldOriginalUrl : oldUrl;
+
+    const entry: JobListEntry = {
+      // Keeping the old id lets migrated work log entries keep naming this
+      // job — the work log page walks from entry to job to employer by it.
+      id: oldId,
+      company_id: newCompanyId,
+      raw_title: oldTitle,
+      title: tidyTitle(oldTitle),
+      resolved_url: oldUrl,
+      original_url: originalUrl,
+      original_url_match_key: urlMatchKey(originalUrl),
+      resolved_url_match_key: urlMatchKey(oldUrl),
+      status: String(row["status"]),
+      collector: migrateCollector(row["collector_source"]),
+      collected_at: collectedAt,
+    };
+
+    await jobs.update(entry, priorityList);
+    count += 1;
+  }
+
+  console.log(`Jobs migrated: ${count}`);
+}
+
 async function migrateWorkLogEntries(source: Client, workLog: WorkLogService): Promise<void> {
   const result = await source.execute(`
     SELECT
@@ -251,7 +330,10 @@ async function main(): Promise<void> {
     const employers = await readMigratingEmployers(source);
     const companies = createCompanyService(prisma);
     const oldToNewCompanyId = await migrateEmployers(employers, companies);
-    void oldToNewCompanyId; // the job migrator, next task, is its consumer
+    const jobService = createJobService(prisma);
+    const settings = createSettingsService(prisma);
+    const priorityList = await settings.getSourcePriorityList();
+    await migrateJobs(source, oldToNewCompanyId, jobService, priorityList);
     const workLog = createWorkLogService(prisma);
     await migrateWorkLogEntries(source, workLog);
 

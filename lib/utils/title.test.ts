@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fixture from "./ux-titles.fixture.json";
-import { normalizeTitle, type TitleVocabularies } from "./title";
+import { normalizeTitle, tidyTitle, type TitleVocabularies } from "./title";
 
 // The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
 // so the title tests run against what really ships. A test needing a different
@@ -430,5 +430,25 @@ describe("normalizeTitle: the committed titles fixture", () => {
       console.log(`${raw}  =>  ${result.title}`);
       expect(result.title).not.toBe("");
     }
+  });
+});
+
+// Phase 13, criterion "The shown title is a cleaned copy". The migration
+// stores an old job's title tidied by the same cleanup the fallback applies,
+// so the shared cleanup is callable on its own.
+describe("the fallback cleanup, callable on its own", () => {
+  test("tidies exactly as the fallback does", () => {
+    expect(tidyTitle("Senior UX Designer(Remote)")).toBe("Senior UX Designer Remote");
+    expect(tidyTitle("  Plain Title  ")).toBe("Plain Title");
+  });
+
+  test("a title that tidies away to nothing falls back to the raw string", () => {
+    expect(tidyTitle("()[]{}")).toBe("()[]{}");
+  });
+
+  test("matches what normalizeTitle falls back to when nothing matches", () => {
+    const empty: TitleVocabularies = { headNouns: [], levels: [], suffixes: [], removalWords: [] };
+    const raw = "UI/UX Designer(6 months Contract)";
+    expect(tidyTitle(raw)).toBe(normalizeTitle(raw, empty).title);
   });
 });

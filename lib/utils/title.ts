@@ -256,6 +256,22 @@ function findLevelRun(
   return null;
 }
 
+// The cleanup the fallback applies, callable on its own. Exported for the
+// phase 13 migration, which stores an old job's title as this cleaned copy.
+export function tidyTitle(rawTitle: string): string {
+  const cleaned = tidy(rawTitle);
+  const segments: Segment[] = splitIntoSegments(cleaned).map((text) => ({
+    words: extractWords(text),
+  }));
+
+  const nonEmptySegments = segments.filter((segment) => segment.words.length > 0);
+  const tidiedDisplay = nonEmptySegments.map((segment) => segment.words.join(" ")).join(", ");
+
+  // Tidying left nothing at all (every token was structural junk): the
+  // untouched raw title is what gets stored, not an empty string.
+  return tidiedDisplay || rawTitle;
+}
+
 export function normalizeTitle(
   rawTitle: string,
   vocabularies: TitleVocabularies
@@ -267,15 +283,9 @@ export function normalizeTitle(
     words: extractWords(text),
   }));
 
-  // The tidied string, used only as the fallback when no job noun turns up.
-  const nonEmptySegments = segments.filter((segment) => segment.words.length > 0);
-  const tidiedDisplay = nonEmptySegments.map((segment) => segment.words.join(" ")).join(", ");
-
   const roleIndex = selectRoleIndex(vocab, segments);
   if (roleIndex === -1) {
-    // Tidying left nothing at all (every token was structural junk): the
-    // untouched raw title is what gets stored, not an empty string.
-    return { title: tidiedDisplay || rawTitle, matched: false };
+    return { title: tidyTitle(rawTitle), matched: false };
   }
 
   const roleSegment = segments[roleIndex];

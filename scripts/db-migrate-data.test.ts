@@ -108,6 +108,14 @@ async function makeDbs(prefix: string): Promise<TempDbs> {
     env: { ...process.env, PIPELINE_DATABASE_URL: targetUrl },
     stdio: "pipe",
   });
+  // Seeded like the real runbook — rebuild, seed, migrate — because the
+  // migration reads the seeded source priority list through the settings
+  // service when it writes jobs.
+  execFileSync("npx", ["tsx", "scripts/db-seed.ts"], {
+    cwd: repoRoot,
+    env: { ...process.env, PIPELINE_DATABASE_URL: targetUrl },
+    stdio: "pipe",
+  });
 
   return { dir, sourceUrl, targetUrl };
 }
@@ -530,6 +538,145 @@ describe("criteria 209 to 211: a collision among migrating employers stops the s
     },
     SETUP_TIMEOUT_MS
   );
+});
+
+describe("criteria 186 to 202: the jobs migrate", () => {
+  let dbs: TempDbs;
+  let result: RunResult;
+  let jobs: Array<Record<string, unknown>>;
+  let companies: Array<Record<string, unknown>>;
+
+  beforeAll(async () => {
+    dbs = await makeDbs("migrate-jobs-");
+    await withClient(dbs.sourceUrl, async (client) => {
+      await client.execute(
+        "INSERT INTO Company (id, name, updatedAt) VALUES ('co-a', 'Figma', CURRENT_TIMESTAMP)"
+      );
+      // Four active jobs covering the collector mappings, and one rejected
+      // job that must not arrive.
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, originalUrl, firstPublished, salaryRange, " +
+          "status, source, jobAlignment, updatedAt) " +
+          "VALUES ('job-1', 'co-a', 'Senior UX Designer(Remote)', 'https://boards.example.com/x/1', " +
+          "'https://aggregator.example.com/jobs/1', '2026-07-01T00:00:00.000Z', '$120k-$140k', " +
+          "'app. sent', 'linkedin', 4, CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, source, updatedAt) " +
+          "VALUES ('job-2', 'co-a', 'Product Designer', 'https://example.com/2', " +
+          "'2026-07-01T00:00:00.000Z', '', 'screening', 'external', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, source, updatedAt) " +
+          "VALUES ('job-3', 'co-a', 'Staff Designer', 'https://example.com/3', " +
+          "'2026-07-01T00:00:00.000Z', '', 'interview', 'greenhouse-api', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, updatedAt) " +
+          "VALUES ('job-4', 'co-a', 'Design Lead', 'https://example.com/4', " +
+          "'2026-07-01T00:00:00.000Z', '', 'offer', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO Job (id, companyId, title, url, firstPublished, salaryRange, status, source, updatedAt) " +
+          "VALUES ('job-5', 'co-a', 'Old Designer', 'https://example.com/5', " +
+          "'2026-07-01T00:00:00.000Z', '', 'rejected', 'adzuna', CURRENT_TIMESTAMP)"
+      );
+      await client.execute(
+        "INSERT INTO WorkSearchEntry (id, jobId, date, activityType) " +
+          "VALUES ('e1', 'job-1', '2026-08-02T00:00:00.000Z', 'Applied for job')"
+      );
+    });
+
+    result = runMigration(dbs);
+    jobs = await withClient(dbs.targetUrl, async (client) => {
+      const read = await client.execute("SELECT * FROM Job ORDER BY id");
+      return read.rows.map((row) => ({ ...(row as unknown as Record<string, unknown>) }));
+    });
+    companies = await withClient(dbs.targetUrl, async (client) => {
+      const read = await client.execute("SELECT * FROM Company");
+      return read.rows.map((row) => ({ ...(row as unknown as Record<string, unknown>) }));
+    });
+  }, SETUP_TIMEOUT_MS);
+
+  function job(id: string): Record<string, unknown> {
+    const found = jobs.find((row) => row["id"] === id);
+    if (!found) throw new Error(`migrated job ${id} is missing`);
+    return found;
+  }
+
+  // Criteria "Every active job arrives" and "Only active jobs arrive" — and
+  // with all three migrators in place the whole run now verifies clean.
+  test("every active job arrives, no other job does, and the run verifies clean", () => {
+    expect(result.exitCode).toBe(0);
+    expect(jobs.map((row) => row["id"])).toEqual(["job-1", "job-2", "job-3", "job-4"]);
+  });
+
+  // Criterion "The source title is kept exactly".
+  test("the old title is stored as the source title, letter for letter", () => {
+    expect(job("job-1")["raw_title"]).toBe("Senior UX Designer(Remote)");
+  });
+
+  // Criterion "The shown title is a cleaned copy".
+  test("the shown title is the old title tidied by the shared cleanup", () => {
+    expect(job("job-1")["title"]).toBe("Senior UX Designer Remote");
+  });
+
+  // Criterion "The employer link carries".
+  test("the new row points at the migrated employer", () => {
+    const figma = companies.find((company) => company["name"] === "Figma");
+    expect(job("job-1")["company_id"]).toBe(figma?.["id"]);
+  });
+
+  // Criteria "The main link becomes the source posting's link", "The
+  // first-found link becomes the collected link", and "One link fills both
+  // fields".
+  test("the links land in the right fields", () => {
+    expect(job("job-1")["resolved_url"]).toBe("https://boards.example.com/x/1");
+    expect(job("job-1")["original_url"]).toBe("https://aggregator.example.com/jobs/1");
+    expect(job("job-2")["resolved_url"]).toBe("https://example.com/2");
+    expect(job("job-2")["original_url"]).toBe("https://example.com/2");
+  });
+
+  // Criterion "Link keys are computed".
+  test("both link match keys are written", () => {
+    expect(job("job-1")["original_url_match_key"]).toBeTruthy();
+    expect(job("job-1")["resolved_url_match_key"]).toBeTruthy();
+  });
+
+  // Criterion "The status carries".
+  test("each row holds the status the old row held", () => {
+    expect(job("job-1")["status"]).toBe("app. sent");
+    expect(job("job-2")["status"]).toBe("screening");
+    expect(job("job-3")["status"]).toBe("interview");
+    expect(job("job-4")["status"]).toBe("offer");
+  });
+
+  // Criteria "The collector carries", "`external` becomes `user`",
+  // "`greenhouse-api` becomes `greenhouse`", and "An unknown source becomes
+  // the user's".
+  test("the collector carries, with the two old spellings corrected", () => {
+    expect(job("job-1")["collector"]).toBe("linkedin");
+    expect(job("job-2")["collector"]).toBe("user");
+    expect(job("job-3")["collector"]).toBe("greenhouse");
+    expect(job("job-4")["collector"]).toBe("user");
+  });
+
+  // Criterion "The first seen date is the migration day".
+  test("the first seen date is the day the migration ran", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    expect(String(job("job-1")["collected_at"])).toContain(today);
+  });
+
+  // Criteria "No job score arrives" and "The pay fields stay empty".
+  test("no fit score and no pay arrives", () => {
+    for (const row of jobs) {
+      expect(row["alignment_score"]).toBeNull();
+      expect(row["salary_low"]).toBeNull();
+      expect(row["salary_high"]).toBeNull();
+      expect(row["salary_period"]).toBeNull();
+      expect(row["raw_salary"]).toBeNull();
+    }
+  });
 });
 
 describe("an old entry whose wording the form does not accept", () => {
