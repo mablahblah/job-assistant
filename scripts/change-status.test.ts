@@ -27,7 +27,10 @@ function makeTempDb(prefix: string): { dir: string; url: string } {
 }
 
 function runScript(script: string, url: string): void {
-  execFileSync("npx", ["tsx", `scripts/${script}`], {
+  // db-create takes its target as an argument and refuses to run without
+  // one; every other script still reads the url from the environment.
+  const args = script === "db-create.ts" ? [url] : [];
+  execFileSync("npx", ["tsx", `scripts/${script}`, ...args], {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     stdio: "pipe",

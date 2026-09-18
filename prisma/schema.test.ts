@@ -230,12 +230,11 @@ interface ColumnInfo {
   type: string;
 }
 
-// Runs the real create command against a scratch database. The url is passed
-// through the environment because dotenv never overwrites a variable that is
-// already set, so this value wins over the repo's .env and the real
-// pipeline.db is never touched.
+// Runs the real create command against a scratch database. The url travels
+// as the argument the command requires, and also in the environment so the
+// clients these tests build afterwards reach the same file.
 function runDbCreate(url: string): void {
-  execFileSync("npx", ["tsx", "scripts/db-create.ts"], {
+  execFileSync("npx", ["tsx", "scripts/db-create.ts", url], {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     stdio: "pipe",
@@ -382,28 +381,6 @@ describe("AC4: the create command builds every table collection needs", () => {
     expect(await columnNames(url, "Place")).not.toEqual([]);
   });
 
-  // Every other test hands the url to the command directly. Running it the way
-  // a user does means the url comes from .env instead, so the command has to
-  // load .env itself.
-  test("reads the database url from .env when it is absent from the environment", async () => {
-    const temp = makeTempDb("pipeline-schema-dotenv-");
-    const envPath = join(temp.dir, ".env");
-    writeFileSync(envPath, `PIPELINE_DATABASE_URL="${temp.url}"\n`);
-
-    const childEnv: NodeJS.ProcessEnv = { ...process.env, DOTENV_CONFIG_PATH: envPath };
-    delete childEnv["PIPELINE_DATABASE_URL"];
-    execFileSync("npx", ["tsx", "scripts/db-create.ts"], {
-      cwd: repoRoot,
-      env: childEnv,
-      stdio: "pipe",
-    });
-
-    try {
-      expect(await columnNames(temp.url, "Job")).not.toEqual([]);
-    } finally {
-      rmSync(temp.dir, { recursive: true, force: true });
-    }
-  }, CREATE_TIMEOUT_MS);
 });
 
 describe("AC5: recreating after a schema change matches the new schema", () => {

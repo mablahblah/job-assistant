@@ -34,13 +34,12 @@ function makeTempDb(prefix: string): { dir: string; url: string } {
   return { dir, url: `file:${join(dir, "pipeline.db")}` };
 }
 
-// Pushes the real schema onto a scratch database. The url travels in the
-// environment because dotenv never overwrites a variable that is already set,
-// so this value wins over the repo's .env and the real pipeline.db is never
-// touched.
+// Pushes the real schema onto a scratch database. The url travels as the
+// argument the create command requires, and also in the environment so the
+// clients built afterwards reach the same file.
 function createDb(prefix: string): { dir: string; url: string } {
   const temp = makeTempDb(prefix);
-  execFileSync("npx", ["tsx", "scripts/db-create.ts"], {
+  execFileSync("npx", ["tsx", "scripts/db-create.ts", temp.url], {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: temp.url },
     stdio: "pipe",

@@ -1,15 +1,15 @@
-// Creates the pipeline database from scratch. Deleting the file and pushing
-// the schema is how the database is recreated after a schema change — it
-// holds nothing worth keeping until active jobs and the work log migrate in.
-// Loads .env, which is where the database url normally lives. A caller that
-// sets PIPELINE_DATABASE_URL itself still wins, because dotenv never
-// overwrites a variable that is already set.
-import "dotenv/config";
-import { existsSync, unlinkSync } from "node:fs";
+// Rebuilds a database from the Prisma schema. The target is the caller's
+// job: this script takes no default, so a bare mistyped invocation cannot
+// land on a database anyone cares about. The one database it refuses no
+// matter what is the one named by PIPELINE_DATABASE_URL in the repo's own
+// .env file — read directly here, not from process.env, so a shell that
+// happens to export a different value cannot make a wipe of the real file
+// look safe.
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { getPipelineDatabaseUrl } from "../lib/db/pipeline-env";
+import { parse as parseEnvFile } from "dotenv";
 
 // This script lives in scripts/, so the repo root is one level up. Prisma
 // resolves a relative database url from the directory holding
@@ -24,13 +24,35 @@ function resolveDbPath(databaseUrl: string): string {
     : path.resolve(repoRoot, withoutScheme);
 }
 
-// Throws when PIPELINE_DATABASE_URL is unset. That failure is wanted: a run
-// without it must stop rather than reach the database job searches depend on.
-const dbPath = resolveDbPath(getPipelineDatabaseUrl());
+function refuse(message: string): never {
+  console.error(message);
+  process.exit(1);
+}
+
+const targetArg = process.argv[2];
+if (!targetArg) {
+  refuse("Refusing: no target database given. Pass a path or file: url as the only argument.");
+}
+
+const targetPath = resolveDbPath(targetArg);
+
+// No .env, or an .env without PIPELINE_DATABASE_URL, means there is no real
+// file on record to protect — any target is fine.
+const envPath = path.join(repoRoot, ".env");
+if (existsSync(envPath)) {
+  const parsedEnv = parseEnvFile(readFileSync(envPath, "utf8"));
+  const realDbUrl = parsedEnv["PIPELINE_DATABASE_URL"];
+  if (realDbUrl) {
+    const realDbPath = resolveDbPath(realDbUrl);
+    if (targetPath === realDbPath) {
+      refuse(`Refusing: ${targetPath} is the real database named by PIPELINE_DATABASE_URL in .env.`);
+    }
+  }
+}
 
 // Remove the database and any sidecar files sqlite left behind, so the push
 // builds from nothing instead of merging onto an old file.
-const removed = [dbPath, `${dbPath}-journal`, `${dbPath}-wal`, `${dbPath}-shm`].filter(
+const removed = [targetPath, `${targetPath}-journal`, `${targetPath}-wal`, `${targetPath}-shm`].filter(
   (candidate) => existsSync(candidate)
 );
 for (const candidate of removed) {
@@ -38,9 +60,13 @@ for (const candidate of removed) {
 }
 console.log(removed.length > 0 ? `Removed ${removed.join(", ")}` : "No database to remove");
 
-// prisma.config.ts already names the schema and reads the same url, so no
-// --schema or --url is needed. The environment passes through unchanged, so
-// a caller pointing PIPELINE_DATABASE_URL at a scratch file is honoured.
-execFileSync("npx", ["prisma", "db", "push"], { cwd: repoRoot, stdio: "inherit" });
+// prisma.config.ts reads PIPELINE_DATABASE_URL from the environment, so the
+// target is passed through the child's env rather than relying on whatever
+// the parent process happened to have set.
+execFileSync("npx", ["prisma", "db", "push"], {
+  cwd: repoRoot,
+  stdio: "inherit",
+  env: { ...process.env, PIPELINE_DATABASE_URL: `file:${targetPath}` },
+});
 
-console.log(`Created ${dbPath}`);
+console.log(`Created ${targetPath}`);

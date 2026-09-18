@@ -24,7 +24,7 @@ type PipelineDb = ReturnType<typeof createPipelineDb>;
 function createDb(prefix: string): { dir: string; url: string } {
   const dir = mkdtempSync(join(tmpdir(), prefix));
   const url = `file:${join(dir, "pipeline.db")}`;
-  execFileSync("npx", ["tsx", "scripts/db-create.ts"], {
+  execFileSync("npx", ["tsx", "scripts/db-create.ts", url], {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     stdio: "pipe",
