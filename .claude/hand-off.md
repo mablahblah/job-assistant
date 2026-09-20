@@ -53,7 +53,7 @@ The seven recovered jobs sit at `backlog` with `is_parsed` at 0 and no parser re
 
 ## Session Context
 
-**The decisions the user made are in [`decision-log.md`](../docs/features/greenhouse-embedded-job-ids/decision-log.md). Nothing new was added this session — no design fork was put to the user, because the spec was already settled.**
+**The decisions the user made are in [`decision-log.md`](../docs/features/_complete/greenhouse-embedded-job-ids/decision-log.md). Nothing new was added this session — no design fork was put to the user, because the spec was already settled.**
 
 ### A bug caught before it shipped
 

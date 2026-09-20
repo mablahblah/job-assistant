@@ -22,3 +22,5 @@
 - **2026-09-06** -- When two sources disagree about a job's details, the source priority list decides which one wins, and no rule in the code overrides it. A rule sitting above the list would make reordering the list appear to do nothing.
 
 - **2026-09-17** -- A command that destroys data is stopped by the path it was given, never by what it finds inside. `npm run db:create` demands an explicit file and refuses the one named in `.env`, a dated copy is written before any allowed destruction, and schema changes go through `npm run db:migrate` instead.
+
+- **2026-09-20** -- A reader is chosen for a job posting by the website its link sits on, and only a link no website entry owns is then offered to each reader to claim by recognising it. Checking the website list first stops a reader taking a link another reader owns: measured 2026-09-20, all 309 postings already on a Greenhouse address carry a job number that a claim would have matched.
