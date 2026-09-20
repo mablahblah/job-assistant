@@ -330,7 +330,7 @@ describe("greenhouseIdentifiersForUrl: where the board name comes from", () => {
 describe("greenhouseParser: a careers-page posting is read through its recovered board", () => {
   // Answers the board-name lookup with the address Greenhouse's redirect
   // lands on, and the board API with the posting.
-  function stubFetchForCareersPageLink(body: unknown): ReturnType<typeof vi.fn> {
+  function stubFetchForCareersPageLink(body: unknown, status = 200): ReturnType<typeof vi.fn> {
     const stub = vi.fn(async (input: unknown) => {
       if (String(input).includes("/embed/job_app")) {
         const landed = new Response("", { status: 200 });
@@ -340,7 +340,7 @@ describe("greenhouseParser: a careers-page posting is read through its recovered
         return landed;
       }
 
-      return new Response(JSON.stringify(body), { status: 200 });
+      return new Response(JSON.stringify(body), { status });
     });
     globalThis.fetch = stub as unknown as typeof globalThis.fetch;
     return stub;
@@ -356,6 +356,9 @@ describe("greenhouseParser: a careers-page posting is read through its recovered
 
     expect(fields.raw_title).toBe("Senior Product Designer");
     expect(fields.raw_company_name).toBe("Modus Create");
+    expect(fields.description).toContain("Design things.");
+    expect(fields.raw_location_list).toEqual(["Remote - US"]);
+    expect(fields.posting_date).toEqual(new Date("2026-08-01T09:00:00Z"));
   });
 
   // AC 8. The board is recorded against the employer, which is what puts a
@@ -376,6 +379,21 @@ describe("greenhouseParser: a careers-page posting is read through its recovered
     await greenhouseParser.parse({
       url: "https://www.moduscreate.com/careers/7994649003?gh_jid=7994649003",
     });
+
+    const requested = stub.mock.calls.map((call) => String(call[0]));
+    expect(requested.some((url) => url.includes("/boards/moduscreate/jobs/7994649003"))).toBe(true);
+  });
+
+  // AC 6 and 7. A posting can be taken down between being collected and being
+  // read, which is a recovered board holding nothing at that job number.
+  test("a recovered board no longer holding the posting throws", async () => {
+    const stub = stubFetchForCareersPageLink({}, 404);
+
+    await expect(
+      greenhouseParser.parse({
+        url: "https://www.moduscreate.com/careers/7994649003?gh_jid=7994649003",
+      })
+    ).rejects.toThrow();
 
     const requested = stub.mock.calls.map((call) => String(call[0]));
     expect(requested.some((url) => url.includes("/boards/moduscreate/jobs/7994649003"))).toBe(true);

@@ -71,6 +71,7 @@ describe("a link no domain entry owns is offered to each parser", () => {
     "https://www.datavant.com/about/careers/open-roles/job?gh_jid=5365997008",
     "https://www.gladly.ai/careers/?utm_source=greenhouse-recruiting&gh_jid=8208190",
     "https://ats.comparably.com/api/v2/stash/post/8209111:?gh_jid=8209111",
+    "https://www.pinterestcareers.com/jobs/7684577/senior-product-designer/?gh_jid=7684577",
   ])("%s reaches the parser that claims it", (url) => {
     expect(parserForUrl(url)?.name).toBe("greenhouse");
   });
