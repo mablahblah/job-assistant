@@ -2,6 +2,21 @@
 
 <!-- Newest at top -->
 
+## September 20, 2026 - v1.1.0
+
+### New Features
+
+#### Jobs on an Employer's Own Careers Page Are Read
+
+Some employers put their postings on their own website rather than on a hiring site the app recognises. The app decides how to read a posting from the website it sits on, so these matched nothing and were set aside unread — seven of them at last count. Those pages carry a job number from Greenhouse, the hiring platform behind them. The app now reads that number, asks Greenhouse which employer it belongs to, and reads the posting exactly as it reads any other Greenhouse job. Reading one also reveals which Greenhouse board that employer hires through, so an employer you score well is added to the list checked directly from the next search onward. Six employers became eligible that way. The jobs already set aside are not left behind — `npm run recover-greenhouse-jobs` returns them to your backlog once.
+
+### Internal
+
+- **Skills** — The job search and scoring skills now paste the summary a command prints, rather than retelling it in their own words.
+- **Backlog** — Split the work on unread jobs into four separate entries, and cancelled two that described work now covered elsewhere.
+- **Backlog** — Rewrote the background files for Backlog Expiration & Retention and Repost Handling around what the pipeline actually does, and started a re-cut draft for Collector & Parser Expansion.
+- **Records** — Moved the audit's bookmark to the current commit. It had been left at a commit from before the previous feature merged, so every audit since re-covered work already checked. This release's audit was skipped for the same reason.
+
 ## September 20, 2026 - v1.0.1
 
 ### New Features

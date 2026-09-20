@@ -5,6 +5,8 @@ import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
 import { withFieldsFromDescription } from "../utils/description-fallback";
 import { jobFieldsFromGreenhousePosting, type GreenhousePosting } from "../utils/greenhouse-fields";
 import { BROWSER_USER_AGENT } from "../tools/page-fetcher";
+import { boardNameFromJobId } from "../tools/greenhouse-board-name";
+import { registrableDomainFromUrl } from "../utils/registrable-domain";
 import type { Parser } from "./parser";
 
 // pay_transparency=true matters: without it the board withholds the pay field
@@ -20,8 +22,14 @@ const postingUrl = (slug: string, jobId: string) =>
 // ({company}.greenhouse.io/jobs/{id}) has "jobs" as the FIRST path segment,
 // so there the slug comes from the hostname instead. Which shape a link is
 // gets decided by where "jobs" sits in the path — not by matching the host,
-// because a separate registry has already confirmed this link's domain is
-// greenhouse.io before this function is ever called.
+// because greenhouseIdentifiersForUrl only calls this once it has confirmed
+// the link's domain is greenhouse.io.
+//
+// That gate is load-bearing. Measured 2026-09-20, pinterestcareers.com puts
+// "jobs" first in its own path too (/jobs/7684577/...), which is exactly this
+// function's signal for an employer's own Greenhouse address. Read that way
+// it hands back the slug "www" rather than the real board, "pinterest" — so a
+// link on any other domain must never reach this function.
 export function extractGreenhouseSlugAndId(url: string): { slug: string; jobId: string } | null {
   let parsed: URL;
   try {
@@ -55,11 +63,77 @@ export function extractGreenhouseSlugAndId(url: string): { slug: string; jobId: 
   return { slug, jobId };
 }
 
+// Reads the gh_jid query value off a link. Six employers host their Greenhouse
+// postings on their own careers page rather than a Greenhouse address, so the
+// link names no board — but every one of those addresses carries this value,
+// a Greenhouse job number, which is what makes the board recoverable at all.
+export function greenhouseJobIdFromUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  // searchParams.get answers null for a missing value and an empty string for
+  // "?gh_jid=", and neither is a job number.
+  const jobId = parsed.searchParams.get("gh_jid");
+  if (!jobId) {
+    return null;
+  }
+
+  return jobId;
+}
+
+// Decides where this link's board name comes from, and the link's domain is
+// what decides it.
+//
+// A Greenhouse address already names its board, so it is read straight off
+// the link and no lookup is spent. Measured 2026-09-20, all 309 postings
+// already on a Greenhouse address also carry a gh_jid, so recovering the
+// board from the job number would cost a request on every one of them for a
+// name the link was holding all along.
+//
+// Any other address names no board, so the job number is the only way to one.
+// Trying the path first and falling back to the job number would not do: a
+// Pinterest careers link reads as a Greenhouse address under a path-first
+// rule and never falls back, giving the wrong board silently.
+export async function greenhouseIdentifiersForUrl(
+  url: string,
+  // Substituted in tests so the choice can be proved without a network
+  // request.
+  recoverBoardName: (jobId: string) => Promise<string | null> = boardNameFromJobId
+): Promise<{ slug: string; jobId: string } | null> {
+  if (registrableDomainFromUrl(url) === "greenhouse.io") {
+    return extractGreenhouseSlugAndId(url);
+  }
+
+  const jobId = greenhouseJobIdFromUrl(url);
+  if (!jobId) {
+    return null;
+  }
+
+  const slug = await recoverBoardName(jobId);
+  if (!slug) {
+    return null;
+  }
+
+  return { slug, jobId };
+}
+
 export const greenhouseParser: Parser = {
   name: "greenhouse",
 
+  // The registry owns no entry for brex.com, moduscreate.com,
+  // pinterestcareers.com, datavant.com, ats.comparably.com or gladly.ai, so a
+  // link on any of them reaches no parser by website alone. A Greenhouse job
+  // number on the link is what says the posting is Greenhouse's, whatever
+  // website it is being shown on. Measured 2026-09-20: of 120 jobs set aside
+  // for want of a reader, 7 carry one.
+  claims: (url: string) => greenhouseJobIdFromUrl(url) !== null,
+
   async parse({ url }) {
-    const identifiers = extractGreenhouseSlugAndId(url);
+    const identifiers = await greenhouseIdentifiersForUrl(url);
     if (!identifiers) {
       // A link this parser cannot read is a parse error, not an empty read.
       throw new Error(`greenhouse: could not read a board slug and posting id from ${url}`);

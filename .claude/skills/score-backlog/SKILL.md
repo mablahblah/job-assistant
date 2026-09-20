@@ -118,7 +118,7 @@ npm run score:save -- --in {answer_file} --summary
 4. Report to the user, in this order:
    - Every warning, as written.
    - `Run stopped at ...`, if it is there, and then STOP.
-   - The summary. Lead with how many jobs were scored and how many companies.
+   - The summary, pasted into your reply inside a fenced code block, exactly as printed. Do not reword it, reorder it, shorten it, or swap it for a count of your own. The user never sees the command's output, so your paste is the only copy they get.
 
 ## Notes
 

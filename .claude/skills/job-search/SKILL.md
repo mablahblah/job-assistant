@@ -31,41 +31,22 @@ The output arrives on stdout in this order.
 3. `Warnings:` — either `none`, or one indented line per warning. A warning means a source completed while degraded, or a job was dropped because it could not travel.
 4. `Run stopped at ...` — present only when the run stopped early. It names where it stopped and why, then lists what finished first.
 5. `Trace failures: N` — present only when a diagnostic row failed to save. The run's work is unaffected.
-6. The summary. Always present. It reads like this:
-
-```
-Collected: 100 jobs
-  - adzuna collected 12 jobs
-  - jsearch collected 0 jobs
-  - greenhouse collected 31 jobs
-  - lever collected 22 jobs
-  - ashby collected 19 jobs
-  - dribbble collected 9 jobs
-  - uiuxjobsboard collected 7 jobs
-  - 24 jobs already had a source link
-Dedupe (post collection)
-  - 13 jobs were duplicates from this collection
-  - 7 jobs were duplicates of jobs already saved
-Resolved: 55 jobs
-  - 3 jobs could not be resolved
-```
-
-A line with nothing to report is left out. A collector that found nothing still gets its line, so a quiet source is visible rather than missing.
+6. The summary. Always present. It is every remaining line, from the first step heading to the end of the output. Its shape is set by the `run-summary` rule, so read it as printed rather than expecting a shape from this file.
 
 ## Phase 3: Report what the pipeline did
 
 1. Report every error and every warning first, and report all of them. Several sources can fail in one run and the run continues past each. Each line reads `collector: message`. The message names the board or the search behind it, so report it as written and never reword it.
 
-2. IF the run stopped early: say so plainly, name where it stopped and why, and say that the steps listed as finished did save their work. Then report the summary. Then STOP — do not treat a stopped run as a finished one.
+2. IF the run stopped early: say so plainly, name where it stopped and why, and say that the steps listed as finished did save their work. Then show the summary. Then STOP — do not treat a stopped run as a finished one.
 
-3. Otherwise report the summary. Lead with how many jobs were collected and how many resolved.
+3. Show the summary: paste every summary line into your reply inside a fenced code block, exactly as printed. Do not reword it, reorder it, shorten it, or swap it for a count of your own. The user never sees the command's output, so your paste is the only copy they get.
 
 4. IF nothing was collected and nothing was resolved: say "No new jobs found", then carry on to the next phase. A quiet collection run does not mean there is nothing to score — the backlog holds whatever earlier runs left unscored.
 
 ## Phase 4: Score what is in the backlog
 
 1. Invoke the `score-backlog` skill, handing it the run identifier read from the `Run:` line, so its records land under this search's run. It judges how well each job fits and researches each employer behind those jobs.
-2. Report what it reports.
+2. Pass on what it reports, including its summary block exactly as it hands it over.
 
 ## Phase 5: Show the results
 

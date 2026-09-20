@@ -28,4 +28,10 @@ export interface Parser {
   // that cannot read its source throws; the handler catches per job, so one
   // job's failure never costs the rest of the list.
   parse(context: ParserContext): Promise<ParseResult>;
+  // Answers whether this parser recognises a link no registry entry owns.
+  // The registry matches by owned domain first and only asks this where that
+  // finds nothing, so a parser is never asked about a link another parser
+  // already owns. Optional: a parser recognising nothing beyond its own
+  // domain leaves it out.
+  claims?(url: string): boolean;
 }
