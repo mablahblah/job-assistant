@@ -96,17 +96,32 @@ function ratingColumn(label: string, read: (row: JobRow) => number | null | unde
   };
 }
 
+// Names every step an unjudged job has not finished, so the user can judge
+// whether to open it. A job that finished all three was only never scored.
+function unjudgedReason(row: JobRow): string {
+  const unfinished: string[] = [];
+  if (!row.job.is_resolved) unfinished.push("Link not followed");
+  if (!row.job.is_parsed) unfinished.push("Posting not read");
+  if (!row.job.is_classified) unfinished.push("Location not checked");
+  return unfinished.length > 0 ? unfinished.join(", ") : "Not scored";
+}
+
 // The total leads the backlog, where the question is still whether to apply.
 // Once a job has been applied for or ruled out that question is answered, so
 // the status leads those two instead. The five ratings stay on every list,
 // because they still say what kind of job and employer it was.
 const TOTAL_COLUMN: Column = {
-  heading: `<th class="col-score">Score</th>`,
+  heading: `<th class="col-score text-center">Score</th>`,
   cell: (row, now) => {
+    // A job the pipeline never judged must not be mistaken for one that passed
+    // every check, so a marker stands where its total would be.
+    if (!row.job.is_judged) {
+      return `<td class="col-score" title="${escapeHtml(unjudgedReason(row))}"><i class="ph ph-warning unjudged-icon" role="img" aria-label="Unjudged"></i></td>`;
+    }
     const reasoning = scoreReasoning(row);
     const tooltip = reasoning === null ? "" : ` title="${escapeHtml(reasoning)}"`;
     const total = scoreTotal(row, now);
-    return `<td${tooltip}><span class="${scoreBand(total)}">${total}</span></td>`;
+    return `<td class="col-score"${tooltip}><span class="${scoreBand(total)}">${total}</span></td>`;
   },
 };
 
@@ -212,14 +227,30 @@ function sortRows(rows: JobRow[], list: JobListName, now: Date): JobRow[] {
   return [...rows].sort((a, b) => lastChanged(b) - lastChanged(a));
 }
 
+// The page draws every backlog row and tags the unjudged ones, so the browser
+// script only hides and shows them rather than working anything out itself.
+function rowOpening(row: JobRow, list: JobListName): string {
+  return list === "backlog" && !row.job.is_judged ? "<tr data-unjudged>" : "<tr>";
+}
+
 export function jobTableView(rows: JobRow[], list: JobListName, now: Date = new Date()): string {
   if (rows.length === 0) return `<p class="empty-state">${EMPTY_MESSAGES[list]}</p>`;
 
   const columns = columnsFor(list);
   const headings = columns.map((column) => column.heading).join("\n      ");
   const body = sortRows(rows, list, now)
-    .map((row) => `<tr>\n  ${columns.map((column) => column.cell(row, now)).join("\n  ")}\n</tr>`)
+    .map(
+      (row) =>
+        `${rowOpening(row, list)}\n  ${columns.map((column) => column.cell(row, now)).join("\n  ")}\n</tr>`
+    )
     .join("\n");
+
+  // Hiding every row must not leave a backlog that reads as empty, so it
+  // carries its own message for that case, hidden until the switch needs it.
+  const allHidden =
+    list === "backlog"
+      ? `\n<p class="empty-state empty-state-centred is-hidden" data-all-hidden-message>No Judged Backlog Jobs</p>`
+      : "";
 
   return `<div class="table-container">
 <table class="table">
@@ -232,5 +263,5 @@ export function jobTableView(rows: JobRow[], list: JobListName, now: Date = new 
     ${body}
   </tbody>
 </table>
-</div>`;
+</div>${allHidden}`;
 }

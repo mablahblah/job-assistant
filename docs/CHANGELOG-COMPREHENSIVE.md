@@ -2,6 +2,22 @@
 
 <!-- Newest at top -->
 
+## September 20, 2026 - v1.0.1
+
+### New Features
+
+#### Jobs Nothing Could Be Read About Are Marked as Unjudged
+
+A job site sometimes refuses the page behind a job, so the search cannot follow the link to the employer's own posting, cannot read that posting, and cannot work out whether the job is near you. The job still stays in your backlog, because the next search will try again. Until now it sat there looking exactly like a job that had been read and scored. Such a job is now called unjudged, and shows a warning marker where its score would be. Pointing at the marker names what is missing: the link not followed, the posting not read, the location not checked, or a job that finished all three and was never scored. A switch above the list hides unjudged jobs, counts them, and remembers your choice for next time.
+
+### Internal
+
+- **Prototypes** — A prototype saved a copy of the live database as a web page and committed it, including real employers, postings and every work log entry. The file is deleted, removed from the project's history, and prototype pages are now ignored so one cannot be committed again.
+- **Documentation** — Repaired 61 broken links across the project's documents. Most wrote the "and" symbol in a filename in a form that browsers read differently, so the link missed the file.
+- **Backlog** — Trimmed eleven backlog items to one sentence each and moved their detail into background files, six of which are new. Cancelled one item that described the old pipeline's behaviour rather than the current one.
+- **Build** — Fixed a type error in a prototype script, which was failing the project's checks.
+- **Records** — Corrected the audit's bookmark, which still pointed at a check run before the pipeline rebuild, and recorded the rule violations that release never logged.
+
 ## September 18, 2026 - v1.0.0
 
 ### New Features

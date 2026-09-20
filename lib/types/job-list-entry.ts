@@ -73,11 +73,11 @@ export const DELETE_ON_SAVE_REASONS: readonly DeleteOnSaveReason[] = [
 // what it means, so both call one mapper. But the two disagree about the rest
 // of the entry — a collector builds the posting's link and opens the phase
 // gates, while a parser already holds a resolved link and is about to close
-// the parsing gate. Leaving those five fields out of the type means a mapper
+// the parsing gate. Leaving those six fields out of the type means a mapper
 // cannot overwrite a link or reset a gate it does not own.
 export type MappedJobFields = Omit<
   JobListEntry,
-  "original_url" | "resolved_url" | "is_resolved" | "is_parsed" | "is_classified"
+  "original_url" | "resolved_url" | "is_resolved" | "is_parsed" | "is_classified" | "is_judged"
 >;
 
 export type JobListEntry = Omit<
@@ -117,6 +117,7 @@ export const JOB_LIST_ENTRY_FIELDS = [
   "is_resolved",
   "is_parsed",
   "is_classified",
+  "is_judged",
   "status",
   "raw_location_list",
   "normalized_location_list",

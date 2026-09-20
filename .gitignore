@@ -69,3 +69,6 @@ resumes/
 # --- end workflow-profile ---
 
 .serve.json
+
+# A prototype snapshot renders the real database, so its output never gets committed.
+prototypes/**/index.html

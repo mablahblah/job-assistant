@@ -19,6 +19,7 @@ import type { JobListEntry } from "../types/job-list-entry";
 import type { CollectionIssue } from "../types/collection-issue";
 import { messageFromThrown } from "../utils/thrown-message";
 import { createFailureTracker, type RunFailure } from "../utils/run-failure";
+import { isJobJudged } from "../utils/job-judged";
 
 // The same shape the job search runner reports, so it is declared once beside
 // the tracker that fills it in rather than separately in each runner.
@@ -233,10 +234,15 @@ export async function runScoringSave(
   const at = failures.at;
 
   try {
+    // Declared out here so the judged pass further down can reuse the list
+    // and the map rather than read them again.
+    let priorityList: readonly string[] = [];
+    const collectorById = new Map<string, string>();
+
     // There is nothing to write, and no collector to look up, without a job
     // score to save — so both reads below only happen when one is coming.
     if (options.jobScores.length > 0) {
-      const priorityList = await at("source_priority_list", () =>
+      priorityList = await at("source_priority_list", () =>
         options.settings.getSourcePriorityList()
       );
 
@@ -245,7 +251,6 @@ export async function runScoringSave(
       const needingScores = await at("jobs_needing_scores_lookup", () =>
         options.jobService.findNeedingScores()
       );
-      const collectorById = new Map<string, string>();
       for (const job of needingScores) {
         if (job.id) collectorById.set(job.id, job.collector ?? "unknown");
       }
@@ -362,6 +367,37 @@ export async function runScoringSave(
         }
       }
     });
+
+    // Scoring is what judges a job. Each job this batch answered for is judged
+    // once it holds a fit score or its employer holds any score. This runs
+    // after the company half, so an employer scored in this same batch counts.
+    // A job the batch holds no answer for, such as one whose page was refused,
+    // is never reached. Nothing here is traced or warned about, because the
+    // marker only changes how the dashboard shows a job.
+    if (options.jobScores.length > 0) {
+      await at("scoring", async () => {
+        for (const jobScore of options.jobScores) {
+          try {
+            const job = await options.jobService.findById(jobScore.id);
+            if (!job) continue;
+            const employer = job.company_id
+              ? await options.companies.findById(job.company_id)
+              : null;
+            if (!job.is_judged && isJobJudged(job, employer)) {
+              await options.jobService.update({ id: jobScore.id, is_judged: true }, priorityList);
+            }
+          } catch (thrown) {
+            // A marker that fails to save costs only this job. The jobs after
+            // it still need marking, and the promotion below still needs to
+            // run — the marker is the least of what this batch carries.
+            result.warnings.push({
+              collector: collectorById.get(jobScore.id) ?? "unknown",
+              message: `Job ${jobScore.id} scoring failed: ${messageFromThrown(thrown)}`,
+            });
+          }
+        }
+      });
+    }
 
     // Promotion closes the batch, so a company this batch just scored well
     // is polled directly from the next run rather than waiting for a pass of

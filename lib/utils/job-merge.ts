@@ -31,6 +31,10 @@ export const CONTESTED_FIELDS = [
 // collectors disagreeing about a posting, and neither has an opinion about
 // how well the job fits the user. Promotion is the one thing that empties
 // them, and it does so by setting an explicit null.
+//
+// The judged marker sits here for the same reason. Only scoring sends it, and
+// a job collected again never reaches scoring again, so a fresh sighting
+// carrying no marker has to leave the stored one alone.
 export const WRITTEN_THROUGH_FIELDS = [
   "company_id",
   "alignment_score",
@@ -38,6 +42,7 @@ export const WRITTEN_THROUGH_FIELDS = [
   "is_resolved",
   "is_parsed",
   "is_classified",
+  "is_judged",
   "status",
   "location_match",
   "location_match_place",

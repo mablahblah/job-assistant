@@ -2,7 +2,7 @@
 
 The shape of the system as built. Updated at the close of every phase, so a new session can read this instead of rebuilding context from the conversation.
 
-Decisions and their reasons live in [decision-log.md](decision-log.md). This file describes what exists; that one describes why.
+Decisions and their reasons live in [decision-log.md](features/_complete/unified-pipeline/decision-log.md). This file describes what exists; that one describes why.
 
 ## Status
 

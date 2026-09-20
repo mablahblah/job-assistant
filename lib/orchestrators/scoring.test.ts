@@ -526,3 +526,160 @@ describe("promotion after a company is scored", () => {
     expect(promoted.map((event) => event.event)).toEqual(["company_entered", "company_promoted"]);
   });
 });
+
+// Scoring is what judges a job. Once a batch is saved, each job it answered
+// for is marked judged when it holds a fit score or its employer holds any
+// score. The check runs after both halves, so an employer scored in the same
+// batch counts.
+describe("marking the jobs a batch answered for as judged", () => {
+  const oneScore = {
+    employee_satisfaction: { score: 4, rationale: "well reviewed", guessed: false },
+  };
+
+  async function saveBatch(
+    jobs: JobListEntry[],
+    companies: CompanyRecord[],
+    batch: Pick<Parameters<typeof runScoringSave>[0], "jobScores" | "companyScores">,
+    trace: FakeTraceService = makeTraceService()
+  ) {
+    return runScoringSave({
+      ...batch,
+      settings: fakeSettingsService(),
+      companies: fakeCompanyService(companies),
+      jobService: fakeJobService(jobs),
+      atsSlugs: fakeAtsSlugService([]),
+      trace,
+      runId: RUN_ID,
+      scoredAt: NOW,
+    });
+  }
+
+  test("a job whose fit score is saved is judged", async () => {
+    const jobs = [scoreableJob({ is_judged: false })];
+
+    await saveBatch(jobs, [], {
+      jobScores: [{ id: "j1", alignment_score: 7, alignment_rationale: "close fit" }],
+      companyScores: [],
+    });
+
+    expect(jobs[0]?.is_judged).toBe(true);
+  });
+
+  test("a job whose fit score failed is judged when its employer already holds a score", async () => {
+    const jobs = [scoreableJob({ company_id: "c1", is_judged: false })];
+
+    await saveBatch(jobs, [scoredCompany()], {
+      jobScores: [{ id: "j1", failure: "posting_unreadable" }],
+      companyScores: [],
+    });
+
+    expect(jobs[0]?.is_judged).toBe(true);
+  });
+
+  test("a job whose fit score failed is judged when the same batch scores its employer", async () => {
+    const jobs = [scoreableJob({ company_id: "c2", is_judged: false })];
+
+    await saveBatch(jobs, [unscoredCompany({ id: "c2", name: "Unscored Co" })], {
+      jobScores: [{ id: "j1", failure: "posting_unreadable" }],
+      companyScores: [{ id: "c2", scores: oneScore }],
+    });
+
+    expect(jobs[0]?.is_judged).toBe(true);
+  });
+
+  test("a job whose fit score failed stays unjudged when its employer holds no score", async () => {
+    const jobs = [scoreableJob({ company_id: "c2", is_judged: false })];
+
+    await saveBatch(jobs, [unscoredCompany({ id: "c2", name: "Unscored Co" })], {
+      jobScores: [{ id: "j1", failure: "scoring_agent_failed" }],
+      companyScores: [],
+    });
+
+    expect(jobs[0]?.is_judged).toBe(false);
+  });
+
+  // A job whose page was refused never reaches scoring, so the batch holds no
+  // answer for it, whatever it does for the employer.
+  test("a job the batch holds no answer for stays unjudged when its employer is scored", async () => {
+    const jobs = [
+      scoreableJob({ company_id: "c2", is_judged: false }),
+      scoreableJob({ id: "refused", company_id: "c2", is_resolved: false, is_judged: false }),
+    ];
+
+    await saveBatch(jobs, [unscoredCompany({ id: "c2", name: "Unscored Co" })], {
+      jobScores: [{ id: "j1", alignment_score: 5 }],
+      companyScores: [{ id: "c2", scores: oneScore }],
+    });
+
+    expect(jobs.find((job) => job.id === "refused")?.is_judged).toBe(false);
+  });
+
+  // A marker write that fails says nothing about the rest of the batch. The
+  // jobs after it still need marking, and the company this batch scored well
+  // still needs its board polled.
+  test("a job whose marker write fails costs only that job", async () => {
+    const jobs = [
+      scoreableJob({ id: "j1", company_id: "c2", is_judged: false }),
+      scoreableJob({ id: "j2", company_id: "c2", is_judged: false }),
+    ];
+    const held = fakeJobService(jobs);
+    const jobService = {
+      ...held,
+      async update(entry: Partial<JobListEntry>, priorityList: readonly string[]) {
+        if (entry.is_judged === true && entry.id === "j1") throw new Error("db write failed");
+        return held.update(entry, priorityList);
+      },
+    };
+    const boards = [
+      { id: "s1", slug: "goodco", company_id: "c2", parser: "greenhouse", collector: null },
+    ];
+
+    const result = await runScoringSave({
+      jobScores: [
+        { id: "j1", failure: "posting_unreadable" },
+        { id: "j2", failure: "posting_unreadable" },
+      ],
+      companyScores: [
+        {
+          id: "c2",
+          scores: {
+            employee_satisfaction: { score: 4, rationale: "well reviewed", guessed: false },
+            customer_satisfaction: { score: 4, rationale: "well reviewed", guessed: false },
+            work_life_balance: { score: 4, rationale: "well reviewed", guessed: false },
+            political_alignment: { score: 4, rationale: "well reviewed", guessed: false },
+          },
+        },
+      ],
+      settings: fakeSettingsService(),
+      companies: fakeCompanyService([unscoredCompany({ id: "c2", name: "Good Co" })]),
+      jobService,
+      atsSlugs: fakeAtsSlugService(boards),
+      trace: makeTraceService(),
+      runId: RUN_ID,
+      scoredAt: NOW,
+    });
+
+    expect(jobs.find((job) => job.id === "j2")?.is_judged).toBe(true);
+    expect(result.failure).toBeNull();
+    expect(result.warnings.some((warning) => warning.message.includes("j1"))).toBe(true);
+    expect(boards[0]?.collector).toBe("greenhouse");
+  });
+
+  test("nothing the batch records or warns about mentions the judged marker", async () => {
+    const trace = makeTraceService();
+    const jobs = [scoreableJob({ company_id: "c2", is_judged: false })];
+
+    const result = await saveBatch(
+      jobs,
+      [unscoredCompany({ id: "c2", name: "Unscored Co" })],
+      {
+        jobScores: [{ id: "j1", failure: "posting_unreadable" }],
+        companyScores: [{ id: "c2", scores: oneScore }],
+      },
+      trace
+    );
+
+    expect(jobs[0]?.is_judged).toBe(true);
+    expect(JSON.stringify([trace.events, result.warnings])).not.toMatch(/judged/i);
+  });
+});

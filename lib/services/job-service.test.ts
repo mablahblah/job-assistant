@@ -548,9 +548,9 @@ describe("the resolution job list", () => {
     expect(found.map((job) => job.id)).toEqual(["list-earlier-run"]);
   });
 
-  // AC 3. The four gate fields are left behind, so an entry carried on to
+  // AC 3. The five gate fields are left behind, so an entry carried on to
   // dedupe and save holds no stale copy of a flag another phase owns.
-  test("leaves the four gate fields behind", async () => {
+  test("leaves the five gate fields behind", async () => {
     await seedRow("list-fields-absent");
 
     const [entry] = onlyMine(await service.findUnresolved(), "list-fields-absent");
@@ -559,6 +559,7 @@ describe("the resolution job list", () => {
     expect(entry).not.toHaveProperty("is_resolved");
     expect(entry).not.toHaveProperty("is_parsed");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 
   // AC 4. Resolution needs the id to write back and the collector to know
@@ -608,7 +609,7 @@ describe("the parsing job list", () => {
     expect(found.map((job) => job.id)).toEqual(["parse-retry"]);
   });
 
-  test("leaves the four gate fields behind", async () => {
+  test("leaves the five gate fields behind", async () => {
     await seedRow("parse-fields-absent", { is_resolved: true });
 
     const [entry] = onlyMine(await service.findUnparsed(), "parse-fields-absent");
@@ -617,6 +618,7 @@ describe("the parsing job list", () => {
     expect(entry).not.toHaveProperty("is_resolved");
     expect(entry).not.toHaveProperty("is_parsed");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 
   test("carries the id, the resolved link and the collector a parse needs", async () => {
@@ -661,11 +663,12 @@ describe("the backlog cleanup job list", () => {
     ]);
   });
 
-  test("leaves the four gate fields behind", async () => {
+  test("leaves the five gate fields behind", async () => {
     await seedRow("sweep-fields");
     const [entry] = onlyMine(await service.findBacklog(), "sweep-fields");
     expect(entry).not.toHaveProperty("status");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 
   // Backlog cleanup judges age, so the dates have to come across.
@@ -733,7 +736,7 @@ describe("the promotion job list", () => {
     expect(wider.map((job) => job.id)).toEqual(["promote-threshold"]);
   });
 
-  test("leaves the four gate fields behind", async () => {
+  test("leaves the five gate fields behind", async () => {
     await seedRow("promote-fields", {
       status: "expired",
       posting_date: new Date("2026-01-30T00:00:00.000Z"),
@@ -741,6 +744,7 @@ describe("the promotion job list", () => {
     const [entry] = onlyMine(await service.findExpiredWithin(8, RUN_DATE), "promote-fields");
     expect(entry).not.toHaveProperty("status");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 });
 
@@ -764,11 +768,12 @@ describe("the classification job list", () => {
     expect(found.map((job) => job.id)).toEqual(["judge-ready"]);
   });
 
-  test("leaves the four gate fields behind", async () => {
+  test("leaves the five gate fields behind", async () => {
     await seedRow("judge-fields", READY);
     const [entry] = onlyMine(await service.findUnclassified(), "judge-fields");
     expect(entry).not.toHaveProperty("status");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 
   // Criterion 51. The places were cut out during normalization, so
@@ -816,6 +821,24 @@ describe("finding the jobs that still need an alignment score", () => {
       },
     });
   }
+
+  // Scoring hands its entries on to a save, so the list carries no stale copy
+  // of a flag another phase owns, the judged marker scoring itself sets
+  // included.
+  test("leaves the five gate fields behind", async () => {
+    await makeJob("scoring-fields-absent");
+
+    const [entry] = (await service.findNeedingScores()).filter(
+      (job) => job.id === "scoring-fields-absent"
+    );
+
+    expect(entry).toBeDefined();
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
+  });
 
   // Criterion 3.
   test("a backlog job carrying no alignment score is on the list", async () => {

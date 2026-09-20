@@ -467,11 +467,16 @@ describe("the resolution job list", () => {
     expect(found.map((job) => job.id)).toEqual(["list-bare"]);
   });
 
-  // AC 3. The four gate fields are left behind, so an entry carried on to
+  // AC 3. The five gate fields are left behind, so an entry carried on to
   // dedupe and save holds no stale copy of a flag another phase owns.
-  test("leaves the four gate fields behind", async () => {
+  test("leaves the five gate fields behind", async () => {
     const service = fakeJobService([
-      storedJob("list-absent", { is_parsed: false, is_classified: false, is_resolved: false }),
+      storedJob("list-absent", {
+        is_parsed: false,
+        is_classified: false,
+        is_resolved: false,
+        is_judged: false,
+      }),
     ]);
 
     const [entry] = await service.findUnresolved();
@@ -480,6 +485,7 @@ describe("the resolution job list", () => {
     expect(entry).not.toHaveProperty("is_resolved");
     expect(entry).not.toHaveProperty("is_parsed");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 
   // AC 4. Resolution needs the id to write back and the collector to know
@@ -525,8 +531,8 @@ describe("the fake's parsing job list", () => {
     expect(found.map((job) => job.id)).toEqual(["waiting"]);
   });
 
-  test("leaves the four gate fields behind, as the real read does", async () => {
-    const service = fakeJobService([storedJob("waiting", { is_resolved: true })]);
+  test("leaves the five gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([storedJob("waiting", { is_resolved: true, is_judged: false })]);
 
     const [entry] = await service.findUnparsed();
 
@@ -534,6 +540,7 @@ describe("the fake's parsing job list", () => {
     expect(entry).not.toHaveProperty("is_resolved");
     expect(entry).not.toHaveProperty("is_parsed");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 });
 
@@ -556,11 +563,12 @@ describe("the fake's backlog cleanup job list", () => {
     expect(found.map((job) => job.id)).toEqual(["plain", "resolved", "judged"]);
   });
 
-  test("leaves the four gate fields behind, as the real read does", async () => {
-    const service = fakeJobService([storedJob("plain")]);
+  test("leaves the five gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([storedJob("plain", { is_judged: false })]);
     const [entry] = await service.findBacklog();
     expect(entry).not.toHaveProperty("status");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 });
 
@@ -597,16 +605,18 @@ describe("the fake's promotion job list", () => {
     expect(found.map((job) => job.id)).toEqual(["relisted"]);
   });
 
-  test("leaves the four gate fields behind, as the real read does", async () => {
+  test("leaves the five gate fields behind, as the real read does", async () => {
     const service = fakeJobService([
       storedJob("relisted", {
         status: "expired",
         posting_date: new Date("2026-01-30T00:00:00.000Z"),
+        is_judged: false,
       }),
     ]);
     const [entry] = await service.findExpiredWithin(8, RUN_DATE);
     expect(entry).not.toHaveProperty("status");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 });
 
@@ -625,11 +635,14 @@ describe("the fake's classification job list", () => {
     expect(found.map((job) => job.id)).toEqual(["ready"]);
   });
 
-  test("leaves the four gate fields behind, as the real read does", async () => {
-    const service = fakeJobService([storedJob("ready", { is_resolved: true, is_parsed: true })]);
+  test("leaves the five gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([
+      storedJob("ready", { is_resolved: true, is_parsed: true, is_judged: false }),
+    ]);
     const [entry] = await service.findUnclassified();
     expect(entry).not.toHaveProperty("status");
     expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
   });
 });
 

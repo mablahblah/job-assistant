@@ -41,6 +41,7 @@ const EXPECTED_JOB_COLUMNS = [
   "is_resolved",
   "is_parsed",
   "is_classified",
+  "is_judged",
   "status",
   "raw_location_list",
   "normalized_location_list",
@@ -1209,6 +1210,39 @@ describe("Job: the alignment score and the reasoning behind it", () => {
   test("alignment_rationale is an optional string", () => {
     expect(String(findColumn("alignment_rationale")?.type).toUpperCase()).toBe("TEXT");
     expect(findColumn("alignment_rationale")?.notnull).toBe(0);
+  });
+});
+
+// Scoring is what judges a job, so a job starts unjudged and only scoring
+// marks it judged. A collector never mentions the marker, which is why the
+// column needs a default rather than a value on every insert.
+describe("Job: the judged marker", () => {
+  let dir: string;
+  let url: string;
+
+  beforeAll(async () => {
+    const temp = makeTempDb("pipeline-schema-judged-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("a job saved without mentioning is_judged starts unjudged", async () => {
+    const client = createClient({ url });
+    try {
+      await client.execute(
+        "INSERT INTO Job (id, collected_at, modified_at) VALUES ('new-job', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')"
+      );
+      const result = await client.execute("SELECT is_judged FROM Job WHERE id = 'new-job'");
+      const record = result.rows[0] as unknown as Record<string, unknown>;
+      expect(Number(record["is_judged"])).toBe(0);
+    } finally {
+      client.close();
+    }
   });
 });
 

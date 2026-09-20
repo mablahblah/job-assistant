@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## September 20, 2026 - v1.0.1
+
+### New Features
+
+#### Jobs Nothing Could Be Read About Are Marked as Unjudged
+
+A job site sometimes refuses the page behind a job, so the search cannot follow the link to the employer's own posting, cannot read that posting, and cannot work out whether the job is near you. The job still stays in your backlog, because the next search will try again. Until now it sat there looking exactly like a job that had been read and scored. Such a job is now called unjudged, and shows a warning marker where its score would be. Pointing at the marker names what is missing: the link not followed, the posting not read, the location not checked, or a job that finished all three and was never scored. A switch above the list hides unjudged jobs, counts them, and remembers your choice for next time.
+
 ## September 18, 2026 - v1.0.0
 
 ### New Features
