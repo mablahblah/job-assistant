@@ -34,17 +34,16 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 ## Documentation
 
 - [CURRENT-FEATURE.md](CURRENT-FEATURE.md) — Active feature
-- [CHANGELOG.md](docs/CHANGELOG.md) — Completed features
-- [Search Issues](docs/search-issues.md) — Known issues and improvement opportunities in the job search pipeline
-- [First Pass Improvements](docs/features/first-pass-improvements/first-pass-improvements-spec.md) — Feature (shipped): auto-expire, web view, external jobs
-- [Smarter Auto-Classification](docs/features/smarter-auto-classification/smarter-auto-classification-spec.md) — Feature (shipped): repost dedup, batch updates, separated search skills
-- [Reliable Scraping Pipeline](docs/features/reliable-scraping-pipeline/reliable-scraping-pipeline-spec.md) — Feature (shipped): zero misclassified jobs from known boards
-- [Pipeline Accuracy](docs/features/pipeline-accuracy/pipeline-accuracy-spec.md) — Feature (shipped): fix location filtering and deduplication
-- [Security: Critical Fixes](docs/features/security-critical-fixes/security-critical-fixes-spec.md) — Feature (shipped): rotate leaked credentials and lock down external-facing inputs
-- [Dual Date Model](docs/features/dual-date-model/dual-date-model-spec.md) — Feature (shipped): honest job dates with firstPublished + repostedAt
-- [Smarter Aggregator Handling](docs/features/smarter-aggregator-handling/smarter-aggregator-handling-spec.md) — Feature (planned): reliable aggregator resolution
+- [CHANGELOG.md](CHANGELOG.md) — Completed features
+- [First Pass Improvements](features/first-pass-improvements/first-pass-improvements-spec.md) — Feature (shipped): auto-expire, web view, external jobs
+- [Smarter Auto-Classification](features/smarter-auto-classification/smarter-auto-classification-spec.md) — Feature (shipped): repost dedup, batch updates, separated search skills
+- [Reliable Scraping Pipeline](features/reliable-scraping-pipeline/reliable-scraping-pipeline-spec.md) — Feature (shipped): zero misclassified jobs from known boards
+- [Pipeline Accuracy](features/pipeline-accuracy/pipeline-accuracy-spec.md) — Feature (shipped): fix location filtering and deduplication
+- [Security: Critical Fixes](features/security-critical-fixes/security-critical-fixes-spec.md) — Feature (shipped): rotate leaked credentials and lock down external-facing inputs
+- [Dual Date Model](features/dual-date-model/dual-date-model-spec.md) — Feature (shipped): honest job dates with firstPublished + repostedAt
+- [Smarter Aggregator Handling](features/smarter-aggregator-handling/smarter-aggregator-handling-spec.md) — Feature (planned): reliable aggregator resolution
 
-- [Technical Documentation](docs/tech/table-of-contents.md) — Implementation-level docs: tech stack, views, styling, app functionality, testing, skills
+- [Technical Documentation](tech/table-of-contents.md) — Implementation-level docs: tech stack, views, styling, app functionality, testing, skills
 
 ## Notes
 

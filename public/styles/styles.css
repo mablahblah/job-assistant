@@ -40,6 +40,8 @@
   --color-score-good: #2e8b57;
   --color-score-ok: #c09020;
   --color-score-bad: #da4848;
+  /* The brightest orange that keeps 4.5 to 1 contrast against white */
+  --color-unjudged: #c2410c;
 
   /* Shared */
   --radius-sm: 4px;
@@ -176,12 +178,15 @@ body {
   transition: background 0.1s;
 }
 
+/* Every score, number or unjudged icon, sits centred under its heading */
 .col-score {
   width: 3.5rem;
+  text-align: center;
 }
 
 .col-status {
   width: 5.5rem;
+  text-align: center;
 }
 
 .col-posted {
@@ -546,4 +551,81 @@ body {
   .col-posted {
     width: auto;
   }
+}
+
+/* Unjudged icon — stands in for the score on a job the pipeline never judged.
+   It is not a button, so it keeps the plain pointer. */
+.unjudged-icon {
+  font-size: 1.25rem;
+  color: var(--color-unjudged);
+  vertical-align: middle;
+  cursor: default;
+}
+
+/* Hide Unjudged switch — sits at the right end of the tab bar */
+.unjudged-toggle {
+  margin-left: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125em;
+  font-weight: 600;
+  color: var(--color-foreground-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.unjudged-toggle-count {
+  font-weight: 400;
+}
+
+/* The display rule above would beat the shared hidden class at equal
+   strength, so the switch needs a hidden rule of its own. */
+.unjudged-toggle.is-hidden {
+  display: none;
+}
+
+.switch {
+  appearance: none;
+  position: relative;
+  width: 2rem;
+  height: 1.125rem;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: var(--color-bg-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+
+.switch:checked {
+  background: var(--color-control-primary-default);
+}
+
+.switch:checked::after {
+  transform: translateX(0.875rem);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--color-control-primary-default);
+  outline-offset: 2px;
+}
+
+/* Shown when every backlog job is unjudged and hidden, centred on the screen */
+.empty-state-centred {
+  padding-block: 6rem;
+  text-align: center;
 }

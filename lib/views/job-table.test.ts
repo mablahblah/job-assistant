@@ -42,6 +42,12 @@ function row(job: JobListEntry = {}, company: CompanyRecord | null = employer())
       posting_date: new Date("2026-04-18T12:00:00Z"),
       modified_at: new Date("2026-04-18T12:00:00Z"),
       alignment_score: 4,
+      // A stored row always carries its markers, and a job that finished
+      // every step and was scored is the ordinary case.
+      is_resolved: true,
+      is_parsed: true,
+      is_classified: true,
+      is_judged: true,
       ...job,
     },
     company,
@@ -408,5 +414,123 @@ describe("doubts from the employer search", () => {
     );
 
     expect(html).not.toContain("missing_phone");
+  });
+});
+
+// The first cell of the one row a single-job list builds, which on the backlog
+// is the score column.
+function scoreCell(html: string): string {
+  const cell = html.match(/<tbody>[\s\S]*?(<td[\s\S]*?<\/td>)/);
+  return cell?.[1] ?? "";
+}
+
+// A job the pipeline never judged shows a marker in place of its total, so it
+// cannot be mistaken for one that passed every check.
+describe("a job the pipeline never judged", () => {
+  const unjudged = (job: JobListEntry = {}) => row({ is_judged: false, ...job });
+
+  test("shows the unjudged marker in place of its total", () => {
+    const cell = scoreCell(jobTableView([unjudged()], "backlog", NOW));
+
+    expect(cell).toContain("unjudged-icon");
+    expect(cell).not.toMatch(/<span class="score-[a-z]+">\d+<\/span>/);
+  });
+
+  test("is announced as unjudged to a screen reader", () => {
+    const cell = scoreCell(jobTableView([unjudged()], "backlog", NOW));
+
+    expect(cell).toContain('role="img"');
+    expect(cell).toContain('aria-label="Unjudged"');
+  });
+
+  test("a judged job shows its total and no marker", () => {
+    const cell = scoreCell(jobTableView([row()], "backlog", NOW));
+
+    expect(cell).toMatch(/<span class="score-[a-z]+">\d+<\/span>/);
+    expect(cell).not.toContain("unjudged-icon");
+  });
+
+  test.each([
+    ["is_resolved", "link not followed"],
+    ["is_parsed", "posting not read"],
+    ["is_classified", "location not checked"],
+  ] as const)("a job with %s unset names that step in its tooltip", (marker, step) => {
+    const cell = scoreCell(jobTableView([unjudged({ [marker]: false })], "backlog", NOW));
+
+    expect(cell.toLowerCase()).toContain(step);
+  });
+
+  test("the tooltip names every unfinished step", () => {
+    const job = unjudged({ is_resolved: false, is_parsed: false, is_classified: false });
+    const cell = scoreCell(jobTableView([job], "backlog", NOW)).toLowerCase();
+
+    expect(cell).toContain("link not followed");
+    expect(cell).toContain("posting not read");
+    expect(cell).toContain("location not checked");
+  });
+
+  test("a job that finished every step says it has not been scored", () => {
+    const cell = scoreCell(jobTableView([unjudged()], "backlog", NOW)).toLowerCase();
+
+    expect(cell).toContain("not scored");
+    expect(cell).not.toContain("not followed");
+  });
+
+  test("sits where its total places it", () => {
+    const weak = row({ title: "Weak Job", alignment_score: 1 }, employer({ employee_satisfaction: 1 }));
+    const strong = unjudged({ title: "Strong Job", alignment_score: 5 });
+
+    const html = jobTableView([weak, strong], "backlog", NOW);
+
+    expect(html.indexOf("Strong Job")).toBeLessThan(html.indexOf("Weak Job"));
+  });
+
+  test.each(["active", "disqualified"] as const)("the %s list shows no marker", (list) => {
+    const html = jobTableView([unjudged({ status: "interview" })], list, NOW);
+
+    expect(html).not.toContain("unjudged-icon");
+  });
+
+  test("the score column is centred, heading and cell alike", () => {
+    const html = jobTableView([row(), unjudged({ id: "job-2" })], "backlog", NOW);
+
+    expect(html).toContain('<th class="col-score text-center">');
+    expect(html.match(/<td class="col-score"[^>]*>(<span class="score-|<i )/g)).toHaveLength(2);
+  });
+});
+
+// The page draws every backlog row and marks the unjudged ones, so the browser
+// script can hide and show them without working anything out itself.
+describe("rows the hide switch acts on", () => {
+  test("an unjudged backlog row is tagged", () => {
+    const html = jobTableView([row({ is_judged: false })], "backlog", NOW);
+
+    expect(html).toMatch(/<tr data-unjudged>/);
+  });
+
+  test("a judged backlog row is not tagged", () => {
+    const html = jobTableView([row()], "backlog", NOW);
+
+    expect(html).not.toContain("data-unjudged");
+  });
+
+  test.each(["active", "disqualified"] as const)("the %s list tags no row", (list) => {
+    const html = jobTableView([row({ is_judged: false, status: "interview" })], list, NOW);
+
+    expect(html).not.toContain("data-unjudged");
+  });
+
+  // Hiding every row must not leave a list that reads as empty, so the
+  // backlog carries its own message for that case, hidden until needed.
+  test("the backlog carries a hidden message for when every row is hidden", () => {
+    const html = jobTableView([row({ is_judged: false })], "backlog", NOW);
+
+    expect(html).toMatch(/<p class="[^"]*is-hidden[^"]*" data-all-hidden-message>No Judged Backlog Jobs<\/p>/);
+  });
+
+  test.each(["active", "disqualified"] as const)("the %s list carries no such message", (list) => {
+    const html = jobTableView([row({ status: "interview" })], list, NOW);
+
+    expect(html).not.toContain("data-all-hidden-message");
   });
 });

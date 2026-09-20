@@ -51,6 +51,10 @@ model Job {
   is_resolved              Boolean   @default(false)
   is_parsed                Boolean   @default(false)
   is_classified            Boolean   @default(false)
+  // Whether scoring has judged the job. Scoring sets it once the job holds a
+  // fit score or its employer holds any score, and nothing else writes it. A
+  // job still marked no shows as unjudged in the dashboard's backlog list.
+  is_judged                Boolean   @default(false)
   // Lifecycle state. The first seven are non-active. The last five are
   // what active means: the user has applied and has not been rejected,
   // and an active row stays frozen except for its status. All twelve, in

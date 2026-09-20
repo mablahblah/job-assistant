@@ -158,3 +158,4 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
 
 4. On failure the script writes `ERROR:` lines to stderr and exits 1, generating nothing. Read every error, correct the selections file, and return to step 3.
 5. On success, delete `/tmp/resume-selections.json` and report: "Resume saved to `resumes/{filename}`".
+6. Also provide user with the exact portfolio url used in the resume.

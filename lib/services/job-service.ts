@@ -64,7 +64,7 @@ export interface JobService {
   findByCompanyAndTitle(companyId: string, title: string): Promise<JobListEntry[]>;
   // Resolution keeps no list of its own; this is where it reads one. Nothing
   // narrows it to a single run, so a job collected weeks ago and never
-  // resolved is still on it. The four phase gates are left off every row,
+  // resolved is still on it. The five phase gates are left off every row,
   // because an entry carried on to dedupe and save should hold no stale copy
   // of a flag another phase owns.
   findUnresolved(): Promise<JobListEntry[]>;
@@ -72,7 +72,7 @@ export interface JobService {
   // job only qualifies once resolution has done its work and parsing has not
   // yet done its own, so an unresolved job and an already-parsed job are both
   // left off, along with one that took a status removing it from the queue on
-  // an earlier run, such as unparseable. The four phase gates are left off
+  // an earlier run, such as unparseable. The five phase gates are left off
   // every row for the same reason as above.
   findUnparsed(): Promise<JobListEntry[]>;
   // Backlog cleanup reads its list here. It runs before any collector and
@@ -80,7 +80,7 @@ export interface JobService {
   // went stale weeks ago is as old today as one collected this morning. How
   // far through the pipeline a job has come makes no difference to how old it
   // is, so a resolved, parsed and judged job sits on this list beside one
-  // nothing has touched yet. The four phase gates are left off every row,
+  // nothing has touched yet. The five phase gates are left off every row,
   // because an entry carried on to a save should hold no stale copy of a flag
   // another phase owns.
   findBacklog(): Promise<JobListEntry[]>;
@@ -92,13 +92,13 @@ export interface JobService {
   // reference instant is handed in rather than read off the clock, because a
   // run can spend half an hour in a browser between its first age check and
   // its last, and every job on one run is measured against the same moment.
-  // The four phase gates are left off every row for the same reason as above.
+  // The five phase gates are left off every row for the same reason as above.
   findExpiredWithin(thresholdDays: number, now: Date): Promise<JobListEntry[]>;
   // Classification reads its list here. A job only qualifies once resolution
   // and parsing have both finished with it, since there is nothing to judge
   // before then, and once judged it is done, so an already-classified job and
   // one that took a status removing it from the queue are both left off. The
-  // four phase gates are left off every row for the same reason as above.
+  // five phase gates are left off every row for the same reason as above.
   findNeedingScores(): Promise<JobListEntry[]>;
   findUnclassified(): Promise<JobListEntry[]>;
   // Crosses the Company relation and reports on the employer rather than the
@@ -134,6 +134,17 @@ export interface JobService {
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
+
+// The five phase gates, left off every job list that feeds a save. Each gate
+// belongs to one phase, and an entry carried on to a save must hold no stale
+// copy of one another phase owns.
+const GATE_FIELDS = {
+  status: true,
+  is_resolved: true,
+  is_parsed: true,
+  is_classified: true,
+  is_judged: true,
+} satisfies Prisma.JobOmit;
 
 // Under this project's libsql driver adapter, a unique-constraint violation
 // arrives without meta.target, so the error only tells us that a write
@@ -317,7 +328,7 @@ export function createJobService(db: PipelineDb): JobService {
     async findUnresolved() {
       const rows = await db.job.findMany({
         where: { status: "backlog", is_resolved: false },
-        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+        omit: GATE_FIELDS,
       });
       return rows.map((row) => row as unknown as JobListEntry);
     },
@@ -328,7 +339,7 @@ export function createJobService(db: PipelineDb): JobService {
     async findUnparsed() {
       const rows = await db.job.findMany({
         where: { status: "backlog", is_resolved: true, is_parsed: false },
-        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+        omit: GATE_FIELDS,
       });
       return rows.map((row) => row as unknown as JobListEntry);
     },
@@ -338,7 +349,7 @@ export function createJobService(db: PipelineDb): JobService {
     async findBacklog() {
       const rows = await db.job.findMany({
         where: { status: "backlog" },
-        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+        omit: GATE_FIELDS,
       });
       return rows.map((row) => row as unknown as JobListEntry);
     },
@@ -350,7 +361,7 @@ export function createJobService(db: PipelineDb): JobService {
     async findExpiredWithin(thresholdDays, now) {
       const rows = await db.job.findMany({
         where: { status: "expired" },
-        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+        omit: GATE_FIELDS,
       });
       return rows
         .filter((row) => !isPastThreshold(jobAgeInDays(row, now), thresholdDays))
@@ -367,11 +378,12 @@ export function createJobService(db: PipelineDb): JobService {
           is_parsed: true,
           is_classified: true,
         },
-        // The four flags are pinned by the where clause, so every row would
-        // carry the same values and tell scoring nothing it does not already
-        // know. The score column stays, because scoring fills it in on the
-        // entry it was handed and needs somewhere to put the number.
-        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+        // Four of the five gates are pinned by the where clause, so every row
+        // would carry the same values and tell scoring nothing it does not
+        // already know. The judged marker goes for the stale-copy reason every
+        // list shares. The score column stays, because scoring fills it in on
+        // the entry it was handed and needs somewhere to put the number.
+        omit: GATE_FIELDS,
       });
       return rows.map((row) => row as unknown as JobListEntry);
     },
@@ -379,7 +391,7 @@ export function createJobService(db: PipelineDb): JobService {
     async findUnclassified() {
       const rows = await db.job.findMany({
         where: { status: "backlog", is_resolved: true, is_parsed: true, is_classified: false },
-        omit: { status: true, is_resolved: true, is_parsed: true, is_classified: true },
+        omit: GATE_FIELDS,
       });
       return rows.map((row) => row as unknown as JobListEntry);
     },

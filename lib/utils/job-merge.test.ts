@@ -273,6 +273,20 @@ describe("written-through fields skip the contest", () => {
     expect(result.is_classified).toBe(true);
   });
 
+  // Scoring is the only thing that sends a judged marker, and its verdict has
+  // to land on the stored row.
+  test("the judged marker takes the arriving value", () => {
+    const result = merge({ ...GREENHOUSE, is_judged: false }, { ...ADZUNA, is_judged: true });
+    expect(result.is_judged).toBe(true);
+  });
+
+  // A job collected again never reaches scoring again, so a fresh sighting
+  // that says nothing about the marker must leave the stored one alone.
+  test("an absent judged marker leaves the stored one standing", () => {
+    const result = merge({ ...GREENHOUSE, is_judged: true }, { ...ADZUNA });
+    expect(result.is_judged).toBe(true);
+  });
+
   test("status takes the arriving value", () => {
     const result = merge(
       { ...GREENHOUSE, status: "backlog" },

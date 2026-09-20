@@ -34,6 +34,15 @@ export function pageView(contents: PageContents, now?: Date): string {
     })
     .join("\n    ");
 
+  // Counts hidden jobs too, so the user sees how much of the backlog is
+  // unchecked whichever way the switch is set. The page always draws the
+  // switch off, and the browser script restores a saved choice.
+  const unjudgedCount = backlog.filter((row) => !row.job.is_judged).length;
+  const unjudgedToggle = `<label class="unjudged-toggle" data-shows-on="backlog">
+      <span>Hide Unjudged <span class="unjudged-toggle-count">(${unjudgedCount})</span></span>
+      <input type="checkbox" role="switch" class="switch" data-unjudged-toggle>
+    </label>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -41,12 +50,14 @@ export function pageView(contents: PageContents, now?: Date): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Job Assistant</title>
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
   <link rel="stylesheet" href="/styles/styles.css">
 </head>
 <body>
   <div class="page-container">
     <nav class="tab-nav">
     ${tabButtons}
+    ${unjudgedToggle}
     </nav>
 
     <div data-panel="backlog">

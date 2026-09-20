@@ -156,7 +156,7 @@ export function fakeJobService(
     return jobs.filter((job) => job.company_id === companyId && job.title === title);
   }
 
-  // The four keys are dropped from the copy rather than set to undefined,
+  // The five keys are dropped from the copy rather than set to undefined,
   // which is what Prisma's omit does on the real read. A key left standing
   // holds a stale copy of a flag another phase owns.
   function withoutGateFields(job: JobListEntry): JobListEntry {
@@ -165,6 +165,7 @@ export function fakeJobService(
     delete entry.is_resolved;
     delete entry.is_parsed;
     delete entry.is_classified;
+    delete entry.is_judged;
     return entry;
   }
 

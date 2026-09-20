@@ -45,8 +45,10 @@ describe("Parser: the contract carries only what a parser owns", () => {
     const withResolved: ParseResult = { is_resolved: true };
     // @ts-expect-error a parse carries no phase gate
     const withClassified: ParseResult = { is_classified: true };
+    // @ts-expect-error a parse carries no phase gate
+    const withJudged: ParseResult = { is_judged: true };
 
-    expect([withLink, withOriginal, withParsed, withResolved, withClassified]).toHaveLength(5);
+    expect([withLink, withOriginal, withParsed, withResolved, withClassified, withJudged]).toHaveLength(6);
   });
 
   test("a parser names itself, so its fields can be weighed against a collector's", () => {

@@ -132,3 +132,58 @@ describe("the whole document", () => {
     expect(html).toContain("(1)");
   });
 });
+
+// The unjudged marker is drawn from the icon set's regular weight, which the
+// page has to load beside the bold weight every other icon uses.
+describe("the icon weights the page loads", () => {
+  test("the regular weight is loaded beside the bold one", () => {
+    const html = pageView({ backlog: [], active: [], disqualified: [], workLog: [] });
+
+    expect(html).toContain("@phosphor-icons/web@2.1.1/src/bold/style.css");
+    expect(html).toContain("@phosphor-icons/web@2.1.1/src/regular/style.css");
+  });
+});
+
+// The switch that hides unjudged backlog jobs sits in the tab bar and belongs
+// to the backlog alone.
+describe("the hide unjudged switch", () => {
+  function judged(id: string): JobRow {
+    const row = job(id, "backlog");
+    return { ...row, job: { ...row.job, is_judged: true } };
+  }
+
+  function unjudged(id: string): JobRow {
+    const row = job(id, "backlog");
+    return { ...row, job: { ...row.job, is_judged: false } };
+  }
+
+  test("counts every unjudged backlog job", () => {
+    const html = page({ backlog: [unjudged("a"), unjudged("b"), judged("c")] });
+
+    expect(html).toMatch(/Hide Unjudged <span class="unjudged-toggle-count">\(2\)<\/span>/);
+  });
+
+  test("the backlog tab still counts every backlog job", () => {
+    const html = page({ backlog: [unjudged("a"), unjudged("b"), judged("c")] });
+
+    expect(html).toContain('data-tab="backlog">Backlog <span class="tab-nav-count">(3)</span>');
+  });
+
+  test("is an on-off switch", () => {
+    expect(page({ backlog: [unjudged("a")] })).toMatch(
+      /<input type="checkbox" role="switch" class="switch" data-unjudged-toggle>/
+    );
+  });
+
+  // The browser script restores a saved choice, so the page itself always
+  // draws the switch off, which shows every job on a first visit.
+  test("is drawn off", () => {
+    expect(page({ backlog: [unjudged("a")] })).not.toMatch(/data-unjudged-toggle[^>]*checked/);
+  });
+
+  test("shows on the backlog tab only", () => {
+    expect(page({ backlog: [unjudged("a")] })).toMatch(
+      /<label class="unjudged-toggle" data-shows-on="backlog">/
+    );
+  });
+});
