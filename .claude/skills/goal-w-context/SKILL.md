@@ -1,4 +1,4 @@
-/goal - work through tasks until this phase is complete
+/goal - work through tasks until this phase or feature is complete
 
 Escapes
 
