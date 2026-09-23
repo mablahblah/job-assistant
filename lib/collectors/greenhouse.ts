@@ -9,6 +9,7 @@ import type { JobListEntry } from "../types/job-list-entry";
 import { matchesSearchTerms } from "../utils/search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { messageFromThrown } from "../utils/thrown-message";
 import type { Collector, CollectorResult } from "./collector";
 
 // The collector's own name, which is what a slug row carries when its board
@@ -50,7 +51,16 @@ export const greenhouseCollector: Collector = {
     for (const board of boards) {
       if (jobs.length >= limit) break;
 
-      const res = await fetchWithTimeout(jobsUrl(board.ats_slug));
+      let res: Response;
+      try {
+        res = await fetchWithTimeout(jobsUrl(board.ats_slug));
+      } catch (thrown) {
+        // The request itself never got a reply — same degraded-run case as
+        // an error status, so the remaining boards still get their turn.
+        warnings.push(`greenhouse board "${board.ats_slug}": ${messageFromThrown(thrown)}`);
+        continue;
+      }
+
       if (!res.ok) {
         // A dead board is a degraded run, not a failed collector, so the
         // remaining boards still get their turn.
@@ -58,10 +68,15 @@ export const greenhouseCollector: Collector = {
         continue;
       }
 
-      const body = await safeJson<GreenhouseJobsResponse>(
-        res,
-        `greenhouse board "${board.ats_slug}"`
-      );
+      let body: GreenhouseJobsResponse;
+      try {
+        body = await safeJson<GreenhouseJobsResponse>(res, `greenhouse board "${board.ats_slug}"`);
+      } catch (thrown) {
+        // safeJson's own message already names the board, so it is used as-is.
+        warnings.push(messageFromThrown(thrown));
+        continue;
+      }
+
       // The board endpoint accepts no query, so the terms are applied here.
       const matched = body.jobs.filter((posting) => matchesSearchTerms(posting.title, searchTerms));
 

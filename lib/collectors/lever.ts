@@ -6,6 +6,7 @@ import { jobFieldsFromLeverPosting, type LeverPosting } from "../utils/lever-fie
 import { matchesSearchTerms } from "../utils/search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";
+import { messageFromThrown } from "../utils/thrown-message";
 import type { Collector, CollectorResult } from "./collector";
 
 // The collector's own name, which is what a slug row carries when its board
@@ -46,7 +47,16 @@ export const leverCollector: Collector = {
     for (const board of boards) {
       if (jobs.length >= limit) break;
 
-      const res = await fetchWithTimeout(postingsUrl(board.ats_slug));
+      let res: Response;
+      try {
+        res = await fetchWithTimeout(postingsUrl(board.ats_slug));
+      } catch (thrown) {
+        // The request itself never got a reply — same degraded-run case as
+        // an error status, so the remaining boards still get their turn.
+        warnings.push(`lever board "${board.ats_slug}": ${messageFromThrown(thrown)}`);
+        continue;
+      }
+
       if (!res.ok) {
         // A dead board is a degraded run, not a failed collector, so the
         // remaining boards still get their turn.
@@ -54,7 +64,15 @@ export const leverCollector: Collector = {
         continue;
       }
 
-      const postings = await safeJson<LeverPosting[]>(res, `lever board "${board.ats_slug}"`);
+      let postings: LeverPosting[];
+      try {
+        postings = await safeJson<LeverPosting[]>(res, `lever board "${board.ats_slug}"`);
+      } catch (thrown) {
+        // safeJson's own message already names the board, so it is used as-is.
+        warnings.push(messageFromThrown(thrown));
+        continue;
+      }
+
       // Matched on the title alone. A posting's team never decides a match.
       const matched = postings.filter((posting) => matchesSearchTerms(posting.text, searchTerms));
 

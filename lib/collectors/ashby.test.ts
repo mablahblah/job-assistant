@@ -287,6 +287,36 @@ describe("a board answering 404 records a warning and lets the other slug's job 
   });
 });
 
+// A reply that is not job data, and a request that fails before any reply,
+// skip only that board, exactly as an error status does.
+describe.each([
+  ["a reply that is not job data", () => new Response("<html>Unavailable</html>", { status: 200 })],
+  [
+    "a request that fails",
+    (): Response => {
+      throw new TypeError("fetch failed");
+    },
+  ],
+])("a board sending %s records a warning and lets the other slugs run", (_case, broken) => {
+  function run() {
+    stubFetch({
+      [boardUrl("carta")]: broken,
+      [boardUrl("hinge-health")]: () => jsonResponse({ apiVersion: "1", jobs: [seniorProductDesigner] }),
+    });
+    const context = makeContext([{ ats_slug: "carta" }, { ats_slug: "hinge-health" }], SEARCH_TERMS);
+    return ashbyCollector.collect({ ...context, limit: Infinity });
+  }
+
+  test("a warning names the slug that failed", async () => {
+    const result = await run();
+    expect(result.warnings.some((warning) => warning.includes("carta"))).toBe(true);
+  });
+
+  test("the other slug's job still comes back", async () => {
+    expect((await run()).jobs).toHaveLength(1);
+  });
+});
+
 describe("the field mapping from an Ashby posting to a job list entry", () => {
   test("raw_title is the posting's title", async () => {
     expect((await collectOneJob()).raw_title).toBe("Senior Product Designer");
