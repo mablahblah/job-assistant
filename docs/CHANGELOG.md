@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## September 23, 2026 - v1.2.0
+
+### New Features
+
+#### Jobs on Workday and UltiPro Are Read, and Their Boards Watched
+
+Workday and UltiPro are hiring sites many large employers use, and the app could read neither. Jobs found on them were set aside unread, 44 of them by the time this shipped. The app now reads both, so each job gets its description and location from the employer's own posting. Reading a posting also records which Workday or UltiPro board the employer hires through. An employer you score well then has that board checked directly on every later search, page by page, until the matches run out. A board that sends a broken reply no longer stops the boards after it: it is skipped and named in the search's warnings, whichever hiring site it is on. Two UltiPro jobs on one board are no longer mistaken for one. `npm run recover-unparseable-jobs` returns set-aside jobs to your backlog whenever a new reader can claim them, replacing the Greenhouse-only command.
+
 ## September 20, 2026 - v1.1.0
 
 ### New Features

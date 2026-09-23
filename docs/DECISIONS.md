@@ -24,3 +24,7 @@
 - **2026-09-17** -- A command that destroys data is stopped by the path it was given, never by what it finds inside. `npm run db:create` demands an explicit file and refuses the one named in `.env`, a dated copy is written before any allowed destruction, and schema changes go through `npm run db:migrate` instead.
 
 - **2026-09-20** -- A reader is chosen for a job posting by the website its link sits on, and only a link no website entry owns is then offered to each reader to claim by recognising it. Checking the website list first stops a reader taking a link another reader owns: measured 2026-09-20, all 309 postings already on a Greenhouse address carry a job number that a claim would have matched.
+
+- **2026-09-21** -- A job board whose identity takes more than one value is stored as one text value in the board table, its parts joined by a colon, and only that source's own code splits it apart. This keeps the table and every reader unchanged, so a new source needs no schema change.
+
+- **2026-09-21** -- Two job links are matched by a key that keeps only the query values named in the identifying-values setting and drops every other one. One source carries a job's only identity in its query string while most carry throwaway tracking values, so a named list separates the two without naming a website in code.
