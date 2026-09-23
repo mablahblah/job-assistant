@@ -28,6 +28,11 @@ describe("AC 2: any sub-address of a registered domain reaches that domain's par
     ["https://jobs.lever.co/acme/1", "lever"],
     ["https://jobs.ashbyhq.com/acme/1", "ashby"],
     ["https://dribbble.com/jobs/1", "dribbble"],
+    ["https://meredith.wd5.myworkdayjobs.com/en-US/EXT/job/New-York-NY/Designer_JR1", "workday"],
+    [
+      "https://recruiting.ultipro.com/tel1010tefo/jobboard/914e6c7a/opportunitydetail?opportunityid=e3a376f8",
+      "ultipro",
+    ],
   ])("%s reaches the %s parser", (url, name) => {
     expect(parserForUrl(url)?.name).toBe(name);
   });
@@ -35,7 +40,7 @@ describe("AC 2: any sub-address of a registered domain reaches that domain's par
 
 describe("AC 3: a domain the registry does not name reaches no parser", () => {
   test.each([
-    "https://meredith.wd5.myworkdayjobs.com/jobs/1",
+    "https://www.indeed.com/viewjob?jk=1",
     "https://www.adzuna.com/details/1",
     "https://www.linkedin.com/jobs/view/1",
   ])("%s reaches no parser", (url) => {
@@ -78,7 +83,7 @@ describe("a link no domain entry owns is offered to each parser", () => {
 
   // AC 3. Most links no entry owns have nothing to do with any parser here.
   test.each([
-    "https://meredith.wd5.myworkdayjobs.com/jobs/1",
+    "https://www.indeed.com/viewjob?jk=1",
     "https://www.adzuna.com/details/1",
     "https://www.brex.com/careers/8777949002",
   ])("%s is claimed by no parser and still reaches none", (url) => {

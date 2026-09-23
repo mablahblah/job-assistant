@@ -503,6 +503,8 @@ const EXPECTED_PRIORITY_LIST = [
   "parser:lever",
   "parser:ashby",
   "parser:dribbble",
+  "parser:workday",
+  "parser:ultipro",
   "collector:adzuna",
   "collector:jsearch",
   "collector:greenhouse",
@@ -510,6 +512,8 @@ const EXPECTED_PRIORITY_LIST = [
   "collector:ashby",
   "collector:dribbble",
   "collector:uiuxjobsboard",
+  "collector:workday",
+  "collector:ultipro",
 ];
 
 describe("AC26: seeding a fresh database builds the source priority list", () => {
@@ -553,7 +557,7 @@ describe("AC26: seeding a fresh database builds the source priority list", () =>
       .filter((entry) => entry.name.startsWith("collector:") && entry.name !== "collector:user")
       .map((entry) => entry.index);
 
-    expect(parserRanks).toHaveLength(4);
+    expect(parserRanks).toHaveLength(6);
     expect(Math.min(...parserRanks)).toBeGreaterThan(list.indexOf("collector:user"));
     expect(Math.max(...parserRanks)).toBeLessThan(Math.min(...collectorRanks));
   });
@@ -607,11 +611,15 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "parser:lever",
       "parser:ashby",
       "parser:dribbble",
+      "parser:workday",
+      "parser:ultipro",
       "collector:jsearch",
       "collector:lever",
       "collector:ashby",
       "collector:dribbble",
       "collector:uiuxjobsboard",
+      "collector:workday",
+      "collector:ultipro",
     ]);
   });
 
@@ -664,4 +672,72 @@ describe("AC30: a list already holding every registry name is not written to", (
     expect(output).toMatch(/priority/i);
     expect(output).not.toMatch(/added collector:/i);
   });
+});
+
+// UltiPro carries a job's only identity in its opportunityid query value, so a
+// fresh database has to name it or two different UltiPro jobs match as one.
+// Like every other setting it is filled only where it is missing: a list the
+// user changed, an empty one included, is theirs.
+describe("the identifying query values are seeded and then left alone", () => {
+  let dir: string;
+  let url: string;
+
+  async function readIdentifying(): Promise<unknown> {
+    const client = createClient({ url });
+    try {
+      const result = await client.execute(
+        "SELECT identifying_query_values FROM Setting WHERE id = 1"
+      );
+      const raw = result.rows[0]?.["identifying_query_values"];
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    } finally {
+      client.close();
+    }
+  }
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-seed-identifying-");
+    dir = temp.dir;
+    url = temp.url;
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("seeding a fresh database names UltiPro's job identifier", async () => {
+    expect(await readIdentifying()).toEqual(["opportunityid"]);
+  });
+
+  test(
+    "a missing list is filled again",
+    async () => {
+      await runSql(url, "UPDATE Setting SET identifying_query_values = NULL WHERE id = 1");
+      runScript("db-seed.ts", url);
+      expect(await readIdentifying()).toEqual(["opportunityid"]);
+    },
+    SEED_TIMEOUT_MS
+  );
+
+  test(
+    "a list I changed is kept",
+    async () => {
+      await runSql(url, "UPDATE Setting SET identifying_query_values = ? WHERE id = 1", [
+        JSON.stringify(["opportunityid", "gh_jid"]),
+      ]);
+      runScript("db-seed.ts", url);
+      expect(await readIdentifying()).toEqual(["opportunityid", "gh_jid"]);
+    },
+    SEED_TIMEOUT_MS
+  );
+
+  test(
+    "a list I emptied is kept empty",
+    async () => {
+      await runSql(url, "UPDATE Setting SET identifying_query_values = '[]' WHERE id = 1");
+      runScript("db-seed.ts", url);
+      expect(await readIdentifying()).toEqual([]);
+    },
+    SEED_TIMEOUT_MS
+  );
 });
