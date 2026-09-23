@@ -148,7 +148,7 @@ const emptyResult: CollectorResult = { jobs: [], errors: [], warnings: [] };
 // left to resolve, and is handed a browser that fails the test if anything asks
 // it to launch. Criterion 6 is then asserted by the fake rather than by
 // counting launches after the run.
-const NOTHING_TO_RESOLVE = { findUnresolved: async () => [], findUnparsed: async () => [] };
+const nothingToResolve = { findUnresolved: async () => [], findUnparsed: async () => [] };
 
 // A parser lookup that finds nothing, so a test about an earlier step never
 // reaches a real job board. The parsing step then does nothing but park the
@@ -165,7 +165,7 @@ describe("the trace service's failure count reaches the report as traceFailures"
     const collector = makeCollector("lever", emptyResult);
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -183,7 +183,7 @@ describe("the trace service's failure count reaches the report as traceFailures"
     const collector = makeCollector("lever", emptyResult);
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -220,7 +220,7 @@ describe("a surviving job carries its normalized title, not its raw one", () => 
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
@@ -242,7 +242,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
@@ -259,7 +259,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     const collected = trace.events.find((event) => event.event === "job_collected");
@@ -278,7 +278,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
@@ -300,7 +300,7 @@ describe("normalization writes its own trace events after collection", () => {
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
@@ -324,7 +324,7 @@ describe("normalization runs once, after collection finishes, not once per job i
     const trace = makeTraceService();
     const first = makeCollector("lever", { jobs: [makeJob("Designer")], errors: [], warnings: [] });
     const second = makeCollector("greenhouse", { jobs: [makeJob("Researcher")], errors: [], warnings: [] });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [first, second] });
 
@@ -354,7 +354,7 @@ describe("normalization runs once, after collection finishes, not once per job i
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
@@ -375,7 +375,7 @@ describe("a job that never reaches the normalizer gets no normalization event", 
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
@@ -384,7 +384,7 @@ describe("a job that never reaches the normalizer gets no normalization event", 
   test("a collector that throws writes none", async () => {
     const trace = makeTraceService();
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], NOTHING_TO_RESOLVE), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [failing] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
@@ -402,7 +402,7 @@ describe("unusable fields are reported once at the end of the run", () => {
     });
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -430,7 +430,7 @@ describe("unusable fields are reported once at the end of the run", () => {
     });
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -452,7 +452,7 @@ describe("unusable fields are reported once at the end of the run", () => {
     });
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -476,7 +476,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
 
     const withoutVocabulary = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -490,7 +490,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: withNoun,
@@ -519,7 +519,7 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -543,7 +543,7 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -575,7 +575,7 @@ describe("association runs after normalization, on the tidied company name", () 
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -603,7 +603,7 @@ describe("association covers surviving jobs from every collector", () => {
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [
@@ -637,7 +637,7 @@ describe("a job dropped for being unusable never reaches the company service", (
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -666,7 +666,7 @@ describe("a run limited to zero jobs never touches the company service", () => {
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace: makeTraceService(),
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [collector],
@@ -694,7 +694,7 @@ describe("association's trace rows carry the right step name and run id", () => 
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
@@ -721,7 +721,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
 
     await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
+      jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -738,7 +738,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
   test("jobs from two collectors are saved in one pass, not one pass each", async () => {
     let calls = 0;
     const service = fakeJobService([], {
-      ...NOTHING_TO_RESOLVE,
+      ...nothingToResolve,
       async update(entry) {
         calls += 1;
         return { job: entry, outcome: "created" };
@@ -779,7 +779,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
 
     await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
+      jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -798,7 +798,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
 
     await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
+      jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -816,7 +816,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
 describe("AC 61: save's warnings are in the report", () => {
   test("a write that threw is reported as a warning", async () => {
     const service = fakeJobService([], {
-      ...NOTHING_TO_RESOLVE,
+      ...nothingToResolve,
       async update() {
         throw new Error("SQLITE_BUSY: database is locked");
       },
@@ -856,7 +856,7 @@ describe("AC 61: save's warnings are in the report", () => {
 
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -884,7 +884,7 @@ describe("AC 62: collected_at is written beside collector", () => {
 
     await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
+      jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -910,7 +910,7 @@ describe("AC 62: collected_at is written beside collector", () => {
 
     await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
+      jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -939,7 +939,7 @@ describe("AC 63: the value date arrives as an argument", () => {
 
     await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService(rows, NOTHING_TO_RESOLVE),
+      jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: longAgo,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -962,7 +962,7 @@ describe("the source priority list reaches save", () => {
     const lists: (readonly string[])[] = [];
     const priorityList = ["collector:user", "collector:greenhouse"];
     const service = fakeJobService([], {
-      ...NOTHING_TO_RESOLVE,
+      ...nothingToResolve,
       async update(entry, handed) {
         lists.push(handed);
         return { job: entry, outcome: "created" };
@@ -1005,7 +1005,7 @@ describe("the source priority list reaches save", () => {
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings,
@@ -1044,7 +1044,7 @@ describe("dedupe runs after association and before save", () => {
       geocoder: stubGeocoder(),
       runId: stubRunId,
       trace,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       collectors: [collector],
@@ -1058,7 +1058,7 @@ describe("dedupe runs after association and before save", () => {
   test("only the surviving job reaches the job service as a write", async () => {
     const written: string[] = [];
     const service = fakeJobService([], {
-      ...NOTHING_TO_RESOLVE,
+      ...nothingToResolve,
       async update(entry) {
         written.push(entry.id as string);
         return { job: entry, outcome: "created" };
@@ -1095,7 +1095,7 @@ describe("dedupe runs after association and before save", () => {
   // reaches the user rather than dying inside the run.
   test("its warnings reach the report", async () => {
     const service = fakeJobService([], {
-      ...NOTHING_TO_RESOLVE,
+      ...nothingToResolve,
       async findByOriginalUrlMatchKey() {
         throw new Error("the database went away");
       },
@@ -1494,7 +1494,7 @@ describe("AC 8, 9: a handler that throws stops the run and is named in the repor
   async function runWithFailingAssociation() {
     return runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(),
       companies: explodingCompanies(),
@@ -1567,7 +1567,7 @@ describe("AC 8, 9: a handler that throws stops the run and is named in the repor
   test("a run where nothing throws reports a null failure", async () => {
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
@@ -1682,9 +1682,9 @@ describe("the parsing step", () => {
     const jobService = fakeJobService(held, {
       findUnresolved: async () => [],
       findUnparsed: async () => held.map((job) => ({ ...job })),
-      async update(entry, priorityList) {
+      async update(entry, priorityList, identifyingQueryValues) {
         written.push(entry.id ?? "");
-        return fakeJobService(held).update(entry, priorityList);
+        return fakeJobService(held).update(entry, priorityList, identifyingQueryValues);
       },
     });
 
@@ -1703,7 +1703,7 @@ describe("the parsing step", () => {
   });
 
   test("a run with nothing to parse still finishes and reports no failure", async () => {
-    const jobService = fakeJobService([], NOTHING_TO_RESOLVE);
+    const jobService = fakeJobService([], nothingToResolve);
 
     const report = await runJobSearch(baseOptions(jobService, NO_PARSERS));
 
@@ -1756,7 +1756,7 @@ describe("the three judging steps are wired into the run", () => {
   async function runWithJudging() {
     return await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
-      jobService: fakeJobService([], NOTHING_TO_RESOLVE),
+      jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,

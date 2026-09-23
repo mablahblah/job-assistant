@@ -9,6 +9,7 @@ import type { CompanyRecord } from "../services/company-service";
 import type { WorkLogRecord } from "../services/work-log-service";
 
 const PRIORITY_LIST = ["collector:greenhouse"];
+const IDENTIFYING_QUERY_VALUES = ["opportunityid"];
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 const NOW = new Date("2026-02-01T00:00:00.000Z");
 
@@ -55,6 +56,7 @@ function build(
     companies: fakeCompanyService(companyList),
     workLog: fakeWorkLogService(entries),
     priorityList: PRIORITY_LIST,
+    identifyingQueryValues: IDENTIFYING_QUERY_VALUES,
     now: NOW,
   };
 }
@@ -145,6 +147,7 @@ describe("every filing is written before the first search starts", () => {
         },
       }),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: IDENTIFYING_QUERY_VALUES,
       now: NOW,
     };
     built.search = fakeCompanySearch({});
@@ -266,5 +269,27 @@ describe("one employer named twice in one submission", () => {
 
     expect(result.companies).toHaveLength(1);
     expect(result.changes).toHaveLength(2);
+  });
+});
+
+describe("the identifying query values reach every job write", () => {
+  // The real job service rebuilds a job's stored keys on every write, so the
+  // list has to arrive intact or UltiPro's opportunityid is stripped out.
+  test("the status write is handed the list the runner was given", async () => {
+    const built = build();
+    const handed: (readonly string[])[] = [];
+    const held = built.jobs;
+    built.jobs = {
+      ...held,
+      async update(entry, priorityList, identifyingQueryValues) {
+        handed.push(identifyingQueryValues);
+        return held.update(entry, priorityList, identifyingQueryValues);
+      },
+    };
+
+    await runStatusChange([{ job_id: "job-a", status: "won't apply" }], built);
+
+    expect(handed.length).toBeGreaterThan(0);
+    for (const list of handed) expect(list).toEqual(IDENTIFYING_QUERY_VALUES);
   });
 });

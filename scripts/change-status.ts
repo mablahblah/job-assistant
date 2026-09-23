@@ -123,6 +123,8 @@ async function main(): Promise<void> {
     const workLog = createWorkLogService(prisma);
     const search = createCompanySearch();
     const priorityList = await settings.getSourcePriorityList();
+    const identifyingQueryValues =
+      await settings.getIdentifyingQueryValues();
 
     // Awaited in full. The old code started its search and never waited, and
     // Node kills work still in flight when a process exits — which is a live
@@ -133,6 +135,7 @@ async function main(): Promise<void> {
       workLog,
       search,
       priorityList,
+      identifyingQueryValues,
       now: new Date(),
     });
 

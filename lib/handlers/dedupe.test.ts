@@ -76,9 +76,9 @@ function countingJobService(
   const calls: string[] = [];
   return {
     calls,
-    async update(entry, priorityList) {
+    async update(entry, priorityList, identifyingQueryValues) {
       calls.push("update");
-      return service.update(entry, priorityList);
+      return service.update(entry, priorityList, identifyingQueryValues);
     },
     async delete(id) {
       calls.push("delete");

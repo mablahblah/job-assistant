@@ -61,7 +61,7 @@ export function fakeJobService(
   async function update(
     entry: JobListEntry,
     priorityList: readonly string[],
-    identifyingQueryValues: readonly string[] = []
+    identifyingQueryValues: readonly string[]
   ): Promise<UpdateResult> {
     if (!entry.id) {
       throw new Error("Job.update requires entry.id — it is how the row to update is found.");

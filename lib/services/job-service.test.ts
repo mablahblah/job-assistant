@@ -23,6 +23,9 @@ type PipelineDb = ReturnType<typeof createPipelineDb>;
 // Greenhouse outranks adzuna, so a contested field these two both fill goes
 // greenhouse's way whichever side it arrived on.
 const PRIORITY_LIST = ["collector:greenhouse", "collector:adzuna"];
+// None named, so every query value is dropped from a match key — these tests
+// are about saving, not about which values identify a job.
+const NO_IDENTIFYING_QUERY_VALUES: readonly string[] = [];
 
 // A fixed date, so nothing in these tests depends on when they run.
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
@@ -114,7 +117,7 @@ describe("creating a row", () => {
   test("keeps the id the entry brought", async () => {
     const result = await service.update(
       { id: "create-keeps-id", collected_at: COLLECTED_AT, raw_title: "Product Designer" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("created");
@@ -125,7 +128,7 @@ describe("creating a row", () => {
   // AC 44. No collector sets a status, so the schema's own default is what a
   // freshly collected job lands in.
   test("takes backlog where the entry carries no status", async () => {
-    await service.update({ id: "create-default-status", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "create-default-status", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     const row = await db.job.findUnique({ where: { id: "create-default-status" } });
     expect(row?.status).toBe("backlog");
@@ -136,7 +139,7 @@ describe("creating a row", () => {
   // into the pooler and the merge calls it, but a first-ever save never merges,
   // so this is the path that proves the rule reaches the row.
   test("takes its collection date as posting date where the entry carries none", async () => {
-    await service.update({ id: "create-no-dates", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "create-no-dates", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     const row = await db.job.findUnique({ where: { id: "create-no-dates" } });
     expect(row?.posting_date).toEqual(COLLECTED_AT);
@@ -149,7 +152,7 @@ describe("creating a row", () => {
     const published = new Date("2025-12-01T00:00:00.000Z");
     await service.update(
       { id: "create-with-date", collected_at: COLLECTED_AT, posting_date: published },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "create-with-date" } });
@@ -158,7 +161,7 @@ describe("creating a row", () => {
   });
 
   test("refuses an entry carrying no id", async () => {
-    const error = await thrownBy(service.update({ collected_at: COLLECTED_AT }, PRIORITY_LIST));
+    const error = await thrownBy(service.update({ collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES));
 
     expect(error.name).toBe("Error");
     expect(error.message).toMatch(/requires entry\.id/i);
@@ -167,7 +170,7 @@ describe("creating a row", () => {
   // collected_at is required with no default, so a create missing it fails
   // deep inside Prisma unless the service says so plainly first.
   test("refuses to create a row with no collection date", async () => {
-    const error = await thrownBy(service.update({ id: "create-no-date" }, PRIORITY_LIST));
+    const error = await thrownBy(service.update({ id: "create-no-date" }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES));
 
     expect(error.name).toBe("Error");
     expect(error.message).toMatch(/without collected_at/i);
@@ -180,7 +183,7 @@ describe("updating a row", () => {
   test("changes only the field the entry named", async () => {
     await seedRow("update-one-field", { raw_title: "Kept Title", is_parsed: false });
 
-    const result = await service.update({ id: "update-one-field", is_parsed: true }, PRIORITY_LIST);
+    const result = await service.update({ id: "update-one-field", is_parsed: true }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(result.outcome).toBe("updated");
     const row = await db.job.findUnique({ where: { id: "update-one-field" } });
@@ -195,7 +198,7 @@ describe("updating a row", () => {
 
     await service.update(
       { id: "update-contest", collector: "greenhouse", title: "Greenhouse Title" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "update-contest" } });
@@ -210,7 +213,7 @@ describe("updating a row", () => {
 
     await service.update(
       { id: "update-rejected", collector: "greenhouse", raw_title: "New" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "update-rejected" } });
@@ -241,7 +244,7 @@ describe("a create the database refuses", () => {
 
     const result = await racingService().update(
       { id: "racing-create", collected_at: COLLECTED_AT, description: "arrived second" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("updated");
@@ -259,7 +262,7 @@ describe("a row the user has applied to", () => {
 
     const result = await service.update(
       { id: "active-status-change", status: "offer", raw_title: "New Title" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("status_updated");
@@ -273,7 +276,7 @@ describe("a row the user has applied to", () => {
 
     const result = await service.update(
       { id: "active-no-status", raw_title: "Ignored Title" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("unchanged");
@@ -328,7 +331,7 @@ describe("writing the link match keys", () => {
         collected_at: COLLECTED_AT,
         original_url: "https://www.adzuna.com/land/ad/5872600391?se=8lLTgnii8BroTBApR2iJSA",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-create-original" } });
@@ -343,7 +346,7 @@ describe("writing the link match keys", () => {
         collected_at: COLLECTED_AT,
         resolved_url: "https://boards.greenhouse.io/acme/jobs/456?gh_src=abc",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-create-resolved" } });
@@ -360,7 +363,7 @@ describe("writing the link match keys", () => {
         id: "keys-update-resolved",
         resolved_url: "https://jobs.lever.co/acme/9f2c1b?lever-source=x",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-update-resolved" } });
@@ -382,7 +385,7 @@ describe("writing the link match keys", () => {
         collector: "greenhouse",
         original_url: "https://boards.greenhouse.io/acme/jobs/999",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-update-original" } });
@@ -408,7 +411,7 @@ describe("writing the link match keys", () => {
         collector: "adzuna",
         original_url: "https://www.adzuna.com/land/ad/111?se=x",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-update-losing" } });
@@ -433,7 +436,7 @@ describe("writing the link match keys", () => {
         status: "interview",
         original_url: "https://elsewhere.com/somewhere-else",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-active" } });
@@ -444,7 +447,7 @@ describe("writing the link match keys", () => {
 
   // AC 20.
   test("a created row carrying no links has both keys empty", async () => {
-    await service.update({ id: "keys-create-none", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "keys-create-none", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     const row = await db.job.findUnique({ where: { id: "keys-create-none" } });
     expect(row?.original_url_match_key).toBeNull();
@@ -458,7 +461,7 @@ describe("writing the link match keys", () => {
 
     await service.update(
       { id: "keys-created-at", collected_at: COLLECTED_AT, created_at: stale },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     const row = await db.job.findUnique({ where: { id: "keys-created-at" } });

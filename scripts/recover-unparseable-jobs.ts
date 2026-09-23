@@ -45,6 +45,8 @@ async function main(): Promise<void> {
     const workLog = createWorkLogService(prisma);
     const search = createCompanySearch();
     const priorityList = await settings.getSourcePriorityList();
+    const identifyingQueryValues =
+      await settings.getIdentifyingQueryValues();
 
     const unparseable = await jobs.findByStatuses(["unparseable"]);
 
@@ -79,6 +81,7 @@ async function main(): Promise<void> {
       workLog,
       search,
       priorityList,
+      identifyingQueryValues,
       now: new Date(),
     });
 

@@ -11,6 +11,9 @@ import { fakeJobService } from "./job-service.fake";
 // Greenhouse outranks adzuna, so a contested field these two both fill goes
 // greenhouse's way whichever side it arrived on.
 const PRIORITY_LIST = ["collector:greenhouse", "collector:adzuna"];
+// None named, so every query value is dropped from a match key — these tests
+// are about saving, not about which values identify a job.
+const NO_IDENTIFYING_QUERY_VALUES: readonly string[] = [];
 
 // A fixed date, so nothing in these tests depends on when they run.
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
@@ -26,7 +29,7 @@ describe("creating a row", () => {
 
     const result = await service.update(
       { id: "create-keeps-id", collected_at: COLLECTED_AT, raw_title: "Product Designer" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("created");
@@ -41,7 +44,7 @@ describe("creating a row", () => {
 
     const result = await service.update(
       { id: "create-default-status", collected_at: COLLECTED_AT },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.job.status).toBe("backlog");
@@ -53,7 +56,7 @@ describe("creating a row", () => {
     const jobs: JobListEntry[] = [];
     const service = fakeJobService(jobs);
 
-    await service.update({ id: "create-visible", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "create-visible", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(jobs.map((job) => job.id)).toEqual(["create-visible"]);
   });
@@ -61,7 +64,7 @@ describe("creating a row", () => {
   test("refuses an entry carrying no id", async () => {
     const service = fakeJobService([]);
 
-    await expect(service.update({ collected_at: COLLECTED_AT }, PRIORITY_LIST)).rejects.toThrow(
+    await expect(service.update({ collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES)).rejects.toThrow(
       /requires entry\.id/i
     );
   });
@@ -69,7 +72,7 @@ describe("creating a row", () => {
   test("refuses to create a row with no collection date", async () => {
     const service = fakeJobService([]);
 
-    await expect(service.update({ id: "create-no-date" }, PRIORITY_LIST)).rejects.toThrow(
+    await expect(service.update({ id: "create-no-date" }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES)).rejects.toThrow(
       /without collected_at/i
     );
   });
@@ -80,7 +83,7 @@ describe("updating a row", () => {
     const jobs = [storedJob("update-one-field", { raw_title: "Kept Title", is_parsed: false })];
     const service = fakeJobService(jobs);
 
-    const result = await service.update({ id: "update-one-field", is_parsed: true }, PRIORITY_LIST);
+    const result = await service.update({ id: "update-one-field", is_parsed: true }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(result.outcome).toBe("updated");
     expect(jobs[0]?.is_parsed).toBe(true);
@@ -93,7 +96,7 @@ describe("updating a row", () => {
 
     await service.update(
       { id: "update-contest", collector: "greenhouse", title: "Greenhouse Title" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(jobs[0]?.title).toBe("Greenhouse Title");
@@ -108,7 +111,7 @@ describe("updating a row", () => {
 
     await service.update(
       { id: "update-rejected", collector: "greenhouse", raw_title: "New" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(jobs[0]?.status).toBe("rejected");
@@ -123,7 +126,7 @@ describe("updating a row", () => {
 
     const result = await service.update(
       { id: "update-not-create", collected_at: COLLECTED_AT, description: "arrived second" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("updated");
@@ -139,7 +142,7 @@ describe("a row the user has applied to", () => {
 
     const result = await service.update(
       { id: "active-status-change", status: "offer", raw_title: "New Title" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("status_updated");
@@ -153,7 +156,7 @@ describe("a row the user has applied to", () => {
 
     const result = await service.update(
       { id: "active-no-status", raw_title: "Ignored Title" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(result.outcome).toBe("unchanged");
@@ -229,7 +232,8 @@ describe("writing the link match keys", () => {
         original_url: "https://www.adzuna.com/land/ad/5872600391?se=abc",
         resolved_url: "https://boards.greenhouse.io/acme/jobs/456?gh_src=x",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST,
+      NO_IDENTIFYING_QUERY_VALUES
     );
 
     const held = jobs[0];
@@ -244,7 +248,7 @@ describe("writing the link match keys", () => {
 
     await service.update(
       { id: "fake-keys-update", resolved_url: "https://jobs.lever.co/acme/9f2c1b?lever-source=x" },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(jobs[0]?.resolved_url_match_key).toBe("https://jobs.lever.co/acme/9f2c1b");
@@ -261,7 +265,7 @@ describe("writing the link match keys", () => {
     ];
     const service = fakeJobService(jobs);
 
-    await service.update({ id: "fake-keys-untouched", is_parsed: true }, PRIORITY_LIST);
+    await service.update({ id: "fake-keys-untouched", is_parsed: true }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(jobs[0]?.original_url_match_key).toBe("https://example.com/jobs/1");
   });
@@ -274,7 +278,7 @@ describe("the timestamps the database would set", () => {
     const jobs: JobListEntry[] = [];
     const service = fakeJobService(jobs);
 
-    await service.update({ id: "fake-writes", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "fake-writes", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(jobs[0]?.created_at).toBeInstanceOf(Date);
     expect(jobs[0]?.modified_at).toBeInstanceOf(Date);
@@ -285,13 +289,13 @@ describe("the timestamps the database would set", () => {
   test("an update moves modified_at forward and leaves created_at alone", async () => {
     const jobs: JobListEntry[] = [];
     const service = fakeJobService(jobs);
-    await service.update({ id: "fake-moves", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "fake-moves", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     const born = jobs[0]?.created_at as Date;
     const longAgo = new Date("2020-01-01T00:00:00.000Z");
     (jobs[0] as JobListEntry).modified_at = longAgo;
 
-    await service.update({ id: "fake-moves", raw_title: "Product Designer" }, PRIORITY_LIST);
+    await service.update({ id: "fake-moves", raw_title: "Product Designer" }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(jobs[0]?.created_at?.getTime()).toBe(born.getTime());
     expect(jobs[0]?.modified_at?.getTime()).toBeGreaterThan(longAgo.getTime());
@@ -303,12 +307,12 @@ describe("the timestamps the database would set", () => {
   test("an entry carrying a created_at never overwrites the held one", async () => {
     const jobs: JobListEntry[] = [];
     const service = fakeJobService(jobs);
-    await service.update({ id: "fake-birthday", collected_at: COLLECTED_AT }, PRIORITY_LIST);
+    await service.update({ id: "fake-birthday", collected_at: COLLECTED_AT }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
     const born = jobs[0]?.created_at as Date;
 
     await service.update(
       { id: "fake-birthday", created_at: new Date("2020-01-01T00:00:00.000Z") },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(jobs[0]?.created_at?.getTime()).toBe(born.getTime());
@@ -321,7 +325,7 @@ describe("the timestamps the database would set", () => {
     (jobs[0] as JobListEntry).modified_at = longAgo;
     const service = fakeJobService(jobs);
 
-    await service.update({ id: "fake-active", status: "interview" }, PRIORITY_LIST);
+    await service.update({ id: "fake-active", status: "interview" }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(jobs[0]?.status).toBe("interview");
     expect(jobs[0]?.modified_at?.getTime()).toBeGreaterThan(longAgo.getTime());
@@ -334,7 +338,7 @@ describe("the timestamps the database would set", () => {
     (jobs[0] as JobListEntry).modified_at = longAgo;
     const service = fakeJobService(jobs);
 
-    const result = await service.update({ id: "fake-unchanged" }, PRIORITY_LIST);
+    const result = await service.update({ id: "fake-unchanged" }, PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES);
 
     expect(result.outcome).toBe("unchanged");
     expect(jobs[0]?.modified_at?.getTime()).toBe(longAgo.getTime());
@@ -361,7 +365,7 @@ describe("a key follows the link that won the merge", () => {
         collector: "adzuna",
         original_url: "https://www.adzuna.com/land/ad/111?se=x",
       },
-      PRIORITY_LIST
+      PRIORITY_LIST, NO_IDENTIFYING_QUERY_VALUES
     );
 
     expect(jobs[0]?.original_url).toBe("https://boards.greenhouse.io/acme/jobs/999");

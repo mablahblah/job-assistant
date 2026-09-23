@@ -241,16 +241,23 @@ export async function runScoringSave(
   const at = failures.at;
 
   try {
-    // Declared out here so the judged pass further down can reuse the list
+    // Declared out here so the judged pass further down can reuse the lists
     // and the map rather than read them again.
     let priorityList: readonly string[] = [];
+    let identifyingQueryValues: readonly string[] = [];
     const collectorById = new Map<string, string>();
 
     // There is nothing to write, and no collector to look up, without a job
-    // score to save — so both reads below only happen when one is coming.
+    // score to save — so the reads below only happen when one is coming.
     if (options.jobScores.length > 0) {
       priorityList = await at("source_priority_list", () =>
         options.settings.getSourcePriorityList()
+      );
+
+      // Without this, saving a score would rewrite the job's key from its
+      // link, dropping an identifying value such as UltiPro's opportunityid.
+      identifyingQueryValues = await at("identifying_query_values", () =>
+        options.settings.getIdentifyingQueryValues()
       );
 
       // A score answer carries only an id, so the job's collector is read
@@ -273,7 +280,8 @@ export async function runScoringSave(
                   alignment_score: jobScore.alignment_score,
                   alignment_rationale: jobScore.alignment_rationale ?? null,
                 },
-                priorityList
+                priorityList,
+                identifyingQueryValues
               );
               await options.trace.write({
                 run_id: options.runId,
@@ -391,7 +399,11 @@ export async function runScoringSave(
               ? await options.companies.findById(job.company_id)
               : null;
             if (!job.is_judged && isJobJudged(job, employer)) {
-              await options.jobService.update({ id: jobScore.id, is_judged: true }, priorityList);
+              await options.jobService.update(
+                { id: jobScore.id, is_judged: true },
+                priorityList,
+                identifyingQueryValues
+              );
             }
           } catch (thrown) {
             // A marker that fails to save costs only this job. The jobs after

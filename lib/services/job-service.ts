@@ -47,13 +47,14 @@ export interface DeleteResult {
 }
 
 export interface JobService {
-  // An identifying query value has to survive into the match key, or two
-  // different job postings that only differ by that value collapse onto one
-  // key and later lookups land on the wrong row.
+  // An identifying query value must survive into the match key. This parameter
+  // is required: omitting it would silently write match keys without the
+  // identifying value (e.g., UltiPro's job ID), causing two different postings
+  // to appear as one.
   update(
     entry: JobListEntry,
     priorityList: readonly string[],
-    identifyingQueryValues?: readonly string[]
+    identifyingQueryValues: readonly string[]
   ): Promise<UpdateResult>;
   delete(id: string): Promise<DeleteResult>;
   // Reads one row and writes nothing. Update creates a row where it finds
@@ -288,7 +289,7 @@ export function createJobService(db: PipelineDb): JobService {
   }
 
   return {
-    async update(entry, priorityList, identifyingQueryValues = []) {
+    async update(entry, priorityList, identifyingQueryValues) {
       if (!entry.id) {
         throw new Error("Job.update requires entry.id — it is how the row to update is found.");
       }
