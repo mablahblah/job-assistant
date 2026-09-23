@@ -48,8 +48,8 @@ One pipeline whose only differentiated code is collectors and parsers. Every det
 
 Every file in `lib/` sits in a folder named for the kind of thing it is, and `lib/` holds no file of its own. The map is in [`.claude/rules/naming.md`](.claude/rules/naming.md).
 
-| Folder               | Holds                                                          |
-| -------------------- | -------------------------------------------------------------- |
+| Folder               | Holds                                                           |
+| -------------------- | --------------------------------------------------------------- |
 | `lib/collectors/`    | The code that pulls a raw job list from one source              |
 | `lib/db/`            | The database connection, its environment, and the schema check  |
 | `lib/handlers/`      | The code that runs at one pipeline position                     |
@@ -64,27 +64,28 @@ Every file in `lib/` sits in a folder named for the kind of thing it is, and `li
 
 Planning lives in [`docs/features/_complete/unified-pipeline/`](docs/features/_complete/unified-pipeline/):
 
-| File                 | What it is                                                        |
-| -------------------- | ----------------------------------------------------------------- |
-| `decision-log.md`    | Signed-off decisions                                              |
-| `feature_spec.md`    | What is being built, the phases, the working flow                 |
-| `phases/`            | An r&d file per phase, and a spec once the phase is planned       |
-| `feature_r&d.md`     | Brain dump, measured database facts, title-normalization research |
-| `db-entries.md`      | Field-by-field shape of the current Job and Company records       |
+| File              | What it is                                                        |
+| ----------------- | ----------------------------------------------------------------- |
+| `decision-log.md` | Signed-off decisions                                              |
+| `feature_spec.md` | What is being built, the phases, the working flow                 |
+| `phases/`         | An r&d file per phase, and a spec once the phase is planned       |
+| `feature_r&d.md`  | Brain dump, measured database facts, title-normalization research |
+| `db-entries.md`   | Field-by-field shape of the current Job and Company records       |
 
 Path-scoped rules describing the old architecture were deleted with it. The rules that govern this pipeline sit in `.claude/rules/`:
 
-| Rule                  | Answers                                                              |
-| --------------------- | -------------------------------------------------------------------- |
-| `part-ownership.md`   | Where new behaviour goes, and what each kind of part may never do     |
-| `naming.md`           | What a file of that kind is called, and what shape it takes           |
-| `handler-contract.md` | What the code that runs at one pipeline position must look like       |
-| `source-registry.md`  | What has to happen when a collector or parser is added or renamed     |
-| `run-summary.md`      | What a command prints when it finishes                                |
+| Rule                  | Answers                                                           |
+| --------------------- | ----------------------------------------------------------------- |
+| `part-ownership.md`   | Where new behaviour goes, and what each kind of part may never do |
+| `naming.md`           | What a file of that kind is called, and what shape it takes       |
+| `handler-contract.md` | What the code that runs at one pipeline position must look like   |
+| `source-registry.md`  | What has to happen when a collector or parser is added or renamed |
+| `run-summary.md`      | What a command prints when it finishes                            |
 
 ## Terminology
 
 - **Collector:** Pulls raw job list from Aggregators and ATS Systems
+- **Orchestrator:** Runs the pipeline, calls the right handlers, scoring, etc in the proper order.
 - **Dedupe:** Three-stage system that removes duplicate jobs at different pipeline points (by URL ×2, then by content with parser priority)
 - **Resolver/Resolution:** Following job posting links and redirects, especially from aggregators, in an attempt to find the source posting with the most accurate information.
 - **Parser:** Tool that takes the best job posting url and extracts key information.
