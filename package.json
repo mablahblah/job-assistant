@@ -12,7 +12,7 @@
     "find-jobs": "npx tsx scripts/find-jobs.ts",
     "fetch-rendered-page": "npx tsx scripts/fetch-rendered-page.ts",
     "change-status": "npx tsx scripts/change-status.ts",
-    "recover-greenhouse-jobs": "npx tsx scripts/recover-greenhouse-jobs.ts",
+    "recover-unparseable-jobs": "npx tsx scripts/recover-unparseable-jobs.ts",
     "score:gather": "npx tsx scripts/score-gather.ts",
     "score:save": "npx tsx scripts/score-save.ts",
     "lint": "npx eslint . --ext .ts && npm run typecheck",

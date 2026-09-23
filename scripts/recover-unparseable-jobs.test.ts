@@ -1,8 +1,8 @@
-// The recovery runs once, by hand, and is the only reason shipping this
-// feature delivers the jobs already set aside rather than only future ones.
-// Measured 2026-09-20: 120 jobs sat at status unparseable, of which 7 carry a
-// Greenhouse job number. The other 113 are set aside for reasons that have
-// nothing to do with Greenhouse and must be left exactly where they are.
+// The recovery runs once, by hand, and is the only reason shipping a new
+// parser delivers the jobs already set aside rather than only future ones.
+// Measured 2026-09-21: 145 jobs sat at status unparseable, 42 on Workday or
+// UltiPro and 103 on websites no parser owns. Those 103 must be left exactly
+// where they are.
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
@@ -46,7 +46,7 @@ interface RunResult {
 }
 
 function runRecovery(url: string): RunResult {
-  const result = spawnSync("npx", ["tsx", "scripts/recover-greenhouse-jobs.ts"], {
+  const result = spawnSync("npx", ["tsx", "scripts/recover-unparseable-jobs.ts"], {
     cwd: repoRoot,
     env: { ...process.env, PIPELINE_DATABASE_URL: url },
     encoding: "utf8",
@@ -80,7 +80,7 @@ let dir: string;
 let url: string;
 
 beforeAll(async () => {
-  const temp = makeTempDb("pipeline-recover-greenhouse-");
+  const temp = makeTempDb("pipeline-recover-unparseable-");
   dir = temp.dir;
   url = temp.url;
   runScript("db-create.ts", url);
@@ -97,7 +97,8 @@ beforeAll(async () => {
      VALUES ('co-meredith', 'Meredith', 'meredith', '2026-01-01', '2026-01-01')`
   );
 
-  // Carries a Greenhouse job number, so the recovery is for it.
+  // Carries a Greenhouse job number, which the Greenhouse parser claims
+  // whatever website it sits on, so the recovery is for it.
   await run(
     url,
     `INSERT INTO Job (id, company_id, title, status, collected_at, created_at,
@@ -107,8 +108,8 @@ beforeAll(async () => {
              'https://www.brex.com/careers/8777949002?gh_jid=8777949002')`
   );
 
-  // Set aside on a website no reader owns, carrying no job number. This is
-  // the 113, and it must not move.
+  // On a Workday address, which the Workday parser owns, so the recovery is
+  // for it too.
   await run(
     url,
     `INSERT INTO Job (id, company_id, title, status, collected_at, created_at,
@@ -116,6 +117,17 @@ beforeAll(async () => {
      VALUES ('job-workday', 'co-meredith', 'Product Designer', 'unparseable',
              '2026-01-01', '2026-01-01', '2026-01-01', 1, 0,
              'https://meredith.wd5.myworkdayjobs.com/jobs/1')`
+  );
+
+  // Set aside on a website no parser owns or claims. This is the 103, and it
+  // must not move.
+  await run(
+    url,
+    `INSERT INTO Job (id, company_id, title, status, collected_at, created_at,
+                      modified_at, is_resolved, is_parsed, resolved_url)
+     VALUES ('job-unowned', 'co-meredith', 'Product Designer', 'unparseable',
+             '2026-01-01', '2026-01-01', '2026-01-01', 1, 0,
+             'https://careers.acmehealth.example/jobs/42')`
   );
 
   // A job number on a job that is not set aside. The recovery reads only
@@ -134,9 +146,9 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("returning set-aside Greenhouse jobs to the backlog", () => {
+describe("returning set-aside jobs a parser now claims to the backlog", () => {
   test(
-    "AC 11: a set-aside job carrying a job number is returned to the backlog",
+    "a set-aside job a parser claims is returned to the backlog",
     async () => {
       const result = runRecovery(url);
 
@@ -147,17 +159,27 @@ describe("returning set-aside Greenhouse jobs to the backlog", () => {
   );
 
   test(
-    "AC 12: a set-aside job carrying no job number is left alone",
+    "a set-aside job on a website a parser owns is returned to the backlog",
     async () => {
       runRecovery(url);
 
-      expect(await statusOf(url, "job-workday")).toBe("unparseable");
+      expect(await statusOf(url, "job-workday")).toBe("backlog");
     },
     RUN_TIMEOUT_MS
   );
 
   test(
-    "a job carrying a job number at another status is left alone",
+    "a set-aside job no parser owns or claims is left alone",
+    async () => {
+      runRecovery(url);
+
+      expect(await statusOf(url, "job-unowned")).toBe("unparseable");
+    },
+    RUN_TIMEOUT_MS
+  );
+
+  test(
+    "a job a parser claims at another status is left alone",
     async () => {
       runRecovery(url);
 
@@ -193,26 +215,26 @@ describe("returning set-aside Greenhouse jobs to the backlog", () => {
   );
 });
 
-// AC 13. A job search must never move a job out of unparseable on its own.
+// A job search must never move a job out of unparseable on its own.
 // The recovery is a command the user runs, and the only way a set-aside job
 // comes back.
 describe("the recovery is not part of a job search", () => {
   test("the job search orchestrator does not reach for the recovery", () => {
     const source = readFileSync(join(repoRoot, "lib/orchestrators/job-search.ts"), "utf8");
 
-    expect(source).not.toContain("recover-greenhouse-jobs");
+    expect(source).not.toContain("recover-unparseable-jobs");
   });
 
   test("the job search command does not reach for the recovery", () => {
     const source = readFileSync(join(repoRoot, "scripts/job-search.ts"), "utf8");
 
-    expect(source).not.toContain("recover-greenhouse-jobs");
+    expect(source).not.toContain("recover-unparseable-jobs");
   });
 });
 
 describe("the recovery command is reachable", () => {
   test("its script exists", () => {
-    expect(existsSync(join(scriptsDir, "recover-greenhouse-jobs.ts"))).toBe(true);
+    expect(existsSync(join(scriptsDir, "recover-unparseable-jobs.ts"))).toBe(true);
   });
 
   test("it has an npm entry", () => {
@@ -220,8 +242,8 @@ describe("the recovery command is reachable", () => {
       scripts?: Record<string, string>;
     };
 
-    expect(pkg.scripts?.["recover-greenhouse-jobs"]).toBe(
-      "npx tsx scripts/recover-greenhouse-jobs.ts"
+    expect(pkg.scripts?.["recover-unparseable-jobs"]).toBe(
+      "npx tsx scripts/recover-unparseable-jobs.ts"
     );
   });
 });

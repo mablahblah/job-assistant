@@ -1,16 +1,14 @@
-// Returns the Greenhouse jobs that were set aside before any reader could
-// claim them.
+// Returns jobs that were set aside before any parser could read them.
 //
-// A job whose link sits on a website no reader owns is set aside at status
+// A job whose link sits on a website no parser owns is set aside at status
 // "unparseable", and the step that feeds parsing reads only jobs at status
-// "backlog" — so nothing looks at that status again on its own. The
-// Greenhouse reader now claims a link carrying a Greenhouse job number,
-// whatever website it sits on, which makes some of those jobs readable after
-// all. They are simply sitting at the wrong status to be tried.
+// "backlog" — so nothing looks at that status again on its own. When a new
+// parser is shipped, some of those jobs become readable after all. They are
+// simply sitting at the wrong status to be tried.
 //
-// Measured 2026-09-20: 120 jobs sat at "unparseable", of which 7 carry a
-// Greenhouse job number. Without this command, shipping the reader would
-// deliver none of those 7 — only jobs collected from then on.
+// Measured 2026-09-21: 145 jobs sat at "unparseable", 42 on Workday or
+// UltiPro and 103 on websites no parser owns; without this command, shipping
+// a parser would deliver none of those 42.
 //
 // This is a command of its own, run once, by hand. A job search never runs
 // it: it is not a handler, it is not named by the orchestrator, and nothing
@@ -27,7 +25,7 @@ import { createWorkLogService } from "../lib/services/work-log-service";
 import { createCompanySearch } from "../lib/tools/company-search";
 import { runStatusChange } from "../lib/orchestrators/status-change";
 import { statusChangeReport } from "../lib/utils/status-change-report";
-import { greenhouseParser } from "../lib/parsers/greenhouse";
+import { parserForUrl } from "../lib/parsers/registry";
 import type { StatusChange } from "../lib/handlers/status-change";
 
 async function main(): Promise<void> {
@@ -50,9 +48,10 @@ async function main(): Promise<void> {
 
     const unparseable = await jobs.findByStatuses(["unparseable"]);
 
-    // The reader is asked, and nothing else is. Knowledge about what a
-    // Greenhouse link looks like belongs to the reader, so this command holds
-    // none of it. A job with no link at all cannot be claimed by anything.
+    // The registry is asked, and nothing else is. Knowledge of which parser
+    // reads which link belongs to the registry and the parsers, so this
+    // command holds none of it. A job with no link at all cannot be claimed
+    // by anything.
     //
     // The id is checked too. Every field on a job's in-memory shape is
     // optional, because a collector fills only what its source supplied, so a
@@ -63,7 +62,7 @@ async function main(): Promise<void> {
       if (id === undefined || !link) {
         continue;
       }
-      if (greenhouseParser.claims?.(link) !== true) {
+      if (parserForUrl(link) === null) {
         continue;
       }
       changes.push({ job_id: id, status: "backlog" });
@@ -87,7 +86,7 @@ async function main(): Promise<void> {
     // An empty list is an ordinary answer, so a second run prints its zeros
     // rather than failing.
     console.log(`Read ${unparseable.length} job(s) at status "unparseable".`);
-    console.log(`Moved ${changes.length} carrying a Greenhouse job number to "backlog".`);
+    console.log(`Moved ${changes.length} a parser now claims to "backlog".`);
     console.log(`Left ${unparseable.length - changes.length} alone.`);
 
     for (const line of statusChangeReport({
