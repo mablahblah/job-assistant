@@ -13,7 +13,7 @@ const JAN_01_EVENING = new Date("2025-01-01T20:00:00.000Z");
 const CREATED_EARLY = new Date("2024-06-01T00:00:00.000Z");
 
 function fold(jobs: JobListEntry[]) {
-  return mergeMatchingJobs(jobs, LIST, COLLECTED_AT);
+  return mergeMatchingJobs(jobs, LIST, COLLECTED_AT, []);
 }
 
 // A role at one company, dated, so the company-and-title clause can fire.
@@ -246,5 +246,26 @@ describe("a fold names the partner it merged into at that moment", () => {
 
     expect(result.jobs[0].id).toBe("c");
     expect(result.folds[0].becameId).not.toBe(result.jobs[0].id);
+  });
+});
+
+// The merge asks the identity rules about every pair, so the list of query
+// values that identify a job has to reach them. Without it two UltiPro jobs on
+// one board, whose links differ only in opportunityid, fold into one.
+describe("the query values named as identifying reach every comparison", () => {
+  const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+
+  test("two jobs whose links differ only in a named value both survive", () => {
+    const first = `${BOARD}?opportunityid=A1`;
+    const second = `${BOARD}?opportunityid=B2`;
+    const jobs = [
+      role("j1", { original_url: first, resolved_url: first }),
+      role("j2", { original_url: second, resolved_url: second }),
+    ];
+
+    const result = mergeMatchingJobs(jobs, LIST, COLLECTED_AT, ["opportunityid"]);
+
+    expect(result.jobs.map((job) => job.id)).toEqual(["j1", "j2"]);
+    expect(result.folds).toEqual([]);
   });
 });

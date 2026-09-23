@@ -8,6 +8,7 @@ import type { CompanyRecord } from "../services/company-service";
 import type { WorkLogRecord } from "../services/work-log-service";
 
 const PRIORITY_LIST = ["collector:greenhouse", "collector:adzuna"];
+const IDENTIFYING_QUERY_VALUES = ["opportunityid"];
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 function backlogJob(id: string, fields: Partial<JobListEntry> = {}): JobListEntry {
@@ -42,6 +43,7 @@ function build(
     companies: fakeCompanyService(companyList),
     workLog: fakeWorkLogService(entries),
     priorityList: PRIORITY_LIST,
+    identifyingQueryValues: IDENTIFYING_QUERY_VALUES,
     ...overrides,
   };
 }
@@ -511,5 +513,50 @@ describe("the matched place the result carries", () => {
     const result = await changeStatuses([{ job_id: "ghost", status: "app. sent" }], built);
 
     expect(result.changes[0]?.place).toBeNull();
+  });
+});
+
+describe("a status change hands the identifying query values to every job write", () => {
+  // The real job service rebuilds a job's stored keys from its links on every
+  // write, so a write handed the wrong list strips UltiPro's opportunityid out
+  // of the key. The stand-in only rebuilds a key when the write names a link,
+  // so what each write is handed is checked here instead.
+  function recording(jobList: JobListEntry[]): {
+    built: Built;
+    handed: (readonly string[])[];
+  } {
+    const handed: (readonly string[])[] = [];
+    const held = fakeJobService(jobList);
+    const built = build(jobList, undefined, undefined, {
+      jobs: {
+        ...held,
+        async update(entry, priorityList, identifyingQueryValues) {
+          handed.push(identifyingQueryValues);
+          return held.update(entry, priorityList, identifyingQueryValues);
+        },
+      },
+    });
+    return { built, handed };
+  }
+
+  test("writing the new status hands over the identifying values", async () => {
+    const { built, handed } = recording([backlogJob("job-a")]);
+
+    await changeStatuses([{ job_id: "job-a", status: "won't apply" }], built);
+
+    expect(handed.length).toBeGreaterThan(0);
+    for (const list of handed) expect(list).toEqual(IDENTIFYING_QUERY_VALUES);
+  });
+
+  test("linking a named employer hands over the identifying values", async () => {
+    const { built, handed } = recording([backlogJob("job-a", { company_id: null })]);
+
+    await changeStatuses(
+      [{ job_id: "job-a", status: "won't apply", company_name: "Acme" }],
+      built
+    );
+
+    expect(handed.length).toBe(2);
+    for (const list of handed) expect(list).toEqual(IDENTIFYING_QUERY_VALUES);
   });
 });

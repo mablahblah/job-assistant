@@ -232,3 +232,33 @@ describe("a database that no longer matches the code", () => {
     rmSync(temp.dir, { recursive: true, force: true });
   }, SETUP_TIMEOUT_MS);
 });
+
+// The real job service rebuilds a job's stored keys from its links on every
+// write, so the command has to hand it the seeded identifying values or
+// UltiPro's opportunityid is stripped out of the key.
+describe("an UltiPro job's status change", () => {
+  const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+  const key = `${BOARD}?opportunityid=A1`;
+
+  test("keeps the job's opportunityid in its stored key", async () => {
+    await run(
+      url,
+      `INSERT INTO Job (id, company_id, title, status, collected_at, created_at, modified_at,
+                        is_resolved, is_parsed, is_classified,
+                        resolved_url, resolved_url_match_key)
+       VALUES ('job-ultipro', 'co-1', 'Senior Product Designer', 'backlog',
+               '2026-01-01', '2026-01-01', '2026-01-01', 1, 1, 1,
+               '${key}&utm_source=adzuna', '${key}')`
+    );
+    const path = submission("ultipro", [{ job_id: "job-ultipro", status: "won't apply" }]);
+
+    const result = runChange(url, ["--in", path]);
+
+    expect(result.status).toBe(0);
+    const rows = await query(
+      url,
+      "SELECT status, resolved_url_match_key FROM Job WHERE id = 'job-ultipro'"
+    );
+    expect(rows[0]).toMatchObject({ status: "won't apply", resolved_url_match_key: key });
+  }, RUN_TIMEOUT_MS);
+});

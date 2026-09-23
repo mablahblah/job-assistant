@@ -307,6 +307,12 @@ model Setting {
   // db:seed appends any missing registry name to the bottom and never
   // reorders or removes.
   source_priority_list          Json?
+  // The query values that identify a job, kept when two links are matched
+  // against each other; every other query value is dropped. Most query
+  // values are tracking noise that changes between runs, but UltiPro carries
+  // a job's only identity in one, so seeded with opportunityid. Changing
+  // this list leaves keys already stored as they were.
+  identifying_query_values      Json?
   // Resolution runs in two lanes, and these three pace them. Every job starts
   // in the fast lane; a host that refuses us sends its remaining jobs to the
   // slow lane, which runs once the fast lane is done and that host has had

@@ -22,6 +22,7 @@ export interface SettingsService {
   getTitleSuffixes(): Promise<string[]>;
   getTitleRemovalWords(): Promise<string[]>;
   getSourcePriorityList(): Promise<string[]>;
+  getIdentifyingQueryValues(): Promise<string[]>;
   getResolutionFastConcurrency(): Promise<number>;
   getResolutionSlowConcurrency(): Promise<number>;
   getResolutionSlowPauseSeconds(): Promise<number>;
@@ -162,6 +163,15 @@ export function createSettingsService(db: PipelineDb): SettingsService {
         throw missingSettingError("source_priority_list");
       }
       return value;
+    },
+
+    async getIdentifyingQueryValues() {
+      const row = await getSettingsRow(db);
+      // An empty list is a real answer: it means no query value identifies a job.
+      if (row === null || !isStringArray(row.identifying_query_values)) {
+        throw missingSettingError("identifying_query_values");
+      }
+      return row.identifying_query_values;
     },
 
     // Zero is not a harmless stand-in for either lane's width: a lane

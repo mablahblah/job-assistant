@@ -76,9 +76,9 @@ function countingJobService(
   const calls: string[] = [];
   return {
     calls,
-    async update(entry, priorityList) {
+    async update(entry, priorityList, identifyingQueryValues) {
       calls.push("update");
-      return service.update(entry, priorityList);
+      return service.update(entry, priorityList, identifyingQueryValues);
     },
     async delete(id) {
       calls.push("delete");
@@ -150,6 +150,7 @@ function runDedupe(
   return dedupeJobs(jobs, {
     jobService,
     priorityList: PRIORITY_LIST,
+    identifyingQueryValues: [],
     collectedAt: COLLECTED_AT,
     ...extras,
   });
@@ -584,5 +585,55 @@ describe("an entry that arrived already marked for deletion", () => {
     });
 
     expect(trace.events.map((event) => event.job_id)).not.toContain("blacklisted");
+  });
+});
+
+// UltiPro carries a job's only identity in its opportunityid query value. The
+// step is told which query values identify a job, and both of its passes
+// have to hear it, or two different UltiPro openings fold into one.
+describe("query values named as identifying keep two jobs apart", () => {
+  const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+  const FIRST = `${BOARD}?opportunityid=A1`;
+  const SECOND = `${BOARD}?opportunityid=B2`;
+
+  function runWithIdentifying(jobs: JobListEntry[], jobService: JobService) {
+    return dedupeJobs(jobs, {
+      jobService,
+      priorityList: PRIORITY_LIST,
+      collectedAt: COLLECTED_AT,
+      identifyingQueryValues: ["opportunityid"],
+    });
+  }
+
+  test("two entries on the list differing only in the named value both survive", async () => {
+    const result = await runWithIdentifying(
+      [
+        freshEntry("a", { original_url: FIRST, resolved_url: FIRST }),
+        freshEntry("b", { original_url: SECOND, resolved_url: SECOND }),
+      ],
+      fakeJobService([])
+    );
+
+    expect(markedAway(result.jobs)).toEqual([]);
+    expect(survivors(result.jobs).map((job) => job.id)).toEqual(["a", "b"]);
+  });
+
+  test("an entry is not folded into a stored row differing only in the named value", async () => {
+    // Stored before the list existed, so its key carries no query at all.
+    // Keys already stored are never rebuilt, so a row like this stays.
+    const stored = storedRow("row-1", {
+      original_url: FIRST,
+      original_url_match_key: BOARD,
+      resolved_url: FIRST,
+      resolved_url_match_key: BOARD,
+    });
+
+    const result = await runWithIdentifying(
+      [freshEntry("b", { original_url: SECOND, resolved_url: SECOND })],
+      fakeJobService([stored])
+    );
+
+    expect(markedAway(result.jobs)).toEqual([]);
+    expect(result.jobs.map((job) => job.id)).toEqual(["b"]);
   });
 });

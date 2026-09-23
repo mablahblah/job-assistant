@@ -24,14 +24,16 @@ export interface PromoteCompaniesResult {
   warnings: CollectionIssue[];
 }
 
-// One place mapping a board's parser to the collector that can poll it, so
-// a fourth pollable source joins by adding one line here. A parser missing
-// from this list is one we can read a posting from but cannot poll, which
-// is why a Dribbble company is never promoted.
+// One place mapping a board's parser to the collector that can poll it. A
+// new pollable source joins by adding one line here. A parser missing from
+// this list is one we can read a posting from but cannot poll, which is why
+// a Dribbble company is never promoted.
 const POLLABLE_COLLECTORS_BY_PARSER: Record<string, string> = {
   greenhouse: "greenhouse",
   lever: "lever",
   ashby: "ashby",
+  workday: "workday",
+  ultipro: "ultipro",
 };
 
 // Closed sets rather than plain strings, so a word this handler has no

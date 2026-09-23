@@ -66,6 +66,30 @@ describe("a company averaging above the threshold", () => {
 
     expect(rows[0]?.collector).toBe("ashby");
   });
+
+  // A board whose identity takes more than one value is one stored value,
+  // its parts joined by a colon, and is promoted exactly like any other.
+  test("a Workday board gains the Workday collector", async () => {
+    const rows = [slugRow({ parser: "workday", slug: "goodco:wd5:Careers" })];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("workday");
+  });
+
+  test("an UltiPro board gains the UltiPro collector", async () => {
+    const rows = [
+      slugRow({ parser: "ultipro", slug: "goo1000goodco:914e6c7a-35d4-4079-865a-b3a7e7758070" }),
+    ];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("ultipro");
+  });
 });
 
 // Criterion 53. The threshold is a bar to clear, not to reach.

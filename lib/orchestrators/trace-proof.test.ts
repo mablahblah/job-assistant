@@ -824,6 +824,7 @@ describe("the trace table answers what save did to each job, across both passes"
     await saveJobs(report.jobs, {
       jobService,
       priorityList: [],
+      identifyingQueryValues: [],
       trace: built.writer,
       runId,
       step: "post_parsing_save",

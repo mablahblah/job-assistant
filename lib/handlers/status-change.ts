@@ -38,6 +38,7 @@ export interface ChangeStatusesOptions {
   companies: CompanyService;
   workLog: WorkLogService;
   priorityList: readonly string[];
+  identifyingQueryValues: readonly string[];
 }
 
 export interface ChangeStatusesResult {
@@ -62,7 +63,7 @@ function hasUsableName(
 }
 
 async function applyChange(change: StatusChange, options: ChangeStatusesOptions): Promise<Applied> {
-  const { jobs, companies, workLog, priorityList } = options;
+  const { jobs, companies, workLog, priorityList, identifyingQueryValues } = options;
 
   // Read before writing. The job service creates a row when asked to update
   // one it cannot find, and a status change carries no collection date, so
@@ -94,7 +95,11 @@ async function applyChange(change: StatusChange, options: ChangeStatusesOptions)
   const supplied = change.company_name;
   if (typeof supplied === "string" && supplied.trim() !== "") {
     const { company } = await companies.create({ name: supplied });
-    await jobs.update({ id: jobId, company_id: company.id }, priorityList);
+    await jobs.update(
+      { id: jobId, company_id: company.id },
+      priorityList,
+      identifyingQueryValues
+    );
     employer = company;
   } else if (job.company_id) {
     employer = await companies.findById(job.company_id);
@@ -110,7 +115,11 @@ async function applyChange(change: StatusChange, options: ChangeStatusesOptions)
   // no database transaction exists anywhere in this codebase — so the
   // protection is the order plus a failure the user can see and act on.
   try {
-    await jobs.update({ id: jobId, status: change.status }, priorityList);
+    await jobs.update(
+      { id: jobId, status: change.status },
+      priorityList,
+      identifyingQueryValues
+    );
   } catch (thrown) {
     return {
       change: reported(change, "entry_failed", false, employer, place),

@@ -23,6 +23,8 @@ import { ashbyParser } from "./ashby";
 import { dribbbleParser } from "./dribbble";
 import { greenhouseParser } from "./greenhouse";
 import { leverParser } from "./lever";
+import { workdayParser } from "./workday";
+import { ultiproParser } from "./ultipro";
 import type { Parser } from "./parser";
 
 export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
@@ -30,6 +32,8 @@ export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
   "lever.co": leverParser,
   "ashbyhq.com": ashbyParser,
   "dribbble.com": dribbbleParser,
+  "myworkdayjobs.com": workdayParser,
+  "ultipro.com": ultiproParser,
 };
 
 // Looks up the parser for a link. Returns null for a link no entry owns and

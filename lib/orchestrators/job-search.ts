@@ -199,6 +199,13 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       options.settings.getSourcePriorityList()
     );
 
+    // Read once per run, like the priority list, so every duplicate check and
+    // save keys UltiPro links consistently. A missing setting stops the run,
+    // because linking without it would fold different openings into one.
+    const identifyingQueryValues = await at("identifying_query_values", () =>
+      options.settings.getIdentifyingQueryValues()
+    );
+
     // Cleanup opens the run, so the backlog collection is about to add to has
     // already been swept rather than being judged a step behind.
     const backlog = await at("backlog_lookup", () => options.jobService.findBacklog());
@@ -247,6 +254,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       saveJobs(cleanedBacklog.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         trace: options.trace,
         runId: options.runId,
         step: "post_backlog_cleanup_save",
@@ -318,6 +326,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       dedupeJobs(report.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         collectedAt: options.collectedAt,
         trace: options.trace,
         runId: options.runId,
@@ -334,6 +343,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       saveJobs(report.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         trace: options.trace,
         runId: options.runId,
         step: "post_collection_save",
@@ -390,6 +400,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
           dedupeJobs(resolved.jobs, {
             jobService: options.jobService,
             priorityList,
+            identifyingQueryValues,
             collectedAt: options.collectedAt,
             trace: options.trace,
             runId: options.runId,
@@ -405,6 +416,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
           saveJobs(resolvedDeduped.jobs, {
             jobService: options.jobService,
             priorityList,
+            identifyingQueryValues,
             trace: options.trace,
             runId: options.runId,
             step: "post_resolution_save",
@@ -480,6 +492,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       dedupeJobs(parsedAssociated.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         collectedAt: options.collectedAt,
         trace: options.trace,
         runId: options.runId,
@@ -492,6 +505,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       saveJobs(parsedDeduped.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         trace: options.trace,
         runId: options.runId,
         step: "post_parsing_save",
@@ -544,6 +558,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       saveJobs(promoted.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         trace: options.trace,
         runId: options.runId,
         step: "post_promotion_save",
@@ -576,6 +591,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       saveJobs(classified.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         trace: options.trace,
         runId: options.runId,
         step: "post_classification_save",

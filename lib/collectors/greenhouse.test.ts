@@ -281,6 +281,36 @@ describe("a board answering 404 records a warning and lets the other slugs run",
   });
 });
 
+// A reply that is not job data, and a request that fails before any reply,
+// skip only that board, exactly as an error status does.
+describe.each([
+  ["a reply that is not job data", () => new Response("<html>Unavailable</html>", { status: 200 })],
+  [
+    "a request that fails",
+    (): Response => {
+      throw new TypeError("fetch failed");
+    },
+  ],
+])("a board sending %s records a warning and lets the other slugs run", (_case, broken) => {
+  function run() {
+    stubFetch({
+      [jobsUrl("acme")]: broken,
+      [jobsUrl("stripe")]: () => jsonResponse({ jobs: [seniorProductDesigner] }),
+    });
+    const context = makeContext([{ ats_slug: "acme" }, { ats_slug: "stripe" }], SEARCH_TERMS);
+    return greenhouseCollector.collect({ ...context, limit: Infinity });
+  }
+
+  test("a warning names the slug that failed", async () => {
+    const result = await run();
+    expect(result.warnings.some((warning) => warning.includes("acme"))).toBe(true);
+  });
+
+  test("the other slug's job still comes back", async () => {
+    expect((await run()).jobs).toHaveLength(1);
+  });
+});
+
 describe("AC 76: no boards configured", () => {
   test("a warning names the platform", async () => {
     stubFetch({});

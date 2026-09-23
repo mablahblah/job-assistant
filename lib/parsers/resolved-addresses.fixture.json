@@ -77,7 +77,7 @@
       "address": "meredith.wd5.myworkdayjobs.com",
       "jobs": 1,
       "domain": "myworkdayjobs.com",
-      "parser": null
+      "parser": "workday"
     },
     {
       "address": "www.builtinboston.com",

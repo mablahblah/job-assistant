@@ -625,9 +625,13 @@ describe("marking the jobs a batch answered for as judged", () => {
     const held = fakeJobService(jobs);
     const jobService = {
       ...held,
-      async update(entry: Partial<JobListEntry>, priorityList: readonly string[]) {
+      async update(
+        entry: Partial<JobListEntry>,
+        priorityList: readonly string[],
+        identifyingQueryValues: readonly string[]
+      ) {
         if (entry.is_judged === true && entry.id === "j1") throw new Error("db write failed");
-        return held.update(entry, priorityList);
+        return held.update(entry, priorityList, identifyingQueryValues);
       },
     };
     const boards = [
@@ -681,5 +685,82 @@ describe("marking the jobs a batch answered for as judged", () => {
 
     expect(jobs[0]?.is_judged).toBe(true);
     expect(JSON.stringify([trace.events, result.warnings])).not.toMatch(/judged/i);
+  });
+});
+
+// Gathering saves the whole backlog after cleaning it, and a save writes each
+// job's key afresh from its link. Without the settings' identifying query
+// values, every gather would strip UltiPro's opportunityid back out of the
+// stored keys, and two openings on one board would key the same again.
+describe("the backlog save keeps identifying query values in the stored keys", () => {
+  test("an UltiPro job's key keeps its opportunityid after a gather", async () => {
+    const boardUrl = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+    const link = `${boardUrl}?opportunityid=A1&utm_source=adzuna`;
+    const jobs = [scoreableJob({ original_url: link, resolved_url: link })];
+
+    await runScoringGather({
+      settings: fakeSettingsService(),
+      companies: fakeCompanyService([]),
+      jobService: fakeJobService(jobs),
+      trace: makeTraceService(),
+      runId: RUN_ID,
+      referenceInstant: NOW,
+    });
+
+    expect(jobs[0]?.original_url_match_key).toBe(`${boardUrl}?opportunityid=A1`);
+    expect(jobs[0]?.resolved_url_match_key).toBe(`${boardUrl}?opportunityid=A1`);
+  });
+});
+
+describe("the score save hands the identifying query values to every job write", () => {
+  // The real job service rebuilds a job's stored keys from its links on every
+  // write, so a write handed the wrong list strips UltiPro's opportunityid out
+  // of the key. The stand-in only rebuilds a key when the write names a link,
+  // so what each write is handed is checked here instead.
+  async function listsHandedToWrites(
+    jobs: JobListEntry[],
+    companies: CompanyRecord[],
+    jobScores: Parameters<typeof runScoringSave>[0]["jobScores"]
+  ): Promise<(readonly string[])[]> {
+    const handed: (readonly string[])[] = [];
+    const held = fakeJobService(jobs);
+    await runScoringSave({
+      jobScores,
+      companyScores: [],
+      settings: fakeSettingsService(),
+      companies: fakeCompanyService(companies),
+      jobService: {
+        ...held,
+        async update(entry, priorityList, identifyingQueryValues) {
+          handed.push(identifyingQueryValues);
+          return held.update(entry, priorityList, identifyingQueryValues);
+        },
+      },
+      atsSlugs: fakeAtsSlugService([]),
+      trace: makeTraceService(),
+      runId: RUN_ID,
+      scoredAt: NOW,
+    });
+    return handed;
+  }
+
+  test("saving a fit score hands over the stored identifying values", async () => {
+    const handed = await listsHandedToWrites([scoreableJob()], [], [
+      { id: "j1", alignment_score: 4, alignment_rationale: "close fit" },
+    ]);
+
+    expect(handed.length).toBeGreaterThan(0);
+    for (const list of handed) expect(list).toEqual(["opportunityid"]);
+  });
+
+  test("marking a job judged hands over the stored identifying values", async () => {
+    const handed = await listsHandedToWrites(
+      [scoreableJob({ company_id: "c1", is_judged: false })],
+      [scoredCompany()],
+      [{ id: "j1", failure: "posting_unreadable" }]
+    );
+
+    expect(handed.length).toBeGreaterThan(0);
+    for (const list of handed) expect(list).toEqual(["opportunityid"]);
   });
 });

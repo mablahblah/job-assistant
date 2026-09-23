@@ -20,6 +20,10 @@ import { truncateDetail } from "../utils/trace-detail";
 export interface SaveJobsOptions {
   jobService: JobService;
   priorityList: readonly string[];
+  // Saving is where a stored match key is written, so the query values that
+  // identify a job have to reach the write. Without them, two UltiPro openings
+  // whose links differ only in opportunityid would be stored under one key.
+  identifyingQueryValues: readonly string[];
   trace?: TraceService;
   runId?: string;
   step?: string;
@@ -106,9 +110,10 @@ async function deleteEntry(
 async function updateEntry(
   entry: JobListEntry,
   jobService: JobService,
-  priorityList: readonly string[]
+  priorityList: readonly string[],
+  identifyingQueryValues: readonly string[]
 ): Promise<SaveEntryResult> {
-  const { job, outcome } = await jobService.update(entry, priorityList);
+  const { job, outcome } = await jobService.update(entry, priorityList, identifyingQueryValues);
   const event = EVENT_BY_OUTCOME[outcome];
 
   return { job, traceRow: event === null ? null : { event }, warning: null };
@@ -117,11 +122,12 @@ async function updateEntry(
 async function saveEntry(
   entry: JobListEntry,
   jobService: JobService,
-  priorityList: readonly string[]
+  priorityList: readonly string[],
+  identifyingQueryValues: readonly string[]
 ): Promise<SaveEntryResult> {
   try {
     if (entry.delete_on_save) return await deleteEntry(entry, jobService);
-    return await updateEntry(entry, jobService, priorityList);
+    return await updateEntry(entry, jobService, priorityList, identifyingQueryValues);
   } catch (thrown) {
     // A throw is the only thing that stops a job here, and it covers a failed
     // delete and a failed write alike. The entry did not land, so it is both
@@ -142,7 +148,14 @@ export async function saveJobs(
   jobs: JobListEntry[],
   options: SaveJobsOptions
 ): Promise<SaveJobsResult> {
-  const { jobService, priorityList, trace, runId, step } = options;
+  const {
+    jobService,
+    priorityList,
+    identifyingQueryValues,
+    trace,
+    runId,
+    step,
+  } = options;
   const savedJobs: JobListEntry[] = [];
   const warnings: SaveWarning[] = [];
 
@@ -153,7 +166,12 @@ export async function saveJobs(
     // The orchestrator writes a collector onto every job, so the fallback is
     // never reached by a job a real run produced.
     const collector = entry.collector ?? "unknown";
-    const { job, traceRow, warning } = await saveEntry(entry, jobService, priorityList);
+    const { job, traceRow, warning } = await saveEntry(
+      entry,
+      jobService,
+      priorityList,
+      identifyingQueryValues
+    );
 
     if (job !== null) savedJobs.push(job);
 

@@ -30,6 +30,7 @@ export interface RunStatusChangeOptions {
   workLog: WorkLogService;
   search: CompanySearch;
   priorityList: readonly string[];
+  identifyingQueryValues: readonly string[];
   now: Date;
 }
 
@@ -43,9 +44,23 @@ export async function runStatusChange(
   changes: StatusChange[],
   options: RunStatusChangeOptions
 ): Promise<RunStatusChangeResult> {
-  const { jobs, companies, workLog, search, priorityList, now } = options;
+  const {
+    jobs,
+    companies,
+    workLog,
+    search,
+    priorityList,
+    identifyingQueryValues,
+    now,
+  } = options;
 
-  const changed = await changeStatuses(changes, { jobs, companies, workLog, priorityList });
+  const changed = await changeStatuses(changes, {
+    jobs,
+    companies,
+    workLog,
+    priorityList,
+    identifyingQueryValues,
+  });
 
   // Only a job whose entry was really written sends its employer to the
   // search. A job set aside because its employer has no name, a job no row
