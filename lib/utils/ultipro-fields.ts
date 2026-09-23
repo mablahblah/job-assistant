@@ -13,38 +13,15 @@
 // object literal passed to `CandidateOpportunityDetail(...)`, so that script
 // is where the posting is read from.
 import type { MappedJobFields } from "../types/job-list-entry";
+import type {
+  UltiproBoardParts,
+  UltiproLocation,
+  UltiproPosting,
+} from "../types/ultipro-posting";
 
 const BOARD_SEPARATOR = ":";
 const JOBBOARD_SEGMENT = "jobboard";
 const DETAIL_MARKER = "CandidateOpportunityDetail(";
-
-export interface UltiproBoardParts {
-  companyCode: string;
-  boardId: string;
-}
-
-export interface UltiproLocation {
-  LocalizedName?: string;
-  Address?: {
-    City?: string;
-    State?: { Code?: string; Name?: string };
-    Country?: { Code?: string; Name?: string };
-  };
-}
-
-export interface UltiproPosting {
-  Id: string;
-  Title: string;
-  Description?: string;
-  PostedDate: string;
-  UpdatedDate?: string;
-  Locations?: UltiproLocation[];
-}
-
-export interface UltiproJobListResponse {
-  opportunities?: UltiproPosting[];
-  totalCount?: number;
-}
 
 export function ultiproBoardFromUrl(url: string): string | null {
   let parsed: URL;
@@ -76,7 +53,8 @@ export function ultiproJobListUrl(parts: UltiproBoardParts): string {
 
 export function ultiproPostingUrl(parts: UltiproBoardParts, opportunityId: string): string {
   // Lowercase URL to match the canonical form that deduplication and resolvers expect
-  return `https://recruiting.ultipro.com/${parts.companyCode}/jobboard/${parts.boardId}/opportunitydetail?opportunityid=${opportunityId}`;
+  const encodedId = encodeURIComponent(opportunityId);
+  return `https://recruiting.ultipro.com/${parts.companyCode}/jobboard/${parts.boardId}/opportunitydetail?opportunityid=${encodedId}`;
 }
 
 // Scans forward from the object literal's opening brace to its matching

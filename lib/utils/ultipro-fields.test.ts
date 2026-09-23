@@ -6,8 +6,8 @@ import {
   ultiproJobListUrl,
   ultiproPostingUrl,
   ultiproPostingFromPage,
-  type UltiproPosting,
 } from "./ultipro-fields";
+import type { UltiproPosting } from "../types/ultipro-posting";
 
 // A stored link exactly as an aggregator saved it, measured in pipeline.db on
 // 2026-09-23: lower case, the job's identity in the query string.
@@ -176,6 +176,15 @@ describe("a listed job's link is built from its board and its id", () => {
     expect(ultiproPostingUrl(PARTS, ID)).toBe(
       "https://recruiting.ultipro.com/tel1010tefo/jobboard/914e6c7a-35d4-4079-865a-b3a7e7758070/opportunitydetail?opportunityid=e3a376f8-6759-4047-a7e7-79a7a3457ab0"
     );
+  });
+
+  // The job id comes from UltiPro's own reply, so a character that means
+  // something inside a web address must arrive as part of the id.
+  test("a job id holding query characters stays one query value", () => {
+    const link = new URL(ultiproPostingUrl(PARTS, "a1&utm_source=x"));
+
+    expect(link.searchParams.get("opportunityid")).toBe("a1&utm_source=x");
+    expect(link.searchParams.has("utm_source")).toBe(false);
   });
 
   test("a link built from a listing names the board it came from", () => {

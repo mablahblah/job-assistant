@@ -8,11 +8,13 @@ import {
   partsFromUltiproBoard,
   ultiproJobListUrl,
   ultiproPostingUrl,
-  type UltiproBoardParts,
-  type UltiproJobListResponse,
-  type UltiproPosting,
 } from "../utils/ultipro-fields";
 import type { JobListEntry } from "../types/job-list-entry";
+import type {
+  UltiproBoardParts,
+  UltiproJobListResponse,
+  UltiproPosting,
+} from "../types/ultipro-posting";
 import { matchesSearchTerms } from "../utils/search-term-analyzer";
 import { readAtsBoards } from "./ats-boards";
 import { fetchWithTimeout, httpError, safeJson } from "../utils/fetch-utils";

@@ -1,7 +1,7 @@
 import type { AtsSlugService } from "../services/ats-slug-service";
 
-// A board an ATS collector polls. The slug is the whole identity: the three
-// ATS collectors poll by slug, so a company name here would have no reader.
+// A board an ATS collector polls. The slug is the whole identity: every ATS
+// collector polls by slug, so a company name here would have no reader.
 export interface AtsBoard {
   ats_slug: string;
 }
