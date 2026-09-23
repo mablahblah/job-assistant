@@ -167,7 +167,8 @@ async function migrateJobs(
   source: Client,
   oldToNewCompanyId: Map<string, string>,
   jobs: JobService,
-  priorityList: readonly string[]
+  priorityList: readonly string[],
+  identifyingQueryValues: readonly string[]
 ): Promise<void> {
   const activeStatuses = [...ACTIVE_STATUSES];
   const placeholders = activeStatuses.map(() => "?").join(", ");
@@ -211,14 +212,14 @@ async function migrateJobs(
       title: tidyTitle(oldTitle),
       resolved_url: oldUrl,
       original_url: originalUrl,
-      original_url_match_key: urlMatchKey(originalUrl),
-      resolved_url_match_key: urlMatchKey(oldUrl),
+      original_url_match_key: urlMatchKey(originalUrl, identifyingQueryValues),
+      resolved_url_match_key: urlMatchKey(oldUrl, identifyingQueryValues),
       status: String(row["status"]),
       collector: migrateCollector(row["collector_source"]),
       collected_at: collectedAt,
     };
 
-    await jobs.update(entry, priorityList);
+    await jobs.update(entry, priorityList, identifyingQueryValues);
     count += 1;
   }
 
@@ -333,7 +334,14 @@ async function main(): Promise<void> {
     const jobService = createJobService(prisma);
     const settings = createSettingsService(prisma);
     const priorityList = await settings.getSourcePriorityList();
-    await migrateJobs(source, oldToNewCompanyId, jobService, priorityList);
+    const identifyingQueryValues = await settings.getIdentifyingQueryValues();
+    await migrateJobs(
+      source,
+      oldToNewCompanyId,
+      jobService,
+      priorityList,
+      identifyingQueryValues
+    );
     const workLog = createWorkLogService(prisma);
     await migrateWorkLogEntries(source, workLog);
 

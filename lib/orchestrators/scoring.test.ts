@@ -683,3 +683,27 @@ describe("marking the jobs a batch answered for as judged", () => {
     expect(JSON.stringify([trace.events, result.warnings])).not.toMatch(/judged/i);
   });
 });
+
+// Gathering saves the whole backlog after cleaning it, and a save writes each
+// job's key afresh from its link. Without the settings' identifying query
+// values, every gather would strip UltiPro's opportunityid back out of the
+// stored keys, and two openings on one board would key the same again.
+describe("the backlog save keeps identifying query values in the stored keys", () => {
+  test("an UltiPro job's key keeps its opportunityid after a gather", async () => {
+    const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+    const link = `${BOARD}?opportunityid=A1&utm_source=adzuna`;
+    const jobs = [scoreableJob({ original_url: link, resolved_url: link })];
+
+    await runScoringGather({
+      settings: fakeSettingsService(),
+      companies: fakeCompanyService([]),
+      jobService: fakeJobService(jobs),
+      trace: makeTraceService(),
+      runId: RUN_ID,
+      referenceInstant: NOW,
+    });
+
+    expect(jobs[0]?.original_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+    expect(jobs[0]?.resolved_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+  });
+});

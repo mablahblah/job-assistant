@@ -78,6 +78,12 @@ export async function runScoringGather(
     const priorityList = await at("source_priority_list", () =>
       options.settings.getSourcePriorityList()
     );
+    // The backlog save below writes every job's key afresh from its link, so without this
+    // list each gather would strip an identifying value such as UltiPro's opportunityid
+    // back out of the stored keys.
+    const identifyingQueryValues = await at("identifying_query_values", () =>
+      options.settings.getIdentifyingQueryValues()
+    );
 
     // The job half of backlog cleanup: read the backlog, drop what has
     // expired, then save so the drop is on disk before anything reads from
@@ -96,6 +102,7 @@ export async function runScoringGather(
       saveJobs(cleanedBacklog.jobs, {
         jobService: options.jobService,
         priorityList,
+        identifyingQueryValues,
         trace: options.trace,
         runId: options.runId,
         step: "post_backlog_cleanup_save",

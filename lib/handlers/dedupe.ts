@@ -29,6 +29,10 @@ export interface DedupeJobsOptions {
   jobService: JobService;
   priorityList: readonly string[];
   collectedAt: Date;
+  // The query values that alone identify a job, such as UltiPro's
+  // opportunityid. Both passes need it, or two openings whose links differ
+  // only in one of these values fold into one job instead of staying two.
+  identifyingQueryValues: readonly string[];
   trace?: TraceService;
   runId?: string;
   step?: string;
@@ -74,7 +78,15 @@ export async function dedupeJobs(
   jobs: JobListEntry[],
   options: DedupeJobsOptions
 ): Promise<DedupeJobsResult> {
-  const { jobService, priorityList, collectedAt, trace, runId, step } = options;
+  const {
+    jobService,
+    priorityList,
+    collectedAt,
+    identifyingQueryValues,
+    trace,
+    runId,
+    step,
+  } = options;
 
   // Entries and rows that lost. They stay on the returned list so the save
   // step can act on the mark they carry.
@@ -100,7 +112,12 @@ export async function dedupeJobs(
   // Pass one: entries that match each other on the list. Each loser already
   // carries the delete_on_save the save step reads, and mergeMatchingJobs
   // already knows which immediate partner it lost to and on what clause.
-  const { jobs: keptJobs, folds } = mergeMatchingJobs(toDedupe, priorityList, collectedAt);
+  const { jobs: keptJobs, folds } = mergeMatchingJobs(
+    toDedupe,
+    priorityList,
+    collectedAt,
+    identifyingQueryValues
+  );
   for (const fold of folds) {
     marked.push(fold.loser);
     const reason = fold.loser.delete_on_save;
@@ -131,7 +148,7 @@ export async function dedupeJobs(
   for (const entry of keptJobs) {
     let confirmed: ConfirmedRow[];
     try {
-      confirmed = await findMatchingRows(entry, jobService, listIds);
+      confirmed = await findMatchingRows(entry, jobService, listIds, identifyingQueryValues);
     } catch (thrown) {
       // Under-merging leaves a duplicate the user can see and delete;
       // over-merging destroys a job nobody knows is gone. So a failed lookup
@@ -216,7 +233,8 @@ export async function dedupeJobs(
 async function findMatchingRows(
   entry: JobListEntry,
   jobService: JobService,
-  listIds: ReadonlySet<string>
+  listIds: ReadonlySet<string>,
+  identifyingQueryValues: readonly string[]
 ): Promise<ConfirmedRow[]> {
   const found = new Map<string, JobListEntry>();
 
@@ -224,13 +242,17 @@ async function findMatchingRows(
   // others: each asks a different question and each can name a different row,
   // and rows that all match the entry are one job however they were reached.
   const originalKey =
-    typeof entry.original_url === "string" ? urlMatchKey(entry.original_url) : undefined;
+    typeof entry.original_url === "string"
+      ? urlMatchKey(entry.original_url, identifyingQueryValues)
+      : undefined;
   if (originalKey) {
     collectRows(found, await jobService.findByOriginalUrlMatchKey(originalKey), listIds);
   }
 
   const resolvedKey =
-    typeof entry.resolved_url === "string" ? urlMatchKey(entry.resolved_url) : undefined;
+    typeof entry.resolved_url === "string"
+      ? urlMatchKey(entry.resolved_url, identifyingQueryValues)
+      : undefined;
   if (resolvedKey) {
     collectRows(found, await jobService.findByResolvedUrlMatchKey(resolvedKey), listIds);
   }
@@ -248,7 +270,7 @@ async function findMatchingRows(
     // A lookup matches on columns alone. Company and title also needs the two
     // sides' dates close together and the shared-host veto applied, which only
     // the clause does, so a row it cannot place is left where it is.
-    const clause = matchingClause(row, entry);
+    const clause = matchingClause(row, entry, identifyingQueryValues);
     if (clause) confirmed.push({ id, row, clause });
   }
   return confirmed;

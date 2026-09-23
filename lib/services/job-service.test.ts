@@ -1172,3 +1172,37 @@ describe("reading jobs by their ids", () => {
     expect(await service.findByIds([])).toEqual([]);
   });
 });
+
+// UltiPro carries a job's only identity in its opportunityid query value, so a
+// stored key has to keep it, or every later lookup reaches two different
+// openings through one key. The list of identifying values arrives with the
+// write, the way the priority list does.
+describe("a stored key keeps the query values named as identifying", () => {
+  const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+
+  test("a created row's keys keep the named value and drop the rest", async () => {
+    const link = `${BOARD}?opportunityid=A1&utm_source=adzuna`;
+    await service.update(
+      { id: "keys-identifying-create", collected_at: COLLECTED_AT, original_url: link, resolved_url: link },
+      PRIORITY_LIST,
+      ["opportunityid"]
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-identifying-create" } });
+    expect(row?.original_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+    expect(row?.resolved_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+  });
+
+  test("an update writing a link keeps the named value in its key", async () => {
+    await seedRow("keys-identifying-update", { collector: "greenhouse" });
+
+    await service.update(
+      { id: "keys-identifying-update", resolved_url: `${BOARD}?opportunityid=B2&utm_source=x` },
+      PRIORITY_LIST,
+      ["opportunityid"]
+    );
+
+    const row = await db.job.findUnique({ where: { id: "keys-identifying-update" } });
+    expect(row?.resolved_url_match_key).toBe(`${BOARD}?opportunityid=B2`);
+  });
+});

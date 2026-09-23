@@ -19,14 +19,14 @@ describe("AC 24: two entries whose original-url keys match are one job", () => {
     const a: JobListEntry = { original_url: "https://www.adzuna.com/land/ad/123?se=aaa" };
     const b: JobListEntry = { original_url: "https://www.adzuna.com/land/ad/123?se=bbb" };
 
-    expect(matchingClause(a, b)).toBe("original_url");
+    expect(matchingClause(a, b, [])).toBe("original_url");
   });
 
   test("two links pointing at different postings do not match", () => {
     const a: JobListEntry = { original_url: "https://www.adzuna.com/land/ad/123" };
     const b: JobListEntry = { original_url: "https://www.adzuna.com/land/ad/456" };
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 });
 
@@ -41,35 +41,35 @@ describe("AC 25: two entries whose resolved-url keys match are one job", () => {
       resolved_url: "https://boards.greenhouse.io/acme/jobs/7",
     };
 
-    expect(matchingClause(a, b)).toBe("resolved_url");
+    expect(matchingClause(a, b, [])).toBe("resolved_url");
   });
 });
 
 describe("AC 26: a shared company and title inside 30 days is one job", () => {
   test("dates 19 days apart match", () => {
-    expect(matchingClause(sameRole(), sameRole({ posting_date: JAN_20 }))).toBe(
+    expect(matchingClause(sameRole(), sameRole({ posting_date: JAN_20 }), [])).toBe(
       "company_and_title"
     );
   });
 
   test("dates exactly 30 days apart still match", () => {
-    expect(matchingClause(sameRole(), sameRole({ posting_date: JAN_31 }))).toBe(
+    expect(matchingClause(sameRole(), sameRole({ posting_date: JAN_31 }), [])).toBe(
       "company_and_title"
     );
   });
 
   test("a different company with the same title is two jobs", () => {
-    expect(matchingClause(sameRole(), sameRole({ company_id: "c2" }))).toBeNull();
+    expect(matchingClause(sameRole(), sameRole({ company_id: "c2" }), [])).toBeNull();
   });
 });
 
 describe("AC 27: a shared company and title more than 30 days apart is two jobs", () => {
   test("dates 59 days apart do not match", () => {
-    expect(matchingClause(sameRole(), sameRole({ posting_date: MAR_01 }))).toBeNull();
+    expect(matchingClause(sameRole(), sameRole({ posting_date: MAR_01 }), [])).toBeNull();
   });
 
   test("dates a day past the window do not match", () => {
-    expect(matchingClause(sameRole(), sameRole({ posting_date: FEB_01 }))).toBeNull();
+    expect(matchingClause(sameRole(), sameRole({ posting_date: FEB_01 }), [])).toBeNull();
   });
 });
 
@@ -78,14 +78,14 @@ describe("AC 28: a side's updated posting date is the date the window reads", ()
     const a = sameRole({ posting_date: JAN_01, posting_updated_date: FEB_01 });
     const b = sameRole({ posting_date: FEB_01 });
 
-    expect(matchingClause(a, b)).toBe("company_and_title");
+    expect(matchingClause(a, b, [])).toBe("company_and_title");
   });
 
   test("an updated date outside the window does not match where the posted date would", () => {
     const a = sameRole({ posting_date: JAN_01, posting_updated_date: MAR_01 });
     const b = sameRole({ posting_date: JAN_01 });
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 });
 
@@ -94,7 +94,7 @@ describe("AC 29: a side carrying only a posted date has that read as its latest"
     const a = sameRole({ posting_date: JAN_01, posting_updated_date: null });
     const b = sameRole({ posting_date: JAN_20, posting_updated_date: null });
 
-    expect(matchingClause(a, b)).toBe("company_and_title");
+    expect(matchingClause(a, b, [])).toBe("company_and_title");
   });
 });
 
@@ -103,14 +103,14 @@ describe("AC 30: a side carrying no date at all silences the company-and-title c
     const a = sameRole({ posting_date: null });
     const b = sameRole();
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 
   test("the clause does not fire where neither side has a date", () => {
     const a = sameRole({ posting_date: null });
     const b = sameRole({ posting_date: null });
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 });
 
@@ -122,7 +122,7 @@ describe("AC 31: a missing resolved url silences the resolved-url clause", () =>
     };
     const b: JobListEntry = { original_url: "https://jsearch.example.com/job/999" };
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 });
 
@@ -131,11 +131,11 @@ describe("AC 32: two entries with no clause whose fields are present on both are
     const a: JobListEntry = { original_url: "https://www.adzuna.com/land/ad/123" };
     const b: JobListEntry = sameRole();
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 
   test("two entries carrying nothing at all match on nothing", () => {
-    expect(matchingClause({}, {})).toBeNull();
+    expect(matchingClause({}, {}, [])).toBeNull();
   });
 });
 
@@ -144,14 +144,14 @@ describe("AC 33: two posting ids on one board are two openings at that company",
     const a = sameRole({ resolved_url: "https://boards.greenhouse.io/acme/jobs/7" });
     const b = sameRole({ posting_date: JAN_20, resolved_url: "https://boards.greenhouse.io/acme/jobs/8" });
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
   });
 
   test("resolved links on different hosts do not veto the clause", () => {
     const a = sameRole({ resolved_url: "https://boards.greenhouse.io/acme/jobs/7" });
     const b = sameRole({ posting_date: JAN_20, resolved_url: "https://jobs.lever.co/acme/8" });
 
-    expect(matchingClause(a, b)).toBe("company_and_title");
+    expect(matchingClause(a, b, [])).toBe("company_and_title");
   });
 });
 
@@ -167,7 +167,7 @@ describe("AC 34: the veto stops the weakest clause and not a link match", () => 
       resolved_url: "https://boards.greenhouse.io/acme/jobs/8",
     });
 
-    expect(matchingClause(a, b)).toBe("original_url");
+    expect(matchingClause(a, b, [])).toBe("original_url");
   });
 });
 
@@ -176,7 +176,7 @@ describe("AC 35: no clause reads which collector found a job", () => {
     const a = sameRole({ collector: "jsearch" });
     const b = sameRole({ posting_date: JAN_20, collector: "jsearch" });
 
-    expect(matchingClause(a, b)).toBe("company_and_title");
+    expect(matchingClause(a, b, [])).toBe("company_and_title");
   });
 });
 
@@ -185,13 +185,43 @@ describe("AC 36: the company-and-title clause reads the normalized title", () =>
     const a = sameRole({ raw_title: "Senior Product Designer (Remote)" });
     const b = sameRole({ posting_date: JAN_20, raw_title: "Sr. Product Designer - Design" });
 
-    expect(matchingClause(a, b)).toBe("company_and_title");
+    expect(matchingClause(a, b, [])).toBe("company_and_title");
   });
 
   test("two roles sharing a raw title but not a normalized one do not match", () => {
     const a = sameRole({ title: "Sr. Product Designer", raw_title: "Product Designer" });
     const b = sameRole({ title: "Jr. Product Designer", raw_title: "Product Designer" });
 
-    expect(matchingClause(a, b)).toBeNull();
+    expect(matchingClause(a, b, [])).toBeNull();
+  });
+});
+
+// UltiPro carries a job's only identity in its opportunityid query value.
+// Named as identifying, it keeps two jobs on one board apart; left unnamed,
+// the two links read as one posting, which is what happened before.
+describe("a query value named as identifying tells two jobs apart", () => {
+  const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+  const first = `${BOARD}?opportunityid=A1&utm_source=adzuna`;
+  const second = `${BOARD}?opportunityid=B2&utm_source=adzuna`;
+
+  test("two links differing only in the named value are not one job by link", () => {
+    const a: JobListEntry = { original_url: first, resolved_url: first };
+    const b: JobListEntry = { original_url: second, resolved_url: second };
+
+    expect(matchingClause(a, b, ["opportunityid"])).toBeNull();
+  });
+
+  test("the shared-board veto keeps them apart even with the same company and title", () => {
+    const a = sameRole({ original_url: first, resolved_url: first });
+    const b = sameRole({ original_url: second, resolved_url: second });
+
+    expect(matchingClause(a, b, ["opportunityid"])).toBeNull();
+  });
+
+  test("two links differing only in a value not named are still one job", () => {
+    const a: JobListEntry = { original_url: `${BOARD}?opportunityid=A1&utm_source=adzuna` };
+    const b: JobListEntry = { original_url: `${BOARD}?opportunityid=A1&utm_source=jsearch` };
+
+    expect(matchingClause(a, b, ["opportunityid"])).toBe("original_url");
   });
 });

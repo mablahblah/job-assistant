@@ -32,6 +32,12 @@ describe("the lists and text the fake answers are filled", () => {
   test("the search terms are not empty", async () => {
     expect(await settings.getSearchTerms()).not.toEqual([]);
   });
+
+  // The seeded list, so a test that never mentions it still keeps two
+  // UltiPro jobs apart the way a real run does.
+  test("the identifying query values name UltiPro's job identifier", async () => {
+    expect(await settings.getIdentifyingQueryValues()).toEqual(["opportunityid"]);
+  });
 });
 
 // The whole point of the fake: a test says what it cares about and inherits

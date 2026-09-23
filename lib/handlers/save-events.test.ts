@@ -50,6 +50,7 @@ describe("the event each kind of write produces", () => {
     await saveJobs([entry("new")], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -64,6 +65,7 @@ describe("the event each kind of write produces", () => {
     await saveJobs([entry("held", { title: "New Title" })], {
       jobService: fakeJobService([saved("held", { title: "Old Title" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -78,6 +80,7 @@ describe("the event each kind of write produces", () => {
     await saveJobs([entry("applied", { status: "offer" })], {
       jobService: fakeJobService([saved("applied", { status: "interview" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -92,6 +95,7 @@ describe("the event each kind of write produces", () => {
     await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("dupe")]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -106,6 +110,7 @@ describe("the event each kind of write produces", () => {
     await saveJobs([entry("a"), entry("b"), entry("c")], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -125,6 +130,7 @@ describe("what writes no row at all", () => {
     await saveJobs([entry("applied")], {
       jobService: fakeJobService([saved("applied", { status: "interview" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -144,6 +150,7 @@ describe("a deletion dedupe asked for", () => {
     await saveJobs([entry("dupe", { delete_on_save: "repost_match_in_list" })], {
       jobService: fakeJobService([saved("dupe")]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -161,6 +168,7 @@ describe("a deletion dedupe asked for", () => {
     await saveJobs([entry("ghost", { delete_on_save: "matched_db_row" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -178,6 +186,7 @@ describe("a deletion dedupe asked for", () => {
     await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -195,6 +204,7 @@ describe("a deletion dedupe asked for", () => {
     await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -224,6 +234,7 @@ describe("a write that threw", () => {
     await saveJobs([entry("lost")], {
       jobService: throwingService("database is locked"),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -238,6 +249,7 @@ describe("a write that threw", () => {
     await saveJobs([entry("lost")], {
       jobService: throwingService("database is locked"),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -252,6 +264,7 @@ describe("a write that threw", () => {
     await saveJobs([entry("lost")], {
       jobService: throwingService("database is locked"),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -266,6 +279,7 @@ describe("a write that threw", () => {
     await saveJobs([entry("lost")], {
       jobService: throwingService("database is locked"),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -282,6 +296,7 @@ describe("a write that threw", () => {
     await saveJobs([entry("lost")], {
       jobService: throwingService("x".repeat(500)),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -300,6 +315,7 @@ describe("the step contract", () => {
     const result = await saveJobs([entry("a")], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       runId: RUN_ID,
       step: STEP,
     });
@@ -315,6 +331,7 @@ describe("the step contract", () => {
     await saveJobs([entry("a")], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       step: STEP,
     });
@@ -330,6 +347,7 @@ describe("the step contract", () => {
     await saveJobs([entry("a")], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
     });
@@ -344,6 +362,7 @@ describe("the step contract", () => {
     await saveJobs([entry("a", { collector: "adzuna" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -364,6 +383,7 @@ describe("the step contract", () => {
         },
       }),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
       trace,
       runId: RUN_ID,
       step: STEP,

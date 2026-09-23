@@ -18,11 +18,17 @@ const COMPANY_AND_TITLE_WINDOW_MS = COMPANY_AND_TITLE_WINDOW_DAYS * DAY_MS;
 //
 // The key is built from the link rather than read off the entry's match-key
 // column, because the job service writes that column at write time and an
-// entry fresh from a collector has not been written yet.
-function linksMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+// entry fresh from a collector has not been written yet. Identifying query
+// values distinguish jobs on the same board; two jobs whose links differ only
+// in those parameters will key differently.
+function linksMatch(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  identifyingQueryValues: readonly string[]
+): boolean {
   if (a == null || b == null) return false;
-  const keyA = urlMatchKey(a);
-  const keyB = urlMatchKey(b);
+  const keyA = urlMatchKey(a, identifyingQueryValues);
+  const keyB = urlMatchKey(b, identifyingQueryValues);
   return keyA != null && keyB != null && keyA === keyB;
 }
 
@@ -51,13 +57,20 @@ function resolvedHost(url: string): string | null {
 // makes the host alone enough once the company has already matched.
 //
 // No veto unless both sides carry a resolved link that parses.
-function sharedHostVeto(a: JobListEntry, b: JobListEntry): boolean {
+function sharedHostVeto(
+  a: JobListEntry,
+  b: JobListEntry,
+  identifyingQueryValues: readonly string[]
+): boolean {
   if (a.resolved_url == null || b.resolved_url == null) return false;
   const hostA = resolvedHost(a.resolved_url);
   const hostB = resolvedHost(b.resolved_url);
   if (hostA == null || hostB == null || hostA !== hostB) return false;
   // Both hosts parsed, so neither key comes back null here.
-  return urlMatchKey(a.resolved_url) !== urlMatchKey(b.resolved_url);
+  return (
+    urlMatchKey(a.resolved_url, identifyingQueryValues) !==
+    urlMatchKey(b.resolved_url, identifyingQueryValues)
+  );
 }
 
 // Fires where both sides share a company and a normalized title and their
@@ -67,7 +80,11 @@ function sharedHostVeto(a: JobListEntry, b: JobListEntry): boolean {
 //
 // Every field it reads has to be present on both sides, and the shared-host
 // veto above can still block it where company, title and dates all line up.
-function companyAndTitleMatch(a: JobListEntry, b: JobListEntry): boolean {
+function companyAndTitleMatch(
+  a: JobListEntry,
+  b: JobListEntry,
+  identifyingQueryValues: readonly string[]
+): boolean {
   if (a.company_id == null || b.company_id == null || a.company_id !== b.company_id) {
     return false;
   }
@@ -82,15 +99,19 @@ function companyAndTitleMatch(a: JobListEntry, b: JobListEntry): boolean {
   const apartInMs = Math.abs(dateA.getTime() - dateB.getTime());
   if (apartInMs > COMPANY_AND_TITLE_WINDOW_MS) return false;
 
-  return !sharedHostVeto(a, b);
+  return !sharedHostVeto(a, b, identifyingQueryValues);
 }
 
 // Answers "are these two entries the same job", trying each clause in order
 // and naming the first that fires. No clause reads which collector found a
 // job. Reads no database and mutates neither argument.
-export function matchingClause(a: JobListEntry, b: JobListEntry): JobIdentityClause | null {
-  if (linksMatch(a.original_url, b.original_url)) return "original_url";
-  if (linksMatch(a.resolved_url, b.resolved_url)) return "resolved_url";
-  if (companyAndTitleMatch(a, b)) return "company_and_title";
+export function matchingClause(
+  a: JobListEntry,
+  b: JobListEntry,
+  identifyingQueryValues: readonly string[]
+): JobIdentityClause | null {
+  if (linksMatch(a.original_url, b.original_url, identifyingQueryValues)) return "original_url";
+  if (linksMatch(a.resolved_url, b.resolved_url, identifyingQueryValues)) return "resolved_url";
+  if (companyAndTitleMatch(a, b, identifyingQueryValues)) return "company_and_title";
   return null;
 }

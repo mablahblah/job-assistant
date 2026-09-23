@@ -61,6 +61,7 @@ function runDedupe(jobs: JobListEntry[], jobService: JobService, trace: TraceSer
   return dedupeJobs(jobs, {
     jobService,
     priorityList: PRIORITY_LIST,
+    identifyingQueryValues: [],
     collectedAt: COLLECTED_AT,
     trace,
     runId: RUN_ID,

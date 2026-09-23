@@ -130,6 +130,7 @@ const EXPECTED_SETTING_COLUMNS = [
   "title_suffixes",
   "title_removal_words",
   "source_priority_list",
+  "identifying_query_values",
   "resolution_fast_concurrency",
   "resolution_slow_concurrency",
   "resolution_slow_pause_seconds",
@@ -1533,6 +1534,16 @@ describe("Job and Setting: the columns save needs", () => {
 
   test("source_priority_list is nullable", () => {
     expect(findColumn(settingColumns, "source_priority_list")?.notnull).toBe(0);
+  });
+
+  test("identifying_query_values is a Json column", () => {
+    expect(typeOf(settingColumns, "identifying_query_values")).toBe(
+      typeOf(settingColumns, "search_terms")
+    );
+  });
+
+  test("identifying_query_values is nullable", () => {
+    expect(findColumn(settingColumns, "identifying_query_values")?.notnull).toBe(0);
   });
 });
 

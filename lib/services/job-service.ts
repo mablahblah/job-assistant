@@ -47,7 +47,14 @@ export interface DeleteResult {
 }
 
 export interface JobService {
-  update(entry: JobListEntry, priorityList: readonly string[]): Promise<UpdateResult>;
+  // An identifying query value has to survive into the match key, or two
+  // different job postings that only differ by that value collapse onto one
+  // key and later lookups land on the wrong row.
+  update(
+    entry: JobListEntry,
+    priorityList: readonly string[],
+    identifyingQueryValues?: readonly string[]
+  ): Promise<UpdateResult>;
   delete(id: string): Promise<DeleteResult>;
   // Reads one row and writes nothing. Update creates a row where it finds
   // none, and a status change carries no collection date, so that create
@@ -178,22 +185,26 @@ function toJobRow(row: Job & { company: CompanyRow | null }): JobRow {
 function writeLinkMatchKey(
   columns: Record<string, unknown>,
   keyField: string,
-  link: string | null | undefined
+  link: string | null | undefined,
+  identifyingQueryValues: readonly string[]
 ): void {
   if (link === undefined) return;
-  columns[keyField] = link === null ? null : urlMatchKey(link);
+  columns[keyField] = link === null ? null : urlMatchKey(link, identifyingQueryValues);
 }
 
 // delete_on_save is a JobListEntry-only flag, not a Job column, so it is
 // stripped before the rest of the entry reaches Prisma. created_at is stripped
 // too: a merged job carries the surviving row's created_at while it travels in
 // memory, and writing it back would overwrite the birthday the database set.
-function toColumnData(entry: JobListEntry): Record<string, unknown> {
+function toColumnData(
+  entry: JobListEntry,
+  identifyingQueryValues: readonly string[]
+): Record<string, unknown> {
   const columns: Record<string, unknown> = { ...entry };
   delete columns["delete_on_save"];
   delete columns["created_at"];
-  writeLinkMatchKey(columns, "original_url_match_key", entry.original_url);
-  writeLinkMatchKey(columns, "resolved_url_match_key", entry.resolved_url);
+  writeLinkMatchKey(columns, "original_url_match_key", entry.original_url, identifyingQueryValues);
+  writeLinkMatchKey(columns, "resolved_url_match_key", entry.resolved_url, identifyingQueryValues);
   return columns;
 }
 
@@ -203,7 +214,8 @@ export function createJobService(db: PipelineDb): JobService {
   async function create(
     id: string,
     entry: JobListEntry,
-    priorityList: readonly string[]
+    priorityList: readonly string[],
+    identifyingQueryValues: readonly string[]
   ): Promise<UpdateResult> {
     if (entry.collected_at == null) {
       throw new Error(
@@ -216,7 +228,11 @@ export function createJobService(db: PipelineDb): JobService {
     // collection-date fallback, so a job carrying no posting date anywhere
     // still leaves save with one.
     const { posting_date, posting_updated_date } = poolJobDates(entry, null, entry.collected_at);
-    const columns = { ...toColumnData(entry), posting_date, posting_updated_date };
+    const columns = {
+      ...toColumnData(entry, identifyingQueryValues),
+      posting_date,
+      posting_updated_date,
+    };
 
     try {
       const row = await db.job.create({ data: columns as Prisma.JobCreateInput });
@@ -227,7 +243,7 @@ export function createJobService(db: PipelineDb): JobService {
       // by taking the update path against that row, as if the lookup had
       // found it in the first place.
       const row = await db.job.findUnique({ where: { id } });
-      return writeToExistingRow(id, row, entry, priorityList);
+      return writeToExistingRow(id, row, entry, priorityList, identifyingQueryValues);
     }
   }
 
@@ -235,7 +251,8 @@ export function createJobService(db: PipelineDb): JobService {
     id: string,
     row: Job | null,
     entry: JobListEntry,
-    priorityList: readonly string[]
+    priorityList: readonly string[],
+    identifyingQueryValues: readonly string[]
   ): Promise<UpdateResult> {
     // The user has applied to this job, so everything about it is frozen
     // except its status. An entry carrying none leaves the row alone.
@@ -257,7 +274,7 @@ export function createJobService(db: PipelineDb): JobService {
 
     // mergeJobs always hands back the write-once fields, so they are dropped
     // here rather than named again — the merge is where that group is defined.
-    const data = toColumnData(merged);
+    const data = toColumnData(merged, identifyingQueryValues);
     for (const field of WRITE_ONCE_FIELDS) delete data[field];
     const updated = await db.job.update({ where: { id }, data: data as Prisma.JobUpdateInput });
     return { job: toJobListEntry(updated), outcome: "updated" };
@@ -271,14 +288,14 @@ export function createJobService(db: PipelineDb): JobService {
   }
 
   return {
-    async update(entry, priorityList) {
+    async update(entry, priorityList, identifyingQueryValues = []) {
       if (!entry.id) {
         throw new Error("Job.update requires entry.id — it is how the row to update is found.");
       }
 
       const row = await db.job.findUnique({ where: { id: entry.id } });
-      if (!row) return create(entry.id, entry, priorityList);
-      return writeToExistingRow(entry.id, row, entry, priorityList);
+      if (!row) return create(entry.id, entry, priorityList, identifyingQueryValues);
+      return writeToExistingRow(entry.id, row, entry, priorityList, identifyingQueryValues);
     },
 
     async delete(id) {

@@ -34,6 +34,10 @@ export function extractAshbySlug(url: string): string | null {
   return segments[0];
 }
 
+// Ashby postings carry their identity in the path; query strings drift
+// between the stored link and the board's copy, so none are kept.
+const NO_IDENTIFYING_QUERY_VALUES: readonly string[] = [];
+
 export const ashbyParser: Parser = {
   name: "ashby",
 
@@ -59,9 +63,9 @@ export const ashbyParser: Parser = {
     // link and the board's own copy — so postings are matched on a link
     // match key rather than exact text. A null key on either side must
     // never be treated as matching another null key.
-    const wantedKey = urlMatchKey(url);
+    const wantedKey = urlMatchKey(url, NO_IDENTIFYING_QUERY_VALUES);
     const posting = board.jobs.find((candidate) => {
-      const candidateKey = urlMatchKey(candidate.jobUrl);
+      const candidateKey = urlMatchKey(candidate.jobUrl, NO_IDENTIFYING_QUERY_VALUES);
       return candidateKey !== null && wantedKey !== null && candidateKey === wantedKey;
     });
 

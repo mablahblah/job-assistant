@@ -62,6 +62,9 @@ const SETTING_DEFAULTS = {
   // How long a guessed category stands. Shorter than the score expiry,
   // because a guess is a placeholder rather than research.
   guessed_score_expiry_days: 30,
+  // UltiPro carries a job's only identity in its opportunityid query value,
+  // so duplicate matching must keep it; every other query value is dropped.
+  identifying_query_values: ["opportunityid"],
 };
 
 // The full ranking a database should end up holding. It sits apart from
@@ -106,6 +109,7 @@ type SettingPatch = {
   promotion_threshold?: number;
   score_expiry_days?: number;
   guessed_score_expiry_days?: number;
+  identifying_query_values?: string[];
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -157,6 +161,9 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   }
   if (existing.repost_gap_days === null) {
     patch.repost_gap_days = SETTING_DEFAULTS.repost_gap_days;
+  }
+  if (existing.identifying_query_values === null) {
+    patch.identifying_query_values = SETTING_DEFAULTS.identifying_query_values;
   }
 
   const filled = Object.keys(patch);

@@ -249,6 +249,7 @@ describe("AC 10: the settings service exposes reads only", () => {
       [
         "getExpiryThreshold",
         "getGuessedScoreExpiryDays",
+        "getIdentifyingQueryValues",
         "getLocation",
         "getPromotionThreshold",
         "getRadius",
@@ -737,5 +738,48 @@ describe("getSourcePriorityList returns the stored list", () => {
   test("a list of one entry is a real answer", async () => {
     await runSql(url, "UPDATE Setting SET source_priority_list = '[\"collector:user\"]' WHERE id = 1");
     expect(await service.getSourcePriorityList()).toEqual(["collector:user"]);
+  });
+});
+
+// Which query values identify a job is a list the user can change, so it is
+// read as stored. An empty list is a real answer — no query value identifies a
+// job — the way an empty search term list switches searching off.
+describe("getIdentifyingQueryValues reads the stored list", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-identifying-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("the stored names come back as written", async () => {
+    await runSql(
+      url,
+      `UPDATE Setting SET identifying_query_values = '["opportunityid","gh_jid"]' WHERE id = 1`
+    );
+    expect(await service.getIdentifyingQueryValues()).toEqual(["opportunityid", "gh_jid"]);
+  });
+
+  test("an empty list is a real answer", async () => {
+    await runSql(url, "UPDATE Setting SET identifying_query_values = '[]' WHERE id = 1");
+    expect(await service.getIdentifyingQueryValues()).toEqual([]);
+  });
+
+  test("a null column throws naming it and the seed", async () => {
+    await runSql(url, "UPDATE Setting SET identifying_query_values = NULL WHERE id = 1");
+    await expect(service.getIdentifyingQueryValues()).rejects.toThrow(/identifying_query_values/);
+    await expect(service.getIdentifyingQueryValues()).rejects.toThrow(/db:seed/);
+  });
+
+  test("a list holding something other than a name throws naming it", async () => {
+    await runSql(url, "UPDATE Setting SET identifying_query_values = '[\"opportunityid\", 7]' WHERE id = 1");
+    await expect(service.getIdentifyingQueryValues()).rejects.toThrow(/identifying_query_values/);
   });
 });

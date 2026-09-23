@@ -29,6 +29,9 @@ export function fakeSettingsService(overrides: Partial<SettingsService> = {}): S
     // The priority list has no seeded default to copy: it is built from the
     // collector registry rather than seeded as a constant.
     getSourcePriorityList: async () => [],
+    // Copied from scripts/db-seed.ts, which seeds the identifying query values
+    // for UltiPro jobs.
+    getIdentifyingQueryValues: async () => ["opportunityid"],
     getResolutionFastConcurrency: async () => 3,
     getResolutionSlowConcurrency: async () => 1,
     getResolutionSlowPauseSeconds: async () => 12,

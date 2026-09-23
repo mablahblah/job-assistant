@@ -23,10 +23,11 @@ export interface MergeMatchingJobsResult {
 // name the first that fires, so the fold never looks for a second one itself.
 function firstMatch(
   survivors: readonly JobListEntry[],
-  entry: JobListEntry
+  entry: JobListEntry,
+  identifyingQueryValues: readonly string[]
 ): { index: number; clause: JobIdentityClause } | null {
   for (let index = 0; index < survivors.length; index += 1) {
-    const clause = matchingClause(survivors[index], entry);
+    const clause = matchingClause(survivors[index], entry, identifyingQueryValues);
     if (clause !== null) return { index, clause };
   }
   return null;
@@ -45,7 +46,9 @@ function firstMatch(
 export function mergeMatchingJobs(
   jobs: readonly JobListEntry[],
   priorityList: readonly string[],
-  collectedAt: Date
+  collectedAt: Date,
+  // Identity rules need this to tell apart jobs whose links differ only in an identifying query value.
+  identifyingQueryValues: readonly string[]
 ): MergeMatchingJobsResult {
   // Built fresh, so nothing the caller handed in is written to.
   const survivors: JobListEntry[] = [];
@@ -54,7 +57,7 @@ export function mergeMatchingJobs(
   for (const job of jobs) {
     let carried = job;
 
-    for (let match = firstMatch(survivors, carried); match !== null; ) {
+    for (let match = firstMatch(survivors, carried, identifyingQueryValues); match !== null; ) {
       const earlier = survivors[match.index];
 
       // The shared merge rule settles every field and pools both dates.
@@ -80,7 +83,7 @@ export function mergeMatchingJobs(
       // entry is what goes looking for the next match.
       survivors.splice(match.index, 1);
       carried = merged;
-      match = firstMatch(survivors, carried);
+      match = firstMatch(survivors, carried, identifyingQueryValues);
     }
 
     survivors.push(carried);

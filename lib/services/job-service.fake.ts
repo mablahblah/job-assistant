@@ -23,10 +23,12 @@ function writeLinkMatchKey(
   target: JobListEntry,
   keyField: "original_url_match_key" | "resolved_url_match_key",
   mentioned: string | null | undefined,
-  winner: string | null | undefined
+  winner: string | null | undefined,
+  identifyingQueryValues: readonly string[]
 ): void {
   if (mentioned === undefined) return;
-  target[keyField] = typeof winner === "string" ? urlMatchKey(winner) : null;
+  target[keyField] =
+    typeof winner === "string" ? urlMatchKey(winner, identifyingQueryValues) : null;
 }
 
 export function fakeJobService(
@@ -58,7 +60,8 @@ export function fakeJobService(
 
   async function update(
     entry: JobListEntry,
-    priorityList: readonly string[]
+    priorityList: readonly string[],
+    identifyingQueryValues: readonly string[] = []
   ): Promise<UpdateResult> {
     if (!entry.id) {
       throw new Error("Job.update requires entry.id — it is how the row to update is found.");
@@ -83,8 +86,20 @@ export function fakeJobService(
       // The schema defaults status to backlog on a real insert, so a fake
       // holding plain objects has to supply that default itself.
       if (job.status === undefined) job.status = "backlog";
-      writeLinkMatchKey(job, "original_url_match_key", entry.original_url, job.original_url);
-      writeLinkMatchKey(job, "resolved_url_match_key", entry.resolved_url, job.resolved_url);
+      writeLinkMatchKey(
+        job,
+        "original_url_match_key",
+        entry.original_url,
+        job.original_url,
+        identifyingQueryValues
+      );
+      writeLinkMatchKey(
+        job,
+        "resolved_url_match_key",
+        entry.resolved_url,
+        job.resolved_url,
+        identifyingQueryValues
+      );
       // A first-ever save never merges, so the stand-in runs the same
       // collection-date fallback here that the real service runs on create.
       const pooled = poolJobDates(entry, null, entry.collected_at as Date);
@@ -116,8 +131,20 @@ export function fakeJobService(
     Object.assign(held, merged);
     // Read the links off the merged record, so each key follows the link that
     // won the source-priority contest rather than the one the entry carried.
-    writeLinkMatchKey(held, "original_url_match_key", entry.original_url, held.original_url);
-    writeLinkMatchKey(held, "resolved_url_match_key", entry.resolved_url, held.resolved_url);
+    writeLinkMatchKey(
+      held,
+      "original_url_match_key",
+      entry.original_url,
+      held.original_url,
+      identifyingQueryValues
+    );
+    writeLinkMatchKey(
+      held,
+      "resolved_url_match_key",
+      entry.resolved_url,
+      held.resolved_url,
+      identifyingQueryValues
+    );
     // The database moves modified_at on every write and leaves the birthday be.
     held.modified_at = new Date();
     return { job: held, outcome: "updated" };

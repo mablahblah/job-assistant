@@ -842,3 +842,37 @@ describe("the dashboard's reads", () => {
     expect(await service().findByIds([])).toEqual([]);
   });
 });
+
+// Mirrors the same check on the real service: a stored key keeps the query
+// values named as identifying, which UltiPro needs to tell openings apart.
+describe("a held key keeps the query values named as identifying", () => {
+  const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+
+  test("a created job's keys keep the named value and drop the rest", async () => {
+    const jobs: JobListEntry[] = [];
+    const service = fakeJobService(jobs);
+    const link = `${BOARD}?opportunityid=A1&utm_source=adzuna`;
+
+    await service.update(
+      { id: "fake-identifying-create", collected_at: COLLECTED_AT, original_url: link, resolved_url: link },
+      PRIORITY_LIST,
+      ["opportunityid"]
+    );
+
+    expect(jobs[0]?.original_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+    expect(jobs[0]?.resolved_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+  });
+
+  test("an update writing a link keeps the named value in its key", async () => {
+    const jobs: JobListEntry[] = [storedJob("fake-identifying-update", { collector: "greenhouse" })];
+    const service = fakeJobService(jobs);
+
+    await service.update(
+      { id: "fake-identifying-update", resolved_url: `${BOARD}?opportunityid=B2&utm_source=x` },
+      PRIORITY_LIST,
+      ["opportunityid"]
+    );
+
+    expect(jobs[0]?.resolved_url_match_key).toBe(`${BOARD}?opportunityid=B2`);
+  });
+});

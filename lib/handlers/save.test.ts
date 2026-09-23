@@ -34,6 +34,7 @@ describe("an entry marked for deletion", () => {
     await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(rows).toHaveLength(0);
@@ -45,6 +46,7 @@ describe("an entry marked for deletion", () => {
     await saveJobs([entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(rows).toHaveLength(0);
@@ -56,6 +58,7 @@ describe("an entry marked for deletion", () => {
     await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(rows).toHaveLength(1);
@@ -75,6 +78,7 @@ describe("an entry marked for deletion", () => {
     await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(written).toEqual([]);
@@ -89,7 +93,7 @@ describe("warning about a delete the guardrail refused", () => {
 
     const result = await saveJobs(
       [entry("applied", { delete_on_save: "hard_match_in_list", title: "Staff Product Designer" })],
-      { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST }
+      { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST, identifyingQueryValues: [] }
     );
 
     expect(result.warnings).toHaveLength(1);
@@ -102,7 +106,7 @@ describe("warning about a delete the guardrail refused", () => {
 
     const result = await saveJobs(
       [entry("applied", { delete_on_save: "hard_match_in_list", collector: "adzuna" })],
-      { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST }
+      { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST, identifyingQueryValues: [] }
     );
 
     expect(result.warnings[0]?.collector).toBe("adzuna");
@@ -121,7 +125,7 @@ describe("warning about a delete the guardrail refused", () => {
         entry("a2", { delete_on_save: "hard_match_in_list" }),
         entry("a3", { delete_on_save: "hard_match_in_list" }),
       ],
-      { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST }
+      { jobService: fakeJobService(rows), priorityList: PRIORITY_LIST, identifyingQueryValues: [] }
     );
 
     expect(result.warnings).toHaveLength(3);
@@ -131,6 +135,7 @@ describe("warning about a delete the guardrail refused", () => {
     const result = await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("dupe")]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.warnings).toEqual([]);
@@ -140,6 +145,7 @@ describe("warning about a delete the guardrail refused", () => {
     const result = await saveJobs([entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.warnings).toEqual([]);
@@ -158,6 +164,7 @@ describe("an entry marked for reaching a blacklisted site", () => {
     await saveJobs([entry("spam", { delete_on_save: "blacklisted_url" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(rows).toHaveLength(0);
@@ -169,6 +176,7 @@ describe("an entry marked for reaching a blacklisted site", () => {
     await saveJobs([entry("spam", { delete_on_save: "blacklisted_url" })], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(rows).toHaveLength(1);
@@ -179,6 +187,7 @@ describe("an entry marked for reaching a blacklisted site", () => {
     const result = await saveJobs([entry("spam", { delete_on_save: "blacklisted_url" })], {
       jobService: fakeJobService([saved("spam", { status: "app. sent" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.warnings).toHaveLength(1);
@@ -202,6 +211,7 @@ describe("warning about a write that threw", () => {
     const result = await saveJobs([entry("lost", { title: "UX Researcher" })], {
       jobService: throwingService("SQLITE_BUSY: database is locked"),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.warnings).toHaveLength(1);
@@ -212,6 +222,7 @@ describe("warning about a write that threw", () => {
     const result = await saveJobs([entry("lost")], {
       jobService: throwingService("SQLITE_BUSY: database is locked"),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.warnings[0]?.message).toContain("SQLITE_BUSY: database is locked");
@@ -230,6 +241,7 @@ describe("warning about a write that threw", () => {
     const result = await saveJobs([entry("first"), entry("lost"), entry("last")], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(calls).toBe(3);
@@ -246,6 +258,7 @@ describe("warning about a write that threw", () => {
     const result = await saveJobs([entry("dupe", { delete_on_save: "hard_match_in_list" })], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.warnings).toHaveLength(1);
@@ -261,6 +274,7 @@ describe("the step contract", () => {
     const result = await saveJobs([entry("a")], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(Array.isArray(result.jobs)).toBe(true);
@@ -279,6 +293,7 @@ describe("the step contract", () => {
     await saveJobs([entry("a"), entry("b"), entry("c")], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(seen).toEqual(["a", "b", "c"]);
@@ -296,6 +311,7 @@ describe("the step contract", () => {
     await saveJobs([entry("a"), entry("b")], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(lists).toEqual([PRIORITY_LIST, PRIORITY_LIST]);
@@ -317,6 +333,7 @@ describe("the step contract", () => {
     await saveJobs([entry("a"), entry("b"), entry("c")], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(overlapped).toBe(false);
@@ -328,6 +345,7 @@ describe("the step contract", () => {
     const result = await saveJobs([], {
       jobService: fakeJobService(rows),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.jobs).toEqual([]);
@@ -344,6 +362,7 @@ describe("the list the step returns", () => {
     const result = await saveJobs([entry("a")], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.jobs).toHaveLength(1);
@@ -354,7 +373,7 @@ describe("the list the step returns", () => {
   test("leaves out an entry whose row was deleted", async () => {
     const result = await saveJobs(
       [entry("keep"), entry("dupe", { delete_on_save: "hard_match_in_list" })],
-      { jobService: fakeJobService([saved("dupe")]), priorityList: PRIORITY_LIST }
+      { jobService: fakeJobService([saved("dupe")]), priorityList: PRIORITY_LIST, identifyingQueryValues: [] }
     );
 
     expect(result.jobs.map((job) => job.id)).toEqual(["keep"]);
@@ -364,6 +383,7 @@ describe("the list the step returns", () => {
     const result = await saveJobs([entry("keep"), entry("ghost", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.jobs.map((job) => job.id)).toEqual(["keep"]);
@@ -373,6 +393,7 @@ describe("the list the step returns", () => {
     const result = await saveJobs([entry("applied", { delete_on_save: "hard_match_in_list" })], {
       jobService: fakeJobService([saved("applied", { status: "offer" })]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.jobs.map((job) => job.id)).toEqual(["applied"]);
@@ -389,6 +410,7 @@ describe("the list the step returns", () => {
     const result = await saveJobs([entry("kept"), entry("lost")], {
       jobService: service,
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.jobs.map((job) => job.id)).toEqual(["kept"]);
@@ -398,8 +420,29 @@ describe("the list the step returns", () => {
     const result = await saveJobs([entry("a"), entry("b"), entry("c")], {
       jobService: fakeJobService([]),
       priorityList: PRIORITY_LIST,
+      identifyingQueryValues: [],
     });
 
     expect(result.jobs.map((job) => job.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+// Saving is where a stored key is written, so the list of query values that
+// identify a job has to reach the write. UltiPro carries a job's only
+// identity in its opportunityid query value.
+describe("the query values named as identifying reach the stored key", () => {
+  test("a saved job's key keeps the named value and drops the rest", async () => {
+    const BOARD = "https://recruiting.ultipro.com/acm1000acme/jobboard/5b3c/opportunitydetail";
+    const link = `${BOARD}?opportunityid=A1&utm_source=adzuna`;
+    const rows: JobListEntry[] = [];
+
+    await saveJobs([entry("ultipro", { original_url: link, resolved_url: link })], {
+      jobService: fakeJobService(rows),
+      priorityList: PRIORITY_LIST,
+      identifyingQueryValues: ["opportunityid"],
+    });
+
+    expect(rows[0]?.original_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
+    expect(rows[0]?.resolved_url_match_key).toBe(`${BOARD}?opportunityid=A1`);
   });
 });
