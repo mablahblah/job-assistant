@@ -2,6 +2,22 @@
 
 <!-- Newest at top -->
 
+## September 24, 2026 - v1.3.0
+
+### New Features
+
+#### Jobs on Five More Hiring Sites Are Read, and Their Boards Watched
+
+Workable, Gem, SmartRecruiters, BambooHR and Rippling are hiring sites many smaller employers use, and the app could read none of them. Jobs found there were set aside unread, 56 of them by the time this shipped. The app now reads all five, so each job gets its description, location and pay from the employer's own posting, and BambooHR's written pay range is read even without a currency sign. Reading a posting records which board the employer hires through, so an employer you score well has that board checked directly on every later search. Workable's cross-company job search site never names the board, so the app guesses it from the employer's name and keeps a guess only when that board lists jobs. If two hiring sites claim one board name, the search warns you. The 56 set-aside jobs are back in your backlog.
+
+### Internal
+
+- **Security** Updated the installed packages that had a safe fix for a known weakness, taking the package check from 23 problems to 5. The rest need a major upgrade of the database library, now on the backlog.
+- **Code** Shared one helper for joining a place's city, state and country, made the new hiring-site names all lowercase like the older ones, and fixed several names and comments, after the release audit flagged them.
+- **Tests** Added tests for a failed second page of a SmartRecruiters board, a search stopping once it has enough jobs, reading pay and work mode on Workable's job search site, UltiPro's job number surviving a recovery, and a few rare missing fields. The check that no reader opens a browser now follows what each reader loads, rather than searching its code for a word.
+- **Backlog** Filed the release audit's deferred findings under five existing entries.
+- **Records** Saved the release audit's report, logged its rule findings, and moved the audit's bookmark to the current commit.
+
 ## September 23, 2026 - v1.2.0
 
 ### New Features

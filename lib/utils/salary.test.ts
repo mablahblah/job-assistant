@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fixture from "./description-fields.fixture.json";
-import { normalizeSalary, readSalaryFromText, type SalaryPeriod } from "./salary";
+import { normalizeSalary, readSalaryFromPayText, readSalaryFromText, type SalaryPeriod } from "./salary";
 
 describe("normalizeSalary: nothing to report", () => {
   test("no raw_salary at all sets no salary column", () => {
@@ -337,5 +337,38 @@ describe("the fixture of real excerpts from the boards this pipeline polls", () 
       .map((one) => ({ source: one.source, got: readSalaryFromText(one.text) }))
       .filter(({ got }) => got.salary_low !== undefined || got.salary_high !== undefined);
     expect(wronglyRead).toEqual([]);
+  });
+});
+
+// A source's own pay field is known to be pay, so it needs no currency to be
+// read as one. BambooHR's compensation field held "145k-185k" on the one job
+// measured, on 2026-09-24.
+describe("readSalaryFromPayText: a pay field is read without a currency", () => {
+  test("a range with no currency is read", () => {
+    expect(readSalaryFromPayText("145k-185k")).toEqual({
+      salary_low: 145000,
+      salary_high: 185000,
+      salary_period: "year",
+    });
+  });
+
+  test("a range with a currency is read the same way", () => {
+    expect(readSalaryFromPayText("$145,000 - $185,000")).toEqual({
+      salary_low: 145000,
+      salary_high: 185000,
+      salary_period: "year",
+    });
+  });
+
+  test("a period the field states is kept", () => {
+    expect(readSalaryFromPayText("40-55 per hour").salary_period).toBe("hour");
+  });
+
+  test("text holding no range leaves every field empty", () => {
+    expect(readSalaryFromPayText("Competitive")).toEqual({});
+  });
+
+  test("a high figure below the low figure is refused", () => {
+    expect(readSalaryFromPayText("185k-145k")).toEqual({});
   });
 });

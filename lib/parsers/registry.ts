@@ -25,6 +25,11 @@ import { greenhouseParser } from "./greenhouse";
 import { leverParser } from "./lever";
 import { workdayParser } from "./workday";
 import { ultiproParser } from "./ultipro";
+import { gemParser } from "./gem";
+import { smartrecruitersParser } from "./smartrecruiters";
+import { bamboohrParser } from "./bamboohr";
+import { ripplingParser } from "./rippling";
+import { workableParser } from "./workable";
 import type { Parser } from "./parser";
 
 export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
@@ -34,6 +39,11 @@ export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
   "dribbble.com": dribbbleParser,
   "myworkdayjobs.com": workdayParser,
   "ultipro.com": ultiproParser,
+  "gem.com": gemParser,
+  "smartrecruiters.com": smartrecruitersParser,
+  "bamboohr.com": bamboohrParser,
+  "rippling.com": ripplingParser,
+  "workable.com": workableParser,
 };
 
 // Looks up the parser for a link. Returns null for a link no entry owns and

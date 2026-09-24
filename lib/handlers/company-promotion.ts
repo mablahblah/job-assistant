@@ -34,6 +34,11 @@ const POLLABLE_COLLECTORS_BY_PARSER: Record<string, string> = {
   ashby: "ashby",
   workday: "workday",
   ultipro: "ultipro",
+  gem: "gem",
+  smartrecruiters: "smartrecruiters",
+  bamboohr: "bamboohr",
+  rippling: "rippling",
+  workable: "workable",
 };
 
 // Closed sets rather than plain strings, so a word this handler has no

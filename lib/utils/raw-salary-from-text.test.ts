@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { rawSalaryFromText } from "./raw-salary-from-text";
+import { rawSalaryFromPayText, rawSalaryFromText } from "./raw-salary-from-text";
 import { normalizeSalary } from "./salary";
 
 describe("rawSalaryFromText: pay read out of prose comes back in the envelope's own field names", () => {
@@ -40,6 +40,28 @@ describe("rawSalaryFromText: the envelope it builds survives the normalizer unch
     expect(normalizeSalary(envelope)).toEqual({
       salary_low: 120000,
       salary_high: 150000,
+      salary_period: "year",
+    });
+  });
+});
+
+describe("rawSalaryFromPayText: a source's own pay field comes back in the envelope's field names", () => {
+  test("a range with no currency lands on salary_min and salary_max", () => {
+    expect(rawSalaryFromPayText("145k-185k")).toEqual({
+      salary_min: 145000,
+      salary_max: 185000,
+      salary_period: "year",
+    });
+  });
+
+  test("a pay field stating no range gives nothing", () => {
+    expect(rawSalaryFromPayText("Competitive")).toBe(null);
+  });
+
+  test("the envelope it builds survives the normalizer unchanged", () => {
+    expect(normalizeSalary(rawSalaryFromPayText("145k-185k"))).toEqual({
+      salary_low: 145000,
+      salary_high: 185000,
       salary_period: "year",
     });
   });

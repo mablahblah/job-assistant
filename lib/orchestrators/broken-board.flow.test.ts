@@ -1,7 +1,8 @@
 // Flow test: A bad board reply skips only that board.
 //
-// Every collector that polls boards — Greenhouse, Lever, Ashby, Workday and
-// UltiPro — is handed three promoted boards, in this order. The first answers
+// Every collector that polls boards — Greenhouse, Lever, Ashby, Workday,
+// UltiPro, Workable, Gem, SmartRecruiters, BambooHR and Rippling — is handed
+// three promoted boards, in this order. The first answers
 // with a page that is not job data. The request for the second fails outright,
 // before any reply. The third answers properly with one matching job. One job
 // search polls them all, and the test checks each collector carried on past
@@ -103,6 +104,37 @@ const SOURCES: Source[] = [
     slug: (marker) => `up${marker}:${ULTIPRO_BOARD_ID}`,
     name: (marker) => `up${marker}`,
     title: "Product Designer, UltiPro",
+  },
+  {
+    collector: "workable",
+    slug: (marker) => `wk-${marker}`,
+    name: (marker) => `wk-${marker}`,
+    title: "Product Designer, Workable",
+  },
+  {
+    collector: "gem",
+    slug: (marker) => `gm-${marker}`,
+    name: (marker) => `gm-${marker}`,
+    title: "Product Designer, Gem",
+  },
+  {
+    collector: "smartrecruiters",
+    slug: (marker) => `sr-${marker}`,
+    name: (marker) => `sr-${marker}`,
+    title: "Product Designer, SmartRecruiters",
+  },
+  {
+    // The board name is the first part of the board's web address.
+    collector: "bamboohr",
+    slug: (marker) => `bh-${marker}`,
+    name: (marker) => `bh-${marker}`,
+    title: "Product Designer, BambooHR",
+  },
+  {
+    collector: "rippling",
+    slug: (marker) => `rp-${marker}`,
+    name: (marker) => `rp-${marker}`,
+    title: "Product Designer, Rippling",
   },
 ];
 
@@ -212,6 +244,95 @@ function healthyList(url: URL, method: string, body: string): Response | null {
       ],
       totalCount: 1,
     });
+  }
+
+  // The five below answer at the board list addresses the ATS and HR System
+  // Parser Expansion spec names, in the shapes measured live on 2026-09-24.
+  if (url.host === "apply.workable.com" && segments.slice(0, 4).join("/") === "api/v1/widget/accounts") {
+    return json({
+      name: "Healthy Workable Co",
+      description: "",
+      jobs: [
+        {
+          title: titleFor("workable"),
+          shortcode: "WK7001AAAA",
+          employment_type: "Full-time",
+          telecommuting: true,
+          url: "https://apply.workable.com/j/WK7001AAAA",
+          shortlink: "https://apply.workable.com/j/WK7001AAAA",
+          published_on: "2026-08-28",
+          created_at: "2026-08-28",
+          country: "United States",
+          city: "Austin",
+          state: "Texas",
+          locations: [],
+        },
+      ],
+    });
+  }
+
+  if (url.host === "api.gem.com" && segments.at(-1) === "job_posts") {
+    return json([
+      {
+        absolute_url: "https://jobs.gem.com/gm-healthy/7001",
+        content: "<p>Design for the healthy board.</p>",
+        content_plain: "Design for the healthy board.",
+        created_at: "2026-08-28T00:00:00.000Z",
+        first_published_at: "2026-08-28T00:00:00.000Z",
+        id: "7001",
+        location: { name: "Remote" },
+        title: titleFor("gem"),
+        updated_at: "2026-08-29T00:00:00.000Z",
+      },
+    ]);
+  }
+
+  if (url.host === "api.smartrecruiters.com" && segments.at(-1) === "postings") {
+    if (Number(url.searchParams.get("offset") ?? "0") > 0) {
+      return json({ offset: 100, limit: 100, totalFound: 1, content: [] });
+    }
+    return json({
+      offset: 0,
+      limit: 100,
+      totalFound: 1,
+      content: [
+        {
+          id: "744000000007001",
+          name: titleFor("smartrecruiters"),
+          company: { identifier: "sr-healthy", name: "Healthy SmartRecruiters Co" },
+          releasedDate: "2026-08-28T00:00:00.000Z",
+          location: { city: "Austin", region: "TX", country: "us", fullLocation: "Austin, TX, United States" },
+        },
+      ],
+    });
+  }
+
+  if (url.host.endsWith(".bamboohr.com") && url.pathname === "/careers/list") {
+    return json({
+      meta: { totalCount: 1 },
+      result: [
+        {
+          id: "7001",
+          jobOpeningName: titleFor("bamboohr"),
+          departmentLabel: "Product",
+          employmentStatusLabel: "Full-Time",
+          location: { city: null, state: null },
+          atsLocation: { country: "United States", state: "Texas", province: null, city: "Austin" },
+        },
+      ],
+    });
+  }
+
+  if (url.host === "api.rippling.com" && segments.at(-1) === "jobs") {
+    return json([
+      {
+        uuid: "00000000-0000-4000-8000-000000007001",
+        name: titleFor("rippling"),
+        department: { id: "Product", label: "Product" },
+        url: "https://ats.rippling.com/rp-healthy/jobs/00000000-0000-4000-8000-000000007001",
+        workLocation: { label: "Austin, TX", id: "Austin, TX" },
+      },
+    ]);
   }
 
   return null;

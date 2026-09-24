@@ -505,6 +505,11 @@ const EXPECTED_PRIORITY_LIST = [
   "parser:dribbble",
   "parser:workday",
   "parser:ultipro",
+  "parser:gem",
+  "parser:smartrecruiters",
+  "parser:bamboohr",
+  "parser:rippling",
+  "parser:workable",
   "collector:adzuna",
   "collector:jsearch",
   "collector:greenhouse",
@@ -514,6 +519,11 @@ const EXPECTED_PRIORITY_LIST = [
   "collector:uiuxjobsboard",
   "collector:workday",
   "collector:ultipro",
+  "collector:gem",
+  "collector:smartrecruiters",
+  "collector:bamboohr",
+  "collector:rippling",
+  "collector:workable",
 ];
 
 describe("AC26: seeding a fresh database builds the source priority list", () => {
@@ -557,7 +567,7 @@ describe("AC26: seeding a fresh database builds the source priority list", () =>
       .filter((entry) => entry.name.startsWith("collector:") && entry.name !== "collector:user")
       .map((entry) => entry.index);
 
-    expect(parserRanks).toHaveLength(6);
+    expect(parserRanks).toHaveLength(11);
     expect(Math.min(...parserRanks)).toBeGreaterThan(list.indexOf("collector:user"));
     expect(Math.max(...parserRanks)).toBeLessThan(Math.min(...collectorRanks));
   });
@@ -613,6 +623,11 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "parser:dribbble",
       "parser:workday",
       "parser:ultipro",
+      "parser:gem",
+      "parser:smartrecruiters",
+      "parser:bamboohr",
+      "parser:rippling",
+      "parser:workable",
       "collector:jsearch",
       "collector:lever",
       "collector:ashby",
@@ -620,6 +635,11 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "collector:uiuxjobsboard",
       "collector:workday",
       "collector:ultipro",
+      "collector:gem",
+      "collector:smartrecruiters",
+      "collector:bamboohr",
+      "collector:rippling",
+      "collector:workable",
     ]);
   });
 

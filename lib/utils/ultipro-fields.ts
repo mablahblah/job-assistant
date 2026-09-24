@@ -52,7 +52,8 @@ export function ultiproJobListUrl(parts: UltiproBoardParts): string {
 }
 
 export function ultiproPostingUrl(parts: UltiproBoardParts, opportunityId: string): string {
-  // Lowercase URL to match the canonical form that deduplication and resolvers expect
+  // The id is encoded so a character like "&" cannot split the query string
+  // into a second value.
   const encodedId = encodeURIComponent(opportunityId);
   return `https://recruiting.ultipro.com/${parts.companyCode}/jobboard/${parts.boardId}/opportunitydetail?opportunityid=${encodedId}`;
 }

@@ -90,6 +90,56 @@ describe("a company averaging above the threshold", () => {
 
     expect(rows[0]?.collector).toBe("ultipro");
   });
+
+  test("a Gem board gains the Gem collector", async () => {
+    const rows = [slugRow({ parser: "gem", slug: "goodco" })];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("gem");
+  });
+
+  test("a SmartRecruiters board gains the SmartRecruiters collector", async () => {
+    const rows = [slugRow({ parser: "smartrecruiters", slug: "GoodCo" })];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("smartrecruiters");
+  });
+
+  test("a BambooHR board gains the BambooHR collector", async () => {
+    const rows = [slugRow({ parser: "bamboohr", slug: "goodco" })];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("bamboohr");
+  });
+
+  test("a Rippling board gains the Rippling collector", async () => {
+    const rows = [slugRow({ parser: "rippling", slug: "goodco" })];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("rippling");
+  });
+
+  test("a Workable board gains the Workable collector", async () => {
+    const rows = [slugRow({ parser: "workable", slug: "goodco" })];
+    await promoteCompanies([scoredCompany()], {
+      promotionThreshold: PROMOTION_THRESHOLD,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(rows[0]?.collector).toBe("workable");
+  });
 });
 
 // Criterion 53. The threshold is a bar to clear, not to reach.

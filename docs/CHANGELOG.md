@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## September 24, 2026 - v1.3.0
+
+### New Features
+
+#### Jobs on Five More Hiring Sites Are Read, and Their Boards Watched
+
+Workable, Gem, SmartRecruiters, BambooHR and Rippling are hiring sites many smaller employers use, and the app could read none of them. Jobs found there were set aside unread, 56 of them by the time this shipped. The app now reads all five, so each job gets its description, location and pay from the employer's own posting, and BambooHR's written pay range is read even without a currency sign. Reading a posting records which board the employer hires through, so an employer you score well has that board checked directly on every later search. Workable's cross-company job search site never names the board, so the app guesses it from the employer's name and keeps a guess only when that board lists jobs. If two hiring sites claim one board name, the search warns you. The 56 set-aside jobs are back in your backlog.
+
 ## September 23, 2026 - v1.2.0
 
 ### New Features
