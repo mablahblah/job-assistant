@@ -1,11 +1,16 @@
 import { adzunaCollector } from "./adzuna";
 import { ashbyCollector } from "./ashby";
+import { bamboohrCollector } from "./bamboohr";
 import { dribbbleCollector } from "./dribbble";
+import { gemCollector } from "./gem";
 import { greenhouseCollector } from "./greenhouse";
 import { jsearchCollector } from "./jsearch";
 import { leverCollector } from "./lever";
+import { ripplingCollector } from "./rippling";
+import { smartrecruitersCollector } from "./smartrecruiters";
 import { uiuxjobsboardCollector } from "./uiuxjobsboard";
 import { ultiproCollector } from "./ultipro";
+import { workableCollector } from "./workable";
 import { workdayCollector } from "./workday";
 import type { Collector } from "./collector";
 
@@ -21,4 +26,9 @@ export const COLLECTORS: Collector[] = [
   uiuxjobsboardCollector,
   workdayCollector,
   ultiproCollector,
+  gemCollector,
+  smartrecruitersCollector,
+  bamboohrCollector,
+  ripplingCollector,
+  workableCollector,
 ];

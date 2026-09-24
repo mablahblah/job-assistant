@@ -1,7 +1,7 @@
-// Greenhouse, Lever, and Ashby each map their own published fields, then
-// need to fill two gaps out of the job description's own prose: work mode
-// and pay range. This util is that shared fallback step, written once so
-// the three parsers cannot drift apart on how it is applied.
+// Each parser maps its source's own published fields, then needs to fill
+// two gaps out of the job description's own prose: work mode and pay range.
+// This util is that shared fallback step, written once so the parsers
+// cannot drift apart on how it is applied.
 //
 // The rule: a field the employer actually published always wins. The
 // description is only consulted where the published field came back empty,

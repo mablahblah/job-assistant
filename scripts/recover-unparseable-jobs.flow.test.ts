@@ -8,9 +8,14 @@
 // Measured 2026-09-21: 145 jobs sat set aside, 42 on Workday or UltiPro and
 // 103 on websites no parser owns. The 103 must stay exactly where they are.
 //
+// The ATS and HR System Parser Expansion adds a job on each of its five
+// systems, and one on Dover, which that feature leaves unread.
+//
 // Covers: Set-aside jobs a parser now claims return to the backlog, Other
 // set-aside jobs are left alone, A job search never runs the recovery, The
-// Greenhouse-only recovery command is gone.
+// Greenhouse-only recovery command is gone, and from the ATS and HR System
+// Parser Expansion: Set-aside jobs on the five systems return to the backlog,
+// Dover jobs stay set aside.
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -43,6 +48,49 @@ const JOBS = {
     link: "https://careers.acmehealth.example/jobs/42",
   },
 };
+
+// The ATS and HR System Parser Expansion's five systems, written the way their
+// stored links were on 2026-09-24, including both of Workable's sites. The
+// database held 56 such jobs set aside that day.
+const FIVE_SYSTEM_JOBS = {
+  workable: {
+    id: "job-workable",
+    link: "https://apply.workable.com/blueground/j/08717EF2F6",
+  },
+  workableSearchSite: {
+    id: "job-workable-search-site",
+    link:
+      "https://jobs.workable.com/view/tyaZq6jybgHCVRBowKxp43/" +
+      "remote-senior-product-designer%2C-growth---%2335283-in-philippines-at-manila-recruitment",
+  },
+  gem: {
+    id: "job-gem",
+    link: "https://jobs.gem.com/goodbill/am9icG9zdDrXgBnZYQ1GnrFGXbUAi6Oc?utm_source=adzuna&utm_medium=adzuna",
+  },
+  smartrecruiters: {
+    id: "job-smartrecruiters",
+    link: "https://jobs.smartrecruiters.com/RodeoFX/744000148584589-ux-specialist",
+  },
+  bamboohr: {
+    id: "job-bamboohr",
+    link: "https://shortcut.bamboohr.com/careers/40?utm_source=adzuna&utm_medium=adzuna",
+  },
+  rippling: {
+    id: "job-rippling",
+    link:
+      "https://ats.rippling.com/radicl-defense/jobs/371ee603-a211-467c-b868-b5f5b68ccbff" +
+      "?utm_source=adzuna&utm_medium=adzuna",
+  },
+};
+
+// Dover's data feeds are disallowed by its robots.txt, so no parser here reads
+// Dover and its jobs stay set aside for the General Purpose Parser Safety Net.
+const DOVER_JOB = {
+  id: "job-dover",
+  link: "https://app.dover.com/apply/ease-health/2b1c9d7e-4f3a-4e21-9a8b-7c6d5e4f3a2b",
+};
+
+const ALL_JOBS = [...Object.values(JOBS), ...Object.values(FIVE_SYSTEM_JOBS), DOVER_JOB];
 
 function runScript(script: string, url: string): void {
   const args = script === "db-create.ts" ? [url] : [];
@@ -83,6 +131,7 @@ describe("Set-aside jobs are recovered once, by hand", () => {
   let afterJobSearch: Record<string, string>;
   let recovery: { status: number | null; output: string };
   let afterRecovery: Record<string, string>;
+  let ultiproKeyAfterRecovery: unknown;
   let commands: Record<string, string>;
 
   beforeAll(async () => {
@@ -96,7 +145,7 @@ describe("Set-aside jobs are recovered once, by hand", () => {
       `INSERT INTO Company (id, name, match_key, created_at, modified_at)
        VALUES ('co-any', 'Any Employer', 'any employer', '2026-01-01', '2026-01-01')`
     );
-    for (const job of Object.values(JOBS)) {
+    for (const job of ALL_JOBS) {
       await execute(
         url,
         `INSERT INTO Job (id, company_id, title, status, collected_at, created_at,
@@ -115,6 +164,10 @@ describe("Set-aside jobs are recovered once, by hand", () => {
 
     recovery = run("npm", ["run", "recover-unparseable-jobs"], url);
     afterRecovery = await statuses(url);
+    const ultiproRow = await execute(url, "SELECT resolved_url_match_key FROM Job WHERE id = ?", [
+      JOBS.ultipro.id,
+    ]);
+    ultiproKeyAfterRecovery = ultiproRow.rows[0]?.["resolved_url_match_key"];
 
     const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
@@ -132,16 +185,32 @@ describe("Set-aside jobs are recovered once, by hand", () => {
     expect(afterRecovery[JOBS.ultipro.id]).toBe("backlog");
   });
 
+  // The recovery writes each job through the job service, which rebuilds a
+  // job's stored keys from its links, so it has to hand over the seeded
+  // identifying values or UltiPro's opportunityid is stripped out of the key.
+  test("A recovered UltiPro job keeps its opportunityid in its stored key", () => {
+    expect(String(ultiproKeyAfterRecovery)).toContain("opportunityid=e3a376f8-6759-4047-a7e7-79a7a3457ab0");
+  });
+
   test("Other set-aside jobs are left alone", () => {
     expect(afterRecovery[JOBS.unowned.id]).toBe("unparseable");
   });
 
   test("A job search never runs the recovery", () => {
-    expect(afterJobSearch).toEqual({
-      [JOBS.workday.id]: "unparseable",
-      [JOBS.ultipro.id]: "unparseable",
-      [JOBS.unowned.id]: "unparseable",
-    });
+    expect(afterJobSearch).toEqual(
+      Object.fromEntries(ALL_JOBS.map((job) => [job.id, "unparseable"]))
+    );
+  });
+
+  test("Set-aside jobs on the five systems return to the backlog", () => {
+    expect(recovery.status, recovery.output).toBe(0);
+    for (const job of Object.values(FIVE_SYSTEM_JOBS)) {
+      expect(afterRecovery[job.id], job.link).toBe("backlog");
+    }
+  });
+
+  test("Dover jobs stay set aside", () => {
+    expect(afterRecovery[DOVER_JOB.id]).toBe("unparseable");
   });
 
   test("The Greenhouse-only recovery command is gone", () => {

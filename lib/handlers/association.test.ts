@@ -498,6 +498,65 @@ describe("writing down the board a company posts on", () => {
   });
 });
 
+// A board name is held once, whichever hiring system it came from. A job read
+// by a second system that carries a name already held from a first is matched
+// to the company holding it, which may be the wrong one, so the user is told.
+// Nothing is split and nothing is prevented.
+describe("a board name arriving from a second hiring system", () => {
+  function heldBoard(): { companies: CompanyService; rows: AtsSlugRecord[] } {
+    const holder = slugCompany("acme-payments-id", "acme");
+    const rows: AtsSlugRecord[] = [
+      { id: "row-1", slug: "acme", company_id: holder.id, parser: "greenhouse", collector: null },
+    ];
+    return { companies: companiesHolding([holder]), rows };
+  }
+
+  const arriving = (parser: string) =>
+    baseJob({ raw_company_name: "Acme Robotics", raw_company_slug: "acme", parser });
+
+  test("warns, naming the board and both systems", async () => {
+    const { companies, rows } = heldBoard();
+    const result = await associateCompanies([arriving("gem")], {
+      companies,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    const clash = result.warnings.filter((warning) => warning.message.includes("acme"));
+    expect(clash).toHaveLength(1);
+    expect(clash[0]?.message).toContain("gem");
+    expect(clash[0]?.message).toContain("greenhouse");
+    expect(clash[0]?.collector).toBe("adzuna");
+  });
+
+  test("the job still matches the company holding the board", async () => {
+    const { companies, rows } = heldBoard();
+    const result = await associateCompanies([arriving("gem")], {
+      companies,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(result.jobs[0]?.company_id).toBe("acme-payments-id");
+  });
+
+  test("the board is not split into a second row", async () => {
+    const { companies, rows } = heldBoard();
+    await associateCompanies([arriving("gem")], { companies, atsSlugs: fakeAtsSlugService(rows) });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.parser).toBe("greenhouse");
+  });
+
+  test("the same system carrying the name again raises no warning", async () => {
+    const { companies, rows } = heldBoard();
+    const result = await associateCompanies([arriving("greenhouse")], {
+      companies,
+      atsSlugs: fakeAtsSlugService(rows),
+    });
+
+    expect(result.warnings).toEqual([]);
+  });
+});
+
 // A lookup can fail for a reason that has nothing to do with the job — a
 // dropped connection, a locked file. Four other handlers in this folder guard
 // their own per-job work so one such failure costs one job. This one does not,

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import fixture from "./resolved-addresses.fixture.json";
 import { PARSERS_BY_DOMAIN, parserForUrl } from "./registry";
@@ -33,6 +34,11 @@ describe("AC 2: any sub-address of a registered domain reaches that domain's par
       "https://recruiting.ultipro.com/tel1010tefo/jobboard/914e6c7a/opportunitydetail?opportunityid=e3a376f8",
       "ultipro",
     ],
+    ["https://jobs.gem.com/fetch/7536752003?utm_source=adzuna", "gem"],
+    ["https://jobs.smartrecruiters.com/RodeoFX/744000148584589-ux-specialist", "smartrecruiters"],
+    ["https://shortcut.bamboohr.com/careers/40?utm_source=adzuna", "bamboohr"],
+    ["https://ats.rippling.com/radicl-defense/jobs/371ee603-a211-467c-b868-b5f5b68ccbff", "rippling"],
+    ["https://apply.workable.com/blueground/j/08717EF2F6/", "workable"],
   ])("%s reaches the %s parser", (url, name) => {
     expect(parserForUrl(url)?.name).toBe(name);
   });
@@ -105,15 +111,28 @@ describe("the owned-domain list is tried before any parser is asked", () => {
   });
 });
 
-describe("AC 8: no parser opens a browser", () => {
-  test("no parser's source reaches for Playwright", () => {
-    for (const domain of DOMAINS) {
-      const source = readFileSync(
-        `lib/parsers/${PARSERS_BY_DOMAIN[domain].name}.ts`,
-        "utf8"
-      );
-
-      expect(source).not.toContain("playwright");
+// Every module a file loads when it runs, followed through the app's own
+// files to the packages at the end. Type-only imports load nothing, so they
+// are left out.
+function modulesLoadedBy(file: string, seen = new Set<string>()): Set<string> {
+  if (seen.has(file)) return seen;
+  seen.add(file);
+  const source = readFileSync(file, "utf8");
+  const runtimeImport = /^import\s+(?!type\s)[^;]*?from\s+["']([^"']+)["']/gm;
+  for (const [, specifier] of source.matchAll(runtimeImport)) {
+    if (specifier.startsWith(".")) {
+      modulesLoadedBy(`${resolve(dirname(file), specifier)}.ts`, seen);
+    } else {
+      seen.add(specifier);
     }
+  }
+  return seen;
+}
+
+describe("AC 8: no parser opens a browser", () => {
+  test.each(DOMAINS)("the %s parser loads no browser, directly or through another file", (domain) => {
+    const loaded = modulesLoadedBy(resolve(`lib/parsers/${PARSERS_BY_DOMAIN[domain].name}.ts`));
+
+    expect([...loaded].filter((module) => module === "playwright")).toEqual([]);
   });
 });

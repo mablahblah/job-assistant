@@ -162,13 +162,14 @@ function parseAmount(raw: string): number | null {
 }
 
 // Finds the first range carrying a currency somewhere in it, skipping past a
-// bare pair of numbers rather than reading one as pay.
-function firstDashRange(text: string): RangeMatch | null {
+// bare pair of numbers rather than reading one as pay — unless the caller
+// already knows the text is pay, in which case a bare pair counts too.
+function firstDashRange(text: string, requireCurrency: boolean): RangeMatch | null {
   const pattern = new RegExp(RANGE_SOURCE, "gi");
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const [whole, leading, low, middle, high, trailing] = match;
-    if (leading || middle || trailing) {
+    if (!requireCurrency || leading || middle || trailing) {
       return { index: match.index, end: match.index + whole.length, low, high };
     }
   }
@@ -191,12 +192,12 @@ function readPeriod(remainder: string, low: number, high: number): SalaryPeriod 
   return low < 1000 && high < 1000 ? "hour" : "year";
 }
 
-export function readSalaryFromText(text: string): NormalizedSalary {
-  const plain = descriptionToText(text);
-
-  // The first range in the description wins, whichever shape it is written
-  // in, so both shapes are found and the earlier one kept.
-  const dash = firstDashRange(plain);
+// Shared by both readers: finds the earliest range, parses its two figures,
+// and reads its period. requireCurrency is the only difference between prose
+// (where a currency proves a pair of numbers is pay) and a pay field (where
+// that is already known).
+function readRange(plain: string, requireCurrency: boolean): NormalizedSalary {
+  const dash = firstDashRange(plain, requireCurrency);
   const between = firstBetweenRange(plain);
   const range =
     dash && between ? (dash.index <= between.index ? dash : between) : (dash ?? between);
@@ -213,4 +214,16 @@ export function readSalaryFromText(text: string): NormalizedSalary {
     salary_high: high,
     salary_period: readPeriod(plain.slice(range.end), low, high),
   };
+}
+
+export function readSalaryFromText(text: string): NormalizedSalary {
+  const plain = descriptionToText(text);
+  return readRange(plain, true);
+}
+
+// A source's own pay field, such as BambooHR's "145k-185k", is already known
+// to be pay — nothing else lives in that field — so it needs no currency to
+// prove it the way a description's prose does.
+export function readSalaryFromPayText(text: string): NormalizedSalary {
+  return readRange(text, false);
 }

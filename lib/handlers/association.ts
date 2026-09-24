@@ -63,7 +63,8 @@ type WarningInput =
       target: CompanyRecord;
       targetSlug?: string;
       heldBy: CompanyRecord;
-    };
+    }
+  | { kind: "board_name_clash"; slug: string; recordedParser: string; arrivingParser: string };
 
 interface AssociateJobResult {
   job: JobListEntry;
@@ -196,15 +197,25 @@ async function recordBoardSlug(
   job: JobListEntry,
   companyId: string,
   atsSlugs: AtsSlugService | undefined
-): Promise<void> {
-  if (!atsSlugs) return;
+): Promise<WarningInput | undefined> {
+  if (!atsSlugs) return undefined;
   const slug = job.raw_company_slug;
   const parser = job.parser;
-  if (!slug || !parser) return;
+  if (!slug || !parser) return undefined;
 
   // A slug another row already holds writes nothing. The service decides
   // that, so a second job from one board costs a read rather than a refusal.
-  await atsSlugs.record({ slug, company_id: companyId, parser });
+  const { row, created } = await atsSlugs.record({ slug, company_id: companyId, parser });
+
+  // A row that already existed under a different parser means this board's
+  // name just arrived from a second hiring system — worth a warning even
+  // though nothing here changes: the job keeps the company it matched, and
+  // the recorded row is left exactly as it was.
+  if (!created && row.parser !== parser) {
+    return { kind: "board_name_clash", slug, recordedParser: row.parser, arrivingParser: parser };
+  }
+
+  return undefined;
 }
 
 export async function associateCompanies(
@@ -224,6 +235,7 @@ export async function associateCompanies(
     let associatedJob: AssociateJobOutcome["job"];
     let traceRows: AssociateJobOutcome["traceRows"] = [];
     let warning: AssociateJobOutcome["warning"];
+    let boardWarning: WarningInput | undefined;
 
     try {
       ({ job: associatedJob, traceRows, warning } = await associateJob(job, companies));
@@ -246,7 +258,7 @@ export async function associateCompanies(
 
     if (associatedJob.company_id) {
       try {
-        await recordBoardSlug(associatedJob, associatedJob.company_id, atsSlugs);
+        boardWarning = await recordBoardSlug(associatedJob, associatedJob.company_id, atsSlugs);
       } catch (thrown) {
         // The job already has its company by this point, so a failure here
         // takes nothing away from it. Only the note of which board the
@@ -266,6 +278,7 @@ export async function associateCompanies(
     if (!job.id || !job.collector) continue;
 
     if (warning) warnings.push({ ...warning, collector: job.collector });
+    if (boardWarning) warnings.push({ ...boardWarning, collector: job.collector });
 
     for (const row of traceRows) {
       // All three of trace, runId and step are needed before a row is

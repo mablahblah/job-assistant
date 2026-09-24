@@ -83,6 +83,35 @@ describe("a company name another company already holds", () => {
   });
 });
 
+// A board name is recorded once, whichever hiring system it came from. When a
+// second system's posting carries a name already recorded from the first,
+// the two may be different companies, so the user is told which board and
+// which two systems.
+describe("a board name arriving from a second hiring system", () => {
+  const warning: AssociationWarning = {
+    kind: "board_name_clash",
+    collector: "adzuna",
+    slug: "acme",
+    recordedParser: "greenhouse",
+    arrivingParser: "gem",
+  };
+
+  test("carries the collector that produced the job", () => {
+    expect(associationWarnings([warning])[0]?.collector).toBe("adzuna");
+  });
+
+  test("names the board", () => {
+    expect(associationWarnings([warning])[0]?.message).toContain("acme");
+  });
+
+  test("names the system the board was recorded from and the one it arrived from", () => {
+    const message = associationWarnings([warning])[0]?.message ?? "";
+
+    expect(message).toContain("greenhouse");
+    expect(message).toContain("gem");
+  });
+});
+
 // AC 56. Three clashes are three lines. Folding them into "3 name clashes"
 // would leave the user knowing something is wrong and unable to act on it.
 describe("several clashes in one run", () => {

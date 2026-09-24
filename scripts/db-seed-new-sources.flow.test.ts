@@ -8,7 +8,9 @@
 //
 // Covers: The Workday parser is on the ranking list, The Workday collector is
 // on the ranking list, The UltiPro parser is on the ranking list, The UltiPro
-// collector is on the ranking list.
+// collector is on the ranking list, and from the ATS and HR System Parser
+// Expansion: The five parsers are on the ranking list, The five collectors are
+// on the ranking list.
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -25,7 +27,9 @@ const repoRoot = resolve(scriptsDir, "..");
 // budget.
 const SETUP_TIMEOUT_MS = 120_000;
 
-// The ranking list the seed wrote before this feature, in its order.
+// The ranking list the seed wrote before Workday and UltiPro arrived, in its
+// order. It predates the ATS and HR System Parser Expansion's five systems
+// too, so one list serves both features' checks.
 const LIST_BEFORE_THIS_FEATURE = [
   "collector:user",
   "parser:greenhouse",
@@ -40,6 +44,10 @@ const LIST_BEFORE_THIS_FEATURE = [
   "collector:dribbble",
   "collector:uiuxjobsboard",
 ];
+
+// The five systems the ATS and HR System Parser Expansion adds, each with a
+// parser and a collector of the same name.
+const FIVE_SYSTEMS = ["workable", "gem", "smartrecruiters", "bamboohr", "rippling"];
 
 function runScript(script: string, url: string): void {
   const args = script === "db-create.ts" ? [url] : [];
@@ -98,5 +106,15 @@ describe("The seed adds the new sources", () => {
 
   test("The UltiPro collector is on the ranking list", () => {
     expect(rankingList).toContain("collector:ultipro");
+  });
+
+  test("The five parsers are on the ranking list", () => {
+    expect(rankingList).toEqual(expect.arrayContaining(FIVE_SYSTEMS.map((name) => `parser:${name}`)));
+  });
+
+  test("The five collectors are on the ranking list", () => {
+    expect(rankingList).toEqual(
+      expect.arrayContaining(FIVE_SYSTEMS.map((name) => `collector:${name}`))
+    );
   });
 });
