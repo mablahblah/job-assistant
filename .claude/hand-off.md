@@ -13,31 +13,31 @@
 
 ## Current Task
 
-- **Feature** - ATS and HR System Parser Expansion, on branch `feature/ats-parser-expansion`. All eleven tasks in `docs/CURRENT-FEATURE.md` are checked. The feature is ready for `/ship-feature`.
-- **Docs** - `docs/features/ats-parser-expansion/`: `feature_spec.md`, `decision-log.md`, `meeting-notes.md`, `feature_discovery.md`.
-- **Nothing is committed.** That includes the planning docs from two sessions ago.
-- **Tests** - 3,995 pass and 17 are skipped. None fail. Lint and type checks are clean.
-- **Two untracked folders predate this work** - `docs/features/forgiving-job-lookup/` and `docs/research/resume-review/`. Leave them alone.
+- **Feature** - General Purpose Parser Safety Net. Planning is finished and building has not started. The spec is `docs/features/general-purpose-parser/feature_spec.md`: 8 stories, 51 criteria, 8 flow tests and 9 tasks, all unchecked in `docs/CURRENT-FEATURE.md`.
+- **Branch** - `feature/general-purpose-parser`, created from an up-to-date `main`. Nothing on it is committed.
+- **Uncommitted from this session** - `docs/CURRENT-FEATURE.md`, `docs/BACKLOG.md`, `docs/features/general-purpose-parser/` (discovery file, spec, decision log, meeting notes), `docs/features/dead-postings-stay-expired/`, and `docs/features/summary-format-rollout/feature_r&d.md`.
+- **Uncommitted from before this session** - `docs/features/_complete/ats-parser-expansion/decision-log.md` holds one entry added after that feature merged. It was meant to be committed on `main`, and it came along to this branch uncommitted.
+- **Leave alone** - `docs/features/forgiving-job-lookup/` and `docs/research/resume-review/` are untracked and predate this work.
+- **Tests** - 4,021 pass and 17 are skipped. No code changed this session.
 
 ## Completed This Session
 
-- **Workable job search site** - `lib/parsers/workable.ts` reads `jobs.workable.com/view/{id}/…` links and guesses the employer's board. The search-site mapper is in `lib/utils/workable-fields.ts`.
-- **Board-name clash warning** - `lib/handlers/association.ts` warns when a board name already recorded from one parser arrives from another. The wording is in `lib/utils/association-warnings.ts`.
-- **BambooHR pay field** - Added as a task this session. The pieces are `readSalaryFromPayText` in `lib/utils/salary.ts`, `rawSalaryFromPayText` in `lib/utils/raw-salary-from-text.ts`, and the `compensation` mapping in `lib/utils/bamboohr-fields.ts`. The feature spec's Approach section was updated to match.
-- **Ranking list** - `npm run db:seed` ran against `pipeline.db`. It added the five parsers and five collectors to the bottom of the ranking list.
-- **Recover set-aside jobs** - `npm run recover-unparseable-jobs` ran against `pipeline.db`.
+- **Planning** - `plan-feature` ran end to end. The decisions are in `docs/features/general-purpose-parser/decision-log.md`, and the conversation is in `meeting-notes.md` beside it.
+- **Measurements** - The discovery file holds today's measurements: 143 stuck jobs, 75% of live pages carrying search-engine job data, and what general rules read from page text.
+- **Backlog** - New entry **Dead Postings Stay Expired**, placed after Repost Handling with no size tag yet. A note about breaking the parsing summary down by parser was added to **One Shape for Every Summary Block**.
 
 ## Session Context
 
-- **Decisions** are in the feature decision log. This session added the BambooHR pay entry.
-- **Flow test fix** - `workable-search-site.flow.test.ts` now expects the employer name after name tidying. `normalizeCompanyName` drops a trailing period, so "Pet Lab Co." is stored as "Pet Lab Co".
-- **Board guesses** - The website guess takes the first label of the registrable domain from `registrableDomainFromUrl`, so "www.ibmc.com" gives "ibmc". A repeated guess is not tried twice.
-- **Search-site failures** - A widget request that throws, answers non-ok, or is not JSON only fails that guess. A closed search-site job, answering 410, throws and stays where it was.
-- **Clash warning** - It writes a warning only, with no trace row. The job keeps the company holding the board, and no row changes.
-- **Pay reader** - `readSalaryFromPayText` drops the currency requirement only for dash ranges. "Between X and Y" wording still needs a currency.
-- **Recovery count** - The first recovery run's summary count was cut off in the output. A second run moved 0 jobs and left 96 set aside, on websites no parser owns.
-- **Helper tiers** - The middle tier was used for mappers, readers and handler changes. The lowest tier was used once, for a small converter. Its two versions had to be combined for comment quality.
+- **Measuring scripts were deleted** - They ran from a folder hidden from git, which was removed afterwards. Their results live only in the discovery file.
+- **The parser contract needs one more answer** - A parse today returns fields or throws. The general parser also has to say "this posting is dead". The parsing step also forces a job's status back after every read, so it cannot currently set `expired`. The spec's Approach covers both.
+- **Readability is not a dependency yet** - The page-text reader relies on Mozilla's `@mozilla/readability`. Version 0.6.0 was tested against `linkedom` and worked.
+- **Sub-agents stop at 20 steps** - All three stress-test agents hit the limit before reporting, and each had to be asked to report what it had.
+- **Spec review took four grading passes** - The fixes corrected each flagged criterion, but never swept for the same problem elsewhere. When a review flags a pattern, fix every instance at once.
+- **Open thread** - The user wants the spec-review skill to be more specific about what triggers another grading pass. Proposed: only a change adding a requirement nobody has reviewed, never a split or a rewording. It is recorded in the meeting notes under Open Questions.
+- **cachebeat hook** - The previous hand-off reported a syntax error. This session, the hook armed and logged timers normally.
 
 ## Next Steps
 
-1. Run `/ship-feature`.
+1. Commit the planning documents on `feature/general-purpose-parser`. Commit the ATS parser expansion decision-log entry separately, since it belongs to the shipped feature.
+2. Run `/start-work-session` to begin the **Write the flow tests** task in the spec.
+3. When convenient, update the spec-review skill's rule for when a new grading pass is needed.
