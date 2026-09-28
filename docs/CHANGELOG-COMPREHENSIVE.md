@@ -2,6 +2,25 @@
 
 <!-- Newest at top -->
 
+## September 28, 2026 - v1.4.0
+
+### New Features
+
+#### Jobs on Any Website Are Read
+
+Until now, the app read a job only if it knew that job's website. A job anywhere else was set aside unread, and a job whose reader failed sat in your backlog unread. 143 jobs were stuck like this. A general reader now takes any job the others cannot. It reads what the page publishes for search engines, or else the page's main text, and opens a browser only when a plain read finds neither. It reads the posted and updated dates, work mode, location and description, and leaves title, employer and pay alone. Your source ranking settles any disagreement, with the general reader last. A job whose page is gone is marked expired, though a later step can still return it to your backlog in the same search. A job with no location anywhere is set aside. The 135 set-aside jobs with a link are back in your backlog.
+
+### Internal
+
+- **Packages** Added Mozilla's Readability library, which picks a page's main article out from its menus and footers, so the general reader can read a page's text.
+- **Security** The release audit found that job links from job boards can point at your own network, and that the general reader and the link-following step would both open them. The risk is low on your own laptop, because a page is only saved to your local database. A check for both steps is on the backlog.
+- **Code** Renamed the code that starts the browser, one helper and several test stand-ins, moved the browser page's shape into its own file, and renamed the stand-in website the tests use, after the release audit flagged them against the naming rule.
+- **Tests** Made one test check both of its sample jobs, and pinned another to the summary's current wording.
+- **Rules** Split the naming rule into one rule per kind of code, and settled the places where the release audit found the rules' wording unclear.
+- **Backlog** Added Dead Postings Stay Expired, Employer Scoring Follows the Job List, Classification Does the Expiring and Descriptions Saved as Plain Text. Added a review of what the trace records to One Shape for Every Summary Block, two repeated-code tasks to Code Health, and the private-address check to Security & Hardening. Filed discovery notes for Forgiving Job Lookup for Resumes.
+- **Research** Added notes from a review of your resume.
+- **Records** Saved the release audit's report, logged its rule findings, and moved the audit's bookmark to the current commit.
+
 ## September 24, 2026 - v1.3.0
 
 ### New Features

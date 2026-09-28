@@ -13,31 +13,38 @@
 
 ## Current Task
 
-- **Feature** - General Purpose Parser Safety Net. Planning is finished and building has not started. The spec is `docs/features/general-purpose-parser/feature_spec.md`: 8 stories, 51 criteria, 8 flow tests and 9 tasks, all unchecked in `docs/CURRENT-FEATURE.md`.
-- **Branch** - `feature/general-purpose-parser`, created from an up-to-date `main`. Nothing on it is committed.
-- **Uncommitted from this session** - `docs/CURRENT-FEATURE.md`, `docs/BACKLOG.md`, `docs/features/general-purpose-parser/` (discovery file, spec, decision log, meeting notes), `docs/features/dead-postings-stay-expired/`, and `docs/features/summary-format-rollout/feature_r&d.md`.
-- **Uncommitted from before this session** - `docs/features/_complete/ats-parser-expansion/decision-log.md` holds one entry added after that feature merged. It was meant to be committed on `main`, and it came along to this branch uncommitted.
-- **Leave alone** - `docs/features/forgiving-job-lookup/` and `docs/research/resume-review/` are untracked and predate this work.
-- **Tests** - 4,021 pass and 17 are skipped. No code changed this session.
+- **Feature** - General Purpose Parser Safety Net, on branch `feature/general-purpose-parser`. Spec: `docs/features/general-purpose-parser/feature_spec.md`. All nine tasks are checked in `docs/CURRENT-FEATURE.md`. The feature looks ready to ship.
+- **Nothing is committed** - The work from this session and the one before it is all uncommitted.
+- **Tests** - All 4,152 pass, including the 8 general-parser flow tests. Lint and the type check are clean.
+- **New files** - `lib/parsers/general.ts`, `lib/utils/job-posting-data.ts`, `lib/utils/page-text.ts`, `lib/tools/page-fetcher.fake.ts`, each with a test. 8 flow tests: 7 in `lib/orchestrators/` and 1 in `scripts/`. `docs/features/employer-scoring-follows-job-list/`.
+- **Changed code** - `lib/parsers/registry.ts`, `parser.ts`, `dribbble.ts`, `lib/handlers/parsing.ts`, `lib/orchestrators/job-search.ts`, `lib/utils/source-priority.ts`, `lib/tools/page-fetcher.ts`, `lib/tools/rendered-page-fetcher.ts`, `scripts/db-seed.ts`, `prisma/schema.prisma` (comment only), their tests, and `package.json`.
+- **Changed docs** - Criteria struck through and dated in three places: this feature's spec (the page-text location criterion), `_complete/ats-parser-expansion/feature_spec.md` (two criteria), and `_complete/multi-field-board-identity/feature_spec.md` (one). `docs/BACKLOG.md` gained item 11.
 
 ## Completed This Session
 
-- **Planning** - `plan-feature` ran end to end. The decisions are in `docs/features/general-purpose-parser/decision-log.md`, and the conversation is in `meeting-notes.md` beside it.
-- **Measurements** - The discovery file holds today's measurements: 143 stuck jobs, 75% of live pages carrying search-engine job data, and what general rules read from page text.
-- **Backlog** - New entry **Dead Postings Stay Expired**, placed after Repost Handling with no size tag yet. A note about breaking the parsing summary down by parser was added to **One Shape for Every Summary Block**.
+- **Registration** - `parserForUrl` hands the general parser any web link no dedicated parser owns or claims, after Greenhouse's check. `npm run db:seed` adds `parser:general` last.
+- **Parsing step** - A second try with the general parser after a dedicated parser throws or reads nothing. Jobs with no link are judged on their collector's details, with no fetch. A dead page gives `expired` with reason `dead_page`. A job the general parser handles with no real place gives `unparseable` with reason `no_location`. Page-text places are added to the job's places. One trace row per job.
+- **Parsing browser** - `runJobSearch` takes `launchParsingBrowser`. It opens one browser only when a parser first asks for a rendered page, and closes it after parsing.
+- **Ranking** - `sideRank` ranks a copy that carries a parser by that parser's entry.
+- **Trace vocabulary** - The parsing reasons are written down in the Trace model's comment in `prisma/schema.prisma`.
+- **Real database, `pipeline.db`**
+  - The seed added `parser:general`.
+  - The user reordered the ranking: `collector:user`, then the six original parsers, the five newer parsers, `parser:general`, then all 15 collectors.
+  - `npm run recover-unparseable-jobs` moved 135 set-aside jobs to the backlog.
+  - One full job search ran (`45851040-9c83-471f-9658-fc68c84bb4cb`) and was scored. 69 jobs were scored, and 3 had unreadable postings. 69 employers were saved, 55 of them only partly scored.
 
 ## Session Context
 
-- **Measuring scripts were deleted** - They ran from a folder hidden from git, which was removed afterwards. Their results live only in the discovery file.
-- **The parser contract needs one more answer** - A parse today returns fields or throws. The general parser also has to say "this posting is dead". The parsing step also forces a job's status back after every read, so it cannot currently set `expired`. The spec's Approach covers both.
-- **Readability is not a dependency yet** - The page-text reader relies on Mozilla's `@mozilla/readability`. Version 0.6.0 was tested against `linkedom` and worked.
-- **Sub-agents stop at 20 steps** - All three stress-test agents hit the limit before reporting, and each had to be asked to report what it had.
-- **Spec review took four grading passes** - The fixes corrected each flagged criterion, but never swept for the same problem elsewhere. When a review flags a pattern, fix every instance at once.
-- **Open thread** - The user wants the spec-review skill to be more specific about what triggers another grading pass. Proposed: only a change adding a requirement nobody has reviewed, never a split or a rewording. It is recorded in the meeting notes under Open Questions.
-- **cachebeat hook** - The previous hand-off reported a syntax error. This session, the hook armed and logged timers normally.
+- **Decisions** - They are in `docs/features/general-purpose-parser/decision-log.md`. This session replaced the page-text location entry.
+- **How page-text places travel** - The general parser hands page-text places back as `added_location_list`, a field declared on `ParsedFields` in `lib/parsers/parser.ts`. `parsing.ts` adds them to the job's `raw_location_list` and strips the field. Job-data places stay in `raw_location_list` and replace the job's places like any other field.
+- **The reasons live in parsing** - `parsing.ts` records `dead_page` and `no_location` itself, because every outcome needs a reason. The last task only had to write them into the schema comment. Parsing no longer writes `no_parser_for_domain`, `parser_errored` or `nothing_parsed`. `run-summary.ts` still labels any reason other than `no_parser_for_domain` as "parser failed".
+- **The closed-posting test changed** - `hiring-systems-closed-posting.flow.test.ts` now checks that parsing recorded `job_parsed` with `dead_page`, not the final status. Promotion still returns expired jobs in the same search, which is tracked as Dead Postings Stay Expired.
+- **Refused links never reach parsing** - Of the 34 jobs still unjudged, 26 had their link refused during resolution (`page_refused`). Parsing only reads resolved jobs, so the collector fallback never runs for them. Another 5 had locations classification couldn't use, and 3 had unreadable postings. 1 left no trace this run and hasn't been looked into.
+- **Scoring uses up web searches** - A run with about 70 employers used up the session's 200 web searches. Later helpers fell back to direct page reads, and one used the user's Chrome through Claude in Chrome. Microsoft was left unscored on purpose: its helper scored from memory without marking guesses.
+- **Employer scoring bug** - Scoring's employer list ignores the job list's readiness checks. It's logged as backlog item 11, Employer Scoring Follows the Job List.
 
 ## Next Steps
 
-1. Commit the planning documents on `feature/general-purpose-parser`. Commit the ATS parser expansion decision-log entry separately, since it belongs to the shipped feature.
-2. Run `/start-work-session` to begin the **Write the flow tests** task in the spec.
-3. When convenient, update the spec-review skill's rule for when a new grading pass is needed.
+1. **Commit** - Commit all work on `feature/general-purpose-parser`.
+2. **Ship** - Run `/ship-feature`. The decision log already records that `npm run recover-unparseable-jobs` is run once at ship. That was already done this session, so it doesn't need running again.
+3. **Look into the untraced job** - Optionally, find the one unjudged backlog job with no trace in run `45851040`.
