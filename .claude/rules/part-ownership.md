@@ -48,5 +48,3 @@ Reshaping changes a value that is already there. Going looking produces one that
 ## Direction of dependency
 
 A plain function depends on nothing above it. It never names a file in `lib/handlers/` or `lib/orchestrators/`, type-only imports included.
-
-A shape two folders share lives in `lib/types/`.

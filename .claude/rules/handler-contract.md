@@ -16,7 +16,15 @@ Per-entry work lives in a function the handler calls, never in the handler's own
 
 A handler reads no database of its own beyond the trace service. Everything else it needs arrives as an argument.
 
-A handler is named for what it does to its list. One handler serves every position it runs at.
+One handler serves every position it runs at.
+
+## Naming
+
+- File: `lib/handlers/{subject}.ts`, named for what the handler does to its list
+- Function: a verb and a plural noun — `normalizeJobs`, `saveJobs`
+- Options and result: `{Function}Options` and `{Function}Result`
+- Parameters: the list, then an options object. Collection takes options only.
+- A service handed to a handler arrives under a plain noun naming what it is for: `companies`, `settings`, `trace`. Where that noun is already the list's name, the field is `{subject}Service`.
 
 ## Trace and warnings
 
