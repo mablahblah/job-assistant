@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## September 28, 2026 - v1.4.0
+
+### New Features
+
+#### Jobs on Any Website Are Read
+
+Until now, the app read a job only if it knew that job's website. A job anywhere else was set aside unread, and a job whose reader failed sat in your backlog unread. 143 jobs were stuck like this. A general reader now takes any job the others cannot. It reads what the page publishes for search engines, or else the page's main text, and opens a browser only when a plain read finds neither. It reads the posted and updated dates, work mode, location and description, and leaves title, employer and pay alone. Your source ranking settles any disagreement, with the general reader last. A job whose page is gone is marked expired, though a later step can still return it to your backlog in the same search. A job with no location anywhere is set aside. The 135 set-aside jobs with a link are back in your backlog.
+
 ## September 24, 2026 - v1.3.0
 
 ### New Features

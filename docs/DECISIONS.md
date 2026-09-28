@@ -28,3 +28,5 @@
 - **2026-09-21** -- A job board whose identity takes more than one value is stored as one text value in the board table, its parts joined by a colon, and only that source's own code splits it apart. This keeps the table and every reader unchanged, so a new source needs no schema change.
 
 - **2026-09-21** -- Two job links are matched by a key that keeps only the query values named in the identifying-values setting and drops every other one. One source carries a job's only identity in its query string while most carry throwaway tracking values, so a named list separates the two without naming a website in code.
+
+- **2026-09-25** -- A job is judged dead only by its own posting page: the page answers "not found" or "gone", lands on an error address, or shows no job at all. A job whose state is unclear stays in the backlog, because end dates carry placeholder values, data feeds miss postings their pages still show, and in the user's words, "Better a job be accidentally in the backlog but dead than the other way around."

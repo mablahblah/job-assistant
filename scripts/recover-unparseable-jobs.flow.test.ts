@@ -6,16 +6,19 @@
 // project's commands are listed. Each job's status is read after each step.
 //
 // Measured 2026-09-21: 145 jobs sat set aside, 42 on Workday or UltiPro and
-// 103 on websites no parser owns. The 103 must stay exactly where they are.
+// 103 on websites no parser owns.
 //
 // The ATS and HR System Parser Expansion adds a job on each of its five
-// systems, and one on Dover, which that feature leaves unread.
+// systems, and one on Dover.
 //
-// Covers: Set-aside jobs a parser now claims return to the backlog, Other
-// set-aside jobs are left alone, A job search never runs the recovery, The
-// Greenhouse-only recovery command is gone, and from the ATS and HR System
-// Parser Expansion: Set-aside jobs on the five systems return to the backlog,
-// Dover jobs stay set aside.
+// The General Purpose Parser Safety Net struck Other set-aside jobs are left
+// alone and Dover jobs stay set aside on 2026-09-25: the general parser now
+// claims every web link, so those jobs return to the backlog too.
+//
+// Covers: Set-aside jobs a parser now claims return to the backlog, A job
+// search never runs the recovery, The Greenhouse-only recovery command is
+// gone, and from the ATS and HR System Parser Expansion: Set-aside jobs on the
+// five systems return to the backlog.
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -192,10 +195,6 @@ describe("Set-aside jobs are recovered once, by hand", () => {
     expect(String(ultiproKeyAfterRecovery)).toContain("opportunityid=e3a376f8-6759-4047-a7e7-79a7a3457ab0");
   });
 
-  test("Other set-aside jobs are left alone", () => {
-    expect(afterRecovery[JOBS.unowned.id]).toBe("unparseable");
-  });
-
   test("A job search never runs the recovery", () => {
     expect(afterJobSearch).toEqual(
       Object.fromEntries(ALL_JOBS.map((job) => [job.id, "unparseable"]))
@@ -207,10 +206,6 @@ describe("Set-aside jobs are recovered once, by hand", () => {
     for (const job of Object.values(FIVE_SYSTEM_JOBS)) {
       expect(afterRecovery[job.id], job.link).toBe("backlog");
     }
-  });
-
-  test("Dover jobs stay set aside", () => {
-    expect(afterRecovery[DOVER_JOB.id]).toBe("unparseable");
   });
 
   test("The Greenhouse-only recovery command is gone", () => {

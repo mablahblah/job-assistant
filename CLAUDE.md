@@ -74,13 +74,21 @@ Planning lives in [`docs/features/_complete/unified-pipeline/`](docs/features/_c
 
 Path-scoped rules describing the old architecture were deleted with it. The rules that govern this pipeline sit in `.claude/rules/`:
 
-| Rule                  | Answers                                                           |
-| --------------------- | ----------------------------------------------------------------- |
-| `part-ownership.md`   | Where new behaviour goes, and what each kind of part may never do |
-| `naming.md`           | What a file of that kind is called, and what shape it takes       |
-| `handler-contract.md` | What the code that runs at one pipeline position must look like   |
-| `source-registry.md`  | What has to happen when a collector or parser is added or renamed |
-| `run-summary.md`      | What a command prints when it finishes                            |
+| Rule                  | Answers                                                                         |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `part-ownership.md`   | Where new behaviour goes, and what each kind of part may never do               |
+| `naming.md`           | What any file, test or value is called, and which folder it sits in             |
+| `handler-contract.md` | What the code that runs at one pipeline position must look like and be called   |
+| `tools.md`            | What a wrapper around something outside the app looks like                      |
+| `services.md`         | What the code that owns one table looks like                                    |
+| `sources.md`          | What a collector or parser is called, and how it joins the pipeline             |
+| `orchestrators.md`    | What a runner of the pipeline is called                                         |
+| `resolvers.md`        | What the code that follows job links looks like                                 |
+| `types.md`            | What a shared shape file holds                                                  |
+| `utils.md`            | What a plain function is called, and where it lives                             |
+| `views.md`            | What the code that builds a screen looks like                                   |
+| `source-registry.md`  | What has to happen when a collector or parser is added or renamed               |
+| `run-summary.md`      | What a command prints when it finishes                                          |
 
 ## Terminology
 

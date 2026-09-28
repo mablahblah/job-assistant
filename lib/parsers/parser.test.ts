@@ -25,8 +25,15 @@ describe("Parser: a parser is handed a resolved link and hands back fields", () 
 });
 
 describe("Parser: the contract carries only what a parser owns", () => {
-  test("a parser is handed the resolved link and nothing else", () => {
-    expectTypeOf<ParserContext>().toEqualTypeOf<{ url: string }>();
+  // The two helpers are the job search's browser and the moment it measures
+  // ages against, which the general parser needs to read any page. Neither is
+  // a link or a phase gate, so neither is work a parser could overwrite.
+  test("a parser is handed the resolved link and the job search's helpers, and nothing else", () => {
+    expectTypeOf<ParserContext>().toEqualTypeOf<{
+      url: string;
+      readRenderedPage?: (url: string) => Promise<string>;
+      referenceInstant?: Date;
+    }>();
   });
 
   // The handler holds the link and closes the parsing gate. A parser handing

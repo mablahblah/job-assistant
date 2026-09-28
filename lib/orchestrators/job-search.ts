@@ -31,6 +31,11 @@ import { parseJobs } from "../handlers/parsing";
 import { resolveJobs } from "../handlers/resolution";
 import type { Parser } from "../parsers/parser";
 import type { ResolutionBrowserFactory, ResolutionPage } from "../tools/resolution-page";
+import {
+  createRenderedPageBrowser,
+  type RenderedPageBrowser,
+  type RenderedPageLauncher,
+} from "../tools/rendered-page-fetcher";
 import { saveCompanies, saveJobs } from "../handlers/save";
 import type { PlaceService } from "../services/place-service";
 import type { Geocoder } from "../tools/geocoder";
@@ -113,6 +118,10 @@ export interface RunJobSearchOptions {
   // against stand-in parsers. Left out, parsing looks a parser up in the real
   // registry.
   parserFor?: (url: string) => Parser | null;
+  // The substitution point that lets parsing be tested offline against a
+  // scripted browser session. Left out, parsing opens the real headless
+  // browser the first time a page needs one.
+  launchParsingBrowser?: RenderedPageLauncher;
   // Required, not optional, for the same reason again: classification needs a
   // place to look coordinates up in and a mapping service to fill it, and a
   // caller that omitted either would have the run judge nothing, which reads
@@ -450,18 +459,46 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     // The parsing step reads its own list too: jobs already resolved but not
     // yet parsed. Nothing upstream hands it work, because the database is the
     // only handoff between steps. Unlike resolution it guards nothing behind a
-    // length check, because there is no browser to avoid launching and five
-    // handlers over an empty list cost nothing.
+    // length check, because five handlers over an empty list cost nothing —
+    // and no browser opens here until some parser actually asks for one.
     const unparsed = await at("unparsed_lookup", () => options.jobService.findUnparsed());
 
-    const parsed = await handler("parsing", () =>
-      parseJobs(unparsed, {
-        parserFor: options.parserFor,
-        trace: options.trace,
-        runId: options.runId,
-        step: "parsing",
-      })
-    );
+    const parsed = await (async () => {
+      // A browser is the pipeline's most expensive step and most searches
+      // never need one, so it's opened lazily — only on the first page a
+      // parser actually asks to be rendered — and every later page in this
+      // run reuses that same session.
+      let session: RenderedPageBrowser | undefined;
+      const readRenderedPage = async (url: string): Promise<string> => {
+        if (!session) {
+          session = await createRenderedPageBrowser(options.launchParsingBrowser);
+        }
+        return session.fetch(url);
+      };
+
+      try {
+        return await handler("parsing", () =>
+          parseJobs(unparsed, {
+            parserFor: options.parserFor,
+            readRenderedPage,
+            referenceInstant: options.collectedAt,
+            trace: options.trace,
+            runId: options.runId,
+            step: "parsing",
+          })
+        );
+      } finally {
+        // Only close what was opened. If no parser ever asked for a rendered
+        // page, `session` stays undefined and nothing is launched or closed.
+        const opened = session;
+        if (opened) {
+          // A throw from anywhere in this step must still close the browser
+          // it opened, and the close is named in its own right so a browser
+          // that will not shut is not reported as whatever ran before it.
+          await at("parsing_browser_close", () => opened.close());
+        }
+      }
+    })();
     report.warnings.push(...parsed.warnings);
 
     // Normalization runs before association, not after: association matches on

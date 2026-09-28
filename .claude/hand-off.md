@@ -13,31 +13,38 @@
 
 ## Current Task
 
-- **Feature** - ATS and HR System Parser Expansion, on branch `feature/ats-parser-expansion`. All eleven tasks in `docs/CURRENT-FEATURE.md` are checked. The feature is ready for `/ship-feature`.
-- **Docs** - `docs/features/ats-parser-expansion/`: `feature_spec.md`, `decision-log.md`, `meeting-notes.md`, `feature_discovery.md`.
-- **Nothing is committed.** That includes the planning docs from two sessions ago.
-- **Tests** - 3,995 pass and 17 are skipped. None fail. Lint and type checks are clean.
-- **Two untracked folders predate this work** - `docs/features/forgiving-job-lookup/` and `docs/research/resume-review/`. Leave them alone.
+- **Feature** - General Purpose Parser Safety Net, on branch `feature/general-purpose-parser`. Spec: `docs/features/general-purpose-parser/feature_spec.md`. All nine tasks are checked in `docs/CURRENT-FEATURE.md`. The feature looks ready to ship.
+- **Nothing is committed** - The work from this session and the one before it is all uncommitted.
+- **Tests** - All 4,152 pass, including the 8 general-parser flow tests. Lint and the type check are clean.
+- **New files** - `lib/parsers/general.ts`, `lib/utils/job-posting-data.ts`, `lib/utils/page-text.ts`, `lib/tools/page-fetcher.fake.ts`, each with a test. 8 flow tests: 7 in `lib/orchestrators/` and 1 in `scripts/`. `docs/features/employer-scoring-follows-job-list/`.
+- **Changed code** - `lib/parsers/registry.ts`, `parser.ts`, `dribbble.ts`, `lib/handlers/parsing.ts`, `lib/orchestrators/job-search.ts`, `lib/utils/source-priority.ts`, `lib/tools/page-fetcher.ts`, `lib/tools/rendered-page-fetcher.ts`, `scripts/db-seed.ts`, `prisma/schema.prisma` (comment only), their tests, and `package.json`.
+- **Changed docs** - Criteria struck through and dated in three places: this feature's spec (the page-text location criterion), `_complete/ats-parser-expansion/feature_spec.md` (two criteria), and `_complete/multi-field-board-identity/feature_spec.md` (one). `docs/BACKLOG.md` gained item 11.
 
 ## Completed This Session
 
-- **Workable job search site** - `lib/parsers/workable.ts` reads `jobs.workable.com/view/{id}/…` links and guesses the employer's board. The search-site mapper is in `lib/utils/workable-fields.ts`.
-- **Board-name clash warning** - `lib/handlers/association.ts` warns when a board name already recorded from one parser arrives from another. The wording is in `lib/utils/association-warnings.ts`.
-- **BambooHR pay field** - Added as a task this session. The pieces are `readSalaryFromPayText` in `lib/utils/salary.ts`, `rawSalaryFromPayText` in `lib/utils/raw-salary-from-text.ts`, and the `compensation` mapping in `lib/utils/bamboohr-fields.ts`. The feature spec's Approach section was updated to match.
-- **Ranking list** - `npm run db:seed` ran against `pipeline.db`. It added the five parsers and five collectors to the bottom of the ranking list.
-- **Recover set-aside jobs** - `npm run recover-unparseable-jobs` ran against `pipeline.db`.
+- **Registration** - `parserForUrl` hands the general parser any web link no dedicated parser owns or claims, after Greenhouse's check. `npm run db:seed` adds `parser:general` last.
+- **Parsing step** - A second try with the general parser after a dedicated parser throws or reads nothing. Jobs with no link are judged on their collector's details, with no fetch. A dead page gives `expired` with reason `dead_page`. A job the general parser handles with no real place gives `unparseable` with reason `no_location`. Page-text places are added to the job's places. One trace row per job.
+- **Parsing browser** - `runJobSearch` takes `launchParsingBrowser`. It opens one browser only when a parser first asks for a rendered page, and closes it after parsing.
+- **Ranking** - `sideRank` ranks a copy that carries a parser by that parser's entry.
+- **Trace vocabulary** - The parsing reasons are written down in the Trace model's comment in `prisma/schema.prisma`.
+- **Real database, `pipeline.db`**
+  - The seed added `parser:general`.
+  - The user reordered the ranking: `collector:user`, then the six original parsers, the five newer parsers, `parser:general`, then all 15 collectors.
+  - `npm run recover-unparseable-jobs` moved 135 set-aside jobs to the backlog.
+  - One full job search ran (`45851040-9c83-471f-9658-fc68c84bb4cb`) and was scored. 69 jobs were scored, and 3 had unreadable postings. 69 employers were saved, 55 of them only partly scored.
 
 ## Session Context
 
-- **Decisions** are in the feature decision log. This session added the BambooHR pay entry.
-- **Flow test fix** - `workable-search-site.flow.test.ts` now expects the employer name after name tidying. `normalizeCompanyName` drops a trailing period, so "Pet Lab Co." is stored as "Pet Lab Co".
-- **Board guesses** - The website guess takes the first label of the registrable domain from `registrableDomainFromUrl`, so "www.ibmc.com" gives "ibmc". A repeated guess is not tried twice.
-- **Search-site failures** - A widget request that throws, answers non-ok, or is not JSON only fails that guess. A closed search-site job, answering 410, throws and stays where it was.
-- **Clash warning** - It writes a warning only, with no trace row. The job keeps the company holding the board, and no row changes.
-- **Pay reader** - `readSalaryFromPayText` drops the currency requirement only for dash ranges. "Between X and Y" wording still needs a currency.
-- **Recovery count** - The first recovery run's summary count was cut off in the output. A second run moved 0 jobs and left 96 set aside, on websites no parser owns.
-- **Helper tiers** - The middle tier was used for mappers, readers and handler changes. The lowest tier was used once, for a small converter. Its two versions had to be combined for comment quality.
+- **Decisions** - They are in `docs/features/general-purpose-parser/decision-log.md`. This session replaced the page-text location entry.
+- **How page-text places travel** - The general parser hands page-text places back as `added_location_list`, a field declared on `ParsedFields` in `lib/parsers/parser.ts`. `parsing.ts` adds them to the job's `raw_location_list` and strips the field. Job-data places stay in `raw_location_list` and replace the job's places like any other field.
+- **The reasons live in parsing** - `parsing.ts` records `dead_page` and `no_location` itself, because every outcome needs a reason. The last task only had to write them into the schema comment. Parsing no longer writes `no_parser_for_domain`, `parser_errored` or `nothing_parsed`. `run-summary.ts` still labels any reason other than `no_parser_for_domain` as "parser failed".
+- **The closed-posting test changed** - `hiring-systems-closed-posting.flow.test.ts` now checks that parsing recorded `job_parsed` with `dead_page`, not the final status. Promotion still returns expired jobs in the same search, which is tracked as Dead Postings Stay Expired.
+- **Refused links never reach parsing** - Of the 34 jobs still unjudged, 26 had their link refused during resolution (`page_refused`). Parsing only reads resolved jobs, so the collector fallback never runs for them. Another 5 had locations classification couldn't use, and 3 had unreadable postings. 1 left no trace this run and hasn't been looked into.
+- **Scoring uses up web searches** - A run with about 70 employers used up the session's 200 web searches. Later helpers fell back to direct page reads, and one used the user's Chrome through Claude in Chrome. Microsoft was left unscored on purpose: its helper scored from memory without marking guesses.
+- **Employer scoring bug** - Scoring's employer list ignores the job list's readiness checks. It's logged as backlog item 11, Employer Scoring Follows the Job List.
 
 ## Next Steps
 
-1. Run `/ship-feature`.
+1. **Commit** - Commit all work on `feature/general-purpose-parser`.
+2. **Ship** - Run `/ship-feature`. The decision log already records that `npm run recover-unparseable-jobs` is run once at ship. That was already done this session, so it doesn't need running again.
+3. **Look into the untraced job** - Optionally, find the one unjudged backlog job with no trace in run `45851040`.

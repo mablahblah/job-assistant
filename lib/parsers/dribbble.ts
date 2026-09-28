@@ -2,8 +2,8 @@
 // HTML for each job page — unlike the API-backed parsers, this is the one
 // parser of four that reads a rendered page. A plain fetch and a parse do
 // everything a browser would here, so no browser is opened.
-import { parseHTML } from "linkedom";
 import { withFieldsFromDescription } from "../utils/description-fallback";
+import { jobPostingFromHtml, jobFieldsFromJobPosting } from "../utils/job-posting-data";
 import type { MappedJobFields } from "../types/job-list-entry";
 import { fetchPageHtml } from "../tools/page-fetcher";
 import type { Parser } from "./parser";
@@ -16,21 +16,6 @@ interface DribbbleTrackingProperties {
   job_location?: string;
   job_location_country?: string;
   job_location_state?: string;
-}
-
-// The JobPosting JSON-LD block Dribbble embeds in every job page.
-interface DribbbleJsonLd {
-  title?: string;
-  description?: string;
-  datePosted?: string;
-  hiringOrganization?: { name?: string };
-  jobLocation?: {
-    address?: {
-      addressLocality?: string | null;
-      addressRegion?: string | null;
-      addressCountry?: string | null;
-    };
-  };
 }
 
 // Pulls one quoted string value for `key` out of a block of JS object
@@ -58,19 +43,6 @@ function parseTrackingProperties(initializeBlock: string): DribbbleTrackingPrope
   };
 }
 
-function parseJsonLd(html: string): DribbbleJsonLd | undefined {
-  const { document } = parseHTML(html);
-  const script = document.querySelector('script[type="application/ld+json"]');
-  if (script === null) return undefined;
-  try {
-    return JSON.parse(script.textContent ?? "") as DribbbleJsonLd;
-  } catch {
-    // A page whose JSON-LD is malformed is ignored, not thrown over — the
-    // inline block still has whatever fields it carries.
-    return undefined;
-  }
-}
-
 // Dribbble's own work-mode words are not ones the app's normalizer
 // recognises, so they are translated here. The JSON-LD's own jobLocationType
 // is deliberately not read: it says TELECOMMUTE for both hybrid and remote
@@ -90,6 +62,19 @@ function mapLocationType(locationType: string | undefined): string[] {
   }
 }
 
+// The JobPosting type (from the shared reader) marks every field `unknown`,
+// since it has no idea what shape a given site's block takes. These two
+// helpers check a value's shape before anything is read off it — the
+// runtime version of what the deleted DribbbleJsonLd interface used to
+// promise at compile time.
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function readObject(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+}
+
 // Builds the ordered, deduplicated list of place fragments from every source
 // that names one. job_location can be a composite like "Austin, TX", so it is
 // split into its own fragments up front — so each sub-fragment dedupes
@@ -97,15 +82,15 @@ function mapLocationType(locationType: string | undefined): string[] {
 // string blocking a later exact match.
 function buildLocationList(
   tracking: DribbbleTrackingProperties,
-  jsonLd: DribbbleJsonLd | undefined
+  address: Record<string, unknown> | undefined
 ): string[] {
   const candidates: Array<string | null | undefined> = [
     ...(tracking.job_location?.split(",") ?? []),
     tracking.job_location_country,
     tracking.job_location_state,
-    jsonLd?.jobLocation?.address?.addressLocality,
-    jsonLd?.jobLocation?.address?.addressRegion,
-    jsonLd?.jobLocation?.address?.addressCountry,
+    readString(address?.addressLocality),
+    readString(address?.addressRegion),
+    readString(address?.addressCountry),
   ];
 
   const result: string[] = [];
@@ -123,30 +108,38 @@ export function parseDribbbleHtml(html: string): MappedJobFields {
   const initializeBlock = initializeMatch?.[1] ?? "";
   const tracking = parseTrackingProperties(initializeBlock);
   const locationType = extractStringValue(initializeBlock, "locationType");
-  const jsonLd = parseJsonLd(html);
+
+  // The JSON-LD block itself, read through the shared reader instead of a
+  // Dribbble-only copy. It comes back typed loosely, so every field below is
+  // checked before use.
+  const posting = jobPostingFromHtml(html);
+  const jobLocation = readObject(posting?.jobLocation);
+  const address = readObject(jobLocation?.address);
 
   const fields: MappedJobFields = {};
 
-  const rawTitle = tracking.job_title ?? jsonLd?.title;
+  const rawTitle = tracking.job_title ?? readString(posting?.title);
   if (rawTitle !== undefined) fields.raw_title = rawTitle;
 
-  const rawCompanyName = tracking.job_company ?? jsonLd?.hiringOrganization?.name;
+  const rawCompanyName =
+    tracking.job_company ?? readString(readObject(posting?.hiringOrganization)?.name);
   if (rawCompanyName !== undefined) fields.raw_company_name = rawCompanyName;
 
+  // Work mode and the location list stay Dribbble's own translation — the
+  // shared reader's versions of these are deliberately not used here.
   fields.raw_mode_list = mapLocationType(locationType);
-  fields.raw_location_list = buildLocationList(tracking, jsonLd);
+  fields.raw_location_list = buildLocationList(tracking, address);
 
-  if (jsonLd?.datePosted !== undefined) {
-    fields.posting_date = new Date(jsonLd.datePosted);
-  }
+  // The shared reader turns a readable datePosted into a Date and otherwise
+  // leaves the key absent, so its result is used as-is.
+  const mapped = posting ? jobFieldsFromJobPosting(posting) : {};
+  if (mapped.posting_date !== undefined) fields.posting_date = mapped.posting_date;
 
   // The description is written as-is, not merely scanned for a salary and
   // then discarded — that is what the legacy Dribbble parser did, which left
   // Dribbble the one source reaching scoring blind. Its collector stores no
   // description either, so this parser is the only place it can come from.
-  if (jsonLd?.description !== undefined) {
-    fields.description = jsonLd.description;
-  }
+  if (mapped.description !== undefined) fields.description = mapped.description;
 
   return fields;
 }

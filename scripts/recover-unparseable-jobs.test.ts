@@ -1,8 +1,8 @@
 // The recovery runs once, by hand, and is the only reason shipping a new
 // parser delivers the jobs already set aside rather than only future ones.
 // Measured 2026-09-21: 145 jobs sat at status unparseable, 42 on Workday or
-// UltiPro and 103 on websites no parser owns. Those 103 must be left exactly
-// where they are.
+// UltiPro and 103 on websites no dedicated parser owns. The general parser
+// claims every web link, so all of them return.
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
@@ -169,11 +169,11 @@ describe("returning set-aside jobs a parser now claims to the backlog", () => {
   );
 
   test(
-    "a set-aside job no parser owns or claims is left alone",
+    "a set-aside job no dedicated parser owns or claims returns to the backlog",
     async () => {
       runRecovery(url);
 
-      expect(await statusOf(url, "job-unowned")).toBe("unparseable");
+      expect(await statusOf(url, "job-unowned")).toBe("backlog");
     },
     RUN_TIMEOUT_MS
   );
