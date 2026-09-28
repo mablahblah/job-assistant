@@ -409,8 +409,11 @@ model Setting {
 // job_resolved too, for a job a self-resolving collector handed over already
 // pointing at the employer's own posting; step and reason tell the two
 // populations apart.
-// Parsing writes job_parsed where a parser read the employer's own posting
-// and came back with at least one field, and parsing_failed where it did not.
+// Parsing writes job_parsed where a job leaves parsing read: a dedicated
+// parser read at least one field, the general parser found the posting dead,
+// or the job holds a place from any source. It writes parsing_failed where a
+// job the general parser handled holds no place at all. Each job leaves
+// parsing with one row, however many parsers were asked.
 // It reuses no earlier step's event, because reading a posting is not
 // something any earlier step does. Its name carries the step's own spelling,
 // the way every other step's failure event does.
@@ -534,17 +537,19 @@ model Setting {
 // from is the only surviving record of the spelling the source published,
 // since the cleaned name overwrites it in place.
 //
-// Parsing writes three, all sitting under parsing_failed.
-// no_parser_for_domain, where no parser owns the domain the resolved link
-// belongs to, or the link yields no owned domain at all; the job takes
-// unparseable, because a later run would reach the same verdict.
-// parser_errored, where the parser threw or its source refused the request;
-// and nothing_parsed, where the parser ran and returned no field at all.
-// Those last two keep the job in the backlog, because both describe an
-// outage rather than a verdict on the job, and the next run tries again. A
-// parsing_failed row also carries the owned domain in the domain column and the
-// full resolved link in detail, so a failing platform can be counted and any
-// one failure chased back to the exact address it happened on.
+// Parsing writes two. dead_page sits under job_parsed, where the general
+// parser found the job's own page gone, answering not found or gone, landing
+// on an address announcing an error, or showing no job even in a browser;
+// the job takes expired, and it counts as read because its fate is known.
+// no_location sits under parsing_failed, where a job the general parser
+// handled holds no place from any source once mode words and punctuation are
+// set aside; the job takes unparseable, because without a place the user
+// cannot tell whether they can apply. A parsing_failed row also carries the
+// owned domain in the domain column and the full resolved link in detail, so
+// a failing website can be counted and any one failure chased back to the
+// exact address it happened on. Rows written before 2026-09-25 may still
+// carry no_parser_for_domain, parser_errored or nothing_parsed, which parsing
+// no longer writes.
 //
 // The judging steps write three. past_expiration_threshold sits under
 // job_expired at backlog cleanup and again at classification, naming the one

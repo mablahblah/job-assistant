@@ -72,17 +72,17 @@ describe("sideRank", () => {
     expect(greenhouse as number).toBeLessThan(adzuna as number);
   });
 
-  // A side's rank is the better of its two entries, so a job read by a
-  // well-ranked parser is not dragged down by a poorly ranked collector.
-  test("a side carrying both takes the better of the two", () => {
-    expect(sideRank(LIST, { collector: "greenhouse", parser: "greenhouse" })).toBe(1);
+  // A side a parser read carries that parser's details, so it ranks where the
+  // parser sits, whether its collector sits above or below.
+  test("a side carrying both ranks by its parser", () => {
+    expect(sideRank(LIST, { collector: "adzuna", parser: "greenhouse" })).toBe(1);
   });
 
-  test("the better of the two can be the collector", () => {
+  test("a side carrying both ranks by its parser even below its collector", () => {
     expect(sideRank(["collector:greenhouse", "parser:greenhouse"], {
       collector: "greenhouse",
       parser: "greenhouse",
-    })).toBe(0);
+    })).toBe(1);
   });
 
   test("a side whose parser is absent ranks on its collector alone", () => {

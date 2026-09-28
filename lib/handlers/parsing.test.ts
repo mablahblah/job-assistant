@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { JobListEntry } from "../types/job-list-entry";
-import type { Parser } from "../parsers/parser";
+import type { Parser, ParseResult } from "../parsers/parser";
 import { parseJobs } from "./parsing";
+
+type ParserContextSeen = Parameters<Parser["parse"]>[0];
 
 const GREENHOUSE_LINK = "https://boards.greenhouse.io/acme/jobs/1";
 const WORKDAY_LINK = "https://meredith.wd5.myworkdayjobs.com/jobs/1";
@@ -15,45 +17,65 @@ function stubParser(name: string, parse: Parser["parse"]): Parser {
   return { name, parse };
 }
 
-const READING_PARSER = stubParser("greenhouse", async () => ({
+const readingParser = stubParser("greenhouse", async () => ({
   raw_title: "Senior Product Designer",
   raw_company_name: "Acme",
 }));
 
 // Hands every job the same parser, whatever its link.
-function always(parser: Parser | null) {
+function always(parser: Parser<ParseResult> | null) {
   return () => parser;
 }
 
+// A stand-in for the general parser every failed or unowned job is handed
+// to, so nothing here fetches a page. It records every link it was asked for.
+function fallback(parse: Parser<ParseResult>["parse"]) {
+  const asked: string[] = [];
+  const parser: Parser<ParseResult> = {
+    name: "general",
+    parse: async (context) => {
+      asked.push(context.url);
+      return parse(context);
+    },
+  };
+  return { parser, asked };
+}
+
+const fallbackReads = fallback(async () => ({ description: "Read from the page." }));
+const fallbackRefused = () =>
+  fallback(async () => {
+    throw new Error("the page refused the request");
+  });
+
 describe("a job whose owned domain has a parser is read by it", () => {
   test("AC 34: a parse returning one field or more marks the job parsed", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(READING_PARSER) });
+    const { jobs } = await parseJobs([job("a")], { parserFor: always(readingParser) });
 
     expect(jobs[0]?.is_parsed).toBe(true);
   });
 
   test("the fields the parse found are written onto the entry", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(READING_PARSER) });
+    const { jobs } = await parseJobs([job("a")], { parserFor: always(readingParser) });
 
     expect(jobs[0]?.raw_title).toBe("Senior Product Designer");
     expect(jobs[0]?.raw_company_name).toBe("Acme");
   });
 
   test("AC 18: the parser names itself, so save can weigh it against a collector", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(READING_PARSER) });
+    const { jobs } = await parseJobs([job("a")], { parserFor: always(readingParser) });
 
     expect(jobs[0]?.parser).toBe("greenhouse");
   });
 
   test("a parse never overwrites the resolved link it was handed", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(READING_PARSER) });
+    const { jobs } = await parseJobs([job("a")], { parserFor: always(readingParser) });
 
     expect(jobs[0]?.resolved_url).toBe(GREENHOUSE_LINK);
   });
 
   test("the job keeps whatever status it already had", async () => {
     const { jobs } = await parseJobs([job("a", { status: "backlog" })], {
-      parserFor: always(READING_PARSER),
+      parserFor: always(readingParser),
     });
 
     expect(jobs[0]?.status).toBe("backlog");
@@ -82,104 +104,199 @@ describe("a job whose owned domain has a parser is read by it", () => {
   });
 });
 
-describe("AC 28 and 29: a job no parser covers leaves the queue", () => {
-  test("it takes unparseable", async () => {
+describe("a job no dedicated parser covers is handed to the general parser", () => {
+  test("the general parser reads it", async () => {
+    const general = fallback(async () => ({ description: "Read from the page." }));
+
     const { jobs } = await parseJobs([job("a", { resolved_url: WORKDAY_LINK })], {
       parserFor: always(null),
+      fallbackParser: general.parser,
     });
 
-    expect(jobs[0]?.status).toBe("unparseable");
-  });
-
-  test("its parsed flag stays false", async () => {
-    const { jobs } = await parseJobs([job("a", { resolved_url: WORKDAY_LINK })], {
-      parserFor: always(null),
-    });
-
-    expect(jobs[0]?.is_parsed).toBe(false);
-  });
-
-  test("AC 23: nothing is read from its description", async () => {
-    const { jobs } = await parseJobs(
-      [
-        job("a", {
-          resolved_url: WORKDAY_LINK,
-          description: "This role is remote. The range is $120,000 - $150,000 per year.",
-        }),
-      ],
-      { parserFor: always(null) }
-    );
-
-    expect(jobs[0]?.raw_mode_list).toBeUndefined();
-    expect(jobs[0]?.raw_salary).toBeUndefined();
+    expect(general.asked).toEqual([WORKDAY_LINK]);
+    expect(jobs[0]?.description).toBe("Read from the page.");
   });
 });
 
-describe("AC 6 and 7: a resolved link that is not a web address stops that job alone", () => {
-  test("the job takes unparseable", async () => {
+describe("a job with no web link is judged on what its collector found, with no fetch", () => {
+  test("no parser is asked to read it", async () => {
+    const general = fallbackRefused();
+
+    await parseJobs([job("a", { resolved_url: null, raw_location_list: ["Austin, TX"] })], {
+      parserFor: always(readingParser),
+      fallbackParser: general.parser,
+    });
+
+    expect(general.asked).toEqual([]);
+  });
+
+  test("with a collector place it stays where it was, marked read", async () => {
+    const { jobs } = await parseJobs(
+      [job("a", { resolved_url: null, status: "backlog", raw_location_list: ["Austin, TX"] })],
+      { parserFor: always(readingParser), fallbackParser: fallbackRefused().parser }
+    );
+
+    expect(jobs[0]?.status).toBe("backlog");
+    expect(jobs[0]?.is_parsed).toBe(true);
+  });
+
+  test("with no place it is set aside", async () => {
     const { jobs } = await parseJobs([job("a", { resolved_url: "historical" })], {
-      parserFor: always(READING_PARSER),
+      parserFor: always(readingParser),
+      fallbackParser: fallbackRefused().parser,
     });
 
     expect(jobs[0]?.status).toBe("unparseable");
+    expect(jobs[0]?.is_parsed).toBe(false);
   });
 
   test("the step does not throw", async () => {
     await expect(
-      parseJobs([job("a", { resolved_url: "historical" })], { parserFor: always(READING_PARSER) })
+      parseJobs([job("a", { resolved_url: "historical" })], {
+        parserFor: always(readingParser),
+        fallbackParser: fallbackRefused().parser,
+      })
     ).resolves.toBeDefined();
-  });
-
-  test("a job carrying no resolved link at all takes unparseable too", async () => {
-    const { jobs } = await parseJobs([job("a", { resolved_url: null })], {
-      parserFor: always(READING_PARSER),
-    });
-
-    expect(jobs[0]?.status).toBe("unparseable");
   });
 });
 
-describe("AC 30 and 31: a parse that threw leaves the job where it was", () => {
+describe("a dedicated parser that fails hands the job to the general parser", () => {
   const throwing = stubParser("greenhouse", async () => {
     throw new Error("the board refused the request");
   });
+  const empty = stubParser("greenhouse", async () => ({}));
 
-  test("the job keeps backlog", async () => {
+  test.each([
+    ["threw", throwing],
+    ["read nothing", empty],
+  ])("a dedicated parser that %s is followed by the general parser", async (_case, dedicated) => {
+    const general = fallback(async () => ({ description: "Read from the page." }));
+
+    const { jobs } = await parseJobs([job("a", { raw_location_list: ["Austin, TX"] })], {
+      parserFor: always(dedicated),
+      fallbackParser: general.parser,
+    });
+
+    expect(general.asked).toEqual([GREENHOUSE_LINK]);
+    expect(jobs[0]?.description).toBe("Read from the page.");
+    expect(jobs[0]?.parser).toBe("general");
+    expect(jobs[0]?.is_parsed).toBe(true);
+  });
+
+  test("a dedicated parser that read something is not followed", async () => {
+    const general = fallback(async () => ({ description: "Read from the page." }));
+
+    await parseJobs([job("a")], { parserFor: always(readingParser), fallbackParser: general.parser });
+
+    expect(general.asked).toEqual([]);
+  });
+
+  // A dedicated parser's own read keeps today's location rule: a job it read
+  // is never set aside for lacking a place.
+  test("a job a dedicated parser read keeps its status with no place", async () => {
+    const remote = stubParser("greenhouse", async () => ({ raw_location_list: ["Remote"] }));
+
     const { jobs } = await parseJobs([job("a", { status: "backlog" })], {
-      parserFor: always(throwing),
+      parserFor: always(remote),
+      fallbackParser: fallbackRefused().parser,
     });
 
     expect(jobs[0]?.status).toBe("backlog");
-  });
-
-  test("its parsed flag stays false", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(throwing) });
-
-    expect(jobs[0]?.is_parsed).toBe(false);
+    expect(jobs[0]?.is_parsed).toBe(true);
   });
 });
 
-describe("AC 32 and 33: a parse that found nothing leaves the job where it was", () => {
-  const empty = stubParser("greenhouse", async () => ({}));
+describe("the general parser's answer decides the job's outcome", () => {
+  test("a dead page expires the job", async () => {
+    const dead = fallback(async () => ({ dead: true as const }));
 
-  test("the job keeps backlog", async () => {
-    const { jobs } = await parseJobs([job("a", { status: "backlog" })], {
-      parserFor: always(empty),
+    const { jobs } = await parseJobs([job("a", { status: "backlog", raw_location_list: ["Austin, TX"] })], {
+      parserFor: always(dead.parser),
+      fallbackParser: dead.parser,
+    });
+
+    expect(jobs[0]?.status).toBe("expired");
+    expect(jobs[0]).not.toHaveProperty("dead");
+  });
+
+  test("a read with a place keeps the job where it was, marked read", async () => {
+    const { jobs } = await parseJobs([job("a", { status: "backlog", raw_location_list: ["Austin, TX"] })], {
+      parserFor: always(fallbackReads.parser),
+      fallbackParser: fallbackReads.parser,
     });
 
     expect(jobs[0]?.status).toBe("backlog");
+    expect(jobs[0]?.is_parsed).toBe(true);
   });
 
-  test("its parsed flag stays false", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(empty) });
+  test("a read that leaves the job with no place sets it aside", async () => {
+    const { jobs } = await parseJobs([job("a", { status: "backlog" })], {
+      parserFor: always(fallbackReads.parser),
+      fallbackParser: fallbackReads.parser,
+    });
 
+    expect(jobs[0]?.status).toBe("unparseable");
     expect(jobs[0]?.is_parsed).toBe(false);
   });
 
-  test("no parser name is written onto a job nothing was read from", async () => {
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(empty) });
+  test("a refused page falls back to the collector's place, never expiring the job", async () => {
+    const refused = fallbackRefused();
 
-    expect(jobs[0]?.parser).toBeUndefined();
+    const { jobs } = await parseJobs([job("a", { status: "backlog", raw_location_list: ["Austin, TX"] })], {
+      parserFor: always(refused.parser),
+      fallbackParser: refused.parser,
+    });
+
+    expect(jobs[0]?.status).toBe("backlog");
+    expect(jobs[0]?.is_parsed).toBe(true);
+  });
+
+  test("a place of only \"Remote\" or punctuation counts as no place", async () => {
+    const refused = fallbackRefused();
+
+    const { jobs } = await parseJobs(
+      [
+        job("a", { status: "backlog", raw_location_list: ["Remote"] }),
+        job("b", { status: "backlog", raw_location_list: [", "] }),
+      ],
+      { parserFor: always(refused.parser), fallbackParser: refused.parser }
+    );
+
+    expect(jobs.map((entry) => entry.status)).toEqual(["unparseable", "unparseable"]);
+  });
+
+  test("a place read from page text is added to the job's places", async () => {
+    const adding = fallback(async () => ({ added_location_list: ["Denver, CO"] }));
+
+    const { jobs } = await parseJobs([job("a", { raw_location_list: ["Austin, TX"] })], {
+      parserFor: always(adding.parser),
+      fallbackParser: adding.parser,
+    });
+
+    expect(jobs[0]?.raw_location_list).toEqual(["Austin, TX", "Denver, CO"]);
+    expect(jobs[0]).not.toHaveProperty("added_location_list");
+  });
+});
+
+describe("every parser is handed the search's browser and start time", () => {
+  test("both arrive beside the link", async () => {
+    const seen: ParserContextSeen[] = [];
+    const recording = stubParser("greenhouse", async (context) => {
+      seen.push(context);
+      return { raw_title: "Designer" };
+    });
+    const readRenderedPage = async () => "<html></html>";
+    const referenceInstant = new Date("2026-09-25T12:00:00.000Z");
+
+    await parseJobs([job("a")], {
+      parserFor: always(recording),
+      fallbackParser: fallbackRefused().parser,
+      readRenderedPage,
+      referenceInstant,
+    });
+
+    expect(seen[0]?.readRenderedPage).toBe(readRenderedPage);
+    expect(seen[0]?.referenceInstant).toBe(referenceInstant);
   });
 });
 
@@ -190,7 +307,7 @@ describe("AC 35: one job's failure costs that job alone", () => {
         ? stubParser("greenhouse", async () => {
             throw new Error("boom");
           })
-        : READING_PARSER;
+        : readingParser;
 
     const { jobs } = await parseJobs(
       [
@@ -198,7 +315,7 @@ describe("AC 35: one job's failure costs that job alone", () => {
         job("b", { resolved_url: "https://boards.greenhouse.io/acme/jobs/boom" }),
         job("c"),
       ],
-      { parserFor: byId }
+      { parserFor: byId, fallbackParser: fallbackRefused().parser }
     );
 
     expect(jobs.map((entry) => entry.is_parsed)).toEqual([true, false, true]);
@@ -206,7 +323,7 @@ describe("AC 35: one job's failure costs that job alone", () => {
 
   test("the list comes back in the order it went in", async () => {
     const { jobs } = await parseJobs([job("a"), job("b"), job("c")], {
-      parserFor: always(READING_PARSER),
+      parserFor: always(readingParser),
     });
 
     expect(jobs.map((entry) => entry.id)).toEqual(["a", "b", "c"]);
@@ -215,7 +332,7 @@ describe("AC 35: one job's failure costs that job alone", () => {
 
 describe("the step returns the list and its warnings, as every handler does", () => {
   test("an empty list gives an empty list back", async () => {
-    await expect(parseJobs([], { parserFor: always(READING_PARSER) })).resolves.toEqual({
+    await expect(parseJobs([], { parserFor: always(readingParser) })).resolves.toEqual({
       jobs: [],
       warnings: [],
     });

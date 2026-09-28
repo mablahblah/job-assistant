@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
+    "@mozilla/readability": "^0.6.0",
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "apify-client": "^2.22.3",

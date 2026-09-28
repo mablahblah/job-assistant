@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { JobListEntry } from "../types/job-list-entry";
-import type { Parser } from "../parsers/parser";
+import type { Parser, ParseResult } from "../parsers/parser";
 import type { TraceEvent, TraceService } from "../services/trace-service";
 import { parseJobs } from "./parsing";
 
@@ -20,15 +20,25 @@ function stubParser(name: string, parse: Parser["parse"]): Parser {
   return { name, parse };
 }
 
-const READING_PARSER = stubParser("greenhouse", async () => ({ raw_title: "Designer" }));
-const EMPTY_PARSER = stubParser("greenhouse", async () => ({}));
-const THROWING_PARSER = stubParser("greenhouse", async () => {
+const readingParser = stubParser("greenhouse", async () => ({ raw_title: "Designer" }));
+const emptyParser = stubParser("greenhouse", async () => ({}));
+const throwingParser = stubParser("greenhouse", async () => {
   throw new Error("the board refused the request");
 });
 
-function always(parser: Parser | null) {
+function always(parser: Parser<ParseResult> | null) {
   return () => parser;
 }
+
+// Stand-ins for the general parser every failed or unowned job is handed to,
+// so nothing here fetches a page.
+function generalAnswering(parse: Parser<ParseResult>["parse"]): Parser<ParseResult> {
+  return { name: "general", parse };
+}
+const generalRefused = generalAnswering(async () => {
+  throw new Error("the page refused the request");
+});
+const generalDead = generalAnswering(async () => ({ dead: true as const }));
 
 // Records every event handed to it instead of writing to a database, so a
 // test asserts on exactly what the step wrote without spinning up Prisma.
@@ -48,15 +58,25 @@ function createFakeTraceService(): TraceService & { events: TraceEvent[] } {
   };
 }
 
-async function rowsFor(entry: JobListEntry, parser: Parser | null): Promise<TraceEvent[]> {
+async function rowsFor(
+  entry: JobListEntry,
+  parser: Parser | null,
+  fallbackParser: Parser<ParseResult> = generalRefused
+): Promise<TraceEvent[]> {
   const trace = createFakeTraceService();
-  await parseJobs([entry], { parserFor: always(parser), trace, runId: RUN_ID, step: STEP });
+  await parseJobs([entry], {
+    parserFor: always(parser),
+    fallbackParser,
+    trace,
+    runId: RUN_ID,
+    step: STEP,
+  });
   return trace.events;
 }
 
 describe("AC 36: a job a parser read earns a job_parsed row", () => {
   test("the row names the run, the job, the step and the collector", async () => {
-    const [row] = await rowsFor(job("a"), READING_PARSER);
+    const [row] = await rowsFor(job("a"), readingParser);
 
     expect(row).toMatchObject({
       run_id: RUN_ID,
@@ -68,47 +88,71 @@ describe("AC 36: a job a parser read earns a job_parsed row", () => {
   });
 
   test("a read that succeeded carries no reason", async () => {
-    const [row] = await rowsFor(job("a"), READING_PARSER);
+    const [row] = await rowsFor(job("a"), readingParser);
 
     expect(row?.reason).toBeUndefined();
   });
 });
 
-describe("AC 37: every kind of parse failure carries its own reason", () => {
-  test("no parser for the domain reads as no_parser_for_domain", async () => {
-    const [row] = await rowsFor(job("a", { resolved_url: WORKDAY_LINK }), null);
+// Every reason the pipeline already records at parsing, and the one every
+// age-based expiry carries. The two new outcomes must use none of these.
+const EXISTING_REASONS = [
+  "no_parser_for_domain",
+  "parser_errored",
+  "nothing_parsed",
+  "past_expiration_threshold",
+];
 
-    expect(row).toMatchObject({ event: "parsing_failed", reason: "no_parser_for_domain" });
-  });
+describe("a dead page is recorded as a read job with its own reason", () => {
+  test("the row is job_parsed, so the summary counts the job as read", async () => {
+    const [row] = await rowsFor(job("a"), null, generalDead);
 
-  test("a parser that threw reads as parser_errored", async () => {
-    const [row] = await rowsFor(job("a"), THROWING_PARSER);
-
-    expect(row).toMatchObject({ event: "parsing_failed", reason: "parser_errored" });
-  });
-
-  test("a parser that read nothing reads as nothing_parsed", async () => {
-    const [row] = await rowsFor(job("a"), EMPTY_PARSER);
-
-    expect(row).toMatchObject({ event: "parsing_failed", reason: "nothing_parsed" });
-  });
-
-  test("the three reasons are three distinct words, so a query can tell them apart", async () => {
-    const reasons = [
-      (await rowsFor(job("a", { resolved_url: WORKDAY_LINK }), null))[0]?.reason,
-      (await rowsFor(job("b"), THROWING_PARSER))[0]?.reason,
-      (await rowsFor(job("c"), EMPTY_PARSER))[0]?.reason,
-    ];
-
-    expect(new Set(reasons).size).toBe(3);
+    expect(row).toMatchObject({ event: "job_parsed", reason: "dead_page" });
   });
 });
 
-describe("AC 38: every parsing_failed row carries the owned domain in its own column", () => {
+describe("a job left with no place is recorded as not read with its own reason", () => {
+  test("the row is parsing_failed with reason no_location", async () => {
+    const [row] = await rowsFor(job("a"), null);
+
+    expect(row).toMatchObject({ event: "parsing_failed", reason: "no_location" });
+  });
+
+  test("the two new reasons differ from each other and from every existing one", async () => {
+    const dead = (await rowsFor(job("a"), null, generalDead))[0]?.reason;
+    const noPlace = (await rowsFor(job("b"), null))[0]?.reason;
+
+    expect(dead).not.toBe(noPlace);
+    expect(EXISTING_REASONS).not.toContain(dead);
+    expect(EXISTING_REASONS).not.toContain(noPlace);
+  });
+});
+
+describe("a job a dedicated parser failed on leaves parsing once", () => {
+  test("a throw then a general read with a place writes one job_parsed row", async () => {
+    const rows = await rowsFor(
+      job("a", { raw_location_list: ["Austin, TX"] }),
+      throwingParser,
+      generalAnswering(async () => ({ description: "Read from the page." }))
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ event: "job_parsed" });
+  });
+
+  test("an empty read then a refused page with no place writes one parsing_failed row", async () => {
+    const rows = await rowsFor(job("a"), emptyParser);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ event: "parsing_failed", reason: "no_location" });
+  });
+});
+
+describe("a parsing_failed row carries the owned domain in its own column", () => {
   test.each([
-    ["no parser covers the domain", WORKDAY_LINK, null, "myworkdayjobs.com"],
-    ["the parser threw", GREENHOUSE_LINK, THROWING_PARSER, "greenhouse.io"],
-    ["the parser read nothing", GREENHOUSE_LINK, EMPTY_PARSER, "greenhouse.io"],
+    ["a website no dedicated parser covers", WORKDAY_LINK, null, "myworkdayjobs.com"],
+    ["a dedicated parser that threw", GREENHOUSE_LINK, throwingParser, "greenhouse.io"],
+    ["a dedicated parser that read nothing", GREENHOUSE_LINK, emptyParser, "greenhouse.io"],
   ])("%s", async (_case, link, parser, domain) => {
     const [row] = await rowsFor(job("a", { resolved_url: link }), parser);
 
@@ -118,22 +162,22 @@ describe("AC 38: every parsing_failed row carries the owned domain in its own co
   test("every sub-address of one source counts under the same domain", async () => {
     const [boards] = await rowsFor(
       job("a", { resolved_url: "https://boards.greenhouse.io/acme/jobs/1" }),
-      THROWING_PARSER
+      throwingParser
     );
     const [eu] = await rowsFor(
       job("b", { resolved_url: "https://job-boards.eu.greenhouse.io/acme/jobs/1" }),
-      THROWING_PARSER
+      throwingParser
     );
 
     expect(boards?.domain).toBe(eu?.domain);
   });
 });
 
-describe("AC 39: every parsing_failed row keeps the full resolved link in detail", () => {
+describe("a parsing_failed row keeps the full resolved link in detail", () => {
   test.each([
-    ["no parser covers the domain", WORKDAY_LINK, null],
-    ["the parser threw", GREENHOUSE_LINK, THROWING_PARSER],
-    ["the parser read nothing", GREENHOUSE_LINK, EMPTY_PARSER],
+    ["a website no dedicated parser covers", WORKDAY_LINK, null],
+    ["a dedicated parser that threw", GREENHOUSE_LINK, throwingParser],
+    ["a dedicated parser that read nothing", GREENHOUSE_LINK, emptyParser],
   ])("%s", async (_case, link, parser) => {
     const [row] = await rowsFor(job("a", { resolved_url: link }), parser);
 
@@ -143,27 +187,27 @@ describe("AC 39: every parsing_failed row keeps the full resolved link in detail
   test("the link's query string survives, so a failure can be chased back exactly", async () => {
     const link = `${GREENHOUSE_LINK}?utm_source=jobboard`;
 
-    const [row] = await rowsFor(job("a", { resolved_url: link }), THROWING_PARSER);
+    const [row] = await rowsFor(job("a", { resolved_url: link }), throwingParser);
 
     expect(row?.detail).toBe(link);
   });
 });
 
-describe("AC 40 and 41: a link yielding no owned domain leaves that column empty", () => {
+describe("a link yielding no owned domain leaves that column empty", () => {
   test("the domain column is empty", async () => {
-    const [row] = await rowsFor(job("a", { resolved_url: "historical" }), READING_PARSER);
+    const [row] = await rowsFor(job("a", { resolved_url: "historical" }), readingParser);
 
     expect(row?.domain).toBeUndefined();
   });
 
-  test("the row is still written, naming the failure", async () => {
-    const [row] = await rowsFor(job("a", { resolved_url: "historical" }), READING_PARSER);
+  test("the row is still written, naming the missing place", async () => {
+    const [row] = await rowsFor(job("a", { resolved_url: "historical" }), readingParser);
 
-    expect(row).toMatchObject({ event: "parsing_failed", reason: "no_parser_for_domain" });
+    expect(row).toMatchObject({ event: "parsing_failed", reason: "no_location" });
   });
 
   test("nothing throws", async () => {
-    await expect(rowsFor(job("a", { resolved_url: "historical" }), READING_PARSER)).resolves.toHaveLength(1);
+    await expect(rowsFor(job("a", { resolved_url: "historical" }), readingParser)).resolves.toHaveLength(1);
   });
 });
 
@@ -172,7 +216,7 @@ describe("a job with nothing to key a record on writes no row", () => {
     const trace = createFakeTraceService();
 
     await parseJobs([{ collector: "adzuna", resolved_url: GREENHOUSE_LINK }], {
-      parserFor: always(READING_PARSER),
+      parserFor: always(readingParser),
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -185,7 +229,7 @@ describe("a job with nothing to key a record on writes no row", () => {
     const trace = createFakeTraceService();
 
     await parseJobs([{ id: "a", resolved_url: GREENHOUSE_LINK }], {
-      parserFor: always(READING_PARSER),
+      parserFor: always(readingParser),
       trace,
       runId: RUN_ID,
       step: STEP,
@@ -199,7 +243,7 @@ describe("a step handed no run id and no step name stays silent and still works"
   test("no row is written, and the job is still parsed", async () => {
     const trace = createFakeTraceService();
 
-    const { jobs } = await parseJobs([job("a")], { parserFor: always(READING_PARSER), trace });
+    const { jobs } = await parseJobs([job("a")], { parserFor: always(readingParser), trace });
 
     expect(trace.events).toEqual([]);
     expect(jobs[0]?.is_parsed).toBe(true);

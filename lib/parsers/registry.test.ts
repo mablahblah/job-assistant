@@ -44,13 +44,13 @@ describe("AC 2: any sub-address of a registered domain reaches that domain's par
   });
 });
 
-describe("AC 3: a domain the registry does not name reaches no parser", () => {
+describe("AC 3: a domain the registry does not name reaches the general parser", () => {
   test.each([
     "https://www.indeed.com/viewjob?jk=1",
     "https://www.adzuna.com/details/1",
     "https://www.linkedin.com/jobs/view/1",
-  ])("%s reaches no parser", (url) => {
-    expect(parserForUrl(url)).toBeNull();
+  ])("%s reaches the general parser", (url) => {
+    expect(parserForUrl(url)?.name).toBe("general");
   });
 
   test("a link that is not a web address reaches no parser rather than throwing", () => {
@@ -60,13 +60,17 @@ describe("AC 3: a domain the registry does not name reaches no parser", () => {
 
 describe("AC 5: every resolved-link address the live data holds", () => {
   // The fixture is every distinct address across 2,208 real jobs. Each row
-  // names the parser that address must reach, or null where none claims it.
+  // names the dedicated parser that address must reach, or null where none
+  // claims it. A web address no dedicated parser claims reaches the general
+  // parser, and a value that is not a web address reaches none.
   test.each(fixture.addresses.map((row) => [row.address, row.parser] as const))(
     "%s reaches %s",
     (address, parser) => {
-      const url = address.includes(".") ? `https://${address}/jobs/1` : address;
+      const isWebAddress = address.includes(".");
+      const url = isWebAddress ? `https://${address}/jobs/1` : address;
+      const expected = parser ?? (isWebAddress ? "general" : null);
 
-      expect(parserForUrl(url)?.name ?? null).toBe(parser);
+      expect(parserForUrl(url)?.name ?? null).toBe(expected);
     }
   );
 });
@@ -87,13 +91,14 @@ describe("a link no domain entry owns is offered to each parser", () => {
     expect(parserForUrl(url)?.name).toBe("greenhouse");
   });
 
-  // AC 3. Most links no entry owns have nothing to do with any parser here.
+  // AC 3. Most links no entry owns have nothing to do with any dedicated
+  // parser here, so they fall through to the general parser.
   test.each([
     "https://www.indeed.com/viewjob?jk=1",
     "https://www.adzuna.com/details/1",
     "https://www.brex.com/careers/8777949002",
-  ])("%s is claimed by no parser and still reaches none", (url) => {
-    expect(parserForUrl(url)).toBeNull();
+  ])("%s is claimed by no dedicated parser and reaches the general parser", (url) => {
+    expect(parserForUrl(url)?.name).toBe("general");
   });
 });
 

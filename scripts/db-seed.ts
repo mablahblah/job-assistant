@@ -6,6 +6,7 @@
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { COLLECTORS } from "../lib/collectors/registry";
 import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
+import { generalParser } from "../lib/parsers/general";
 
 const SETTING_DEFAULTS = {
   search_terms: ["Product Design", "UX", "Founding Design"],
@@ -81,12 +82,16 @@ const SETTING_DEFAULTS = {
 //
 // The parser registry is keyed by owned domain, so one parser could in
 // principle be reached by two domains. The names are deduplicated.
+//
+// The general parser is a catch-all not in PARSERS_BY_DOMAIN; it joins the
+// list last for the user to reorder by hand, competing like any other source.
 const SOURCE_PRIORITY_DEFAULTS: string[] = [
   "collector:user",
   ...Array.from(new Set(Object.values(PARSERS_BY_DOMAIN).map((parser) => parser.name))).map(
     (name) => `parser:${name}`
   ),
   ...COLLECTORS.map((collector) => `collector:${collector.name}`),
+  `parser:${generalParser.name}`,
 ];
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;

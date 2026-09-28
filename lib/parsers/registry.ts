@@ -13,11 +13,12 @@
 // failing platform countable. This replaces a legacy registry that kept
 // hand-listed hosts plus a Greenhouse wildcard regex.
 //
-// A lookup is two steps, the owned-domain list first and only then a parser's
-// own claim, and that order is the whole point. Measured 2026-09-20, all 309
-// postings already on a Greenhouse address also carry a Greenhouse job
-// number, so a claim checked first would pull a Lever, Ashby or Dribbble link
-// away from the parser that owns its domain.
+// A lookup is three steps: the owned-domain list first, then a parser's own
+// claim, then the general parser for any unowned web link. That order is the
+// whole point. Measured 2026-09-20, all 309 postings already on a Greenhouse
+// address also carry a Greenhouse job number, so a claim checked first would
+// pull a Lever, Ashby or Dribbble link away from the parser that owns its
+// domain.
 import { registrableDomainFromUrl } from "../utils/registrable-domain";
 import { ashbyParser } from "./ashby";
 import { dribbbleParser } from "./dribbble";
@@ -30,7 +31,8 @@ import { smartrecruitersParser } from "./smartrecruiters";
 import { bamboohrParser } from "./bamboohr";
 import { ripplingParser } from "./rippling";
 import { workableParser } from "./workable";
-import type { Parser } from "./parser";
+import { generalParser } from "./general";
+import type { Parser, ParseResult } from "./parser";
 
 export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
   "greenhouse.io": greenhouseParser,
@@ -46,10 +48,12 @@ export const PARSERS_BY_DOMAIN: Record<string, Parser> = {
   "workable.com": workableParser,
 };
 
-// Looks up the parser for a link. Returns null for a link no entry owns and
-// no parser claims, and never throws — a parser's claim is responsible for
-// answering a string that is not a web address without throwing.
-export function parserForUrl(url: string): Parser | null {
+// Looks up the parser for a link. Tries three paths: first, a domain owned by
+// a parser in the registry; second, a claim from a parser; third, the general
+// parser for any web link no dedicated parser recognizes. Returns null for a
+// link that is not a web address, never for a valid web address. Never throws
+// — a parser's claim is responsible for answering safely.
+export function parserForUrl(url: string): Parser<ParseResult> | null {
   const domain = registrableDomainFromUrl(url);
 
   if (domain !== null && domain in PARSERS_BY_DOMAIN) {
@@ -63,6 +67,12 @@ export function parserForUrl(url: string): Parser | null {
     if (parser.claims?.(url)) {
       return parser;
     }
+  }
+
+  // For any unowned web link, use the general parser. Non-web addresses
+  // (where domain is null) return null instead.
+  if (domain !== null) {
+    return generalParser;
   }
 
   return null;

@@ -298,10 +298,10 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
   // survives a re-seed whether the seed overwrites it or not, so tuning these
   // away from 3, 1 and 12 is the only thing that makes the check below mean
   // anything.
-  const MY_FAST_CONCURRENCY = 5;
-  const MY_SLOW_CONCURRENCY = 2;
-  const MY_SLOW_PAUSE_SECONDS = 30;
-  const MY_REPOST_GAP_DAYS = 7;
+  const myFastConcurrency = 5;
+  const mySlowConcurrency = 2;
+  const mySlowPauseSeconds = 30;
+  const myRepostGapDays = 7;
 
   let dir: string;
   let setting: SettingRow;
@@ -315,7 +315,7 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
     await runSql(
       temp.url,
       "UPDATE Setting SET resolution_fast_concurrency = ?, resolution_slow_concurrency = ?, resolution_slow_pause_seconds = ?, repost_gap_days = ? WHERE id = 1",
-      [MY_FAST_CONCURRENCY, MY_SLOW_CONCURRENCY, MY_SLOW_PAUSE_SECONDS, MY_REPOST_GAP_DAYS]
+      [myFastConcurrency, mySlowConcurrency, mySlowPauseSeconds, myRepostGapDays]
     );
     runScript("db-seed.ts", temp.url);
     setting = await readSetting(temp.url);
@@ -345,15 +345,15 @@ describe("AC7: re-seeding never resets a setting that already has a value", () =
   // so the user is expected to raise them. A re-seed overwriting the change
   // would undo that tuning every time.
   test("keeps the three lane settings I tuned", () => {
-    expect(setting.resolution_fast_concurrency).toBe(MY_FAST_CONCURRENCY);
-    expect(setting.resolution_slow_concurrency).toBe(MY_SLOW_CONCURRENCY);
-    expect(setting.resolution_slow_pause_seconds).toBe(MY_SLOW_PAUSE_SECONDS);
+    expect(setting.resolution_fast_concurrency).toBe(myFastConcurrency);
+    expect(setting.resolution_slow_concurrency).toBe(mySlowConcurrency);
+    expect(setting.resolution_slow_pause_seconds).toBe(mySlowPauseSeconds);
   });
 
   // The gap is meant to be tuned against real runs, so a re-seed that reset it
   // would undo the tuning every time.
   test("keeps the repost gap I tuned", () => {
-    expect(setting.repost_gap_days).toBe(MY_REPOST_GAP_DAYS);
+    expect(setting.repost_gap_days).toBe(myRepostGapDays);
   });
 });
 
@@ -524,6 +524,7 @@ const EXPECTED_PRIORITY_LIST = [
   "collector:bamboohr",
   "collector:rippling",
   "collector:workable",
+  "parser:general",
 ];
 
 describe("AC26: seeding a fresh database builds the source priority list", () => {
@@ -556,11 +557,13 @@ describe("AC26: seeding a fresh database builds the source priority list", () =>
   // AC53. A parser read the employer's own posting, so where it disagrees
   // with an aggregator's copy of the same job the parser is the one telling
   // the truth. Only a job the user typed in by hand outranks it.
-  test("every parser sits below collector:user and above every collector", () => {
+  // The general parser is the one exception: it reads what no dedicated
+  // parser could, and joins the list last.
+  test("every dedicated parser sits below collector:user and above every collector", () => {
     const list = setting.source_priority_list ?? [];
     const parserRanks = list
       .map((name, index) => ({ name, index }))
-      .filter((entry) => entry.name.startsWith("parser:"))
+      .filter((entry) => entry.name.startsWith("parser:") && entry.name !== "parser:general")
       .map((entry) => entry.index);
     const collectorRanks = list
       .map((name, index) => ({ name, index }))
@@ -640,6 +643,7 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "collector:bamboohr",
       "collector:rippling",
       "collector:workable",
+      "parser:general",
     ]);
   });
 

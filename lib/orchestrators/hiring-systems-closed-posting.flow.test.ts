@@ -9,8 +9,12 @@
 // job search reads them all, and the test checks each job's status afterwards.
 //
 // A closed posting says nothing about whether the system can be read, so it
-// must not be set aside as unreadable. It stays in the backlog, where the
-// parsing step's existing rule for a failed read leaves it.
+// must not be set aside as unreadable. The General Purpose Parser Safety Net
+// superseded this test's criterion on 2026-09-25: the dedicated parser's
+// failure hands the job to the general parser, whose read of the closed page
+// expires it for a dead page. The test reads what parsing recorded rather
+// than the final status, because promotion still returns a recently expired
+// job to the backlog later in the same search (Dead Postings Stay Expired).
 //
 // Real services run against a scratch database. The one thing standing in is
 // the five hiring systems: global fetch is swapped for a stand-in server that
@@ -162,7 +166,7 @@ describe("A closed posting stays where it was", () => {
   const originalFetch = globalThis.fetch;
   let dir: string;
   let db: PipelineDb;
-  const statuses: Record<string, string | null> = {};
+  const parsingRows: Record<string, { event: string; reason: string | null }[]> = {};
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), "pipeline-closed-posting-flow-"));
@@ -225,8 +229,10 @@ describe("A closed posting stays where it was", () => {
     });
 
     for (const job of CLOSED_JOBS) {
-      const row = await db.job.findUnique({ where: { id: idFor(job.name) }, select: { status: true } });
-      statuses[job.name] = row?.status ?? null;
+      parsingRows[job.name] = await db.trace.findMany({
+        where: { run_id: "run-closed", job_id: idFor(job.name), step: "parsing" },
+        select: { event: true, reason: true },
+      });
     }
   }, SETUP_TIMEOUT_MS);
 
@@ -238,7 +244,7 @@ describe("A closed posting stays where it was", () => {
 
   describe.each(CLOSED_JOBS)("$name", (job) => {
     test("A closed posting keeps its status", () => {
-      expect(statuses[job.name]).toBe("backlog");
+      expect(parsingRows[job.name]).toEqual([{ event: "job_parsed", reason: "dead_page" }]);
     });
   });
 });
