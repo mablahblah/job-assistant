@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## October 5, 2026 - v1.5.0
+
+### New Features
+
+#### Add Jobs You Found Elsewhere
+
+A job you found outside a job search had no way in, because the add-jobs skill broke when the old pipeline was removed. Paste one link or a list into `/add-external-jobs` and it works again. The agent reads each posting for its title, employer and description, and asks you when a page will not open. Each job then goes through the same steps a job search uses, and no other job is touched. A job the steps cannot judge for certain, because its page names no place or its place is not on a map, still reaches your backlog and is scored, and the report says why. A link that fails for good, a job too far away or a dead posting is left out, with its reason. A link matching a job an earlier search ruled out is judged again, while a job you rejected or applied to keeps its status.
+
 ## September 28, 2026 - v1.4.0
 
 ### New Features

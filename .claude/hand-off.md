@@ -13,38 +13,34 @@
 
 ## Current Task
 
-- **Feature** - General Purpose Parser Safety Net, on branch `feature/general-purpose-parser`. Spec: `docs/features/general-purpose-parser/feature_spec.md`. All nine tasks are checked in `docs/CURRENT-FEATURE.md`. The feature looks ready to ship.
-- **Nothing is committed** - The work from this session and the one before it is all uncommitted.
-- **Tests** - All 4,152 pass, including the 8 general-parser flow tests. Lint and the type check are clean.
-- **New files** - `lib/parsers/general.ts`, `lib/utils/job-posting-data.ts`, `lib/utils/page-text.ts`, `lib/tools/page-fetcher.fake.ts`, each with a test. 8 flow tests: 7 in `lib/orchestrators/` and 1 in `scripts/`. `docs/features/employer-scoring-follows-job-list/`.
-- **Changed code** - `lib/parsers/registry.ts`, `parser.ts`, `dribbble.ts`, `lib/handlers/parsing.ts`, `lib/orchestrators/job-search.ts`, `lib/utils/source-priority.ts`, `lib/tools/page-fetcher.ts`, `lib/tools/rendered-page-fetcher.ts`, `scripts/db-seed.ts`, `prisma/schema.prisma` (comment only), their tests, and `package.json`.
-- **Changed docs** - Criteria struck through and dated in three places: this feature's spec (the page-text location criterion), `_complete/ats-parser-expansion/feature_spec.md` (two criteria), and `_complete/multi-field-board-identity/feature_spec.md` (one). `docs/BACKLOG.md` gained item 11.
+- **Feature** - Add External Job Orchestrator, on branch `feature/add-external-job-workflow`. Plan: `docs/features/add-external-job-workflow/feature_spec.md`. Task list: `docs/CURRENT-FEATURE.md`. All six tasks are checked.
+- **Shipping is paused at the audit** - `/ship-feature` finished its acceptance criteria check and stopped at its audit step, waiting on which files to audit.
+- **Tests** - 4,237 pass, 17 are skipped, none fail. Lint and the type check are clean.
+- **Nothing is committed** - This covers this session and the three before it.
+- **Changed files this session** - `lib/orchestrators/add-external-jobs-list.flow.test.ts` (a second scenario added).
+- **Earlier sessions' uncommitted files** - `scripts/add-external-jobs.ts` and its test; `package.json`; `.claude/skills/add-external-jobs/SKILL.md`; `scripts/retired-commands.test.ts`; `lib/handlers/let-through.ts` and its two tests; `lib/orchestrators/add-external-jobs.ts` and its seven flow tests; `lib/types/added-job-outcome.ts`; `lib/utils/added-jobs-report.ts` and its test; `lib/tools/resolution-browser.fake.ts` and its test; changes to the job service, trace service, their stand-ins and tests, `lib/handlers/dedupe.test.ts` and `prisma/schema.prisma` (a comment only); `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md`, the plan, the decision log and the meeting notes; the folders `docs/features/collected-at-fallback-later/` and `docs/features/update-job-posting-data/`.
 
 ## Completed This Session
 
-- **Registration** - `parserForUrl` hands the general parser any web link no dedicated parser owns or claims, after Greenhouse's check. `npm run db:seed` adds `parser:general` last.
-- **Parsing step** - A second try with the general parser after a dedicated parser throws or reads nothing. Jobs with no link are judged on their collector's details, with no fetch. A dead page gives `expired` with reason `dead_page`. A job the general parser handles with no real place gives `unparseable` with reason `no_location`. Page-text places are added to the job's places. One trace row per job.
-- **Parsing browser** - `runJobSearch` takes `launchParsingBrowser`. It opens one browser only when a parser first asks for a rendered page, and closes it after parsing.
-- **Ranking** - `sideRank` ranks a copy that carries a parser by that parser's entry.
-- **Trace vocabulary** - The parsing reasons are written down in the Trace model's comment in `prisma/schema.prisma`.
-- **Real database, `pipeline.db`**
-  - The seed added `parser:general`.
-  - The user reordered the ranking: `collector:user`, then the six original parsers, the five newer parsers, `parser:general`, then all 15 collectors.
-  - `npm run recover-unparseable-jobs` moved 135 set-aside jobs to the backlog.
-  - One full job search ran (`45851040-9c83-471f-9658-fc68c84bb4cb`) and was scored. 69 jobs were scored, and 3 had unreadable postings. 69 employers were saved, 55 of them only partly scored.
+- **Acceptance criteria check** - Eight agents checked the spec's 48 live criteria. 47 passed. **One failing link costs only itself** failed: its "fails to save" half had no test through the add run.
+- **The missing test** - A second scenario in `lib/orchestrators/add-external-jobs-list.flow.test.ts`, "Adding a list of links where one save fails". It adds three links, makes the save of one fail, and checks the failed link has no job, a warning says it was not saved, and the other two each have their job. All 48 criteria now pass.
 
 ## Session Context
 
-- **Decisions** - They are in `docs/features/general-purpose-parser/decision-log.md`. This session replaced the page-text location entry.
-- **How page-text places travel** - The general parser hands page-text places back as `added_location_list`, a field declared on `ParsedFields` in `lib/parsers/parser.ts`. `parsing.ts` adds them to the job's `raw_location_list` and strips the field. Job-data places stay in `raw_location_list` and replace the job's places like any other field.
-- **The reasons live in parsing** - `parsing.ts` records `dead_page` and `no_location` itself, because every outcome needs a reason. The last task only had to write them into the schema comment. Parsing no longer writes `no_parser_for_domain`, `parser_errored` or `nothing_parsed`. `run-summary.ts` still labels any reason other than `no_parser_for_domain` as "parser failed".
-- **The closed-posting test changed** - `hiring-systems-closed-posting.flow.test.ts` now checks that parsing recorded `job_parsed` with `dead_page`, not the final status. Promotion still returns expired jobs in the same search, which is tracked as Dead Postings Stay Expired.
-- **Refused links never reach parsing** - Of the 34 jobs still unjudged, 26 had their link refused during resolution (`page_refused`). Parsing only reads resolved jobs, so the collector fallback never runs for them. Another 5 had locations classification couldn't use, and 3 had unreadable postings. 1 left no trace this run and hasn't been looked into.
-- **Scoring uses up web searches** - A run with about 70 employers used up the session's 200 web searches. Later helpers fell back to direct page reads, and one used the user's Chrome through Claude in Chrome. Microsoft was left unscored on purpose: its helper scored from memory without marking guesses.
-- **Employer scoring bug** - Scoring's employer list ignores the job list's readiness checks. It's logged as backlog item 11, Employer Scoring Follows the Job List.
+- **Decisions** - None new this session. The feature's decisions are in `docs/features/add-external-job-workflow/decision-log.md`.
+- **Calls made while building**
+  - **The new test has its own scratch database** - It wraps the real job service so `update` throws for one chosen link and passes every other write through.
+  - **The test passed on its first run** - `crowd-code`'s flow-test route expects a new test to fail first. That could not happen, because the behaviour already held. Instead every save was briefly made to throw; the test failed; the file was restored.
+- **Gotchas**
+  - **The audit bookmark is stale** - `history/.audit-checkpoint` still holds `524eab8`, from 2026-09-24. The general purpose parser shipped without moving it. `checkpoint..HEAD` lists about 150 files from two shipped features, ATS parser expansion and the general purpose parser. It also sees only committed work, so none of this feature's files would be audited.
+- **Open threads**
+  - **Audit scope is unanswered** - The choice put to the user: audit only this feature's uncommitted and new files (recommended), or both lists together. The user asked to clarify the question, then ended the session without saying what was unclear.
+  - **Two criteria pass on thin cover** - **A link that fails for good stands** is driven through the add run only for "page not found"; the other four permanent failures are covered by the resolution handler's own tests. **An application is kept** is tested only with `app. sent`, one of five statuses meaning the user applied.
+  - **Carried over from the last session** - The report shape is still untested on a real run; flow tests crowding `lib/orchestrators/` is still to be discussed; Adzuna's 65 repost-flagged jobs were not investigated.
 
 ## Next Steps
 
-1. **Commit** - Commit all work on `feature/general-purpose-parser`.
-2. **Ship** - Run `/ship-feature`. The decision log already records that `npm run recover-unparseable-jobs` is run once at ship. That was already done this session, so it doesn't need running again.
-3. **Look into the untraced job** - Optionally, find the one unjudged backlog job with no trace in run `45851040`.
+1. **Settle the audit scope** - Ask the user what they wanted to clarify about the audit scope question, then settle it.
+2. **Resume `/ship-feature` at its audit step** - The acceptance criteria check does not need running again.
+3. **Watch the next real run's report** - On the next `/add-external-jobs`, check the report matches the agreed shape and carries no run summary.
+4. **Commit** - Only when the user asks.
