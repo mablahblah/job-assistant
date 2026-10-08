@@ -125,7 +125,15 @@ export interface JobService {
   // name all twelve.
   findByCompanyNameMatch(options: {
     companyNamePart: string;
-    titlePart?: string;
+    statuses?: readonly string[];
+  }): Promise<JobSearchMatch[]>;
+  // Follows a job's collected or resolved link back to every row sharing that
+  // match key. A single OR query already returns a row once even when both
+  // columns match, so no row is named twice. Shares the same status-filter
+  // rule as findByCompanyNameMatch: an empty or absent list means every
+  // status.
+  findByUrlMatchKey(options: {
+    matchKey: string;
     statuses?: readonly string[];
   }): Promise<JobSearchMatch[]>;
   // The dashboard's two reads. Each hands back the job and its employer side
@@ -161,6 +169,47 @@ const GATE_FIELDS = {
   is_classified: true,
   is_judged: true,
 } satisfies Prisma.JobOmit;
+
+// The field list behind every JobSearchMatch answer. Both reads that return
+// this shape select through this one const, so a field added or dropped
+// cannot land in one read's answer without landing in the other's.
+const JOB_SEARCH_MATCH_SELECT = {
+  id: true,
+  title: true,
+  raw_title: true,
+  status: true,
+  posting_date: true,
+  company: { select: { name: true } },
+  original_url: true,
+  resolved_url: true,
+  location_match_place: true,
+} satisfies Prisma.JobSelect;
+
+// A job normalization has not reached yet still has to be nameable, so
+// the published title stands in where the tidied one is empty.
+function toJobSearchMatch(
+  row: Prisma.JobGetPayload<{ select: typeof JOB_SEARCH_MATCH_SELECT }>
+): JobSearchMatch {
+  return {
+    id: row.id,
+    title: row.title ?? row.raw_title,
+    company_name: row.company?.name ?? null,
+    status: row.status,
+    posting_date: row.posting_date,
+    original_url: row.original_url,
+    resolved_url: row.resolved_url,
+    location_match_place: row.location_match_place,
+  };
+}
+
+// Shared by every read that lets a caller narrow by status. An empty or
+// absent list means every status, because a caller with no reason to narrow
+// should not have to name all twelve.
+function statusWhereClause(
+  statuses?: readonly string[]
+): Pick<Prisma.JobWhereInput, "status"> {
+  return statuses && statuses.length > 0 ? { status: { in: [...statuses] } } : {};
+}
 
 // Which phase gate a caller is about to run, so findBacklogByIds knows which flag to check.
 export type BacklogStep = "resolution" | "parsing" | "classification";
@@ -448,42 +497,39 @@ export function createJobService(db: PipelineDb): JobService {
     // for ASCII, so the user typing "figma" or "FIGMA" reaches the same rows.
     // Prisma's SQLite provider rejects `mode: "insensitive"` outright, so
     // neither is asked for here.
-    async findByCompanyNameMatch({ companyNamePart, titlePart, statuses }) {
+    async findByCompanyNameMatch({ companyNamePart, statuses }) {
       const rows = await db.job.findMany({
         where: {
           company: { name: { contains: companyNamePart } },
-          ...(titlePart ? { title: { contains: titlePart } } : {}),
-          ...(statuses && statuses.length > 0 ? { status: { in: [...statuses] } } : {}),
+          ...statusWhereClause(statuses),
         },
-        select: {
-          id: true,
-          title: true,
-          raw_title: true,
-          status: true,
-          posting_date: true,
-          company: { select: { name: true } },
-          original_url: true,
-          resolved_url: true,
-          location_match_place: true,
-        },
+        select: JOB_SEARCH_MATCH_SELECT,
         // SQLite sorts null below every real value, so descending order
         // already sinks a job with no posting date beneath the dated ones
         // rather than letting it head the list.
         orderBy: { posting_date: "desc" },
       });
 
-      // A job normalization has not reached yet still has to be nameable, so
-      // the published title stands in where the tidied one is empty.
-      return rows.map((row) => ({
-        id: row.id,
-        title: row.title ?? row.raw_title,
-        company_name: row.company?.name ?? null,
-        status: row.status,
-        posting_date: row.posting_date,
-        original_url: row.original_url,
-        resolved_url: row.resolved_url,
-        location_match_place: row.location_match_place,
-      }));
+      return rows.map(toJobSearchMatch);
+    },
+
+    // A job matches on its collected link, its resolved link, or both; the OR
+    // clause asks SQLite for either column in one findMany, so a job with
+    // both pointing at the same key still comes back once rather than twice.
+    async findByUrlMatchKey({ matchKey, statuses }) {
+      const rows = await db.job.findMany({
+        where: {
+          OR: [
+            { original_url_match_key: matchKey },
+            { resolved_url_match_key: matchKey },
+          ],
+          ...statusWhereClause(statuses),
+        },
+        select: JOB_SEARCH_MATCH_SELECT,
+        orderBy: { posting_date: "desc" },
+      });
+
+      return rows.map(toJobSearchMatch);
     },
 
     async findByStatuses(statuses) {

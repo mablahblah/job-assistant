@@ -1075,27 +1075,6 @@ describe("searching by part of an employer's name", () => {
     expect(found.map((job) => job.id)).toEqual(["search-figma-a"]);
   });
 
-  test("keeps only the jobs whose title holds the title part", async () => {
-    await seedCompany("search-co-canva", "Canva");
-    await seedRow("search-canva-designer", {
-      company_id: "search-co-canva",
-      title: "Product Designer",
-      posting_date: new Date("2026-01-06T00:00:00.000Z"),
-    });
-    await seedRow("search-canva-engineer", {
-      company_id: "search-co-canva",
-      title: "Product Engineer",
-      posting_date: new Date("2026-01-07T00:00:00.000Z"),
-    });
-
-    const found = await service.findByCompanyNameMatch({
-      companyNamePart: "Canva",
-      titlePart: "designer",
-    });
-
-    expect(found.map((job) => job.id)).toEqual(["search-canva-designer"]);
-  });
-
   test("keeps only the jobs holding one of the statuses it was handed", async () => {
     await seedCompany("search-co-notion", "Notion");
     await seedRow("search-notion-backlog", {
@@ -1141,6 +1120,103 @@ describe("searching by part of an employer's name", () => {
     expect(await service.findByCompanyNameMatch({ companyNamePart: "nobody-by-that-name" })).toEqual(
       []
     );
+  });
+});
+
+// The user often pastes the posting they are looking at rather than naming
+// it. The lookup command cleans that link into a key, and this read finds the
+// jobs holding that key in either saved-link column, in the same shape the
+// employer search hands back.
+describe("searching by a link's match key", () => {
+  test("gives back the job whose collected link holds that key", async () => {
+    await seedRow("link-original", {
+      original_url: "https://www.adzuna.com/land/ad/1?se=a",
+      original_url_match_key: "https://www.adzuna.com/land/ad/1",
+    });
+
+    const found = await service.findByUrlMatchKey({
+      matchKey: "https://www.adzuna.com/land/ad/1",
+    });
+
+    expect(found.map((job) => job.id)).toEqual(["link-original"]);
+  });
+
+  test("gives back the job whose source posting link holds that key", async () => {
+    await seedRow("link-resolved", {
+      resolved_url: "https://boards.greenhouse.io/acme/jobs/2?gh_src=x",
+      resolved_url_match_key: "https://boards.greenhouse.io/acme/jobs/2",
+    });
+
+    const found = await service.findByUrlMatchKey({
+      matchKey: "https://boards.greenhouse.io/acme/jobs/2",
+    });
+
+    expect(found.map((job) => job.id)).toEqual(["link-resolved"]);
+  });
+
+  test("gives back a job once when both its links hold that key", async () => {
+    await seedRow("link-both", {
+      original_url: "https://jobs.lever.co/acme/3?lever-source=adzuna",
+      original_url_match_key: "https://jobs.lever.co/acme/3",
+      resolved_url: "https://jobs.lever.co/acme/3/",
+      resolved_url_match_key: "https://jobs.lever.co/acme/3",
+    });
+
+    const found = await service.findByUrlMatchKey({ matchKey: "https://jobs.lever.co/acme/3" });
+
+    expect(found.map((job) => job.id)).toEqual(["link-both"]);
+  });
+
+  test("gives back every job holding that key, the most recently published first", async () => {
+    const key = "https://acme.wd1.myworkdayjobs.com/careers/job/4";
+    await seedRow("link-shared-older", {
+      resolved_url_match_key: key,
+      posting_date: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    await seedRow("link-shared-newer", {
+      original_url_match_key: key,
+      posting_date: new Date("2026-03-01T00:00:00.000Z"),
+    });
+
+    const found = await service.findByUrlMatchKey({ matchKey: key });
+
+    expect(found.map((job) => job.id)).toEqual(["link-shared-newer", "link-shared-older"]);
+  });
+
+  test("keeps only the jobs holding one of the statuses it was handed", async () => {
+    const key = "https://jobs.ashbyhq.com/acme/5";
+    await seedRow("link-status-backlog", { original_url_match_key: key, status: "backlog" });
+    await seedRow("link-status-sent", { resolved_url_match_key: key, status: "app. sent" });
+
+    const found = await service.findByUrlMatchKey({ matchKey: key, statuses: ["app. sent"] });
+
+    expect(found.map((job) => job.id)).toEqual(["link-status-sent"]);
+  });
+
+  test("names each job exactly as the employer search does", async () => {
+    await seedCompany("link-co-vercel", "Vercel");
+    await seedRow("link-vercel", {
+      company_id: "link-co-vercel",
+      title: "Senior Product Designer",
+      status: "app. sent",
+      posting_date: new Date("2026-05-01T00:00:00.000Z"),
+      original_url: "https://www.adzuna.com/land/ad/6?se=b",
+      original_url_match_key: "https://www.adzuna.com/land/ad/6",
+      resolved_url: "https://vercel.com/careers/6",
+      resolved_url_match_key: "https://vercel.com/careers/6",
+      location_match_place: "Austin, TX",
+    });
+
+    const byLink = await service.findByUrlMatchKey({ matchKey: "https://vercel.com/careers/6" });
+    const byEmployer = await service.findByCompanyNameMatch({ companyNamePart: "Vercel" });
+
+    expect(byLink).toEqual(byEmployer);
+  });
+
+  test("gives back nothing where no job holds that key", async () => {
+    expect(
+      await service.findByUrlMatchKey({ matchKey: "https://nowhere.example.com/jobs/0" })
+    ).toEqual([]);
   });
 });
 
