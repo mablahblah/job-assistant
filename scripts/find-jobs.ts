@@ -1,15 +1,31 @@
-// Finds the job the user means. Every other job command needs an id, and the
-// user has none: a job is named the way a person names it, by who is hiring
-// and roughly what the role is. Until the web view exists nothing else in
-// this app turns those words into an id, so this command is that step.
+// Finds the jobs the user means. Every other job command needs an id, and the
+// user has none: a person names a job by pasting its link or by naming who is
+// hiring. The link is tried first, because it can point at one exact job. When
+// it points at nothing, the employer's jobs are the answer instead. The role
+// is never searched here: the agent reads the employer's jobs and picks the
+// one the user's role words describe.
 //
 // It only reads. Nothing here writes, which is why a run that matches nothing
 // is an ordinary answer rather than a failure.
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { schemaProbesFor } from "../lib/db/schema-check";
 import { schemaHasDrifted } from "../lib/db/schema-drift";
-import { createJobService, type JobSearchMatch } from "../lib/services/job-service";
+import { createJobService, type JobSearchMatch, type JobService } from "../lib/services/job-service";
+import { createSettingsService } from "../lib/services/settings-service";
 import { flagValue } from "../lib/utils/cli-args";
+import { urlMatchKey } from "../lib/utils/url-match-key";
+
+type FoundBy = "link" | "employer";
+type LinkProblem = "no_match" | "not_a_link";
+type StatusNarrowing = { statuses?: readonly string[] };
+type JsonMatch = ReturnType<typeof toJsonMatch>;
+
+// The one JSON object this command prints, which the skills read.
+interface Answer {
+  found_by: FoundBy;
+  link_problem: LinkProblem | null;
+  jobs: JsonMatch[];
+}
 
 // A comma-separated flag arrives as one string carrying whatever spacing and
 // stray commas were typed. A trailing comma must not become a phantom status
@@ -24,33 +40,10 @@ function parseStatuses(raw: string | undefined): string[] | undefined {
   return statuses.length > 0 ? statuses : undefined;
 }
 
-// Shared by the heading and the nothing-matched line, so the two never
-// describe the same search differently.
-function describeSearch(
-  companyNamePart: string,
-  titlePart: string | undefined,
-  statuses: string[] | undefined
-): string {
-  let description = `employer "${companyNamePart}"`;
-  if (titlePart !== undefined) description += ` and title "${titlePart}"`;
-  if (statuses !== undefined) description += `, within ${statuses.join(", ")}`;
-  return description;
-}
-
-// A job the pipeline has not finished with can reach here holding no title
-// and no employer name. It still has to be nameable, because its id is the
-// whole reason the user ran this.
-function matchLine(job: JobSearchMatch): string {
-  const title = job.title ?? "(no title)";
-  const employer = job.company_name ?? "(no employer name)";
-  const posted =
-    job.posting_date === null ? "" : `, posted ${job.posting_date.toISOString().slice(0, 10)}`;
-  return `  ${job.id}: ${title} at ${employer} — ${job.status}${posted}`;
-}
-
-// Shapes a match for --json. Same fields the service already returns, except
-// location_match_place is renamed to location — the criterion and the resume
-// skill both talk about the job's "location", not its "match place".
+// Shapes a match for the printed answer. Same fields the service already
+// returns, except location_match_place is renamed to location — the criterion
+// and the resume skill both talk about the job's "location", not its "match
+// place".
 function toJsonMatch(job: JobSearchMatch) {
   return {
     id: job.id,
@@ -64,21 +57,46 @@ function toJsonMatch(job: JobSearchMatch) {
   };
 }
 
+// The link step runs first and either answers outright or leaves behind why it
+// could not. matchKey is undefined when no link was given, and null when the
+// text given was not a web address. The employer search then runs once, when
+// an employer was named. With no employer, the answer is the link's problem and
+// an empty list.
+async function findJobs(
+  jobs: JobService,
+  search: { matchKey: string | null | undefined; companyNamePart: string | undefined; narrowing: StatusNarrowing },
+): Promise<Answer> {
+  const { matchKey, companyNamePart, narrowing } = search;
+  let linkProblem: LinkProblem | null = null;
+  if (matchKey === null) {
+    linkProblem = "not_a_link";
+  } else if (matchKey !== undefined) {
+    const linked = await jobs.findByUrlMatchKey({ matchKey, ...narrowing });
+    if (linked.length > 0) return { found_by: "link", link_problem: null, jobs: linked.map(toJsonMatch) };
+    linkProblem = "no_match";
+  }
+
+  if (companyNamePart === undefined) return { found_by: "link", link_problem: linkProblem, jobs: [] };
+  const employed = await jobs.findByCompanyNameMatch({ companyNamePart, ...narrowing });
+  return { found_by: "employer", link_problem: linkProblem, jobs: employed.map(toJsonMatch) };
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
+  const link = flagValue(argv, "url");
   const companyNamePart = flagValue(argv, "company");
-  const jsonMode = argv.includes("--json");
-
   // Checked before the database is opened, so a missing flag leaves no side
   // effect to reason about.
-  if (companyNamePart === undefined) {
-    console.error("Missing required flag: --company <part of the employer's name>");
+  if (link === undefined && companyNamePart === undefined) {
+    console.error("Missing a job to look for: pass --url <link> or --company <part of the employer's name>");
     process.exitCode = 1;
     return;
   }
-
-  const titlePart = flagValue(argv, "title");
   const statuses = parseStatuses(flagValue(argv, "statuses"));
+  // Only what was actually given is passed on. The service reads an absent
+  // field as "do not narrow by this", which is not the same as narrowing by
+  // an empty answer.
+  const narrowing: StatusNarrowing = statuses === undefined ? {} : { statuses };
 
   const prisma = createPipelineDb();
   try {
@@ -89,41 +107,15 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
-
-    const jobs = createJobService(prisma);
-
-    // Only what was actually given is passed on. The service reads an absent
-    // field as "do not narrow by this", which is not the same as narrowing by
-    // an empty answer.
-    const matches = await jobs.findByCompanyNameMatch({
-      companyNamePart,
-      ...(titlePart === undefined ? {} : { titlePart }),
-      ...(statuses === undefined ? {} : { statuses }),
-    });
-
-    if (jsonMode) {
-      // The resume skill parses this array instead of the printed lines
-      // below — an empty search is a real, valid answer, not an error.
-      console.log(JSON.stringify(matches.map(toJsonMatch), null, 2));
-      return;
-    }
-
-    const searched = describeSearch(companyNamePart, titlePart, statuses);
-
-    if (matches.length === 0) {
-      // "no job matched" is a fixed phrase rather than a label anyone may
-      // reword. The change-status skill reads it to tell an empty search from
-      // a list of matches, and those two lead to different next steps.
-      console.log(`no job matched ${searched}.`);
-      return;
-    }
-
-    // The service already orders these most recently published first, so
-    // sorting again here could only disagree with it.
-    console.log(`Jobs matching ${searched}:`);
-    for (const job of matches) {
-      console.log(matchLine(job));
-    }
+    // The link is cleaned the same way the stored links were, so tracking
+    // values tacked on by a share button do not stop it matching. The settings
+    // row is read only when there is a link to clean.
+    const matchKey =
+      link === undefined
+        ? undefined
+        : urlMatchKey(link, await createSettingsService(prisma).getIdentifyingQueryValues());
+    const answer = await findJobs(createJobService(prisma), { matchKey, companyNamePart, narrowing });
+    console.log(JSON.stringify(answer, null, 2));
   } finally {
     await prisma.$disconnect();
   }

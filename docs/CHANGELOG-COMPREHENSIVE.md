@@ -2,6 +2,22 @@
 
 <!-- Newest at top -->
 
+## October 8, 2026 - v1.6.0
+
+### New Features
+
+#### Find a Job by Its Link or Loose Words
+
+To make a resume, you had to name the job's title exactly as it was stored, so "sr pd" missed "Senior Product Designer" and the resume skill stopped. Neither the resume skill nor the status skill could find a job from a pasted link. Both now find a job the same way. Paste a job's link and the skill finds that exact posting, even when the link's tracking bits differ from the saved one. A link that matches nothing falls back to the employer's jobs, and you are told the link was not found. Name an employer and rough role words, and the agent picks the job your words describe, or lists the close matches for you to choose. When nothing matches, the resume skill asks for other words instead of stopping.
+
+### Internal
+
+- **Lookup** The job lookup command now answers in one data form both skills read, naming which search found the jobs and any problem with the link. Its title search, its printed sentences and its separate data setting are gone, because no skill uses them.
+- **Skills** The status skill now lists every job a link matches before looking at role words, and reports the lookup's error and stops when a lookup fails. Its example input now shows a link.
+- **Tests** Added flow tests for finding a job by its link and for falling back to the employer. One test now gives the link-cleaning setting a value the seed never writes, so a lookup that ignored the setting would fail it.
+- **Docs** Brought the architecture document's job service entry up to date: it names both searches and every command that uses the service, after the release check found it stale.
+- **Security** The release audit found 20 known weaknesses in installed packages, all present before this release. Only two have a safe update. The rest need major upgrades of the database library, the code-style tools or the library one collector uses, and are recorded under Security & Hardening on the backlog.
+
 ## October 5, 2026 - v1.5.0
 
 ### New Features

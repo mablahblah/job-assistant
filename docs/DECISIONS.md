@@ -30,3 +30,5 @@
 - **2026-09-21** -- Two job links are matched by a key that keeps only the query values named in the identifying-values setting and drops every other one. One source carries a job's only identity in its query string while most carry throwaway tracking values, so a named list separates the two without naming a website in code.
 
 - **2026-09-25** -- A job is judged dead only by its own posting page: the page answers "not found" or "gone", lands on an error address, or shows no job at all. A job whose state is unclear stays in the backlog, because end dates carry placeholder values, data feeds miss postings their pages still show, and in the user's words, "Better a job be accidentally in the backlog but dead than the other way around."
+
+- **2026-10-08** -- Job lookups never search titles: the agent picks the job from the employer's list. No search can decode a user's job shorthand, such as "sr pd" for "Senior Product Designer", so fuzzy search was rejected.

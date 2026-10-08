@@ -766,26 +766,6 @@ describe("searching by part of an employer's name", () => {
     expect(found.map((job) => job.id)).toEqual(["fake-search-case"]);
   });
 
-  test("keeps only the jobs whose title holds the title part", async () => {
-    const service = fakeJobService([
-      storedJob("fake-search-designer", {
-        raw_company_name: "Canva",
-        title: "Product Designer",
-      }),
-      storedJob("fake-search-engineer", {
-        raw_company_name: "Canva",
-        title: "Product Engineer",
-      }),
-    ]);
-
-    const found = await service.findByCompanyNameMatch({
-      companyNamePart: "Canva",
-      titlePart: "designer",
-    });
-
-    expect(found.map((job) => job.id)).toEqual(["fake-search-designer"]);
-  });
-
   test("keeps only the jobs holding one of the statuses it was handed", async () => {
     const service = fakeJobService([
       storedJob("fake-search-backlog", { raw_company_name: "Notion", status: "backlog" }),
@@ -821,6 +801,103 @@ describe("searching by part of an employer's name", () => {
     const service = fakeJobService([storedJob("fake-search-x", { raw_company_name: "Indeed" })]);
 
     expect(await service.findByCompanyNameMatch({ companyNamePart: "nobody" })).toEqual([]);
+  });
+});
+
+// Mirrors the real service's read of the jobs holding a link's match key in
+// either saved-link column.
+describe("searching by a link's match key", () => {
+  test("gives back the job whose collected link holds that key", async () => {
+    const service = fakeJobService([
+      storedJob("fake-link-original", { original_url_match_key: "https://a.example.com/1" }),
+      storedJob("fake-link-other", { original_url_match_key: "https://a.example.com/9" }),
+    ]);
+
+    const found = await service.findByUrlMatchKey({ matchKey: "https://a.example.com/1" });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-link-original"]);
+  });
+
+  test("gives back the job whose source posting link holds that key", async () => {
+    const service = fakeJobService([
+      storedJob("fake-link-resolved", { resolved_url_match_key: "https://b.example.com/2" }),
+    ]);
+
+    const found = await service.findByUrlMatchKey({ matchKey: "https://b.example.com/2" });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-link-resolved"]);
+  });
+
+  test("gives back a job once when both its links hold that key", async () => {
+    const key = "https://c.example.com/3";
+    const service = fakeJobService([
+      storedJob("fake-link-both", { original_url_match_key: key, resolved_url_match_key: key }),
+    ]);
+
+    const found = await service.findByUrlMatchKey({ matchKey: key });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-link-both"]);
+  });
+
+  test("gives back every job holding that key, the most recently published first", async () => {
+    const key = "https://d.example.com/4";
+    const service = fakeJobService([
+      storedJob("fake-link-older", {
+        resolved_url_match_key: key,
+        posting_date: new Date("2026-01-01T00:00:00.000Z"),
+      }),
+      storedJob("fake-link-newer", {
+        original_url_match_key: key,
+        posting_date: new Date("2026-03-01T00:00:00.000Z"),
+      }),
+    ]);
+
+    const found = await service.findByUrlMatchKey({ matchKey: key });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-link-newer", "fake-link-older"]);
+  });
+
+  test("keeps only the jobs holding one of the statuses it was handed", async () => {
+    const key = "https://e.example.com/5";
+    const service = fakeJobService([
+      storedJob("fake-link-backlog", { original_url_match_key: key, status: "backlog" }),
+      storedJob("fake-link-sent", { resolved_url_match_key: key, status: "app. sent" }),
+    ]);
+
+    const found = await service.findByUrlMatchKey({ matchKey: key, statuses: ["app. sent"] });
+
+    expect(found.map((job) => job.id)).toEqual(["fake-link-sent"]);
+  });
+
+  test("names each job exactly as the employer search does", async () => {
+    const service = fakeJobService([
+      storedJob("fake-link-named", {
+        raw_company_name: "Vercel",
+        title: "Senior Product Designer",
+        status: "app. sent",
+        posting_date: new Date("2026-05-01T00:00:00.000Z"),
+        original_url: "https://www.adzuna.com/land/ad/6?se=b",
+        original_url_match_key: "https://www.adzuna.com/land/ad/6",
+        resolved_url: "https://vercel.com/careers/6",
+        resolved_url_match_key: "https://vercel.com/careers/6",
+        location_match_place: "Austin, TX",
+      }),
+    ]);
+
+    const byLink = await service.findByUrlMatchKey({ matchKey: "https://vercel.com/careers/6" });
+    const byEmployer = await service.findByCompanyNameMatch({ companyNamePart: "Vercel" });
+
+    expect(byLink).toEqual(byEmployer);
+  });
+
+  test("gives back nothing where no job holds that key", async () => {
+    const service = fakeJobService([
+      storedJob("fake-link-x", { original_url_match_key: "https://f.example.com/7" }),
+    ]);
+
+    expect(await service.findByUrlMatchKey({ matchKey: "https://nowhere.example.com/0" })).toEqual(
+      []
+    );
   });
 });
 

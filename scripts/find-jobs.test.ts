@@ -115,19 +115,50 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("searching for a job", () => {
-  // AC 92. The skill turns these words back into a job id, and the user reads
-  // the same line to check the skill picked the job they meant.
-  test(
-    "names each match's id, title, employer and status",
-    () => {
-      const result = runFind(url, ["--company", "canva"]);
+// The one answer the command gives: an object naming which search found the
+// jobs, any problem with the link, and the jobs. Both the resume skill and
+// the status skill read it, so it is structured data on stdout and nothing
+// else. The link search and the fall back to the employer are walked through
+// by the two flow tests beside this file.
+interface Answer {
+  found_by: string;
+  link_problem: string | null;
+  jobs: Array<Record<string, unknown>>;
+}
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("job-canva");
-      expect(result.stdout).toContain("Product Designer");
-      expect(result.stdout).toContain("Canva");
-      expect(result.stdout).toContain("backlog");
+function answerOf(result: RunResult): Answer {
+  expect(result.status, result.stderr).toBe(0);
+  return JSON.parse(result.stdout) as Answer;
+}
+
+describe("searching by employer", () => {
+  // AC 92. The skill turns these fields back into a job id, and the user reads
+  // them to check the skill picked the job they meant.
+  test(
+    "names each match's id, title, employer, status and posting date",
+    () => {
+      const answer = answerOf(runFind(url, ["--company", "figma"]));
+      const match = answer.jobs.find((job) => job["id"] === "job-newer");
+
+      expect(match?.["title"]).toBe("Staff Product Engineer");
+      expect(match?.["company_name"]).toBe("Figma");
+      expect(match?.["status"]).toBe("app. sent");
+      expect(String(match?.["posting_date"])).toContain("2026-02-01");
+    },
+    RUN_TIMEOUT_MS
+  );
+
+  // The resume skill fetches the posting by these links and tailors to the
+  // location.
+  test(
+    "a match carries the collected link, the source posting's link, and the location",
+    () => {
+      const answer = answerOf(runFind(url, ["--company", "figma"]));
+      const match = answer.jobs.find((job) => job["id"] === "job-newer");
+
+      expect(match?.["original_url"]).toBe("https://aggregator.example.com/jobs/9");
+      expect(match?.["resolved_url"]).toBe("https://boards.example.com/figma/9");
+      expect(match?.["location"]).toBe("Austin, TX");
     },
     RUN_TIMEOUT_MS
   );
@@ -136,23 +167,9 @@ describe("searching for a job", () => {
   test(
     "puts the most recently published match first",
     () => {
-      const result = runFind(url, ["--company", "figma"]);
+      const answer = answerOf(runFind(url, ["--company", "figma"]));
 
-      expect(result.status).toBe(0);
-      expect(result.stdout.indexOf("job-newer")).toBeLessThan(result.stdout.indexOf("job-older"));
-    },
-    RUN_TIMEOUT_MS
-  );
-
-  // AC 88.
-  test(
-    "keeps only the matches whose title holds the title part",
-    () => {
-      const result = runFind(url, ["--company", "figma", "--title", "engineer"]);
-
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("job-newer");
-      expect(result.stdout).not.toContain("job-older");
+      expect(answer.jobs.map((job) => job["id"])).toEqual(["job-newer", "job-older"]);
     },
     RUN_TIMEOUT_MS
   );
@@ -162,81 +179,45 @@ describe("searching for a job", () => {
   test(
     "keeps only the matches holding one of the statuses it was handed",
     () => {
-      const result = runFind(url, ["--company", "figma", "--statuses", "backlog"]);
+      const answer = answerOf(runFind(url, ["--company", "figma", "--statuses", "backlog"]));
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("job-older");
-      expect(result.stdout).not.toContain("job-newer");
+      expect(answer.jobs.map((job) => job["id"])).toEqual(["job-older"]);
     },
     RUN_TIMEOUT_MS
   );
 
-  // AC 90. The skill tells this apart from a list of matches, so the sentence
-  // is a fixed value rather than a label anyone may reword.
+  // A trailing comma must not become a status nothing can hold.
   test(
-    "states that nothing matched where no employer name holds that part",
+    "a status list with stray commas and spaces narrows the same way",
     () => {
-      const result = runFind(url, ["--company", "nobody-by-that-name"]);
+      const answer = answerOf(runFind(url, ["--company", "figma", "--statuses", " backlog, ,"]));
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("no job matched");
+      expect(answer.jobs.map((job) => job["id"])).toEqual(["job-older"]);
     },
     RUN_TIMEOUT_MS
   );
 
   test(
-    "refuses a run naming no employer",
+    "an employer no job holds answers with an empty job list",
     () => {
-      const result = runFind(url, []);
+      const answer = answerOf(runFind(url, ["--company", "nobody-by-that-name"]));
 
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain("--company");
+      expect(answer).toEqual({ found_by: "employer", link_problem: null, jobs: [] });
     },
     RUN_TIMEOUT_MS
   );
 });
 
-// Phase 13, criteria "A machine-readable answer exists", "The answer names
-// the job", "The answer carries both links", and "The answer carries the
-// location". The resume skill parses this answer instead of the printed
-// lines, so it is structured data on stdout and nothing else.
-describe("the machine-readable answer", () => {
-  function parseJson(stdout: string): Array<Record<string, unknown>> {
-    return JSON.parse(stdout) as Array<Record<string, unknown>>;
-  }
+describe("a run it refuses", () => {
+  test(
+    "refuses a run naming neither a link nor an employer",
+    () => {
+      const result = runFind(url, []);
 
-  test("the answer parses as structured data", () => {
-    const result = runFind(url, ["--company", "figma", "--json"]);
-
-    expect(result.status).toBe(0);
-    const matches = parseJson(result.stdout);
-    expect(Array.isArray(matches)).toBe(true);
-    expect(matches).toHaveLength(2);
-  }, RUN_TIMEOUT_MS);
-
-  test("a match carries the fields the printed lines already show", () => {
-    const result = runFind(url, ["--company", "figma", "--json"]);
-    const match = parseJson(result.stdout).find((row) => row["id"] === "job-newer");
-
-    expect(match?.["title"]).toBe("Staff Product Engineer");
-    expect(match?.["company_name"]).toBe("Figma");
-    expect(match?.["status"]).toBe("app. sent");
-    expect(String(match?.["posting_date"])).toContain("2026-02-01");
-  }, RUN_TIMEOUT_MS);
-
-  test("a match carries the collected link, the source posting's link, and the location", () => {
-    const result = runFind(url, ["--company", "figma", "--json"]);
-    const match = parseJson(result.stdout).find((row) => row["id"] === "job-newer");
-
-    expect(match?.["original_url"]).toBe("https://aggregator.example.com/jobs/9");
-    expect(match?.["resolved_url"]).toBe("https://boards.example.com/figma/9");
-    expect(match?.["location"]).toBe("Austin, TX");
-  }, RUN_TIMEOUT_MS);
-
-  test("no match is an empty list, not prose", () => {
-    const result = runFind(url, ["--company", "nothing-holds-this", "--json"]);
-
-    expect(result.status).toBe(0);
-    expect(parseJson(result.stdout)).toEqual([]);
-  }, RUN_TIMEOUT_MS);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("--url");
+      expect(result.stderr).toContain("--company");
+    },
+    RUN_TIMEOUT_MS
+  );
 });

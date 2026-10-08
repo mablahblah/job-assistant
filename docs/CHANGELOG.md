@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## October 8, 2026 - v1.6.0
+
+### New Features
+
+#### Find a Job by Its Link or Loose Words
+
+To make a resume, you had to name the job's title exactly as it was stored, so "sr pd" missed "Senior Product Designer" and the resume skill stopped. Neither the resume skill nor the status skill could find a job from a pasted link. Both now find a job the same way. Paste a job's link and the skill finds that exact posting, even when the link's tracking bits differ from the saved one. A link that matches nothing falls back to the employer's jobs, and you are told the link was not found. Name an employer and rough role words, and the agent picks the job your words describe, or lists the close matches for you to choose. When nothing matches, the resume skill asks for other words instead of stopping.
+
 ## October 5, 2026 - v1.5.0
 
 ### New Features

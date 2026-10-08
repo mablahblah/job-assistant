@@ -13,34 +13,41 @@
 
 ## Current Task
 
-- **Feature** - Add External Job Orchestrator, on branch `feature/add-external-job-workflow`. Plan: `docs/features/add-external-job-workflow/feature_spec.md`. Task list: `docs/CURRENT-FEATURE.md`. All six tasks are checked.
-- **Shipping is paused at the audit** - `/ship-feature` finished its acceptance criteria check and stopped at its audit step, waiting on which files to audit.
-- **Tests** - 4,237 pass, 17 are skipped, none fail. Lint and the type check are clean.
-- **Nothing is committed** - This covers this session and the three before it.
-- **Changed files this session** - `lib/orchestrators/add-external-jobs-list.flow.test.ts` (a second scenario added).
-- **Earlier sessions' uncommitted files** - `scripts/add-external-jobs.ts` and its test; `package.json`; `.claude/skills/add-external-jobs/SKILL.md`; `scripts/retired-commands.test.ts`; `lib/handlers/let-through.ts` and its two tests; `lib/orchestrators/add-external-jobs.ts` and its seven flow tests; `lib/types/added-job-outcome.ts`; `lib/utils/added-jobs-report.ts` and its test; `lib/tools/resolution-browser.fake.ts` and its test; changes to the job service, trace service, their stand-ins and tests, `lib/handlers/dedupe.test.ts` and `prisma/schema.prisma` (a comment only); `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md`, the plan, the decision log and the meeting notes; the folders `docs/features/collected-at-fallback-later/` and `docs/features/update-job-posting-data/`.
+- **Feature** - Forgiving Job Lookup, on branch `feature/forgiving-job-lookup`. Plan: `docs/features/forgiving-job-lookup/feature_spec.md`. Task list: `docs/CURRENT-FEATURE.md`. Decision log: `docs/features/forgiving-job-lookup/decision-log.md`.
+- **State** - All five tasks are built and checked in `docs/CURRENT-FEATURE.md`. Only the feature's own checkbox is open, which `/ship-feature` closes. Not yet shipped.
+- **Tests** - 4,268 pass, 17 are skipped, none fail. Lint and the type check are clean.
+- **Git** - Everything is committed in six commits, `d39bc0e` to `7d6410a`, and pushed to `origin/feature/forgiving-job-lookup`. The working tree is clean.
 
 ## Completed This Session
 
-- **Acceptance criteria check** - Eight agents checked the spec's 48 live criteria. 47 passed. **One failing link costs only itself** failed: its "fails to save" half had no test through the add run.
-- **The missing test** - A second scenario in `lib/orchestrators/add-external-jobs-list.flow.test.ts`, "Adding a list of links where one save fails". It adds three links, makes the save of one fail, and checks the failed link has no job, a warning says it was not saved, and the other two each have their job. All 48 criteria now pass.
+- **Flow tests** - `scripts/find-jobs-by-link.flow.test.ts` and `scripts/find-jobs-employer-fallback.flow.test.ts`, written first and watched fail, now pass.
+- **Job service read** - `findByUrlMatchKey` in `lib/services/job-service.ts` and its stand-in `lib/services/job-service.fake.ts`. Both reads share one field list. The employer read lost its title option.
+- **Lookup command** - `scripts/find-jobs.ts` takes `--url`, `--company`, `--statuses`; searches the link first, falls back to the employer, and prints one JSON object `{ found_by, link_problem, jobs }`. `--title`, `--json` and the printed sentences are gone. `scripts/find-jobs.test.ts`, `CLAUDE.md` and `docs/architecture.md` brought in line.
+- **Resume skill** - `.claude/skills/generate-resume/SKILL.md` Phase 1 rewritten through `writing-skills`; inputs are now `job` (a link or an employer) and `role`. `scripts/generate-resume-skill.test.ts` pins that the lookup lines pass `--url` and `--company` and never the role, `--title` or `--json`.
+- **Status skill** - `.claude/skills/change-status/SKILL.md` rewritten through `writing-skills` to pass a link and read the JSON answer.
 
 ## Session Context
 
-- **Decisions** - None new this session. The feature's decisions are in `docs/features/add-external-job-workflow/decision-log.md`.
+- **Decisions** - None qualified for the decision log this session. The feature's decisions are in its decision log.
 - **Calls made while building**
-  - **The new test has its own scratch database** - It wraps the real job service so `update` throws for one chosen link and passes every other write through.
-  - **The test passed on its first run** - `crowd-code`'s flow-test route expects a new test to fail first. That could not happen, because the behaviour already held. Instead every save was briefly made to throw; the test failed; the file was restored.
+  - **An unplanned extra change** - `lib/handlers/dedupe.test.ts` holds a hand-written counting stand-in of the job service. It needed a `findByUrlMatchKey` pass-through to satisfy the interface. No behaviour changed.
+  - **The lookup command took two writer rounds** - The first two Sonnet versions wrote the employer search twice, the status narrowing three times, and an unreachable `throw`. The second round on Opus fixed all three; writer B's version was applied.
+  - **`found_by` for a lone link** - The spec does not say what `found_by` is when only a link is given and it has a problem. The flow tests and the command answer `"link"`, with an empty job list.
+  - **Seeded keys in the flow tests** - Built with `urlMatchKey(link, ["opportunityid"])`, the identifying list `db-seed` writes, rather than written out by hand, so a test key always matches what the command computes.
+  - **`scripts/find-jobs.test.ts` rewritten** - Its tests now read the data answer. The title test was removed. A stray-commas status test and a refusal test naming both flags were added.
+  - **Resume skill blank names** - Phase 4's per-past-job heading is now `{prev-company} ({prev-role})`, and Phase 6's selections file uses `{company_name}`, so neither clashes with the new `{role}` input. The user picked the `prev-` names.
+  - **Status skill step numbers** - They now restart at 1 in each phase, as the skill guidelines require. No step's wording changed.
+  - **`docs/architecture.md` history table** - The Phase 13 row still mentions `--json`. It is left alone because it records history.
 - **Gotchas**
-  - **The audit bookmark is stale** - `history/.audit-checkpoint` still holds `524eab8`, from 2026-09-24. The general purpose parser shipped without moving it. `checkpoint..HEAD` lists about 150 files from two shipped features, ATS parser expansion and the general purpose parser. It also sees only committed work, so none of this feature's files would be audited.
+  - **The commit hook's "untested" list is wrong** - The code-review-graph hook lists `findByUrlMatchKey`, `toJobSearchMatch` and others as untested. Each is covered by `lib/services/job-service.test.ts` or the flow tests.
 - **Open threads**
-  - **Audit scope is unanswered** - The choice put to the user: audit only this feature's uncommitted and new files (recommended), or both lists together. The user asked to clarify the question, then ended the session without saying what was unclear.
-  - **Two criteria pass on thin cover** - **A link that fails for good stands** is driven through the add run only for "page not found"; the other four permanent failures are covered by the resolution handler's own tests. **An application is kept** is tested only with `app. sent`, one of five statuses meaning the user applied.
-  - **Carried over from the last session** - The report shape is still untested on a real run; flow tests crowding `lib/orchestrators/` is still to be discussed; Adzuna's 65 repost-flagged jobs were not investigated.
+  - **Status skill example** - The `/change-status` argument hint, `indeed sr pd -> rejected, apple -> rejected`, shows no link. Adding one was offered as optional; the user did not decide.
+  - **`feature_spec.md` task boxes** - The spec's own Tasks section is still unchecked. `docs/CURRENT-FEATURE.md` holds the ticks.
+  - **Carried over from the previous feature** - The add-external-jobs report shape is still untested on a real run; flow tests crowding `lib/orchestrators/` is still to be discussed; Adzuna's 65 repost-flagged jobs were not investigated.
 
 ## Next Steps
 
-1. **Settle the audit scope** - Ask the user what they wanted to clarify about the audit scope question, then settle it.
-2. **Resume `/ship-feature` at its audit step** - The acceptance criteria check does not need running again.
-3. **Watch the next real run's report** - On the next `/add-external-jobs`, check the report matches the agreed shape and carries no run summary.
-4. **Commit** - Only when the user asks.
+1. **Run `/ship-feature`** - Verify the feature against its 25 acceptance criteria and merge it.
+2. **Do the by-hand checks during shipping** - The spec's Flow Tests section lists the criteria no automated test can run: run the resume skill once with an employer and loose role words, once with a link; run the status skill once with a link; read both skills for any other read of the database; read `CLAUDE.md` and `docs/architecture.md` against the finished command.
+3. **Ask about the status skill example** - Whether to add a link to the `/change-status` argument hint.
+4. **Watch the next real add-external-jobs run** - Check its report matches the agreed shape and carries no run summary.

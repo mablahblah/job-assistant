@@ -32,6 +32,36 @@ function writeLinkMatchKey(
     typeof winner === "string" ? urlMatchKey(winner, identifyingQueryValues) : null;
 }
 
+// Shared by findByCompanyNameMatch and findByUrlMatchKey so the two reads
+// can never drift apart on status filtering, sort order or field mapping.
+function toJobSearchMatches(matches: JobListEntry[], statuses?: readonly string[]): JobSearchMatch[] {
+  return matches
+    .filter((job) => !statuses?.length || statuses.includes(job.status ?? "backlog"))
+    // filter already hands back a fresh array, so this sort never reaches
+    // the array the caller passed in. Spelled out because sort mutates in
+    // place, and a later edit dropping a filter would make it do so.
+    .sort((a, b) => {
+      // Mirrors SQLite's ordering for the real query: a job with no posting
+      // date sorts below every job that has one.
+      const aTime = a.posting_date?.getTime();
+      const bTime = b.posting_date?.getTime();
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime - aTime;
+    })
+    .map((job) => ({
+      id: job.id ?? "",
+      title: job.title || job.raw_title || null,
+      company_name: job.raw_company_name ?? null,
+      status: job.status ?? "backlog",
+      posting_date: job.posting_date ?? null,
+      original_url: job.original_url ?? null,
+      resolved_url: job.resolved_url ?? null,
+      location_match_place: job.location_match_place ?? null,
+    }));
+}
+
 export function fakeJobService(
   jobs: JobListEntry[] = [],
   overrides: Partial<JobService> = {},
@@ -295,40 +325,26 @@ export function fakeJobService(
   // service.
   async function findByCompanyNameMatch(options: {
     companyNamePart: string;
-    titlePart?: string;
     statuses?: readonly string[];
   }): Promise<JobSearchMatch[]> {
     const companyPart = options.companyNamePart.toLowerCase();
-    const titlePart = options.titlePart?.toLowerCase();
-    const statuses = options.statuses;
 
-    return jobs
-      .filter((job) => job.raw_company_name?.toLowerCase().includes(companyPart))
-      .filter((job) => !titlePart || (job.title ?? "").toLowerCase().includes(titlePart))
-      .filter((job) => !statuses?.length || statuses.includes(job.status ?? "backlog"))
-      // filter already hands back a fresh array, so this sort never reaches
-      // the array the caller passed in. Spelled out because sort mutates in
-      // place, and a later edit dropping a filter would make it do so.
-      .sort((a, b) => {
-        // Mirrors SQLite's ordering for the real query: a job with no posting
-        // date sorts below every job that has one.
-        const aTime = a.posting_date?.getTime();
-        const bTime = b.posting_date?.getTime();
-        if (aTime == null && bTime == null) return 0;
-        if (aTime == null) return 1;
-        if (bTime == null) return -1;
-        return bTime - aTime;
-      })
-      .map((job) => ({
-        id: job.id ?? "",
-        title: job.title || job.raw_title || null,
-        company_name: job.raw_company_name ?? null,
-        status: job.status ?? "backlog",
-        posting_date: job.posting_date ?? null,
-        original_url: job.original_url ?? null,
-        resolved_url: job.resolved_url ?? null,
-        location_match_place: job.location_match_place ?? null,
-      }));
+    const matches = jobs.filter((job) => job.raw_company_name?.toLowerCase().includes(companyPart));
+    return toJobSearchMatches(matches, options.statuses);
+  }
+
+  // Follows a job's collected or resolved link back to every row sharing
+  // that match key. A single filter with || already returns a job once even
+  // when both fields match that key, so no job is named twice. Shares the
+  // same status filter, sort and mapping as findByCompanyNameMatch.
+  async function findByUrlMatchKey(options: {
+    matchKey: string;
+    statuses?: readonly string[];
+  }): Promise<JobSearchMatch[]> {
+    const matches = jobs.filter(
+      (job) => job.original_url_match_key === options.matchKey || job.resolved_url_match_key === options.matchKey
+    );
+    return toJobSearchMatches(matches, options.statuses);
   }
 
   return {
@@ -346,6 +362,7 @@ export function fakeJobService(
     findUnclassified,
     findNeedingScores,
     findByCompanyNameMatch,
+    findByUrlMatchKey,
     findByStatuses,
     findByIds,
     ...overrides,
