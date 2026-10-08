@@ -2,7 +2,8 @@
 //
 // A database holding one employer's jobs: one whose saved links carry
 // tracking bits, one whose two saved links clean to the same address, two
-// saved under one link, one the user has applied to, and one no link reaches.
+// saved under one link, one the user has applied to, two told apart only by a
+// query value the identifying-values setting names, and one no link reaches.
 // The lookup command runs exactly as a skill runs it, once with a link to
 // each, with lists of statuses, with an employer beside a link, and once as
 // an employer search for comparison. Each answer is read as the data form
@@ -36,9 +37,11 @@ const SETUP_TIMEOUT_MS = 120_000;
 // itself starts. Vitest's own five-second default is below that floor.
 const RUN_TIMEOUT_MS = 60_000;
 
-// The identifying query values db-seed writes. Every saved key in this
-// database is built with them, the way the job service builds a real one.
-const IDENTIFYING_QUERY_VALUES = ["opportunityid"];
+// The identifying query values this database holds. Every saved key in it
+// is built with them, the way the job service builds a real one. Not the one
+// db-seed writes, so a command that ignored the setting, or carried its own
+// copy of db-seed's value, would build a different key and find nothing.
+const IDENTIFYING_QUERY_VALUES = ["jobref"];
 
 const COMPANY = { id: "co-acme", name: "Acme Design" };
 
@@ -77,6 +80,19 @@ const JOBS = {
     original_url: "https://jobs.ashbyhq.com/acme/321?utm_source=adzuna",
     resolved_url: null,
     pasted: "https://jobs.ashbyhq.com/acme/321",
+  },
+  identifiedFirst: {
+    id: "job-identified-first",
+    status: "backlog",
+    original_url: null,
+    resolved_url: "https://careers.acme.com/apply?jobref=111&utm_source=feed",
+    pasted: "https://careers.acme.com/apply?jobref=111&utm_campaign=share",
+  },
+  identifiedSecond: {
+    id: "job-identified-second",
+    status: "backlog",
+    original_url: null,
+    resolved_url: "https://careers.acme.com/apply?jobref=222&utm_source=feed",
   },
   unlinked: {
     id: "job-unlinked",
@@ -157,6 +173,10 @@ beforeAll(async () => {
   const client = createClient({ url });
   try {
     await client.execute({
+      sql: `UPDATE Setting SET identifying_query_values = ?`,
+      args: [JSON.stringify(IDENTIFYING_QUERY_VALUES)],
+    });
+    await client.execute({
       sql: `INSERT INTO Company (id, name, match_key, created_at, modified_at)
             VALUES (?, ?, 'acme design', '2026-01-01', '2026-01-01')`,
       args: [COMPANY.id, COMPANY.name],
@@ -208,6 +228,9 @@ describe("Finding a job by its link", () => {
         { args: ["--url", JOBS.bothLinks.pasted], expected: [JOBS.bothLinks.id] },
         // Several link matches are listed: two jobs saved under one link.
         { args: ["--url", SHARED_PASTED], expected: [JOBS.sharedFirst.id, JOBS.sharedSecond.id] },
+        // A link finds its job: the only thing telling the two apart is a
+        // query value the setting names, so the setting is what finds it.
+        { args: ["--url", JOBS.identifiedFirst.pasted], expected: [JOBS.identifiedFirst.id] },
         // Statuses narrow every search: the applied job's own status is listed.
         {
           args: ["--url", JOBS.applied.pasted, "--statuses", "app. sent,screening"],
@@ -233,7 +256,7 @@ describe("Finding a job by its link", () => {
         }
       }
     },
-    RUN_TIMEOUT_MS * 8
+    RUN_TIMEOUT_MS * 9
   );
 
   test(

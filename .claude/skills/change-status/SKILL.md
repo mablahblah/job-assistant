@@ -5,7 +5,7 @@ disable-model-invocation: true
 arguments:
   - name: request
     description: One or more jobs, each named by its link or by its employer and roughly its role, with the status it moves to
-argument-hint: "indeed sr pd -> rejected, apple -> rejected"
+argument-hint: "https://jobs.example.com/123 -> app. sent, apple sr pd -> rejected"
 ---
 
 # Change Status
@@ -44,13 +44,16 @@ argument-hint: "indeed sr pd -> rejected, apple -> rejected"
 npm run find-jobs -- --url "{link}" --company "{employer}" --statuses "{statuses to search}"
 ```
 
-3. Read the JSON object the lookup prints. `jobs` holds the matches. `link_problem` says what went wrong with the link: `no_match`, `not_a_link`, or `null`.
+3. Read the JSON object the lookup prints. `jobs` holds the matches. `found_by` says which search found them: `link` or `employer`. `link_problem` says what went wrong with the link: `no_match`, `not_a_link`, or `null`.
+   - If the lookup failed (exited non-zero), it printed an error in place of the JSON object: report that error to the user and stop.
    - If `link_problem` is `no_match`: tell the user no job in the searched statuses holds that link.
    - If `link_problem` is `not_a_link`: tell the user the text given as a link is not a web address.
-4. Compare the jobs to the role the request named:
-   - If exactly one job came back, or one clearly fits the role: use its id.
-   - If more than one still fits: show them and ask the user which.
+4. Pick the job:
    - If `jobs` is empty: tell the user, and ask whether to search every status. Run again without `--statuses` only if they say yes.
+   - If exactly one job came back: use its id.
+   - If `found_by` is `link`: show every job and ask the user which.
+   - If one job clearly fits the role the request named: use its id.
+   - If more than one still fits: show them and ask the user which.
 
 ## Phase 3: Change the statuses
 
