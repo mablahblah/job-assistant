@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vitest";
 import {
   ACTIVE_STATUSES,
+  RECHECKED_STATUSES,
   RULED_OUT_STATUSES,
   VALID_STATUSES,
   WORK_LOG_STATUSES,
   isActiveStatus,
+  isRecheckedStatus,
   isRuledOutStatus,
   isValidStatus,
   isWorkLogStatus,
@@ -164,5 +166,33 @@ describe("isRuledOutStatus", () => {
 
   test("a status not on any list is not ruled out", () => {
     expect(isRuledOutStatus("something else")).toBe(false);
+  });
+});
+
+// The statuses adding a link again sends back through every step: the
+// verdicts the pipeline reached itself, never one the user set.
+describe("the rechecked status list", () => {
+  test("holds exactly the four verdicts the pipeline reaches by checking the posting", () => {
+    expect([...RECHECKED_STATUSES]).toEqual(["expired", "too far", "unresolvable", "unparseable"]);
+  });
+
+  test("holds only statuses the database accepts", () => {
+    for (const status of RECHECKED_STATUSES) {
+      expect([...VALID_STATUSES]).toContain(status);
+    }
+  });
+});
+
+describe("isRecheckedStatus", () => {
+  test.each([...RECHECKED_STATUSES])("%s is rechecked", (status) => {
+    expect(isRecheckedStatus(status)).toBe(true);
+  });
+
+  test.each(["backlog", "won't apply", "rejected", ...ACTIVE_STATUSES])("%s is not rechecked", (status) => {
+    expect(isRecheckedStatus(status)).toBe(false);
+  });
+
+  test("a status not on any list is not rechecked", () => {
+    expect(isRecheckedStatus("something else")).toBe(false);
   });
 });

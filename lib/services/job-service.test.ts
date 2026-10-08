@@ -683,6 +683,77 @@ describe("the backlog cleanup job list", () => {
   });
 });
 
+describe("the backlog jobs read back by id", () => {
+  // Adding jobs reads back only the jobs it was handed, and of those only the
+  // ones still in the backlog that still need the step about to run, the way
+  // every later step of a job search reads only backlog jobs still needing it.
+  test("holds only the named backlog jobs not yet followed, for link following", async () => {
+    await seedRow("by-id-follow-new");
+    await seedRow("by-id-follow-done", { is_resolved: true });
+    await seedRow("by-id-follow-ruled-out", { status: "won't apply" });
+    await seedRow("by-id-follow-unnamed");
+
+    const found = await service.findBacklogByIds(
+      ["by-id-follow-new", "by-id-follow-done", "by-id-follow-ruled-out"],
+      "resolution"
+    );
+
+    expect(found.map((job) => job.id)).toEqual(["by-id-follow-new"]);
+  });
+
+  // A job whose link could not be followed is still read, so this step does
+  // not ask whether the link was followed.
+  test("holds only the named backlog jobs not yet read, followed or not, for page reading", async () => {
+    await seedRow("by-id-read-unfollowed");
+    await seedRow("by-id-read-followed", { is_resolved: true });
+    await seedRow("by-id-read-done", { is_resolved: true, is_parsed: true });
+    await seedRow("by-id-read-ruled-out", { status: "rejected", is_resolved: true });
+
+    const found = await service.findBacklogByIds(
+      ["by-id-read-unfollowed", "by-id-read-followed", "by-id-read-done", "by-id-read-ruled-out"],
+      "parsing"
+    );
+
+    expect(found.map((job) => job.id).sort()).toEqual([
+      "by-id-read-followed",
+      "by-id-read-unfollowed",
+    ]);
+  });
+
+  test("holds only the named backlog jobs not yet location-checked, for the location check", async () => {
+    await seedRow("by-id-check-new", { is_resolved: true, is_parsed: true });
+    await seedRow("by-id-check-unfollowed", { is_parsed: true });
+    await seedRow("by-id-check-done", { is_resolved: true, is_parsed: true, is_classified: true });
+    await seedRow("by-id-check-too-far", { status: "too far", is_resolved: true, is_parsed: true });
+
+    const found = await service.findBacklogByIds(
+      ["by-id-check-new", "by-id-check-unfollowed", "by-id-check-done", "by-id-check-too-far"],
+      "classification"
+    );
+
+    expect(found.map((job) => job.id).sort()).toEqual([
+      "by-id-check-new",
+      "by-id-check-unfollowed",
+    ]);
+  });
+
+  test("leaves the five gate fields behind", async () => {
+    await seedRow("by-id-fields", { is_resolved: true });
+    const [entry] = await service.findBacklogByIds(["by-id-fields"], "parsing");
+    expect(entry?.id).toBe("by-id-fields");
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
+  });
+
+  test("names no job and hands back nothing", async () => {
+    await seedRow("by-id-none");
+    expect(await service.findBacklogByIds([], "resolution")).toEqual([]);
+  });
+});
+
 describe("the promotion job list", () => {
   function onlyMine(jobs: JobListEntry[], prefix: string): JobListEntry[] {
     return jobs.filter((job) => (job.id ?? "").startsWith(prefix));

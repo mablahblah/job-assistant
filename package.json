@@ -9,6 +9,7 @@
     "db:migrate": "npx tsx scripts/db-migrate.ts",
     "db:seed": "npx tsx scripts/db-seed.ts",
     "job-search": "npx tsx scripts/job-search.ts",
+    "add-external-jobs": "npx tsx scripts/add-external-jobs.ts",
     "find-jobs": "npx tsx scripts/find-jobs.ts",
     "fetch-rendered-page": "npx tsx scripts/fetch-rendered-page.ts",
     "change-status": "npx tsx scripts/change-status.ts",

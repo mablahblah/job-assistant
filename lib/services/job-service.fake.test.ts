@@ -576,6 +576,69 @@ describe("the fake's backlog cleanup job list", () => {
   });
 });
 
+describe("the fake's backlog jobs read back by id", () => {
+  test("holds only the named backlog jobs not yet followed, for link following", async () => {
+    const service = fakeJobService([
+      storedJob("new"),
+      storedJob("done", { is_resolved: true }),
+      storedJob("ruled-out", { status: "won't apply" }),
+      storedJob("unnamed"),
+    ]);
+
+    const found = await service.findBacklogByIds(["new", "done", "ruled-out"], "resolution");
+
+    expect(found.map((job) => job.id)).toEqual(["new"]);
+  });
+
+  test("holds only the named backlog jobs not yet read, followed or not, for page reading", async () => {
+    const service = fakeJobService([
+      storedJob("unfollowed"),
+      storedJob("followed", { is_resolved: true }),
+      storedJob("done", { is_resolved: true, is_parsed: true }),
+      storedJob("ruled-out", { status: "rejected", is_resolved: true }),
+    ]);
+
+    const found = await service.findBacklogByIds(
+      ["unfollowed", "followed", "done", "ruled-out"],
+      "parsing"
+    );
+
+    expect(found.map((job) => job.id)).toEqual(["unfollowed", "followed"]);
+  });
+
+  test("holds only the named backlog jobs not yet location-checked, for the location check", async () => {
+    const service = fakeJobService([
+      storedJob("new", { is_resolved: true, is_parsed: true }),
+      storedJob("unfollowed", { is_parsed: true }),
+      storedJob("done", { is_resolved: true, is_parsed: true, is_classified: true }),
+      storedJob("too-far", { status: "too far", is_resolved: true, is_parsed: true }),
+    ]);
+
+    const found = await service.findBacklogByIds(
+      ["new", "unfollowed", "done", "too-far"],
+      "classification"
+    );
+
+    expect(found.map((job) => job.id)).toEqual(["new", "unfollowed"]);
+  });
+
+  test("leaves the five gate fields behind, as the real read does", async () => {
+    const service = fakeJobService([storedJob("plain", { is_resolved: true, is_judged: false })]);
+    const [entry] = await service.findBacklogByIds(["plain"], "parsing");
+    expect(entry?.id).toBe("plain");
+    expect(entry).not.toHaveProperty("status");
+    expect(entry).not.toHaveProperty("is_resolved");
+    expect(entry).not.toHaveProperty("is_parsed");
+    expect(entry).not.toHaveProperty("is_classified");
+    expect(entry).not.toHaveProperty("is_judged");
+  });
+
+  test("names no job and hands back nothing", async () => {
+    const service = fakeJobService([storedJob("plain")]);
+    expect(await service.findBacklogByIds([], "resolution")).toEqual([]);
+  });
+});
+
 describe("the fake's promotion job list", () => {
   test("holds only expired jobs whose age is back inside the threshold", async () => {
     const service = fakeJobService([

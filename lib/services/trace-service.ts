@@ -87,6 +87,23 @@ export interface TraceRunCount {
   count: number;
 }
 
+// One row of a run's history for a named job: the step and event it hit,
+// and the reason if one was written. Its own type, not TraceRunCount,
+// because a row is a single write, not a group's tally.
+export interface TraceJobRecord {
+  job_id: string;
+  step: string;
+  event: string;
+  reason: string | null;
+}
+
+// Kept apart from TraceService so the ~21 hand-built TraceService stand-ins
+// in other tests don't need this method too. Only the add-external-jobs
+// runner asks for it, as TraceService & TraceJobRowsReader.
+export interface TraceJobRowsReader {
+  rowsForJobs(runId: string, jobIds: string[]): Promise<TraceJobRecord[]>;
+}
+
 export interface TraceService {
   write(event: TraceEvent): Promise<void>;
   failureCount(): number;
@@ -95,7 +112,7 @@ export interface TraceService {
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
 
-export function createTraceService(db: PipelineDb): TraceService {
+export function createTraceService(db: PipelineDb): TraceService & TraceJobRowsReader {
   let failures = 0;
 
   return {
@@ -149,6 +166,28 @@ export function createTraceService(db: PipelineDb): TraceService {
         collector: group.collector,
         domain: group.domain,
         count: group._count._all,
+      }));
+    },
+
+    async rowsForJobs(runId: string, jobIds: string[]) {
+      // Nothing was named, so there is nothing to read back.
+      if (jobIds.length === 0) {
+        return [];
+      }
+
+      const rows = await db.trace.findMany({
+        where: { run_id: runId, job_id: { in: jobIds } },
+        orderBy: { id: "asc" },
+        select: { job_id: true, step: true, event: true, reason: true },
+      });
+
+      // job_id is nullable on the table in general, but every row here was
+      // matched against the named ids, so it is always one of them.
+      return rows.map((row) => ({
+        job_id: row.job_id as string,
+        step: row.step,
+        event: row.event,
+        reason: row.reason,
       }));
     },
   };

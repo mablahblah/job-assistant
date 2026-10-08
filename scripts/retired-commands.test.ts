@@ -32,10 +32,9 @@ describe("the retired reset command", () => {
   });
 });
 
-// Criteria "The old folder is gone", "The catch-all command is gone", "The
-// kept skill names its break", and "The research keeps its place". The old
-// pipeline is deleted in one move, and these pin what that move takes with
-// it and what it must leave standing.
+// Criteria "The old folder is gone", "The catch-all command is gone", and
+// "The research keeps its place". The old pipeline is deleted in one move,
+// and these pin what that move takes with it.
 describe("the deleted old pipeline", () => {
   test("legacy/ does not exist", () => {
     expect(existsSync(join(repoRoot, "legacy"))).toBe(false);
@@ -43,13 +42,5 @@ describe("the deleted old pipeline", () => {
 
   test("the cli entry is gone from package.json", () => {
     expect(npmScripts()["cli"]).toBeUndefined();
-  });
-
-  test("the kept add-external-jobs skill names the switch over as its break", () => {
-    const skill = readFileSync(
-      join(repoRoot, ".claude", "skills", "add-external-jobs", "SKILL.md"),
-      "utf8"
-    );
-    expect(skill).toContain("switch over");
   });
 });

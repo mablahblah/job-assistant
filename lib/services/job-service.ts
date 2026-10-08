@@ -92,6 +92,14 @@ export interface JobService {
   // because an entry carried on to a save should hold no stale copy of a flag
   // another phase owns.
   findBacklog(): Promise<JobListEntry[]>;
+  // The add-external-jobs runner reads back only the jobs it was handed, so
+  // other waiting jobs are left alone, and only those still in the backlog, as
+  // every later step of a job search reads only backlog jobs. The step names
+  // which single gate flag must still be false — resolution checks
+  // is_resolved, parsing checks is_parsed, classification checks
+  // is_classified — and never the gates the other steps own. Gate fields are
+  // left off, as findBacklog does.
+  findBacklogByIds(ids: readonly string[], step: BacklogStep): Promise<JobListEntry[]>;
   // Promotion reads its list here, and returns these jobs to the backlog
   // because an employer that lists a role again gives it a fresh date, which
   // pulls its age back inside the threshold. The age rule lives in one
@@ -153,6 +161,19 @@ const GATE_FIELDS = {
   is_classified: true,
   is_judged: true,
 } satisfies Prisma.JobOmit;
+
+// Which phase gate a caller is about to run, so findBacklogByIds knows which flag to check.
+export type BacklogStep = "resolution" | "parsing" | "classification";
+
+// The one unchecked flag for each step — resolution only needs resolving,
+// parsing reads whatever came back whether or not resolution worked, and
+// classification doesn't care how the job got read. Shared with the stand-in
+// service, so the two cannot disagree about which flag a step checks.
+export const STEP_GATES = {
+  resolution: { is_resolved: false },
+  parsing: { is_parsed: false },
+  classification: { is_classified: false },
+} satisfies Record<BacklogStep, Prisma.JobWhereInput>;
 
 // Under this project's libsql driver adapter, a unique-constraint violation
 // arrives without meta.target, so the error only tells us that a write
@@ -367,6 +388,15 @@ export function createJobService(db: PipelineDb): JobService {
     async findBacklog() {
       const rows = await db.job.findMany({
         where: { status: "backlog" },
+        omit: GATE_FIELDS,
+      });
+      return rows.map((row) => row as unknown as JobListEntry);
+    },
+
+    async findBacklogByIds(ids, step) {
+      if (ids.length === 0) return [];
+      const rows = await db.job.findMany({
+        where: { id: { in: [...ids] }, status: "backlog", ...STEP_GATES[step] },
         omit: GATE_FIELDS,
       });
       return rows.map((row) => row as unknown as JobListEntry);

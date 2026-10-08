@@ -8,7 +8,8 @@ import { poolJobDates } from "../utils/job-dates";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { JobRow } from "../types/job-row";
 import type { CompanyRecord } from "./company-service";
-import type { DeleteResult, JobSearchMatch, JobService, UpdateResult } from "./job-service";
+import { STEP_GATES } from "./job-service";
+import type { BacklogStep, DeleteResult, JobSearchMatch, JobService, UpdateResult } from "./job-service";
 import { isActiveStatus } from "../utils/job-status";
 import { urlMatchKey } from "../utils/url-match-key";
 import { isPastThreshold, jobAgeInDays } from "../utils/job-age";
@@ -220,6 +221,20 @@ export function fakeJobService(
     return jobs.filter((job) => (job.status ?? "backlog") === "backlog").map(withoutGateFields);
   }
 
+  async function findBacklogByIds(ids: readonly string[], step: BacklogStep): Promise<JobListEntry[]> {
+    if (ids.length === 0) return [];
+
+    // The real service's own table of which flag each step checks. A flag
+    // left off a held job counts as false, as the column's default does.
+    const gate = Object.entries(STEP_GATES[step]) as [keyof JobListEntry, boolean][];
+
+    return jobs
+      .filter((job) => job.id !== undefined && ids.includes(job.id))
+      .filter((job) => (job.status ?? "backlog") === "backlog")
+      .filter((job) => gate.every(([field, value]) => (job[field] ?? false) === value))
+      .map(withoutGateFields);
+  }
+
   // Hands the held job back whole, matching the real read, which leaves the
   // phase gate fields on too. Only the reads that build a job list for a save
   // strip them.
@@ -326,6 +341,7 @@ export function fakeJobService(
     findUnresolved,
     findUnparsed,
     findBacklog,
+    findBacklogByIds,
     findExpiredWithin,
     findUnclassified,
     findNeedingScores,
