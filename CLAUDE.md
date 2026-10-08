@@ -25,7 +25,7 @@ Real job searches now run on this branch, against `pipeline.db`. Both database f
 npm run job-search                        # Run the whole pipeline; prints its run identifier first
 npm run score:gather -- --out FILE        # Write out every job and company still needing a score
 npm run score:save -- --in FILE           # Write the scores an agent worked out back to the database
-npm run find-jobs -- --company X --json   # Find a job by part of its employer's name
+npm run find-jobs -- --url U --company X  # Find a job by its link, else by part of its employer's name; prints data
 npm run change-status -- --in FILE        # Set a job's status by hand; files a work log entry where Texas counts it
 npm run fetch-rendered-page -- --url URL  # Print a page's finished HTML, after its scripts have run
 npm run serve                             # Start the dashboard from scripts/serve.ts
