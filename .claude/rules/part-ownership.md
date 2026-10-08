@@ -24,7 +24,7 @@ A caller hands down whatever context a part needs, including which step to recor
 
 ## Each stretch of the pipeline ends at the database
 
-A stretch writes its results and stops. The next one starts by asking the database for every job carrying the right marker, whenever it was collected. No stretch reads what the one before it returned.
+A stretch writes its results and stops. The next one starts by asking the database for the jobs carrying the right marker. A job search asks for every such job, whenever it was collected. A run handed particular jobs narrows that question to those jobs' identifiers, and takes nothing else from what the stretch before it returned.
 
 ## Where new behaviour goes
 
@@ -37,9 +37,13 @@ A stretch writes its results and stops. The next one starts by asking the databa
 | **Company association** | Decides which employer a job belongs to, and creates one where none exists. | Invent a name from a board slug, or a slug from a name. |
 | **Dedupe** | Reduces the job list, using whichever identity tests have all their fields on both sides. | Merge two jobs when no test has the fields it needs. |
 | **Save** | Creates, updates and deletes rows, and owns the merge rule every caller shares. | Decide which employer a job belongs to. |
-| **Classification** | Judgements about the job — is its location a match, has it expired, what status does it take. | Reshape a value, or go looking for a missing one. |
+| **Classification** | Judgements about the job — is its location a match, has it expired. | Reshape a value, or go looking for a missing one. |
 | **Scoring** | Alignment, employer scores, and promoting an employer to be watched directly. | Write to the database directly. It hands results to the same saving code every other part uses. |
 | **Backlog cleanup** | Clears out old jobs and employers on the same ageing rules classification uses. | Remove an employer that holds a board slug. |
+
+## Who sets a status
+
+A step sets only the status that names its own outcome. Resolution sets `unresolvable`. The parser sets `unparseable`, or `expired` for a dead page. Classification sets `too far`, or `expired` for an old posting. Backlog cleanup sets `expired`. Promotion and letting an added job through set `backlog`. A status change by hand sets the status the user chose.
 
 ## The test that separates reshaping from going looking
 

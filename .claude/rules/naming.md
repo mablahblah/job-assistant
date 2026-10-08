@@ -45,7 +45,7 @@ The contract for a kind of file stays with that kind, whoever else reads it — 
 
 ## Values
 
-- A constant defined at the top of a file, outside any function, holding a fixed value written out in the file: SCREAMING_SNAKE (capital words joined by underscores) — `ACTIVE_STATUSES`
+- A constant holding a fixed value written out in the file, at the top of the file or the top of a test group: SCREAMING_SNAKE (capital words joined by underscores) — `ACTIVE_STATUSES`. A written-out value turned into a date or other object, such as `new Date("2026-09-01")`, still counts as written out.
 - An object carrying functions: camelCase (words joined, each after the first capitalised) — `adzunaCollector`
 - A type or interface: PascalCase (words joined, every one capitalised) — `JobListEntry`
 - Everything else, including a value worked out when the file loads: camelCase — `repoRoot`
