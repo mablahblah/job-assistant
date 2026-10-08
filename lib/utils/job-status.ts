@@ -77,3 +77,18 @@ export const RULED_OUT_STATUSES = [
 export function isRuledOutStatus(status: string): boolean {
   return (RULED_OUT_STATUSES as readonly string[]).includes(status);
 }
+
+// Verdicts the pipeline reached by checking the posting itself. When the
+// user adds the link again, those checks run once more. Any other status a
+// job already has stays as it is.
+export const RECHECKED_STATUSES = [
+  "expired",
+  "too far",
+  "unresolvable",
+  "unparseable",
+] as const;
+
+// True when adding a job's link again sends it back through every step.
+export function isRecheckedStatus(status: string): boolean {
+  return (RECHECKED_STATUSES as readonly string[]).includes(status);
+}

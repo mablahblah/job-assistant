@@ -114,6 +114,10 @@ function countingJobService(
       calls.push("findBacklog");
       return service.findBacklog();
     },
+    async findBacklogByIds(ids, step) {
+      calls.push("findBacklogByIds");
+      return service.findBacklogByIds(ids, step);
+    },
     async findExpiredWithin(thresholdDays, now) {
       calls.push("findExpiredWithin");
       return service.findExpiredWithin(thresholdDays, now);

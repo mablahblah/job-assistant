@@ -6,7 +6,7 @@ paths: ["lib/handlers/**/*.ts"]
 
 ## Shape
 
-A handler takes a list, acts on every entry, and returns that list along with the warnings it raised. Most handlers are handed jobs. Backlog cleanup's company sweep is handed companies, and `saveCompanies` is handed companies too. Collection is the one exception to taking a list: it takes none, because it builds the first one.
+A handler takes a list, acts on every entry, and returns that list, with the warnings it raised if it is a step that can raise any. Most handlers are handed jobs. Backlog cleanup's company sweep is handed companies, and `saveCompanies` is handed companies too. Collection is the one exception to taking a list: it takes none, because it builds the first one.
 
 The list comes back under the name of what is in it — `jobs` for a job list, `companies` for a company list — never both on one result.
 

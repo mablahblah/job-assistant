@@ -2,6 +2,23 @@
 
 <!-- Newest at top -->
 
+## October 5, 2026 - v1.5.0
+
+### New Features
+
+#### Add Jobs You Found Elsewhere
+
+A job you found outside a job search had no way in, because the add-jobs skill broke when the old pipeline was removed. Paste one link or a list into `/add-external-jobs` and it works again. The agent reads each posting for its title, employer and description, and asks you when a page will not open. Each job then goes through the same steps a job search uses, and no other job is touched. A job the steps cannot judge for certain, because its page names no place or its place is not on a map, still reaches your backlog and is scored, and the report says why. A link that fails for good, a job too far away or a dead posting is left out, with its reason. A link matching a job an earlier search ruled out is judged again, while a job you rejected or applied to keeps its status.
+
+### Internal
+
+- **Rules** Rewrote the ownership rule so each step sets only the status that names its own outcome, and so a run handed particular jobs reads back only those jobs. A step now returns warnings only if it can raise any, and the run rule covers run files only. The release audit found the old wording did not match the code.
+- **Code** Renamed a record shape and a test value, and put the add-jobs skill's blanks in curly braces, after the release audit flagged them.
+- **Tests** Split two test files that each proved two scenarios, so each file proves one.
+- **Security** The release audit found 19 known weaknesses in installed packages, all present before this release. None can be reached by this app, and the database library upgrade that clears most of them was already on the backlog.
+- **Backlog** Regrouped upcoming features by theme. Added One Copy of the Code Both Runs Share, for the code the new run copied from the job search, and Collected-At Fallback Moves Later, for posting-date work moved out of this feature. Filed several other new entries and ideas, and placed the release audit's deferred findings under existing entries.
+- **Records** Logged the release audit's rule findings. Replaced the audit's bookmark with the date of the last full audit, so a regular audit now checks the changes made since the branch began.
+
 ## September 28, 2026 - v1.4.0
 
 ### New Features

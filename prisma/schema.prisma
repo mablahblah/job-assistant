@@ -369,6 +369,14 @@ model Setting {
 // post_classification_save, scoring, company_promotion.
 // Every one of them writes today.
 //
+// Adding jobs by hand writes two steps a job search never reaches:
+// post_parsing_let_through, straight after page reading, and
+// post_classification_let_through, straight after classification. Each
+// writes job_let_through for an added job the pipeline could not judge and
+// sends on to scoring anyway, under the reason the step before it gave:
+// no_location where page reading found no place, location_unusable where
+// classification could not place any of the job's places on a map.
+//
 // scoring and company_promotion are the two the pipeline itself never
 // reaches: an agent does the judging, so they are written by the scoring
 // orchestrator's two commands instead. They still carry the job search's own

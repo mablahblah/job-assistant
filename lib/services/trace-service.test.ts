@@ -396,6 +396,43 @@ describe("one run's rows are read back grouped, so a summary costs one query", (
   });
 });
 
+// The add-external-jobs command prints one line per added job, giving the
+// reason each step recorded for it, so it reads named jobs' rows back one by
+// one rather than counted.
+describe("one run's rows for named jobs are read back in the order they were written", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let reader: ReturnType<typeof createTraceService>;
+
+  beforeAll(async () => {
+    const temp = createDb("pipeline-trace-job-rows-");
+    dir = temp.dir;
+    ({ db } = buildWriter(temp.url));
+    reader = createTraceService(db);
+    await reader.write({ run_id: "r1", job_id: "a", step: "resolution", event: "resolution_failed", collector: "user", reason: "page_refused" });
+    await reader.write({ run_id: "r1", job_id: "b", step: "resolution", event: "job_resolved", collector: "user" });
+    await reader.write({ run_id: "r1", job_id: "a", step: "post_parsing_let_through", event: "job_let_through", collector: "user", reason: "no_location" });
+    // A job not named, and a named job in another run, so a passing read
+    // proves the query filters by both.
+    await reader.write({ run_id: "r1", job_id: "c", step: "resolution", event: "job_resolved", collector: "user" });
+    await reader.write({ run_id: "r2", job_id: "a", step: "resolution", event: "job_resolved", collector: "user" });
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("each named job's rows come back with their step, event and reason", async () => {
+    expect(await reader.rowsForJobs("r1", ["a", "b"])).toEqual([
+      { job_id: "a", step: "resolution", event: "resolution_failed", reason: "page_refused" },
+      { job_id: "b", step: "resolution", event: "job_resolved", reason: null },
+      { job_id: "a", step: "post_parsing_let_through", event: "job_let_through", reason: "no_location" },
+    ]);
+  });
+
+  test("naming no job reads back nothing", async () => {
+    expect(await reader.rowsForJobs("r1", [])).toEqual([]);
+  });
+});
+
 // AC 38 and 40. A counted value cannot live in detail: that column is JSON
 // holding a different shape per event, and SQLite cannot group a web address
 // out of it. countsForRun groups on step, event, reason and collector, so the
