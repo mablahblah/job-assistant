@@ -21,14 +21,37 @@ describe("the resume skill and the old folder", () => {
   });
 });
 
+// Every line that runs the lookup command. The posting fetch also takes
+// --url, so the lookup's own flags are read off these lines alone.
+const lookupLines = skill.split("\n").filter((line) => line.includes("npm run find-jobs"));
+
 describe("the resume skill's job lookup", () => {
   test("it calls the new command", () => {
-    expect(skill).toContain("find-jobs");
+    expect(lookupLines.length).toBeGreaterThan(0);
   });
 
-  test("it uses the command's flag arguments", () => {
-    expect(skill).toContain("--company");
-    expect(skill).toContain("--json");
+  // Find a job by its link: a pasted link reaches the lookup.
+  test("it passes a link to the lookup", () => {
+    expect(lookupLines.some((line) => line.includes("--url"))).toBe(true);
+  });
+
+  test("it passes an employer to the lookup", () => {
+    expect(lookupLines.some((line) => line.includes("--company"))).toBe(true);
+  });
+
+  // Role words do not narrow the search: the agent picks the job from the
+  // employer's jobs, so neither the role nor the removed title flag reaches
+  // the lookup.
+  test("it never passes the role to the lookup", () => {
+    for (const line of lookupLines) {
+      expect(line).not.toContain("--title");
+      expect(line).not.toContain("{role}");
+    }
+  });
+
+  // The command prints one data answer and no longer takes --json.
+  test("it no longer asks for the removed answer setting", () => {
+    expect(skill).not.toContain("--json");
   });
 });
 

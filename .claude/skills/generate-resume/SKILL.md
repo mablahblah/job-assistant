@@ -1,13 +1,13 @@
 ---
 name: generate-resume
-description: Generate a tailored, ATS-parsable PDF resume for a specific job posting. Looks the job up in the job-assistant database, reads the live posting, matches existing resume inventory items against its requirements, and renders a named PDF. Selection is pick-only — no resume text is written or edited, only which items are shown.
+description: Generate a tailored, ATS-parsable PDF resume for a specific job posting. Looks the job up in the job-assistant database by its link or its employer, reads the live posting, matches existing resume inventory items against its requirements, and renders a named PDF. Selection is pick-only — no resume text is written or edited, only which items are shown.
 disable-model-invocation: true
 arguments:
-  - name: company
-    description: Company to look up in the job-assistant database
+  - name: job
+    description: The job's link, or its employer's name
   - name: role
-    description: Optional role title, used to narrow the lookup when a company has several open jobs
-argument-hint: "{company} [role]"
+    description: Optional role words, used to pick one job when the employer has several
+argument-hint: "{link or company} [role]"
 allowed-tools:
   - Bash(npm run find-jobs:*)
   - Bash(npm run fetch-rendered-page:*)
@@ -25,6 +25,7 @@ allowed-tools:
 - Do NOT write, reword, or invent resume text. Selection is pick-only from the inventory.
 - Do NOT generate a PDF before the user has approved both the selections and the filename.
 - Do NOT abbreviate the selections display. Every item in every section is shown, chosen and rejected alike.
+- Do NOT pass the role words to the job lookup. The lookup finds the employer's jobs, and you pick the one the role words describe.
 - ASK the user before deviating from any step.
 
 ## Reference
@@ -35,18 +36,37 @@ allowed-tools:
 
 ## Phase 1: Find the Job
 
-1. Run from the job-assistant project root, omitting `--title {role}` when the user gave no role:
+1. Sort `{job}`, `{role}` and anything else the user said about the job into three parts: a link (text starting `http`), an employer name, and role words. Any part may be missing.
+   - If there is neither a link nor an employer name: ask the user for one, and continue with their answer.
+2. Run from the job-assistant project root. Pass `--url` only when there is a link, and `--company` only when there is an employer name:
 
    ```bash
-   npm run find-jobs -- --company "{company}" --title "{role}" --json
+   npm run find-jobs -- --url "{link}" --company "{employer}"
    ```
 
-2. Parse the JSON array the command prints:
+3. Read the JSON object the command prints. `jobs` holds the matches. `found_by` says which search found them: `link` or `employer`. `link_problem` says what went wrong with the link: `no_match`, `not_a_link`, or `null`.
    - If the command exits non-zero: report its error to the user and stop.
-   - If the array is empty: tell the user no matching jobs were found and stop.
-   - If exactly one job matches: use it.
-   - If several match: present a numbered list of `company_name`, `title`, `status`, and `location`, and ask the user to pick one.
-3. Note the chosen job's `id`, `company_name`, `title`, `original_url` (the address the job was collected with), and `resolved_url` (the source posting's own address). Later phases use them all.
+   - If `link_problem` is `no_match`: tell the user no saved job holds that link.
+   - If `link_problem` is `not_a_link`: tell the user the text given as a link is not a web address.
+4. Choose the job from `jobs`. A list shown to the user is numbered and shows each job's `company_name`, `title`, `status`, and `location`.
+
+### If `jobs` is empty:
+
+5a. Tell the user no job matched, and ask for other words or a different link.
+6a. Return to step 1 with their answer.
+
+### If `found_by` is `link`:
+
+5b. If exactly one job came back: use it.
+6b. If several came back: list them and ask the user to pick one.
+
+### If `found_by` is `employer`:
+
+5c. Keep the jobs whose title is the role words shortened, reordered, or abbreviated. "sr pd" fits "Senior Product Designer".
+6c. If exactly one job fits, or no role words were given and the employer has one job: use it without asking.
+7c. Otherwise, list the fitting jobs when several fit, or every job when none fits or no role words were given, and ask the user to pick one.
+
+8. Note the chosen job's `id`, `company_name`, `title`, `original_url` (the address the job was collected with), and `resolved_url` (the source posting's own address). Later phases use them all.
 
 ## Phase 2: Fetch the Posting
 
@@ -110,7 +130,7 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
    ❌  {text}
    ```
 
-   In order: **Title** (pick 1), **Summary** (pick 1), **Skills** (max `{constraints.skills}`), **Tools** (max `{constraints.tools}`), then **Bullets — {company} ({role})** for each job whose `bullets.items` is non-empty, including jobs where nothing was chosen.
+   In order: **Title** (pick 1), **Summary** (pick 1), **Skills** (max `{constraints.skills}`), **Tools** (max `{constraints.tools}`), then **Bullets — {prev-company} ({prev-role})** for each job whose `bullets.items` is non-empty, including jobs where nothing was chosen.
 
 3. Confirm the chosen bullets total no more than `constraints.bullets` across all jobs. Reduce the weakest matches until they do.
 
@@ -142,7 +162,7 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
      "bullets": { "{job-id}": ["{bullet-id}"], "{job-id-2}": [] },
      "skills": ["{skill-id}"],
      "tools": ["{tool-id}"],
-     "company": "{company}"
+     "company": "{company_name}"
    }
    ```
 
