@@ -112,27 +112,41 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
 
 2. Parse the JSON. It holds:
    - `titles.items` — pick exactly 1 by `id`
-   - `summaries.items` — pick exactly 1 by `id`
-   - `skills.items` — pick 0 to `constraints.skills` by `id`
+   - `summary` — the parts the resume summary is built from:
+     - `summary.sentence` — the summary's fixed words, with the slots `{opener}`, `{strength 1}`, `{strength 2}`, `{strength 3}`, and `{achievement}`
+     - `summary.counts` — how many of each part one summary takes
+     - `summary.openers` — the opener: pick exactly 1 by `id`
+   - `skills.items` — two separate picks:
+     - Strengths: exactly `summary.counts.strengths` by `id`, from skills whose `inSummary` is `true`
+     - Skills list: 0 to `constraints.skills` by `id`, from skills whose `inList` is `true`
    - `tools.items` — pick 0 to `constraints.tools` by `id`
-   - `experience[]` — one entry per job; a job has configurable bullets when `bullets.items` is non-empty
-   - `constraints.bullets` — the maximum total bullets across every job combined
+   - `experience[]` — one entry per job; a job has configurable bullets when `bullets.items` is non-empty. Bullets take two separate picks:
+     - Achievement: exactly 1 by `id`, from any job's bullets whose `inSummary` is `true`
+     - Work lines: 0 to `constraints.bullets` by `id` in total across every job, from bullets whose `inList` is `true`
 
-   Each item carries `id` for selections, `text` for what prints, and `default` for its resting state.
+   Each item carries `id` for selections, `text` for what prints in its list, and `default` for its resting state. Openers, skills and bullets carry `summaryText` for what prints in the summary. Skills and bullets carry `inList` for whether the item can be named in its list, and `inSummary` for whether it can be picked for the summary.
 
 ## Phase 4: Match Content to the Posting
 
-1. Read the posting from Phase 2 against the inventory from Phase 3, and choose the items that answer what the posting asks for.
-2. Present every section in this shape, listing all items — chosen and rejected:
+1. Read the posting from Phase 2 against the inventory from Phase 3, and choose the items that answer what the posting asks for. Rank the chosen strengths most important first, because the summary names them in that order.
+2. Check that no word appears in the `summaryText` of every chosen strength. The contract's Summary Rules section says what counts as one word.
+   - If one does: swap a strength for a different one. Never drop or reword the word, because the script prints each `summaryText` exactly.
+3. Check that the chosen work lines total no more than `constraints.bullets`, and the chosen skills no more than `constraints.skills`. The achievement does not count toward the work lines, and the strengths do not count toward the skills.
+   - If either is over: drop the weakest matches until both fit.
+4. Present every section in order. A section with picks lists all its items, chosen and rejected, in this shape:
 
    ```
    ✅  {text} | {why this posting wants it}
    ❌  {text}
    ```
 
-   In order: **Title** (pick 1), **Summary** (pick 1), **Skills** (max `{constraints.skills}`), **Tools** (max `{constraints.tools}`), then **Bullets — {prev-company} ({prev-role})** for each job whose `bullets.items` is non-empty, including jobs where nothing was chosen.
-
-3. Confirm the chosen bullets total no more than `constraints.bullets` across all jobs. Reduce the weakest matches until they do.
+   - **Title** (pick 1)
+   - **Summary: Opener** (pick 1), **Summary: Strengths** (pick `{summary.counts.strengths}`), and **Summary: Achievement** (pick 1) — every opener, every skill whose `inSummary` is `true`, and every bullet whose `inSummary` is `true`, each shown in its `summaryText`
+   - **Strength order** — the chosen strengths numbered, most important first
+   - **Summary as it prints** — `summary.sentence` with each chosen part's `summaryText` in its slot, the strengths filling the slots in their numbered order
+   - **Skills** (max `{constraints.skills}`) — skills whose `inList` is `true`, leaving out the chosen strengths
+   - **Tools** (max `{constraints.tools}`)
+   - **Bullets — {prev-company} ({prev-role})** for each job whose `bullets.items` is non-empty, including jobs where nothing was chosen — bullets whose `inList` is `true`, leaving out the chosen achievement
 
 ## Phase 5: Get Approval
 
@@ -158,7 +172,11 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
    ```json
    {
      "title": "{title-id}",
-     "summary": "{summary-id}",
+     "summary": {
+       "opener": "{opener-id}",
+       "strengths": ["{skill-id}", "{skill-id}", "{skill-id}"],
+       "achievement": "{bullet-id}"
+     },
      "bullets": { "{job-id}": ["{bullet-id}"], "{job-id-2}": [] },
      "skills": ["{skill-id}"],
      "tools": ["{tool-id}"],
@@ -166,7 +184,7 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
    }
    ```
 
-   `bullets` carries a key for every job whose `bullets.items` is non-empty, even when the value is an empty array. Jobs with no configurable bullets are omitted entirely. `company` is the `company_name` from the Phase 1 lookup, not the shortened filename form.
+   `summary.strengths` lists the strengths in their approved order, most important first. `bullets` carries a key for every job whose `bullets.items` is non-empty, even when the value is an empty array. Jobs with no configurable bullets are omitted entirely. `company` is the `company_name` from the Phase 1 lookup, not the shortened filename form.
 
 3. Render, from the portfolio project root:
 
