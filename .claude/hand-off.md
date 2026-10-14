@@ -13,41 +13,35 @@
 
 ## Current Task
 
-- **Feature** - Forgiving Job Lookup, on branch `feature/forgiving-job-lookup`. Plan: `docs/features/forgiving-job-lookup/feature_spec.md`. Task list: `docs/CURRENT-FEATURE.md`. Decision log: `docs/features/forgiving-job-lookup/decision-log.md`.
-- **State** - All five tasks are built and checked in `docs/CURRENT-FEATURE.md`. Only the feature's own checkbox is open, which `/ship-feature` closes. Not yet shipped.
-- **Tests** - 4,268 pass, 17 are skipped, none fail. Lint and the type check are clean.
-- **Git** - Everything is committed in six commits, `d39bc0e` to `7d6410a`, and pushed to `origin/feature/forgiving-job-lookup`. The working tree is clean.
+- **Feature** - Repository Ready to Go Public, `minor`, `M`, on branch `feature/personal-details-in-database`. Docs: `docs/features/repository-ready-to-go-public/` — `feature_discovery.md`, `decision-log.md`, `meeting-notes.md`, `feature_spec-draft.md`. No written spec yet.
+- **State** - Planning is inside `/plan-feature` Phase 7, step 8: `spec-review`, Phase 2. The reviewer's findings are applied to `feature_spec-draft.md`, except one: whether the backup task needs a criterion of its own. That question was asked and not answered.
+- **Planning conversation interrupted** - Yes. Meeting notes: Sessions 1 to 3, all marked hand-off. The next session adds Session 4.
+- **Tests** - 4,268 pass, 17 are skipped, none fail.
+- **Git** - Nothing committed. The tracked files changed are `.claude/hand-off.md`, `.gitignore`, `docs/BACKLOG.md`, `docs/CURRENT-FEATURE.md`, `docs/features/dead-postings-stay-expired/feature_discovery.md` and `docs/features/settings-page/feature_r&d.md`. The feature's own docs sit under the ignored `docs/features/`.
 
 ## Completed This Session
 
-- **Flow tests** - `scripts/find-jobs-by-link.flow.test.ts` and `scripts/find-jobs-employer-fallback.flow.test.ts`, written first and watched fail, now pass.
-- **Job service read** - `findByUrlMatchKey` in `lib/services/job-service.ts` and its stand-in `lib/services/job-service.fake.ts`. Both reads share one field list. The employer read lost its title option.
-- **Lookup command** - `scripts/find-jobs.ts` takes `--url`, `--company`, `--statuses`; searches the link first, falls back to the employer, and prints one JSON object `{ found_by, link_problem, jobs }`. `--title`, `--json` and the printed sentences are gone. `scripts/find-jobs.test.ts`, `CLAUDE.md` and `docs/architecture.md` brought in line.
-- **Resume skill** - `.claude/skills/generate-resume/SKILL.md` Phase 1 rewritten through `writing-skills`; inputs are now `job` (a link or an employer) and `role`. `scripts/generate-resume-skill.test.ts` pins that the lookup lines pass `--url` and `--company` and never the role, `--title` or `--json`.
-- **Status skill** - `.claude/skills/change-status/SKILL.md` rewritten through `writing-skills` to pass a link and read the JSON answer.
+- **Requirements check settled** - Every finding is settled, with answers recorded in the discovery file.
+- **Feature renamed** - The folder moved, and every link to it was updated.
+- **Acceptance criteria** - The user approved 38. They are in the discovery file.
+- **Draft spec** - Assembled, traced by `check-plan-works` ("Plan Check, 2026-10-12" in the discovery file), graded once by `spec-review`, and corrected. It now holds 46 criteria and 11 tasks.
+- **Meeting notes** - Session 3 was written.
 
 ## Session Context
 
-- **Decisions** - None qualified for the decision log this session. The feature's decisions are in its decision log.
-- **Calls made while building**
-  - **An unplanned extra change** - `lib/handlers/dedupe.test.ts` holds a hand-written counting stand-in of the job service. It needed a `findByUrlMatchKey` pass-through to satisfy the interface. No behaviour changed.
-  - **The lookup command took two writer rounds** - The first two Sonnet versions wrote the employer search twice, the status narrowing three times, and an unreachable `throw`. The second round on Opus fixed all three; writer B's version was applied.
-  - **`found_by` for a lone link** - The spec does not say what `found_by` is when only a link is given and it has a problem. The flow tests and the command answer `"link"`, with an empty job list.
-  - **Seeded keys in the flow tests** - Built with `urlMatchKey(link, ["opportunityid"])`, the identifying list `db-seed` writes, rather than written out by hand, so a test key always matches what the command computes.
-  - **`scripts/find-jobs.test.ts` rewritten** - Its tests now read the data answer. The title test was removed. A stray-commas status test and a refusal test naming both flags were added.
-  - **Resume skill blank names** - Phase 4's per-past-job heading is now `{prev-company} ({prev-role})`, and Phase 6's selections file uses `{company_name}`, so neither clashes with the new `{role}` input. The user picked the `prev-` names.
-  - **Status skill step numbers** - They now restart at 1 in each phase, as the skill guidelines require. No step's wording changed.
-  - **`docs/architecture.md` history table** - The Phase 13 row still mentions `--json`. It is left alone because it records history.
-- **Gotchas**
-  - **The commit hook's "untested" list is wrong** - The code-review-graph hook lists `findByUrlMatchKey`, `toJobSearchMatch` and others as untested. Each is covered by `lib/services/job-service.test.ts` or the flow tests.
-- **Open threads**
-  - **Status skill example** - The `/change-status` argument hint, `indeed sr pd -> rejected, apple -> rejected`, shows no link. Adding one was offered as optional; the user did not decide.
-  - **`feature_spec.md` task boxes** - The spec's own Tasks section is still unchecked. `docs/CURRENT-FEATURE.md` holds the ticks.
-  - **Carried over from the previous feature** - The add-external-jobs report shape is still untested on a real run; flow tests crowding `lib/orchestrators/` is still to be discussed; Adzuna's 65 repost-flagged jobs were not investigated.
+- **Decisions** - In `docs/features/repository-ready-to-go-public/decision-log.md`. Smaller answers sit under each finding in the discovery file.
+- **The conversation** - In the meeting notes named above.
+- **How the user wants settled answers applied** - By their purpose, not their exact wording. Details inside a settled answer need no approval. Anything that changes what was settled goes to the user. The user was frustrated when Claude held to the wording of the resume-path answer.
+- **The user's feedback** - The planning felt brittle. This feature may not have needed planning this way, rather than focusing on the functional pieces. The user asked for no process change yet.
+- **The draft is the current version of the criteria** - The discovery file holds the 38 approved criteria. The draft has the splits the review asked for, bringing it to 46.
+- **This file is public** - `.claude/hand-off.md` is tracked, so it must never name the real zip, its coordinates, the personal email or the phone number.
+- **Search gotcha** - In this shell, `grep` is a function that skips files Git ignores. Use `command grep` for the planning docs.
+- **Drafts on disk** - `check-plan-works` and `spec-review` say not to write the draft to disk. The user's global rule puts drafts beside the file as `{filename}-draft.md`, so the draft lives there.
 
 ## Next Steps
 
-1. **Run `/ship-feature`** - Verify the feature against its 25 acceptance criteria and merge it.
-2. **Do the by-hand checks during shipping** - The spec's Flow Tests section lists the criteria no automated test can run: run the resume skill once with an employer and loose role words, once with a link; run the status skill once with a link; read both skills for any other read of the database; read `CLAUDE.md` and `docs/architecture.md` against the finished command.
-3. **Ask about the status skill example** - Whether to add a link to the `/change-status` argument hint.
-4. **Watch the next real add-external-jobs run** - Check its report matches the agreed shape and carries no run summary.
+1. **Settle the backup question** - Ask whether the backup task stays as safety work with no criterion (recommended), or gets the criterion "The old history can be recovered."
+2. **Finish `spec-review`** - Criteria were added, so self-check the corrected draft against the rubric and the `feature-specs` rule, then grade it again. Resolve any new findings by the same standard.
+3. **Write the spec** - With the user's approval, write `feature_spec.md` and delete `feature_spec-draft.md`.
+4. **Close planning** - `/plan-feature` Phases 8 and 9. Put the task list in `docs/CURRENT-FEATURE.md`, delete `history/history-scrub-checklist.md`, and run `wrap-up-planning`, which writes Session 4 of the meeting notes.
+5. **Start building** - With `/start-work-session`, beginning with "Write the flow tests."
