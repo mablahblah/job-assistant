@@ -18,6 +18,9 @@
 resumes/
 data/
 
+# The real job alignment profile — its made-up example beside it is public
+.claude/skills/score-backlog/.alignment-info.md
+
 # Personal working docs — planning, research and the backlog stay on this machine
 docs/features/
 docs/ideas/
