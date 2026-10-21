@@ -71,8 +71,8 @@ export const ashbyParser: Parser = {
 
     if (!posting) {
       // A posting no longer on the board is a parse that ran and found
-      // nothing, not an error — this leaves the job in the backlog to
-      // retry, and there is no name lookup worth making for it.
+      // nothing, not an error — the general parser tries the job next, and
+      // there is no name lookup worth making for it.
       return {};
     }
 

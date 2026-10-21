@@ -1,7 +1,7 @@
-// Returns jobs that were set aside before any parser could read them.
+// Returns jobs that parsing set aside, so parsing tries them again.
 //
-// A job whose link sits on a website no parser owns is set aside at status
-// "unparseable", and the step that feeds parsing reads only jobs at status
+// Parsing sets a job aside at status "unparseable" when no parser found a
+// place it could read, and the step that feeds parsing reads only jobs at status
 // "backlog" — so nothing looks at that status again on its own. When a new
 // parser is shipped, some of those jobs become readable after all. They are
 // simply sitting at the wrong status to be tried.

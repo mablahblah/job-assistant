@@ -45,9 +45,9 @@ import type { TitleVocabularies } from "../utils/title";
 import type { TraceService } from "../services/trace-service";
 
 export interface FinishedHandler {
-  // The `Trace.step` name this handler ran under. The handler is not a step:
-  // one dedupe handler runs at two positions, so the position is what this
-  // names and what its trace rows carry.
+  // The position this handler ran at, which is usually the `Trace.step` its
+  // rows carry: one dedupe handler runs at three positions. The two company
+  // cleanup labels are the exception; their rows carry the jobs' cleanup steps.
   step: string;
   // How many entries the list it handed back held. Entries rather than jobs,
   // because a handler may be handed any list: most are handed jobs, and the

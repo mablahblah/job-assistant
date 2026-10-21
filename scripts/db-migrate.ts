@@ -84,8 +84,8 @@ async function main(): Promise<void> {
 
   // With no pending schema change, migrate dev reports "already in sync" and
   // touches neither the database nor the generated client — measured, which
-  // is what lets the test suite run this command safely. A real change also
-  // regenerates the client, which replaces the manual generate step here.
+  // is what lets the test suite run this command safely. A real change does
+  // not regenerate the client either; run `npx prisma generate` after it.
   execFileSync("npx", migrateArgs, {
     cwd: repoRoot,
     stdio: "inherit",

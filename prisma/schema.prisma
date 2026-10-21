@@ -240,9 +240,6 @@ model AtsSlug {
   @@index([collector])
 }
 
-// Single-row configuration. A seed script fills whatever is absent and
-// overwrites nothing; the settings service reads only and throws when a
-// setting is missing, so an empty default never reaches a collector.
 // One row per place the mapping service was asked about, so a run only pays
 // for places it has never seen. Across the current database 3,975 lookups
 // resolve to 789 distinct places, because postings name the same cities over
@@ -272,6 +269,9 @@ model Place {
   created_at   DateTime @default(now())
 }
 
+// Single-row configuration. A seed script fills whatever is absent and
+// overwrites nothing; the settings service reads only and throws when a
+// setting is missing, so an empty default never reaches a collector.
 model Setting {
   id                            Int      @id @default(1)
   // The terms every collector searches for.
@@ -357,8 +357,8 @@ model Setting {
 // One row per event in a job's path through the pipeline. A job enters at
 // collection, passes through each step, and either reaches the end or hits a
 // dead end recording when and why. This is a record of each job's path, not validation,
-// not source-health monitoring, not run reporting. Only a job search writes
-// traces.
+// not source-health monitoring, not run reporting. A job search, scoring's
+// two commands and adding jobs by hand write traces.
 //
 // step names the pipeline stage, in order: backlog_cleanup,
 // post_backlog_cleanup_save, collection, post_collection_normalization,

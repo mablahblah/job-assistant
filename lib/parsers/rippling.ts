@@ -50,7 +50,7 @@ export const ripplingParser: Parser = {
       headers: { "user-agent": BROWSER_USER_AGENT },
     });
     if (!res.ok) {
-      // A closed job answers non-ok here — throwing leaves the job queued.
+      // A closed job answers non-ok here — throwing sends the job to the general parser.
       throw httpError(label, res.status);
     }
 

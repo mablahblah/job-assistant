@@ -515,7 +515,7 @@ body {
   }
 }
 
-/* Phone: hide posted date and salary columns, stack work log */
+/* Phone: hide the salary column, stack work log */
 @media (max-width: 767px) {
   .col-hide-phone {
     display: none;

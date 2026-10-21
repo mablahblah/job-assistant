@@ -12,7 +12,7 @@ export default defineConfig({
     include: ["**/*.test.ts"],
     // docs/ holds research spikes, not app code.
     exclude: ["**/node_modules/**", "docs/**"],
-    // No tests yet — the new pipeline suite lands with its first loop.
+    // Kept from when the suite was empty: a filter matching no test file passes.
     passWithNoTests: true,
     // Fix timezone-dependent tests: getWeekStart uses local time, test fixtures use UTC dates
     env: { TZ: "UTC" },
