@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { matchLocation, type MatchablePlace } from "./location-match";
 
-// 30.2711, -97.7437 is 78701, the anchor every measurement in this project
-// was taken from, and thirty miles is the seeded radius.
+// 30.2711, -97.7437 is 78701, the seeded home location, and thirty miles is
+// the seeded radius.
 const HOME = { latitude: 30.2711, longitude: -97.7437 };
 const RADIUS_MILES = 30;
 
@@ -20,7 +20,7 @@ const AROUND_HOME = {
   ],
 };
 
-// A place whose middle is eight miles away, well inside the radius.
+// A place whose middle is three miles away, well inside the radius.
 const NEARBY: MatchablePlace = {
   lookup_text: "Tarrytown",
   latitude: 30.3083,
@@ -28,7 +28,7 @@ const NEARBY: MatchablePlace = {
   outline: null,
 };
 
-// A place whose middle is about 175 miles away, well outside it.
+// A place whose middle is about 182 miles away, well outside it.
 const FAR: MatchablePlace = {
   lookup_text: "Dallas",
   latitude: 32.7767,

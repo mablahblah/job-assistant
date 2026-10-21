@@ -168,8 +168,8 @@ export const adzunaCollector: Collector = {
         new URLSearchParams({
           ...sharedParams,
           where: location,
-          // Miles, measured against the live API from zip 78701: San Antonio
-          // at 80 miles away first appears at distance=80.
+          // Miles, measured against the live API from an Austin zip: a city
+          // 80 miles away first appears at distance=80.
           distance: String(radius),
         }),
         jobs,

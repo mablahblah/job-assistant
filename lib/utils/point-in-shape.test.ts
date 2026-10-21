@@ -2,8 +2,7 @@ import { describe, expect, test } from "vitest";
 import { pointInShape, type MapShape } from "./point-in-shape";
 import boundaries from "./boundaries.fixture.json";
 
-// 30.2711, -97.7437 is 78701, the anchor every measurement in this project was
-// taken from.
+// 30.2711, -97.7437 is 78701, the seeded home location.
 const ANCHOR = { latitude: 30.2711, longitude: -97.7437 };
 
 // Shapes fetched from the live mapping service during planning and committed

@@ -9,14 +9,14 @@ describe("haversineDistanceMiles", () => {
     expect(haversineDistanceMiles(anchor.lat, anchor.lon, anchor.lat, anchor.lon)).toBe(0);
   });
 
-  it("Austin to Dallas is ~170-180 miles", () => {
+  it("Austin to Dallas is ~175-190 miles", () => {
     const dist = haversineDistanceMiles(anchor.lat, anchor.lon, 32.7767, -96.7970);
-    expect(dist).toBeGreaterThan(170);
-    expect(dist).toBeLessThan(180);
+    expect(dist).toBeGreaterThan(175);
+    expect(dist).toBeLessThan(190);
   });
 
   it("Austin to Tarrytown is within 30 miles", () => {
-    // Tarrytown: 30.3083, -97.7700 (from spike results: 8.7mi)
+    // Tarrytown: 30.3083, -97.7700 (3.0mi from the anchor)
     const dist = haversineDistanceMiles(anchor.lat, anchor.lon, 30.3083, -97.7700);
     expect(dist).toBeLessThan(30);
   });

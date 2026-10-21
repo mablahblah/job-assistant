@@ -1,62 +1,62 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
 
-# testing
-/coverage
+# Secrets — every env file except the committed template
+.env
+.env.*
+!.env.example
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
+# Keys and certificates
 *.pem
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-.env
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-generated/
-
-# database
+# Databases, their dated backups, and their journals — they hold the real job search
 *.db
 *.db.*
 *.db-journal
 
-# OpenWolf runtime files
-.wolf/
-
-# Spike output data
+# Personal output
+resumes/
 data/
 
-# Generated resumes
-resumes/
+# The real job alignment profile — its made-up example beside it is public
+.claude/skills/score-backlog/.alignment-info.md
 
-# Added by code-review-graph
+# Personal working docs — planning, research and the backlog stay on this machine
+docs/features/
+docs/ideas/
+docs/investigations/
+docs/research/
+docs/tech/
+docs/BACKLOG.md
+docs/CURRENT-FEATURE.md
+docs/PRIORITIES.md
+
+# Audit reports and checkpoints
+history/
+
+# Prototypes render the real database
+prototypes/
+
+# Generated code and build caches
+generated/
+*.tsbuildinfo
+/coverage
+
+# Logs
+npm-debug.log*
+
+# Mac folder files
+.DS_Store
+
+# Claude Code — personal settings and session locks
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Local tool state
+.wolf/
 .code-review-graph/
-
-# CodeGraph index — generated locally, includes a running daemon's socket and pid
 .codegraph/
+.serve.json
 
 # --- workflow-profile: rocket-ship (managed by sync-workflow, do not edit) ---
 .claude/workflow-profile.json
@@ -67,8 +67,3 @@ resumes/
 .claude/skills/start-feature
 .claude/skills/start-work-session
 # --- end workflow-profile ---
-
-.serve.json
-
-# A prototype snapshot renders the real database, so its output never gets committed.
-prototypes/**/index.html
