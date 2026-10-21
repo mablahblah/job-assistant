@@ -1,6 +1,6 @@
 ---
 name: generate-resume
-description: Generate a tailored, ATS-parsable PDF resume for a specific job posting. Looks the job up in the job-assistant database by its link or its employer, reads the live posting, matches existing resume inventory items against its requirements, and renders a named PDF. Selection is pick-only — no resume text is written or edited, only which items are shown.
+description: Generate a tailored PDF resume, readable by the software employers use to screen resumes, for a specific job posting. Looks the job up in the job-assistant database by its link or its employer, reads the live posting, matches existing resume inventory items against its requirements, and renders a named PDF. Selection is pick-only — no resume text is written or edited, only which items are shown.
 disable-model-invocation: true
 arguments:
   - name: job
@@ -12,8 +12,9 @@ allowed-tools:
   - Bash(npm run find-jobs:*)
   - Bash(npm run fetch-rendered-page:*)
   - Bash(node scripts/generate-pdf.js:*)
-  - Bash(mkdir:*)
-  - Bash(rm:*)
+  - Bash(pwd)
+  - Bash(mkdir -p */resumes)
+  - Bash(rm /tmp/resume-selections.json)
   - Read
   - Write
 ---
@@ -28,24 +29,18 @@ allowed-tools:
 - Do NOT pass the role words to the job lookup. The lookup finds the employer's jobs, and you pick the one the role words describe.
 - ASK the user before deviating from any step.
 
-## Reference
-
-- **Portfolio project root:** `~/Documents/Projects/code/mablahblah_com`
-- **Job-assistant project root:** `~/Documents/Projects/code/job-assistant`
-- **Integration contract:** `scripts/job-assistant-contract.md` in the portfolio root. Read it when a command fails, an error string is unfamiliar, or the selections format needs confirming.
-
 ## Phase 1: Find the Job
 
 1. Sort `{job}`, `{role}` and anything else the user said about the job into three parts: a link (text starting `http`), an employer name, and role words. Any part may be missing.
    - If there is neither a link nor an employer name: ask the user for one, and continue with their answer.
-2. Run from the job-assistant project root. Pass `--url` only when there is a link, and `--company` only when there is an employer name:
+2. Run from the job-assistant project root, !`pwd`. Pass `--url` only when there is a link, and `--company` only when there is an employer name:
 
    ```bash
    npm run find-jobs -- --url "{link}" --company "{employer}"
    ```
 
-3. Read the JSON object the command prints. `jobs` holds the matches. `found_by` says which search found them: `link` or `employer`. `link_problem` says what went wrong with the link: `no_match`, `not_a_link`, or `null`.
-   - If the command exits non-zero: report its error to the user and stop.
+3. Read the data the command prints, a JSON object. `jobs` holds the matches. `found_by` says which search found them: `link` or `employer`. `link_problem` says what went wrong with the link: `no_match`, `not_a_link`, or `null`.
+   - If the command fails: report its error to the user and stop.
    - If `link_problem` is `no_match`: tell the user no saved job holds that link.
    - If `link_problem` is `not_a_link`: tell the user the text given as a link is not a web address.
 4. Choose the job from `jobs`. A list shown to the user is numbered and shows each job's `company_name`, `title`, `status`, and `location`.
@@ -71,7 +66,7 @@ allowed-tools:
 ## Phase 2: Fetch the Posting
 
 1. Choose the link to fetch: `resolved_url` where it is not null, `original_url` otherwise.
-2. Run from the job-assistant project root:
+2. Run from the job-assistant project root, !`pwd`:
 
    ```bash
    npm run fetch-rendered-page -- --url "{url}"
@@ -104,13 +99,15 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
 
 ## Phase 3: Read the Resume Inventory
 
-1. Run from the portfolio project root:
+1. Run from the portfolio project root, `~/Documents/Projects/code/mablahblah_com`:
 
    ```bash
    node scripts/generate-pdf.js --inventory
    ```
 
-2. Parse the JSON. It holds:
+   - If the command fails: read the integration contract, `~/Documents/Projects/code/mablahblah_com/scripts/job-assistant-contract.md`, for what its error means.
+
+2. Read the data the command prints, a JSON object. It holds:
    - `titles.items` — pick exactly 1 by `id`
    - `summary` — the parts the resume summary is built from:
      - `summary.sentence` — the summary's fixed words, with the slots `{opener}`, `{strength 1}`, `{strength 2}`, `{strength 3}`, and `{achievement}`
@@ -129,7 +126,7 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
 ## Phase 4: Match Content to the Posting
 
 1. Read the posting from Phase 2 against the inventory from Phase 3, and choose the items that answer what the posting asks for. Rank the chosen strengths most important first, because the summary names them in that order.
-2. Check that no word appears in the `summaryText` of every chosen strength. The contract's Summary Rules section says what counts as one word.
+2. Check that no word appears in the `summaryText` of every chosen strength. The Summary Rules section of the integration contract, `~/Documents/Projects/code/mablahblah_com/scripts/job-assistant-contract.md`, says what counts as one word.
    - If one does: swap a strength for a different one. Never drop or reword the word, because the script prints each `summaryText` exactly.
 3. Check that the chosen work lines total no more than `constraints.bullets`, and the chosen skills no more than `constraints.skills`. The achievement does not count toward the work lines, and the strengths do not count toward the skills.
    - If either is over: drop the weakest matches until both fit.
@@ -161,10 +158,10 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
 
 ## Phase 6: Generate the PDF
 
-1. Create the output directory:
+1. Create the output directory in the job-assistant project root, !`pwd`:
 
    ```bash
-   mkdir -p ~/Documents/Projects/code/job-assistant/resumes
+   mkdir -p {job-assistant project root}/resumes
    ```
 
 2. Write the approved selections to `/tmp/resume-selections.json`:
@@ -186,14 +183,17 @@ This is a tool failure — a fact about the fetch, not about the job. Never trea
 
    `summary.strengths` lists the strengths in their approved order, most important first. `bullets` carries a key for every job whose `bullets.items` is non-empty, even when the value is an empty array. Jobs with no configurable bullets are omitted entirely. `company` is the `company_name` from the Phase 1 lookup, not the shortened filename form.
 
-3. Render, from the portfolio project root:
+   - If the format needs confirming: read the Selections File Format section of the integration contract, `~/Documents/Projects/code/mablahblah_com/scripts/job-assistant-contract.md`.
+
+3. Render, from the portfolio project root, `~/Documents/Projects/code/mablahblah_com`, saving into the job-assistant project root, !`pwd`:
 
    ```bash
-   node scripts/generate-pdf.js --selections /tmp/resume-selections.json --output ~/Documents/Projects/code/job-assistant/resumes/{filename}
+   node scripts/generate-pdf.js --selections /tmp/resume-selections.json --output {job-assistant project root}/resumes/{filename}
    ```
 
-   The script builds the app when needed, serves it, prints in headless Chromium, and shuts down. Never start a server yourself. The first run after a portfolio change is slower.
+   The script builds the app when needed, serves it, prints it to PDF with a browser that runs out of sight, and shuts down. Never start a server yourself. The first run after a portfolio change is slower.
 
-4. On failure the script writes `ERROR:` lines to stderr and exits 1, generating nothing. Read every error, correct the selections file, and return to step 3.
-5. On success, delete `/tmp/resume-selections.json` and report: "Resume saved to `resumes/{filename}`".
-6. Also provide user with the exact portfolio url used in the resume.
+4. Read the script's result.
+   - If it failed (it printed lines starting `ERROR:` and made no PDF): read every error, correct the selections file, and return to step 3. For an error you do not recognise, read the Validation Errors section of the integration contract, `~/Documents/Projects/code/mablahblah_com/scripts/job-assistant-contract.md`.
+   - If it succeeded: delete `/tmp/resume-selections.json` and report: "Resume saved to `resumes/{filename}`".
+5. Give the user the exact portfolio web address used in the resume.
