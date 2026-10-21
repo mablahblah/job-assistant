@@ -43,8 +43,6 @@ A personal dashboard that surfaces best-fit jobs automatically, tracks applicati
 - [Dual Date Model](features/dual-date-model/dual-date-model-spec.md) — Feature (shipped): honest job dates with firstPublished + repostedAt
 - [Smarter Aggregator Handling](features/smarter-aggregator-handling/smarter-aggregator-handling-spec.md) — Feature (planned): reliable aggregator resolution
 
-- [Technical Documentation](tech/table-of-contents.md) — Implementation-level docs: tech stack, views, styling, app functionality, testing, skills
-
 ## Notes
 
 - Runs locally as a CLI tool via Claude Code commands

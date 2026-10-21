@@ -13,7 +13,7 @@ export interface UnusableField {
 }
 
 // The only two normalization reasons that ever warn. The normalizer records
-// nine in total; the other seven land in the trace table and are dropped
+// ten in total; the other eight land in the trace table and are dropped
 // here rather than printed.
 export const WARNING_REASONS = ["salary_unusable", "work_mode_unusable"] as const;
 
@@ -42,7 +42,7 @@ export function summarizeNormalizationWarnings(unusable: UnusableField[]): Colle
   const grouped = new Map<string, Group>();
 
   for (const field of unusable) {
-    // One of the seven silent reasons. Skipped before counting, so it never
+    // One of the eight silent reasons. Skipped before counting, so it never
     // inflates the figure a warning reason reports.
     if (!isWarningReason(field.reason)) continue;
 

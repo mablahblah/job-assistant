@@ -12,7 +12,7 @@ No part branches on which collector produced a job.
 
 ## What exists exactly once
 
-Seven jobs have one implementation each, identical wherever they are called. A second implementation is a defect, not a variation.
+Seven tasks have one implementation each, identical wherever they are called. A second implementation is a defect, not a variation.
 
 Removing duplicates. Saving and updating. Following a job's link to its source. Tidying names into a consistent form. Matching a location against the user's own. Clearing out the backlog. Recording what happened.
 
@@ -24,22 +24,22 @@ A caller hands down whatever context a part needs, including which step to recor
 
 ## Each stretch of the pipeline ends at the database
 
-A stretch writes its results and stops. The next one starts by asking the database for the jobs carrying the right marker. A job search asks for every such job, whenever it was collected. A run handed particular jobs narrows that question to those jobs' identifiers, and takes nothing else from what the stretch before it returned.
+A stretch writes its results and stops. The next one starts by asking the database for the jobs carrying the right marker, the yes-or-no flag that records which steps a job has finished. A job search asks for every such job, whenever it was collected. A run handed particular jobs narrows that question to those jobs' identifiers, and takes nothing else from what the stretch before it returned.
 
 ## Where new behaviour goes
 
 | Part | Owns | Never does |
 |---|---|---|
-| **Collector** | Gathers raw jobs and every field its source hands over for free. Writes each into a `raw_` field exactly as it arrived. | Interpret anything. A figure it had to read out of prose is not free data. |
+| **Collector** | Gathers raw jobs and every field its source hands over for free. Writes each into a `raw_` field, a column that keeps a value exactly as the source published it. | Interpret anything. A figure it had to read out of prose is not free data. |
 | **Normalizer** | Reshapes raw data that is already there into the fields that matter. | Go looking. A `raw_` field that is empty stays empty. |
 | **Resolver** | Follows a job's link to the employer's own posting. | Read anything off the page it lands on. |
 | **Parser** | Makes the final attempt at filling `raw_` fields, including reading a salary or a way of working out of the job description. | Format what it extracts. It hands its findings back to the normalizer. |
-| **Company association** | Decides which employer a job belongs to, and creates one where none exists. | Invent a name from a board slug, or a slug from a name. |
-| **Dedupe** | Reduces the job list, using whichever identity tests have all their fields on both sides. | Merge two jobs when no test has the fields it needs. |
+| **Company association** | Decides which employer a job belongs to, and creates one where none exists. | Invent a name from a board slug, the short name a hiring site gives an employer's job board, or a slug from a name. |
+| **Dedupe** | Reduces the job list, using whichever identity tests, the checks that decide two records are one job, have all their fields on both sides. | Merge two jobs when no test has the fields it needs. |
 | **Save** | Creates, updates and deletes rows, and owns the merge rule every caller shares. | Decide which employer a job belongs to. |
 | **Classification** | Judgements about the job — is its location a match, has it expired. | Reshape a value, or go looking for a missing one. |
-| **Scoring** | Alignment, employer scores, and promoting an employer to be watched directly. | Write to the database directly. It hands results to the same saving code every other part uses. |
-| **Backlog cleanup** | Clears out old jobs and employers on the same ageing rules classification uses. | Remove an employer that holds a board slug. |
+| **Scoring** | Alignment, the score for how well a job fits the user; employer scores; and promoting an employer to be watched directly. | Reach the database except through the services that own each table. |
+| **Backlog cleanup** | Expires a backlog job once it passes the age limit, measured the way classification measures it. Empties an employer's scores once they pass their own age limit, and its guessed scores sooner. Guessed scores are the ones the scoring agent set with no public evidence behind them. | Delete a job or an employer. |
 
 ## Who sets a status
 
@@ -48,7 +48,3 @@ A step sets only the status that names its own outcome. Resolution sets `unresol
 ## The test that separates reshaping from going looking
 
 Reshaping changes a value that is already there. Going looking produces one that is not. If a field is empty and something has to go and find it, that is a parser's job wherever it happens.
-
-## Direction of dependency
-
-A plain function depends on nothing above it. It never names a file in `lib/handlers/` or `lib/orchestrators/`, type-only imports included.

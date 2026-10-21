@@ -1,0 +1,55 @@
+# Job Search Assistant
+
+> A personal command-line job search assistant written in TypeScript and driven by Claude Code skills. One pipeline collects postings from 14 job boards and hiring systems, follows aggregator links to the employer's own posting in a browser, parses each posting, dedupes and merges by a source priority list, and classifies jobs by age, repost and distance. An agent then scores jobs and employers against written rubrics, a read-only dashboard shows the result, and a hand-made status change files the Texas Workforce Commission unemployment work log. Built on tsx, Prisma with SQLite (libsql), Playwright, linkedom and Vitest.
+
+Things that are easy to get wrong:
+
+- The database is the only handoff between pipeline steps. Each stretch of a run ends in a database write, and the next stretch asks the database for the jobs that still need its work. No step holds a list in memory for another.
+- Only collectors and parsers contain knowledge of a particular job site. Every other part acts on a job's data alone, and knowledge about a site anywhere else is data, never code.
+- Scoring is not part of `npm run job-search`. It is two commands, `score:gather` and `score:save`, with an agent doing the judging between them.
+- `npm run change-status` can file a legal work log entry, which cannot be regenerated after its week has passed.
+- The schema changes only through `npm run db:migrate`. `db:create` deletes its target and refuses the real database.
+- The repository's `README.md` gives a short overview, the setup steps and the command list. Use the wiki, `CLAUDE.md` and `docs/architecture.md` for depth.
+- Personal data (the database, `.env`, resumes, the private scoring profile, planning docs) is gitignored and is not described anywhere in this documentation.
+
+## Onboarding
+
+- [Contributor Guide](./onboarding/contributor-guide.md): A progressive guide for a new contributor fluent in Python or JavaScript. It covers the language and tools first, then the pipeline and its data, then how to get productive.
+- [Staff Engineer Guide](./onboarding/staff-engineer-guide.md): The architectural reasoning behind the job assistant. It covers the one core idea, the decisions and their alternatives, failure modes, performance limits and known debt.
+
+## Architecture
+
+- [System Design](./deep-dive/architecture/system-design.md): How the code is split into part kinds, what each kind owns and never does, the handler contract, and how services and tools are handed in rather than reached for.
+- [The Job Search Run](./deep-dive/architecture/job-search-run.md): What happens between typing npm run job-search and the printed summary: the schema check, the run id, every handler in order, and what a run that stops keeps.
+- [Tracing and the Run Summary](./deep-dive/architecture/tracing-and-run-summary.md): How every job's path through the pipeline is recorded in the Trace table, why there is no run table, and how the printed summary is rebuilt from trace rows.
+- [Data Model](./deep-dive/data/data-model.md): Every table in the pipeline database: Job, Company, AtsSlug, Place, Setting, Trace and WorkLogEntry, with their fields, phase-gate flags, the raw_ prefix, relations and deliberate non-relations.
+
+## Getting Started
+
+- [Job Search Assistant Wiki](./index.md): Developer documentation for the Job Search Assistant: a TypeScript CLI pipeline, driven by Claude Code skills, that finds, ranks and tracks jobs and files the unemployment work log.
+- [Overview](./getting-started/overview.md): What the Job Search Assistant is, why it exists, and the four jobs it does: find, rank, track, and file the unemployment work log.
+- [Environment Setup](./getting-started/setup.md): How to install the project, fill in .env, create and migrate the database, seed its settings, and check that everything works.
+- [Commands and Skills](./getting-started/commands-and-skills.md): Every npm command and every project skill, what each does, which command each skill calls, and where the two disagree with older docs.
+- [Quick Reference](./getting-started/quick-reference.md): One-page tables: commands, the folders in lib, the twelve job statuses, trace steps, settings, and environment variables.
+
+## Deep Dive
+
+- [Collection](./deep-dive/pipeline/collection.md): How the 14 collectors pull raw job lists, how the collection handler isolates them, and how the usability check drops jobs that cannot travel.
+- [Normalization and Association](./deep-dive/pipeline/normalization-and-association.md): How raw job fields are tidied into one shape, and how each job is attached to its employer by board slug, then by name match key.
+- [Dedupe and Save](./deep-dive/pipeline/dedupe-and-save.md): How the pipeline decides two postings are one job, merges them field by field using the source priority list, and writes the result to the database without touching jobs the user has applied to.
+- [Resolution](./deep-dive/pipeline/resolution.md): How the pipeline follows an aggregator link to the employer's own posting, using a visible browser, two lanes, a four-page limit and a list of dead-end signals.
+- [Parsing](./deep-dive/pipeline/parsing.md): How the pipeline reads each resolved job posting with a dedicated parser or the general parser, and when a job is marked unparseable, expired or parsed.
+- [Backlog Cleanup, Promotion and Classification](./deep-dive/pipeline/judging-steps.md): The three judging steps: expiring old jobs and stale company scores, returning reposted jobs to the backlog, and classifying each job by repost, age and location.
+- [Services](./deep-dive/data/services.md): The seven services that each own one table: the createXService(db) pattern, the in-memory fakes, the active-job freeze and the write outcomes callers get back.
+- [Database Commands and Safety](./deep-dive/data/database-commands.md): The three database commands (create, migrate, seed), the safeguards that protect the real database, and the schema check every command runs before it reads or writes.
+- [Scoring](./deep-dive/agent-workflows/scoring.md): Why scoring is two commands with an agent in between, how jobs and companies are scored, and how a well-scored company is promoted onto a polling list.
+- [Status Changes and the Work Log](./deep-dive/agent-workflows/status-change-and-work-log.md): How a hand-made job status change finds its job, files a Texas Workforce Commission work log entry, and then searches for the employer's contact details.
+- [External Jobs and Resumes](./deep-dive/agent-workflows/external-jobs-and-resumes.md): How jobs the user finds by hand enter the pipeline, why a hand-added job is let through when the pipeline cannot judge it, and how the resume skill reads a live posting.
+- [The Read-Only Dashboard](./deep-dive/dashboard/dashboard.md): How npm run serve builds a read-only web page from the database, why it refuses to start on a schema mismatch, how the score total is worked out, and why only views build HTML.
+- [Testing](./deep-dive/quality/testing.md): How the Vitest suite is set up, the four kinds of test file, how stand-ins keep every test off real sites and paid services, and what a flow test proves.
+- [Project Rules](./deep-dive/quality/project-rules.md): Every rule file in .claude/rules, the four working agreements in CLAUDE.md, and the lint and type settings that back them.
+
+## Optional
+
+- [Executive Guide](./onboarding/executive-guide.md): A decision-oriented view of the job search assistant for someone deciding whether to invest more time in it, adopt it, or extend it. Covers capabilities, risks, cost, and recommendations.
+- [Product Manager Guide](./onboarding/product-manager-guide.md): What the job search assistant does for its one user, how each task feels from start to finish, what it cannot do, and what information it keeps and shares. Written without technical terms.

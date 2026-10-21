@@ -1,0 +1,88 @@
+{
+  "title": "Job Search Assistant Wiki",
+  "repo_url": "https://github.com/mablahblah/job-assistant",
+  "branch": "main",
+  "citation_format": "[path:line](https://github.com/mablahblah/job-assistant/blob/main/path#Lline) — ranges use #Lstart-Lend",
+  "items": [
+    {
+      "title": "Onboarding",
+      "name": "onboarding",
+      "children": [
+        { "title": "Contributor Guide", "name": "contributor-guide", "path": "onboarding/contributor-guide.md", "prompt": "Progressive guide for a new contributor fluent in Python or JavaScript. Part I: TypeScript via tsx, Prisma with SQLite/libsql, Vitest, Playwright, linkedom. Part II: the unified pipeline, the part kinds (collector, parser, resolver, handler, service, tool, util, view, orchestrator), the data model. Part III: setup, tests, fakes, rules in .claude/rules/. Sources: package.json, prisma/schema.prisma, lib/orchestrators/job-search.ts, .claude/rules/part-ownership.md, .claude/rules/naming.md, vitest.config.ts." },
+        { "title": "Staff Engineer Guide", "name": "staff-engineer-guide", "path": "onboarding/staff-engineer-guide.md", "prompt": "Dense architectural guide. Core insight candidate: every step reads its own work out of the database by phase-gate flags and ends with a database write, so no step holds a list in memory between steps. Pseudocode in a different language (Python or Go). Tradeoffs: two-command scoring, read-only dashboard, data-not-code for site knowledge, trace table instead of a run table. Sources: lib/orchestrators/job-search.ts, lib/orchestrators/scoring.ts, lib/handlers/*.ts, lib/services/job-service.ts, lib/utils/job-merge.ts, docs/DECISIONS.md." },
+        { "title": "Executive Guide", "name": "executive-guide", "path": "onboarding/executive-guide.md", "prompt": "Capability map, risk assessment, paid outside services and their cost model (.env.example), scaling limits (single SQLite file, one visible browser, map lookups one per second), recommendations. No code." },
+        { "title": "Product Manager Guide", "name": "product-manager-guide", "path": "onboarding/product-manager-guide.md", "prompt": "User journeys: run a job search, score the backlog, review the dashboard, mark a job applied and file the Texas work log, write a resume. Feature map, known limits, what data is stored and where, FAQ. No engineering jargon. Sources: .claude/skills/*/SKILL.md, docs/APP.md, docs/CHANGELOG.md." }
+      ]
+    },
+    {
+      "title": "Getting Started",
+      "name": "getting-started",
+      "children": [
+        { "title": "Overview", "name": "overview", "path": "getting-started/overview.md", "prompt": "What the project is and why: a personal CLI job search assistant driven by Claude Code skills. The four jobs it does: find, rank, track, file the unemployment work log. Sources: CLAUDE.md, docs/APP.md, docs/architecture.md, package.json, lib/orchestrators/job-search.ts." },
+        { "title": "Environment Setup", "name": "setup", "path": "getting-started/setup.md", "prompt": "Node, npm install (postinstall runs prisma generate), .env from .env.example and what each key powers, PIPELINE_DATABASE_URL, db:create, db:migrate, db:seed, Playwright browsers. Sources: package.json, .env.example, prisma.config.ts, lib/db/pipeline-env.ts, lib/db/pipeline-db.ts, scripts/db-create.ts, scripts/db-seed.ts." },
+        { "title": "Commands and Skills", "name": "commands-and-skills", "path": "getting-started/commands-and-skills.md", "prompt": "Every npm command in package.json and every project skill in .claude/skills/, what each does, what it calls, and which skill calls which command. Sources: package.json, scripts/*.ts, .claude/skills/job-search/SKILL.md, .claude/skills/score-backlog/SKILL.md, .claude/skills/change-status/SKILL.md, .claude/skills/generate-resume/SKILL.md, .claude/skills/add-external-jobs/SKILL.md." },
+        { "title": "Quick Reference", "name": "quick-reference", "path": "getting-started/quick-reference.md", "prompt": "One-page tables: commands, folders in lib/, the twelve job statuses (lib/utils/job-status.ts), trace steps, settings (prisma/schema.prisma Setting model), environment variables." }
+      ]
+    },
+    {
+      "title": "Deep Dive",
+      "name": "deep-dive",
+      "children": [
+        {
+          "title": "Architecture",
+          "name": "architecture",
+          "children": [
+            { "title": "System Design", "name": "system-design", "path": "deep-dive/architecture/system-design.md", "prompt": "The folder-per-kind layout of lib/, what each part kind owns and never does, the handler contract, dependency injection of services and tools, data-not-code for site knowledge. Sources: .claude/rules/part-ownership.md, .claude/rules/naming.md, .claude/rules/handler-contract.md, .claude/rules/services.md, .claude/rules/tools.md, lib/orchestrators/job-search.ts." },
+            { "title": "The Job Search Run", "name": "job-search-run", "path": "deep-dive/architecture/job-search-run.md", "prompt": "scripts/job-search.ts → runJobSearch in lib/orchestrators/job-search.ts: schema check, run id, backlog cleanup, collect → normalize → associate → dedupe → save, resolve → dedupe → save, parse → normalize → associate → dedupe → save, let-through, promotion, classification. Failure handling and what a stopped run keeps. Sources: scripts/job-search.ts, lib/orchestrators/job-search.ts, lib/handlers/let-through.ts, lib/db/schema-check.ts, lib/db/schema-drift.ts, lib/utils/run-failure.ts." },
+            { "title": "Tracing and the Run Summary", "name": "tracing-and-run-summary", "path": "deep-dive/architecture/tracing-and-run-summary.md", "prompt": "The Trace table, run id, step/event/reason vocabularies, why there is no run table, and how the printed summary is rebuilt from trace rows. Sources: prisma/schema.prisma (Trace model), lib/services/trace-service.ts, lib/utils/run-summary.ts, lib/utils/trace-detail.ts, .claude/rules/run-summary.md, lib/orchestrators/trace-proof.test.ts." }
+          ]
+        },
+        {
+          "title": "Data Layer",
+          "name": "data",
+          "children": [
+            { "title": "Data Model", "name": "data-model", "path": "deep-dive/data/data-model.md", "prompt": "Every Prisma model — Job, Company, AtsSlug, Place, Setting, Trace, WorkLogEntry — its fields, phase-gate flags, raw_ prefix convention, relations and deliberate non-relations. ER diagram. Sources: prisma/schema.prisma, prisma/migrations/*, lib/types/job-list-entry.ts." },
+            { "title": "Services", "name": "services", "path": "deep-dive/data/services.md", "prompt": "One service per table: settings, job, company, ats-slug, place, trace, work-log. The createXService(db) pattern, the .fake.ts in-memory stand-ins, the active-job freeze, write outcomes. Sources: lib/services/*.ts, .claude/rules/services.md." },
+            { "title": "Database Commands and Safety", "name": "database-commands", "path": "deep-dive/data/database-commands.md", "prompt": "db:create refusing the real database, db:migrate with dated backup and baseline adoption, db:seed filling absent settings and the source priority list, schema check and drift check before every run. Sources: scripts/db-create.ts, scripts/db-migrate.ts, scripts/db-seed.ts, lib/db/schema-check.ts, lib/db/schema-drift.ts, lib/db/pipeline-env.ts, .claude/rules/source-registry.md." }
+          ]
+        },
+        {
+          "title": "Pipeline Steps",
+          "name": "pipeline",
+          "children": [
+            { "title": "Collection", "name": "collection", "path": "deep-dive/pipeline/collection.md", "prompt": "The Collector contract, the 14 collectors in lib/collectors/registry.ts (aggregators, ATS board pollers, page readers), shared helpers (fetch-utils, paginate, ats-boards, match-categories), the collection handler, usability check. Sources: lib/collectors/collector.ts, lib/collectors/registry.ts, lib/handlers/collection.ts, lib/collectors/ats-boards.ts, lib/utils/job-usable.ts, lib/utils/search-term-analyzer.ts, .claude/rules/sources.md." },
+            { "title": "Normalization and Association", "name": "normalization-and-association", "path": "deep-dive/pipeline/normalization-and-association.md", "prompt": "Title, work mode, salary and location normalization; company name cleanup; attaching jobs to companies by board slug then match key; recording board rows. Sources: lib/handlers/normalization.ts, lib/utils/title.ts, lib/utils/work-mode.ts, lib/utils/salary.ts, lib/utils/split-location.ts, lib/handlers/association.ts, lib/utils/company-match-key.ts, lib/utils/company-name.ts, lib/services/ats-slug-service.ts." },
+            { "title": "Dedupe and Save", "name": "dedupe-and-save", "path": "deep-dive/pipeline/dedupe-and-save.md", "prompt": "Job identity clauses, the fold, hard match vs repost match, field-by-field merge with the source priority list, date pooling, save with the active-job guardrail. Sources: lib/handlers/dedupe.ts, lib/utils/job-identity.ts, lib/utils/job-dedupe.ts, lib/utils/job-merge.ts, lib/utils/job-dates.ts, lib/utils/source-priority.ts, lib/utils/url-match-key.ts, lib/handlers/save.ts, lib/services/job-service.ts." },
+            { "title": "Resolution", "name": "resolution", "path": "deep-dive/pipeline/resolution.md", "prompt": "Following aggregator links to the employer's posting: the visible browser, per-job contexts, fast and slow lanes, round-robin by host, four-page limit, blocked hosts, dead-end signals, apply-link filter, wait-for-load. Sources: lib/handlers/resolution.ts, lib/resolvers/resolve-job-url.ts, lib/resolvers/wait-for-page-to-load.ts, lib/utils/decide-next-action.ts, lib/utils/blacklist.ts, lib/utils/interleave-by-host.ts, lib/tools/resolution-browser.ts, lib/tools/resolution-page.ts, .claude/rules/resolvers.md." },
+            { "title": "Parsing", "name": "parsing", "path": "deep-dive/pipeline/parsing.md", "prompt": "The Parser contract, the registry keyed by owned domain, parser claims, the general parser fallback, per-source field maps shared with collectors, unparseable jobs and recovery. Sources: lib/parsers/parser.ts, lib/parsers/registry.ts, lib/parsers/general.ts, lib/parsers/greenhouse.ts, lib/handlers/parsing.ts, lib/utils/registrable-domain.ts, lib/utils/greenhouse-fields.ts, lib/utils/job-posting-data.ts, scripts/recover-unparseable-jobs.ts." },
+            { "title": "Backlog Cleanup, Promotion and Classification", "name": "judging-steps", "path": "deep-dive/pipeline/judging-steps.md", "prompt": "Expiring old jobs and stale company scores, returning reposted jobs to the backlog, the repost/age/location checks, geocoding with a one-per-second pace, place caching, containment vs distance by work mode. Sources: lib/handlers/backlog-cleanup.ts, lib/handlers/promotion.ts, lib/handlers/classification.ts, lib/utils/location-match.ts, lib/utils/point-in-shape.ts, lib/utils/haversine.ts, lib/tools/geocoder.ts, lib/services/place-service.ts, lib/utils/job-age.ts." }
+          ]
+        },
+        {
+          "title": "Agent Workflows",
+          "name": "agent-workflows",
+          "children": [
+            { "title": "Scoring", "name": "scoring", "path": "deep-dive/agent-workflows/scoring.md", "prompt": "Why scoring is two commands with an agent between them; score:gather and score:save; the job and company rubrics; guessed categories; company promotion onto a polling list. Sources: lib/orchestrators/scoring.ts, scripts/score-gather.ts, scripts/score-save.ts, lib/handlers/company-promotion.ts, .claude/skills/score-backlog/SKILL.md, .claude/skills/score-backlog/job-rubric.md, .claude/skills/score-backlog/company-rubric.md, lib/utils/job-judged.ts. Never quote or cite the gitignored .alignment-info.md; only the .alignment-info.example.md is public." },
+            { "title": "Status Changes and the Work Log", "name": "status-change-and-work-log", "path": "deep-dive/agent-workflows/status-change-and-work-log.md", "prompt": "find-jobs, change-status, the three statuses that file a Texas Workforce Commission entry, the employer contact search, doubts, and why legal writes happen before searches. Sources: scripts/find-jobs.ts, scripts/change-status.ts, lib/orchestrators/status-change.ts, lib/handlers/status-change.ts, lib/handlers/enrichment.ts, lib/services/work-log-service.ts, lib/utils/work-log-activity.ts, lib/tools/company-search.ts, lib/utils/enrichment-doubts.ts, .claude/skills/change-status/SKILL.md." },
+            { "title": "External Jobs and Resumes", "name": "external-jobs-and-resumes", "path": "deep-dive/agent-workflows/external-jobs-and-resumes.md", "prompt": "Adding jobs the user found by hand, the let-through protection, the generate-resume skill and fetch-rendered-page. Sources: scripts/add-external-jobs.ts, lib/orchestrators/add-external-jobs.ts, lib/handlers/let-through.ts, lib/utils/added-jobs-report.ts, .claude/skills/add-external-jobs/SKILL.md, .claude/skills/generate-resume/SKILL.md, scripts/fetch-rendered-page.ts, lib/tools/rendered-page-fetcher.ts." }
+          ]
+        },
+        {
+          "title": "Dashboard",
+          "name": "dashboard",
+          "children": [
+            { "title": "The Read-Only Dashboard", "name": "dashboard", "path": "deep-dive/dashboard/dashboard.md", "prompt": "npm run serve, the web server tool, refusing the port on a schema mismatch, the three job lists and the work log, the score total formula, views as the only place HTML is built. Sources: scripts/serve.ts, lib/tools/web-server.ts, lib/views/page.ts, lib/views/job-table.ts, lib/views/work-log.ts, lib/utils/score-total.ts, lib/utils/work-log-weeks.ts, public/scripts/dashboard.js, public/styles/styles.css, .claude/rules/views.md." }
+          ]
+        },
+        {
+          "title": "Quality",
+          "name": "quality",
+          "children": [
+            { "title": "Testing", "name": "testing", "path": "deep-dive/quality/testing.md", "prompt": "Vitest setup, unit tests beside each file, .fake.ts stand-ins for services and tools, .flow.test.ts end-to-end flow tests over orchestrators, fixtures, how no test touches a real site or browser. Sources: vitest.config.ts, prisma.config.test.ts, lib/services/job-service.fake.ts, lib/tools/resolution-browser.fake.ts, lib/orchestrators/hiring-systems-paging.flow.test.ts, lib/collectors/fixture.ts, lib/utils/import-direction.test.ts." },
+            { "title": "Project Rules", "name": "project-rules", "path": "deep-dive/quality/project-rules.md", "prompt": "Every rule file in .claude/rules/ summarized in a table, plus the working agreements in CLAUDE.md: build broadly, no guardrail for an unseen failure, exceptions as closed lists, site knowledge as data. Sources: .claude/rules/*.md, CLAUDE.md, .eslintrc.json, tsconfig.json." }
+          ]
+        }
+      ]
+    }
+  ]
+}

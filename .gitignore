@@ -58,12 +58,11 @@ npm-debug.log*
 .codegraph/
 .serve.json
 
-# --- workflow-profile: rocket-ship (managed by sync-workflow, do not edit) ---
+# --- workflow-profile: agile (managed by sync-workflow, do not edit) ---
 .claude/workflow-profile.json
+.claude/skills/build-task
 .claude/skills/crowd-code
-.claude/skills/end-work-session
 .claude/skills/plan-feature
 .claude/skills/ship-feature
-.claude/skills/start-feature
-.claude/skills/start-work-session
+.claude/references/templates/feature_spec.md
 # --- end workflow-profile ---

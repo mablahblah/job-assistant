@@ -1,6 +1,6 @@
 // The Dribbble job-posting parser. Dribbble serves finished server-rendered
-// HTML for each job page — unlike the API-backed parsers, this is the one
-// parser of four that reads a rendered page. A plain fetch and a parse do
+// HTML for each job page, so unlike the parsers that read a source's API,
+// this one reads the page itself. A plain fetch and a parse do
 // everything a browser would here, so no browser is opened.
 import { withFieldsFromDescription } from "../utils/description-fallback";
 import { jobPostingFromHtml, jobFieldsFromJobPosting } from "../utils/job-posting-data";

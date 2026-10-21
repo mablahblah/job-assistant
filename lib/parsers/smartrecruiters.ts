@@ -63,7 +63,7 @@ export const smartrecruitersParser: Parser = {
       headers: { "user-agent": BROWSER_USER_AGENT },
     });
     if (!res.ok) {
-      // A closed posting answers 404 here — throwing leaves the job queued.
+      // A closed posting answers 404 here — throwing sends the job to the general parser.
       throw httpError(label, res.status);
     }
 

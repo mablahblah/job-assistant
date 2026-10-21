@@ -27,6 +27,8 @@ npm run score:gather -- --out FILE        # Write out every job and company stil
 npm run score:save -- --in FILE           # Write the scores an agent worked out back to the database
 npm run find-jobs -- --url U --company X  # Find a job by its link, else by part of its employer's name; prints data
 npm run change-status -- --in FILE        # Set a job's status by hand; files a work log entry where Texas counts it
+npm run add-external-jobs -- --in FILE    # Add jobs found outside a search, from their links, and run them through the pipeline
+npm run recover-unparseable-jobs          # Run once after a new parser ships; returns unparseable jobs to the backlog
 npm run fetch-rendered-page -- --url URL  # Print a page's finished HTML, after its scripts have run
 npm run serve                             # Start the dashboard from scripts/serve.ts
 npm run db:migrate  # Change the schema, keeping every row; writes a dated backup first
@@ -94,7 +96,7 @@ Path-scoped rules describing the old architecture were deleted with it. The rule
 
 - **Collector:** Pulls raw job list from Aggregators and ATS Systems
 - **Orchestrator:** Runs the pipeline, calls the right handlers, scoring, etc in the proper order.
-- **Dedupe:** Three-stage system that removes duplicate jobs at different pipeline points (by URL ×2, then by content with parser priority)
+- **Dedupe:** Removes duplicate jobs at three points in a run: after collection, after resolution, and after parsing. Two jobs match on the same original link, the same resolved link, or the same employer and title posted within 30 days. When two copies merge, the source priority list, which ranks every collector and parser, decides which copy of each field survives.
 - **Resolver/Resolution:** Following job posting links and redirects, especially from aggregators, in an attempt to find the source posting with the most accurate information.
 - **Parser:** Tool that takes the best job posting url and extracts key information.
 - **Service:** A reusable piece built from the database connection. It is handed that connection and hands back a small object holding a few functions, owning one table or one row — `createSettingsService(db)`, `createTraceService(db)`. Never called a store, a repository, or a DAO, whatever the function it returns is named.
