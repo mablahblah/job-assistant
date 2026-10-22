@@ -43,6 +43,7 @@ import type {
 import { saveJobs } from "../handlers/save";
 import { issueLines } from "../utils/print-issues";
 import { runJobSearch, type RunJobSearchOptions } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -197,6 +198,7 @@ describe("Two systems claim one board name", () => {
     const shared: Omit<RunJobSearchOptions, "collectors" | "collectedAt" | "runId"> = {
       settings,
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService,
       openBrowser: browserThatStaysPut(),

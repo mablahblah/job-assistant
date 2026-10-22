@@ -44,6 +44,7 @@ import type {
 } from "../tools/resolution-page";
 import { COLLECTORS } from "../collectors/registry";
 import { runJobSearch } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -298,6 +299,7 @@ describe("A job search polls a Workday board page by page", () => {
     await runJobSearch({
       settings: createSettingsService(db),
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService: createJobService(db),
       collectors: COLLECTORS.filter((collector) => collector.name === "workday"),

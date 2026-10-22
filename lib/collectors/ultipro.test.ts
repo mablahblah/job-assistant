@@ -2,6 +2,12 @@ import { afterEach, describe, expect, test } from "vitest";
 import { ultiproCollector } from "./ultipro";
 import { fakeSettingsService } from "../services/settings-service.fake";
 import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+import { fakeLastSuccessService } from "../services/last-success-service.fake";
+
+// No collector here remembers its searches, so the last-success service each
+// one is handed holds no time, and none reads the collection time.
+const noTimes = fakeLastSuccessService();
+const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 const originalFetch = globalThis.fetch;
 
@@ -56,6 +62,8 @@ function stubUltipro(board: ReturnType<typeof opportunity>[], searches: Search[]
 function context(boards: string[], searchTerms: string[], limit = Infinity) {
   return {
     settings: fakeSettingsService({ getSearchTerms: async () => searchTerms }),
+    collectedAt: COLLECTED_AT,
+    lastSuccesses: noTimes,
     atsSlugs: fakeAtsSlugService(
       boards.map((slug, index) => ({
         id: `row-${index}`,

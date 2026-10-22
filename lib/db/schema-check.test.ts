@@ -145,6 +145,30 @@ describe("the check covers every model the schema declares", () => {
     await probe?.read();
     expect(asked).toEqual(["workLogEntry"]);
   });
+
+  // A job search reads each search's saved time before collecting, so a
+  // database missing that table has to stop the run before any paid search.
+  test("the last-success table is one of the tables read", async () => {
+    const asked: string[] = [];
+    const db = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          return {
+            findFirst: async () => {
+              asked.push(String(property));
+              return null;
+            },
+          };
+        },
+      }
+    ) as Parameters<typeof schemaProbesFor>[0];
+
+    const probe = schemaProbesFor(db).find((candidate) => candidate.name === "LastSuccess");
+    expect(probe, "no probe named LastSuccess").toBeDefined();
+    await probe?.read();
+    expect(asked).toEqual(["lastSuccess"]);
+  });
 });
 
 // Criterion "No message advises the wipe". After the switch over the real

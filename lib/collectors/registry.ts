@@ -2,6 +2,7 @@ import { adzunaCollector } from "./adzuna";
 import { ashbyCollector } from "./ashby";
 import { bamboohrCollector } from "./bamboohr";
 import { dribbbleCollector } from "./dribbble";
+import { fantasticJobsCollector } from "./fantastic-jobs";
 import { gemCollector } from "./gem";
 import { greenhouseCollector } from "./greenhouse";
 import { jsearchCollector } from "./jsearch";
@@ -31,4 +32,5 @@ export const COLLECTORS: Collector[] = [
   bamboohrCollector,
   ripplingCollector,
   workableCollector,
+  fantasticJobsCollector,
 ];

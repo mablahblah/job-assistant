@@ -16,5 +16,8 @@ export default defineConfig({
     passWithNoTests: true,
     // Fix timezone-dependent tests: getWeekStart uses local time, test fixtures use UTC dates
     env: { TZ: "UTC" },
+    // Blanks every outside-service key before any test loads, so neither a
+    // test nor a command it starts can pick up a real key from .env.
+    setupFiles: ["./vitest.setup.ts"],
   },
 });

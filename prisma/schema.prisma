@@ -350,8 +350,46 @@ model Setting {
   // How many days a guessed category stands. Shorter than the score expiry,
   // because a 3 the agent guessed at is a placeholder rather than research.
   guessed_score_expiry_days     Int?
+  // The towns the Fantastic.jobs local search asks for, each written in full,
+  // such as "Austin, Texas, United States", so a town in any state is added
+  // without a code change. It does not follow the radius setting. An empty
+  // list switches the local search off.
+  search_towns                  Json?
+  // The work-arrangement labels the Fantastic.jobs remote search asks for,
+  // such as "Remote OK". An empty list switches the remote search off.
+  remote_labels                 Json?
+  // Plain title words the Fantastic.jobs searches leave out, such as
+  // "Director". The collector adds the service's own wildcard, so this list
+  // holds none of the service's symbols. An empty list leaves out nothing.
+  excluded_titles               Json?
+  // How many days back a Fantastic.jobs search may reach, as the service's
+  // own window. The service offers 1 or 7, and a search never reaches past
+  // the shorter of this and expiry_threshold.
+  search_window_days            Int?
   created_at                    DateTime @default(now())
   modified_at                   DateTime @updatedAt
+}
+
+// One row per search a collector runs, holding when that search last worked,
+// so its next run asks only for jobs posted since then. A collector running
+// two searches keeps two rows, so a search that failed keeps its own time
+// while the other moves on. Collectors only read it. A step after the
+// post-collection save writes it, so a time moves only once that search's
+// jobs are stored. A search with no row has never worked.
+model LastSuccess {
+  id           String   @id @default(cuid())
+  // The collector that ran the search, as named in its registry.
+  collector    String
+  // Which of that collector's searches this is, such as remote.
+  search       String
+  // When the search last worked: the time that job search started collecting.
+  succeeded_at DateTime
+  created_at   DateTime @default(now())
+  modified_at  DateTime @updatedAt
+
+  // One time per search, so a second row for the same search is refused
+  // rather than leaving two times to disagree.
+  @@unique([collector, search])
 }
 
 // One row per event in a job's path through the pipeline. A job enters at

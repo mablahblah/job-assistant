@@ -244,10 +244,14 @@ describe("AC 10: the settings service exposes reads only", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  test("exposes exactly the seventeen getters", () => {
+  test("exposes exactly the twenty-one getters", () => {
     expect(Object.keys(service).sort()).toEqual(
       [
+        "getExcludedTitles",
         "getExpiryThreshold",
+        "getRemoteLabels",
+        "getSearchTowns",
+        "getSearchWindowDays",
         "getGuessedScoreExpiryDays",
         "getIdentifyingQueryValues",
         "getLocation",
@@ -781,5 +785,81 @@ describe("getIdentifyingQueryValues reads the stored list", () => {
   test("a list holding something other than a name throws naming it", async () => {
     await runSql(url, "UPDATE Setting SET identifying_query_values = '[\"opportunityid\", 7]' WHERE id = 1");
     await expect(service.getIdentifyingQueryValues()).rejects.toThrow(/identifying_query_values/);
+  });
+});
+
+// The towns, remote labels and titles to skip are lists the user can change,
+// so each is read as stored. An empty list is a real answer: emptying the
+// towns or the remote labels switches that search off, and emptying the
+// titles to skip leaves out nothing.
+describe("the search lists read the stored list", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-search-lists-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  const lists: Array<[string, (service: SettingsService) => Promise<string[]>]> = [
+    ["search_towns", (each) => each.getSearchTowns()],
+    ["remote_labels", (each) => each.getRemoteLabels()],
+    ["excluded_titles", (each) => each.getExcludedTitles()],
+  ];
+
+  test.each(lists)("%s comes back as written", async (column, read) => {
+    await runSql(url, `UPDATE Setting SET ${column} = '["first", "second"]' WHERE id = 1`);
+    expect(await read(service)).toEqual(["first", "second"]);
+  });
+
+  test.each(lists)("%s emptied is a real answer", async (column, read) => {
+    await runSql(url, `UPDATE Setting SET ${column} = '[]' WHERE id = 1`);
+    expect(await read(service)).toEqual([]);
+  });
+
+  test.each(lists)("%s null throws naming it and the seed", async (column, read) => {
+    await runSql(url, `UPDATE Setting SET ${column} = NULL WHERE id = 1`);
+    await expect(read(service)).rejects.toThrow(new RegExp(column));
+    await expect(read(service)).rejects.toThrow(/db:seed/);
+  });
+
+  test.each(lists)("%s holding something other than text throws naming it", async (column, read) => {
+    await runSql(url, `UPDATE Setting SET ${column} = '["first", 7]' WHERE id = 1`);
+    await expect(read(service)).rejects.toThrow(new RegExp(column));
+  });
+});
+
+// The window is stored in days. Which values the paid service accepts is the
+// collector's to judge, so the getter hands back whatever number is stored.
+describe("getSearchWindowDays reads the stored number", () => {
+  let dir: string;
+  let db: PipelineDb;
+  let service: SettingsService;
+  let url: string;
+
+  beforeAll(() => {
+    const temp = createAndSeed("pipeline-settings-search-window-");
+    dir = temp.dir;
+    url = temp.url;
+    ({ db, service } = buildService(temp.url));
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => cleanup(dir, db));
+
+  test("the stored number comes back", async () => {
+    await runSql(url, "UPDATE Setting SET search_window_days = 1 WHERE id = 1");
+    expect(await service.getSearchWindowDays()).toBe(1);
+  });
+
+  test("a null column throws naming it and the seed", async () => {
+    await runSql(url, "UPDATE Setting SET search_window_days = NULL WHERE id = 1");
+    await expect(service.getSearchWindowDays()).rejects.toThrow(/search_window_days/);
+    await expect(service.getSearchWindowDays()).rejects.toThrow(/db:seed/);
   });
 });

@@ -44,10 +44,12 @@ interface RunResult {
 }
 
 // No search credential is set for any of these runs, so nothing here can
-// reach the paid search service. Criterion 85.
+// reach the paid search service. Criterion 85. The key is blanked rather than
+// deleted: the command loads .env, which fills a missing key with the real one
+// but never overwrites a set one, even a blank one.
 function runChange(url: string, args: string[]): RunResult {
   const env: NodeJS.ProcessEnv = { ...process.env, PIPELINE_DATABASE_URL: url };
-  delete env["APIFY_API_TOKEN"];
+  env["APIFY_API_TOKEN"] = "";
   const result = spawnSync("npx", ["tsx", "scripts/change-status.ts", ...args], {
     cwd: repoRoot,
     env,

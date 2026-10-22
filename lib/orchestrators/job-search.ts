@@ -2,7 +2,8 @@
 // run id, the collection date and the services they share. Three steps run in
 // sequence, and each ends in a database write, so a run's work outlives the
 // run whether or not the next step gets to it. The collect step is collection,
-// normalization, association, dedupe and save. The resolution step then reads
+// normalization, association, dedupe and save, and it ends by saving when each
+// worked search last worked. The resolution step then reads
 // its own list of jobs still needing a source URL — nothing upstream hands it
 // work, because the database is the only handoff between steps — resolves them
 // behind one shared browser, then dedupes and saves what came back. The
@@ -22,6 +23,7 @@ import { classifyJobs } from "../handlers/classification";
 import { promoteJobs } from "../handlers/promotion";
 import { collectJobs } from "../handlers/collection";
 import type { AtsSlugService } from "../services/ats-slug-service";
+import type { LastSuccessService } from "../services/last-success-service";
 import type { CompanyService } from "../services/company-service";
 import { dedupeJobs } from "../handlers/dedupe";
 import type { JobListEntry } from "../types/job-list-entry";
@@ -103,6 +105,10 @@ export interface RunJobSearchOptions {
   // it would have the pipeline learn nothing about which boards its employers
   // post on, and promotion would have no row to put a collector on.
   atsSlugs: AtsSlugService;
+  // Required, not optional: a caller that omitted it would leave a collector
+  // that remembers when each of its searches last worked with no times to
+  // read, so it would look back as if its searches had never worked.
+  lastSuccesses: LastSuccessService;
   // Required, not optional, for the same reason: a caller that omitted it
   // would have the run end without writing a row, which is what a run that
   // found nothing also looks like.
@@ -202,8 +208,8 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       options.settings.getGuessedScoreExpiryDays()
     );
 
-    // Read here rather than after collection, because the backlog cleanup save
-    // below is now the run's first write and every later save reuses it.
+    // Read here rather than after collection, because every save in the run
+    // reuses it, starting with the backlog cleanup save below.
     const priorityList = await at("source_priority_list", () =>
       options.settings.getSourcePriorityList()
     );
@@ -214,6 +220,22 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     const identifyingQueryValues = await at("identifying_query_values", () =>
       options.settings.getIdentifyingQueryValues()
     );
+
+    // With a paid source among the collectors, an empty term list could match
+    // everything at a cost, so the run stops before any database write rather
+    // than running every source with nothing to search for; a blank entry counts
+    // as no term.
+    await at("search_terms", async () => {
+      const searchTerms = await options.settings.getSearchTerms();
+      if (
+        searchTerms.length === 0 ||
+        searchTerms.every((term) => term.trim() === "")
+      ) {
+        throw new Error(
+          "Setting.search_terms is empty. The job search will not start with no search term."
+        );
+      }
+    });
 
     // Cleanup opens the run, so the backlog collection is about to add to has
     // already been swept rather than being judged a step behind.
@@ -277,6 +299,7 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
       collectJobs({
         settings: options.settings,
         atsSlugs: options.atsSlugs,
+        lastSuccesses: options.lastSuccesses,
         collectors: options.collectors,
         collectedAt: options.collectedAt,
         runId: options.runId,
@@ -360,6 +383,17 @@ export async function runJobSearch(options: RunJobSearchOptions): Promise<RunJob
     );
     report.jobs = saved.jobs;
     report.warnings.push(...saved.warnings);
+
+    // A search's saved time moves only once its jobs are stored, so it is
+    // written after the save above. A run that stops before then asks again
+    // next time for everything the search found. This is not a handler: it
+    // takes and hands back no list, so it only needs the spot named.
+    await at("last_success_save", async () => {
+      // One after another, as save's writes are: they all go to one table.
+      for (const { collector, search } of collected.workedSearches) {
+        await options.lastSuccesses.record(collector, search, options.collectedAt);
+      }
+    });
 
     // The resolution step takes no job list from the collect step — it queries
     // the database for whatever still needs a source URL, which is what lets

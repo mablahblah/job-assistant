@@ -45,6 +45,7 @@ import type {
 import type { RawSalary } from "../types/job-list-entry";
 import { saveJobs } from "../handlers/save";
 import { runJobSearch } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -279,6 +280,7 @@ describe("An unclaimed website's job is read from its job data", () => {
     await runJobSearch({
       settings,
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService,
       collectors: [],

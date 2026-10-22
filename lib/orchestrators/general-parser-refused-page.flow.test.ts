@@ -43,6 +43,7 @@ import type {
 import { saveJobs } from "../handlers/save";
 import { summaryFromTraceCounts } from "../utils/run-summary";
 import { runJobSearch } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -224,6 +225,7 @@ describe("A refused page falls back to the collector", () => {
     await runJobSearch({
       settings,
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService,
       collectors: [],

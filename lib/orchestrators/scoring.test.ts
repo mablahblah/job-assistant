@@ -745,15 +745,17 @@ describe("the score save hands the identifying query values to every job write",
   }
 
   test("saving a fit score hands over the stored identifying values", async () => {
+    const storedIdentifyingValues = await fakeSettingsService().getIdentifyingQueryValues();
     const handed = await listsHandedToWrites([scoreableJob()], [], [
       { id: "j1", alignment_score: 4, alignment_rationale: "close fit" },
     ]);
 
     expect(handed.length).toBeGreaterThan(0);
-    for (const list of handed) expect(list).toEqual(["opportunityid"]);
+    for (const list of handed) expect(list).toEqual(storedIdentifyingValues);
   });
 
   test("marking a job judged hands over the stored identifying values", async () => {
+    const storedIdentifyingValues = await fakeSettingsService().getIdentifyingQueryValues();
     const handed = await listsHandedToWrites(
       [scoreableJob({ company_id: "c1", is_judged: false })],
       [scoredCompany()],
@@ -761,6 +763,6 @@ describe("the score save hands the identifying query values to every job write",
     );
 
     expect(handed.length).toBeGreaterThan(0);
-    for (const list of handed) expect(list).toEqual(["opportunityid"]);
+    for (const list of handed) expect(list).toEqual(storedIdentifyingValues);
   });
 });

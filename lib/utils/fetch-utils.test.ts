@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { fetchWithTimeout, safeJson, httpError } from "./fetch-utils";
+import { fetchWithTimeout, safeJson, httpError, NetworkTimeoutError } from "./fetch-utils";
 
 // Each test below swaps the global fetch for a plain stand-in and the real one
 // is put back afterwards, so nothing leaks into the next test.
@@ -86,6 +86,16 @@ describe("fetchWithTimeout", () => {
     await expect(
       fetchWithTimeout("https://example.com", { timeoutMs: 5000 })
     ).rejects.toThrow("5");
+  });
+
+  test("a timeout can be told apart from any other failure by its type", async () => {
+    globalThis.fetch = async () => {
+      throw new DOMException("aborted", "AbortError");
+    };
+
+    await expect(fetchWithTimeout("https://example.com")).rejects.toBeInstanceOf(
+      NetworkTimeoutError
+    );
   });
 
   test("an error that is neither an abort is passed through as-is", async () => {

@@ -4,6 +4,7 @@
 import { createPipelineDb } from "../lib/db/pipeline-db";
 import { createCompanyService } from "../lib/services/company-service";
 import { createAtsSlugService } from "../lib/services/ats-slug-service";
+import { createLastSuccessService } from "../lib/services/last-success-service";
 import { createJobService } from "../lib/services/job-service";
 import { createPlaceService } from "../lib/services/place-service";
 import { createSettingsService } from "../lib/services/settings-service";
@@ -59,6 +60,9 @@ async function main(): Promise<void> {
     // The one way anything reaches the ATS slug table: which boards our
     // employers post on, and which of those we poll every run.
     const atsSlugs = createAtsSlugService(prisma);
+    // The one way anything reaches the last-success table: when each collector
+    // search last succeeded.
+    const lastSuccesses = createLastSuccessService(prisma);
     // The one way anything reaches the Job table, so saving stays in one
     // place instead of leaking into collectors and parsers.
     const jobService = createJobService(prisma);
@@ -83,6 +87,7 @@ async function main(): Promise<void> {
       collectors: COLLECTORS,
       companies,
       atsSlugs,
+      lastSuccesses,
       jobService,
       // createResolutionBrowser already takes an optional launcher and returns
       // a resolution browser session, which is exactly what openBrowser is

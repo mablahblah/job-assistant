@@ -17,6 +17,7 @@ describe("the numbers the fake answers are usable values, not zeroes", () => {
     ["the fast lane's width", () => settings.getResolutionFastConcurrency()],
     ["the slow lane's width", () => settings.getResolutionSlowConcurrency()],
     ["the slow lane's pause", () => settings.getResolutionSlowPauseSeconds()],
+    ["the search window", () => settings.getSearchWindowDays()],
   ])("%s is greater than zero", async (_name, read) => {
     expect(await read()).toBeGreaterThan(0);
   });
@@ -33,10 +34,20 @@ describe("the lists and text the fake answers are filled", () => {
     expect(await settings.getSearchTerms()).not.toEqual([]);
   });
 
-  // The seeded list, so a test that never mentions it still keeps two
-  // UltiPro jobs apart the way a real run does.
-  test("the identifying query values name UltiPro's job identifier", async () => {
-    expect(await settings.getIdentifyingQueryValues()).toEqual(["opportunityid"]);
+  // The seeded list, so a test that never mentions it still keeps two jobs
+  // apart by their job number the way a real run does.
+  test("the identifying query values name every seeded job identifier", async () => {
+    expect(await settings.getIdentifyingQueryValues()).toEqual(["opportunityid", "reqId", "gh_jid"]);
+  });
+
+  // An empty town or remote-label list switches a search off, so a test that
+  // never mentions them still gets both searches.
+  test.each([
+    ["the towns", () => settings.getSearchTowns()],
+    ["the remote labels", () => settings.getRemoteLabels()],
+    ["the titles to skip", () => settings.getExcludedTitles()],
+  ])("%s are not empty", async (_name, read) => {
+    expect(await read()).not.toEqual([]);
   });
 });
 

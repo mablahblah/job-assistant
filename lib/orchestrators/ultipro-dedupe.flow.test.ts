@@ -41,6 +41,7 @@ import type {
 import type { Collector } from "../collectors/collector";
 import type { JobListEntry } from "../types/job-list-entry";
 import { runJobSearch, type RunJobSearchOptions } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -197,6 +198,7 @@ describe("Duplicate matching tells UltiPro jobs apart", () => {
     shared = {
       settings: createSettingsService(db),
       companies: createCompanyService(db),
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService: createJobService(db),
       openBrowser: browserThatStaysPut(),

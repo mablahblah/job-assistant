@@ -45,10 +45,23 @@ function runScript(script: string, url: string): void {
   });
 }
 
-function createAndSeed(prefix: string): { dir: string; url: string } {
+// The run looks up the home location before anything else. Storing its place
+// here means the command finds it already known and never asks the live map
+// service, whose key the test setup blanks.
+async function createAndSeed(prefix: string): Promise<{ dir: string; url: string }> {
   const temp = makeTempDb(prefix);
   runScript("db-create.ts", temp.url);
   runScript("db-seed.ts", temp.url);
+  const client = createClient({ url: temp.url });
+  try {
+    await client.execute(
+      `INSERT INTO Place (id, lookup_text, latitude, longitude, place_type, display_name)
+       SELECT 'home', location, 30.2711, -97.7437, 'postcode', 'Austin, Texas'
+       FROM Setting WHERE id = 1`
+    );
+  } finally {
+    client.close();
+  }
   return temp;
 }
 
@@ -123,7 +136,7 @@ describe("AC 11: the job-search command runs the pipeline and reaches no source"
   let entriesAfter: string[];
 
   beforeAll(async () => {
-    const temp = createAndSeed("pipeline-job-search-");
+    const temp = await createAndSeed("pipeline-job-search-");
     dir = temp.dir;
 
     settingsBefore = await readSetting(temp.url);
@@ -219,8 +232,8 @@ describe("what a finished run prints", () => {
   let dir: string;
   let result: RunResult;
 
-  beforeAll(() => {
-    const temp = createAndSeed("pipeline-job-search-summary-");
+  beforeAll(async () => {
+    const temp = await createAndSeed("pipeline-job-search-summary-");
     dir = temp.dir;
     result = runJobSearch(temp.url);
   }, SETUP_TIMEOUT_MS);
@@ -276,7 +289,7 @@ describe("phase 8b AC 14, 15, 16: a database that does not match the code stops 
   let result: RunResult;
 
   beforeAll(async () => {
-    const temp = createAndSeed("pipeline-job-search-drift-");
+    const temp = await createAndSeed("pipeline-job-search-drift-");
     dir = temp.dir;
 
     const client = createClient({ url: temp.url });

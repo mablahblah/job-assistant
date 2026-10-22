@@ -4,69 +4,10 @@
 // board rows and marks nothing as polled: polling is earned by promotion
 // alone, and a slug list here would re-arm the boards on every reseed.
 import { createPipelineDb } from "../lib/db/pipeline-db";
+import { SETTING_DEFAULTS } from "../lib/db/setting-defaults";
 import { COLLECTORS } from "../lib/collectors/registry";
 import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
 import { generalParser } from "../lib/parsers/general";
-
-const SETTING_DEFAULTS = {
-  search_terms: ["Product Design", "UX", "Founding Design"],
-  location: "78701",
-  radius: 30,
-  expiry_threshold: 8,
-  // The words that name a job. Finding one is what tells the title rule which
-  // part of a title is the role.
-  title_head_nouns: [
-    "analyst", "architect", "artist", "consultant", "coordinator", "copywriter",
-    "designer", "developer", "director", "engineer", "head", "lead", "manager",
-    "owner", "producer", "programmer", "researcher", "scientist", "specialist",
-    "strategist", "technician", "technologist", "translator", "vp", "writer",
-  ],
-  // Each seniority spelling that gets stored, with every spelling a posting
-  // might write for it. This is the real list — two tests restate it and move
-  // with it: EXPECTED_TITLE_LEVELS in lib/services/settings-service.test.ts, which has
-  // to stay an independent copy to prove the round trip through the database,
-  // and VOCABULARIES in lib/utils/title.test.ts, which mirrors it so the title tests
-  // run against what really ships.
-  title_levels: [
-    { store: "Intern", match: ["intern"] },
-    { store: "Entry-Level", match: ["entry level", "entry-level"] },
-    { store: "Jr.", match: ["junior", "jr", "jr."] },
-    { store: "Associate", match: ["associate", "assoc"] },
-    { store: "Mid-Level", match: ["mid level", "mid-level", "mid"] },
-    { store: "Sr.", match: ["senior", "sr", "sr."] },
-    { store: "Staff", match: ["staff"] },
-    { store: "Lead", match: ["lead"] },
-    { store: "Principal", match: ["principal"] },
-    { store: "Head", match: ["head"] },
-    { store: "Director", match: ["director"] },
-    { store: "VP", match: ["vp"] },
-    { store: "Chief", match: ["chief"] },
-  ],
-  // Word endings that name a person doing a job, used when no head noun
-  // matched so a profession the list has never seen is still recognised.
-  title_suffixes: ["-er", "-or", "-ist", "-yst", "-ian", "-ant", "-ect"],
-  // Words taken out of a title's team part only. Deliberately short: it grows
-  // from what real titles turn out to need rather than from a list fitted in
-  // advance.
-  title_removal_words: ["w2", "c2h", "evergreen"],
-  resolution_fast_concurrency: 3,
-  resolution_slow_concurrency: 1,
-  resolution_slow_pause_seconds: 12,
-  repost_gap_days: 3,
-  // A company's four scores must average above this before its board joins a
-  // polling list. 3.5 sits just above the middle, so a company that scored a
-  // flat 3 everywhere — the value the rubric awards when nothing public was
-  // found — is never promoted on guesses alone.
-  promotion_threshold: 3.5,
-  // How long a company's scores stand before backlog cleanup empties them.
-  score_expiry_days: 90,
-  // How long a guessed category stands. Shorter than the score expiry,
-  // because a guess is a placeholder rather than research.
-  guessed_score_expiry_days: 30,
-  // UltiPro carries a job's only identity in its opportunityid query value,
-  // so duplicate matching must keep it; every other query value is dropped.
-  identifying_query_values: ["opportunityid"],
-};
 
 // The full ranking a database should end up holding. It sits apart from
 // SETTING_DEFAULTS because it is not filled when null and left alone after:
@@ -115,6 +56,10 @@ type SettingPatch = {
   score_expiry_days?: number;
   guessed_score_expiry_days?: number;
   identifying_query_values?: string[];
+  search_towns?: string[];
+  remote_labels?: string[];
+  excluded_titles?: string[];
+  search_window_days?: number;
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -169,6 +114,18 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   }
   if (existing.identifying_query_values === null) {
     patch.identifying_query_values = SETTING_DEFAULTS.identifying_query_values;
+  }
+  if (existing.search_towns === null) {
+    patch.search_towns = SETTING_DEFAULTS.search_towns;
+  }
+  if (existing.remote_labels === null) {
+    patch.remote_labels = SETTING_DEFAULTS.remote_labels;
+  }
+  if (existing.excluded_titles === null) {
+    patch.excluded_titles = SETTING_DEFAULTS.excluded_titles;
+  }
+  if (existing.search_window_days === null) {
+    patch.search_window_days = SETTING_DEFAULTS.search_window_days;
   }
 
   const filled = Object.keys(patch);

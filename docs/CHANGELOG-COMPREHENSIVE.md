@@ -2,6 +2,26 @@
 
 <!-- Newest at top -->
 
+## October 22, 2026 - v1.7.0
+
+### New Features
+
+#### Jobs from Employers' Own Hiring Sites
+
+Most of your jobs came from Adzuna and JSearch, whose links often stop short of the employer's own posting and whose dates run a day or two late. Every job search now also asks Fantastic.jobs, a paid service that finds design jobs on employers' own hiring systems, for remote and Austin-area jobs, reaching companies the app never found before. Its links open the employer's posting, and its dates sit close to when the job went up. It skips companies the app already checks directly and asks only for jobs posted since a day before its last good search, so you pay mostly for new jobs, about $7 to $8 a month. A failed search is asked again next time, and each search stops at 200 jobs. For every source, "Remote OK" and "Remote Solely" now count as remote, and a job search with no search terms refuses to start.
+
+### Internal
+
+- **Collector** The new collector runs its remote search, then its Austin search, through a general Apify tool built on the app's standard web request. The tool sends the token only in a request header, waits up to 270 seconds, and cuts a refusal's reply to 300 characters, so a test can stand in for the service by swapping that one request. The collector ranks directly after Workable in your source ranking.
+- **Database** A new table keeps each paid search's last good time, and four new settings hold the town list, the remote labels, the titles to skip and the window. The same database update ranks the new collector and adds two job-number link parts, `reqId` and `gh_jid`, to the link values that keep two jobs apart. The values a fresh settings row starts with now live in one place that both the seed and the settings stand-in read, so they cannot drift apart.
+- **Pipeline** A step straight after the post-collection save records the time of each paid search that worked, so a time moves only once its jobs are stored. Collectors are handed the run's collection time and can read, but never write, those saved times. The job-board records gained a read listing every board a collector checks, with its company's name.
+- **Tests** Every outside-service key is now blanked before any test loads, and tests that start a command store the home place first. Before this, one full test run made two real Apify calls and four live map lookups; now it makes none. Eight new flow tests cover the collector, and the release audit added a test for a saved time that cannot be written, browser stand-ins in two tests, and tighter checks.
+- **Code** The release audit removed a doubled full stop from failure messages, checked the service's text fields instead of trusting them, shared the day-length constant, gave two unexplained values names, made the five settings readers for text lists share one check, and renamed a test placeholder to follow the naming rule.
+- **Rules** The naming rule now gives capitals to any value that is the same every time a file loads, and lets a test open its own throwaway database. The orchestrator rule now names the steps an orchestrator runs between handlers. The ownership rule now lets a collector read its source's conventions and send your search settings with its request, counts a step run straight after a save as part of that stretch, and lets a test stand-in copy a real site's reply. The services rule now lets a service read a linked table while writing only its own.
+- **Docs** The architecture document now counts fifteen collectors and eleven dedicated parsers, describes the new collector, table, settings and saved-time step, and says the link key keeps the named link values. The example settings file lists the Fantastic.jobs token again.
+- **Security** The release audit ran the safe package updates, which took the known weaknesses in installed packages from 24 to 15. Every high one left comes through Apify's own library or the code-style tools, and each needs a major upgrade, recorded under Security & Hardening on the backlog.
+- **Backlog** Filed moving the web-request helper into the tools folder, and sharing the setup that flow tests copy. Ten risks never seen in a real run, such as two job searches running at once, are written down in the feature spec rather than guarded against.
+
 ## October 8, 2026 - v1.6.0
 
 ### New Features

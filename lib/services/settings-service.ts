@@ -30,6 +30,10 @@ export interface SettingsService {
   getPromotionThreshold(): Promise<number>;
   getScoreExpiryDays(): Promise<number>;
   getGuessedScoreExpiryDays(): Promise<number>;
+  getSearchTowns(): Promise<string[]>;
+  getRemoteLabels(): Promise<string[]>;
+  getExcludedTitles(): Promise<string[]>;
+  getSearchWindowDays(): Promise<number>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -48,8 +52,9 @@ async function getSettingsRow(db: PipelineDb) {
 
 // search_terms is a Prisma Json column, so its static type is JsonValue, not
 // string[]. This checks the shape at runtime rather than trusting it. An
-// empty list passes on purpose: emptying the search terms is how a search is
-// switched off.
+// empty list passes the shape check on purpose: an empty list is still a
+// list, and refusing it is the job search's call, which it makes before
+// running any source.
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
@@ -101,13 +106,23 @@ export function createSettingsService(db: PipelineDb): SettingsService {
     return value;
   }
 
+  // Shared by the text lists where an empty list is a real answer: read the
+  // row, check the named column holds a list of strings, throw naming it
+  // otherwise.
+  async function getTextList(
+    column: "search_terms" | "identifying_query_values" | "search_towns" | "remote_labels" | "excluded_titles"
+  ): Promise<string[]> {
+    const row = await getSettingsRow(db);
+    const value = row === null ? null : row[column];
+    if (!isStringArray(value)) {
+      throw missingSettingError(column);
+    }
+    return value;
+  }
+
   return {
     async getSearchTerms() {
-      const row = await getSettingsRow(db);
-      if (row === null || !isStringArray(row.search_terms)) {
-        throw missingSettingError("search_terms");
-      }
-      return row.search_terms;
+      return getTextList("search_terms");
     },
 
     async getLocation() {
@@ -166,12 +181,8 @@ export function createSettingsService(db: PipelineDb): SettingsService {
     },
 
     async getIdentifyingQueryValues() {
-      const row = await getSettingsRow(db);
       // An empty list is a real answer: it means no query value identifies a job.
-      if (row === null || !isStringArray(row.identifying_query_values)) {
-        throw missingSettingError("identifying_query_values");
-      }
-      return row.identifying_query_values;
+      return getTextList("identifying_query_values");
     },
 
     // Zero is not a harmless stand-in for either lane's width: a lane
@@ -234,6 +245,30 @@ export function createSettingsService(db: PipelineDb): SettingsService {
         throw missingSettingError("guessed_score_expiry_days");
       }
       return row.guessed_score_expiry_days;
+    },
+
+    // An empty list is a real answer: it switches the local search off.
+    async getSearchTowns() {
+      return getTextList("search_towns");
+    },
+
+    // An empty list is a real answer: it switches the remote search off.
+    async getRemoteLabels() {
+      return getTextList("remote_labels");
+    },
+
+    // An empty list is a real answer: no title words are left out.
+    async getExcludedTitles() {
+      return getTextList("excluded_titles");
+    },
+
+    // Any stored number comes back; the search that reads it judges which are allowed.
+    async getSearchWindowDays() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.search_window_days === null) {
+        throw missingSettingError("search_window_days");
+      }
+      return row.search_window_days;
     },
   };
 }

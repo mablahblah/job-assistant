@@ -6,7 +6,7 @@ paths: ["lib/**/*.ts"]
 
 ## What is shaped to its source, and what is not
 
-Collectors and parsers are the only code written to fit a particular job site. Every other part acts on a job's data alone and cannot tell where that job came from.
+Collectors and parsers are the only app code written to fit a particular job site. Every other part acts on a job's data alone and cannot tell where that job came from. A test stand-in, the fake that plays an outside site during a test, may copy that site's real reply format.
 
 No part branches on which collector produced a job.
 
@@ -24,13 +24,13 @@ A caller hands down whatever context a part needs, including which step to recor
 
 ## Each stretch of the pipeline ends at the database
 
-A stretch writes its results and stops. The next one starts by asking the database for the jobs carrying the right marker, the yes-or-no flag that records which steps a job has finished. A job search asks for every such job, whenever it was collected. A run handed particular jobs narrows that question to those jobs' identifiers, and takes nothing else from what the stretch before it returned.
+A stretch writes its results and stops. The next one starts by asking the database for the jobs carrying the right marker, the yes-or-no flag that records which steps a job has finished. A job search asks for every such job, whenever it was collected. A run handed particular jobs narrows that question to those jobs' identifiers, and takes nothing else from what the stretch before it returned. A step the orchestrator, the code that calls each step in order, runs on its own straight after a stretch's save belongs to that stretch, and may use what that stretch returned.
 
 ## Where new behaviour goes
 
 | Part | Owns | Never does |
 |---|---|---|
-| **Collector** | Gathers raw jobs and every field its source hands over for free. Writes each into a `raw_` field, a column that keeps a value exactly as the source published it. | Interpret anything. A figure it had to read out of prose is not free data. |
+| **Collector** | Gathers raw jobs and every field its source hands over for free. Writes each into a `raw_` field, a column that keeps a value exactly as the source published it. Reads its source's own conventions, the meaning the source gives its own fields, and sends the user's search settings with its request so the source filters before it answers. | Interpret a job's content. A figure it had to read out of prose is not free data. |
 | **Normalizer** | Reshapes raw data that is already there into the fields that matter. | Go looking. A `raw_` field that is empty stays empty. |
 | **Resolver** | Follows a job's link to the employer's own posting. | Read anything off the page it lands on. |
 | **Parser** | Makes the final attempt at filling `raw_` fields, including reading a salary or a way of working out of the job description. | Format what it extracts. It hands its findings back to the normalizer. |

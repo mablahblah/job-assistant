@@ -183,3 +183,35 @@ describe("the fake lists the boards one company posts on", () => {
     expect(await service.listForCompany("nobody")).toEqual([]);
   });
 });
+
+// Mirrors the real service's read of every polled board. The fake holds no
+// company table, so a test hands it the company names, keyed by company id.
+describe("the fake lists every polled board with its company's name", () => {
+  test("a board each collector polls is on the list, with its company's name", async () => {
+    const service = fakeAtsSlugService(
+      [board("polled-first", "c1", "greenhouse"), board("polled-second", "c2", "lever")],
+      {},
+      { c1: "Polled By First", c2: "Polled By Second" }
+    );
+
+    const boards = await service.listPolled();
+    const named = boards.map((each) => ({ slug: each.slug, company_name: each.company_name }));
+    expect(named).toEqual([
+      { slug: "polled-first", company_name: "Polled By First" },
+      { slug: "polled-second", company_name: "Polled By Second" },
+    ]);
+  });
+
+  test("a board no collector polls is not on the list", async () => {
+    const service = fakeAtsSlugService([board("polled-nobody", "c1")], {}, { c1: "Polled Nobody" });
+
+    expect(await service.listPolled()).toEqual([]);
+  });
+
+  test("a polled board whose company has no name comes back with no name", async () => {
+    const service = fakeAtsSlugService([board("polled-nameless", "c1", "greenhouse")]);
+
+    const boards = await service.listPolled();
+    expect(boards.map((each) => each.company_name)).toEqual([null]);
+  });
+});

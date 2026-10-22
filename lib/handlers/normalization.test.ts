@@ -3,7 +3,7 @@ import { normalizeJob } from "./normalization";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { TitleVocabularies } from "../utils/title";
 
-// The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
+// The measured defaults from lib/db/setting-defaults.ts's SETTING_DEFAULTS, restated
 // so normalizeJob's title routing runs against what really ships. It moves
 // whenever SETTING_DEFAULTS does, as do the copies in lib/utils/title.test.ts and
 // EXPECTED_TITLE_LEVELS in lib/services/settings-service.test.ts.

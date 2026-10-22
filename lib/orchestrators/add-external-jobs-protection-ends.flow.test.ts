@@ -28,6 +28,7 @@ import { fakePageFetcher } from "../tools/page-fetcher.fake";
 import { fakeResolutionBrowser } from "../tools/resolution-browser.fake";
 import { runAddExternalJobs } from "./add-external-jobs";
 import { runJobSearch } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -132,6 +133,7 @@ describe("The protection ends with the run", () => {
     const shared = {
       settings: createSettingsService(db),
       companies: createCompanyService(db),
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService: createJobService(db),
       openBrowser: fakeResolutionBrowser(followedPages),

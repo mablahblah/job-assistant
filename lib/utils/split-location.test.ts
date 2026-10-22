@@ -74,6 +74,8 @@ describe("splitLocation: a work mode inside a location is lifted out", () => {
   test.each([
     ["remote", "remote"],
     ["Fully Remote", "remote"],
+    ["Remote OK", "remote"],
+    ["Remote Solely", "remote"],
     ["hybrid", "hybrid"],
     ["on-site", "in-person"],
     ["onsite", "in-person"],
@@ -83,6 +85,19 @@ describe("splitLocation: a work mode inside a location is lifted out", () => {
     ["in-person", "in-person"],
   ])("%s reads as the %s mode", (raw, mode) => {
     expect(splitLocation(raw).modes).toEqual([mode]);
+  });
+
+  // "OK" and "Solely" belong to the mode label, so neither is left behind as
+  // a place for the map lookup to chase.
+  test.each(["Remote OK", "Remote Solely"])("%s yields no place", (raw) => {
+    expect(splitLocation(raw).places).toEqual([]);
+  });
+
+  test("a place beside a qualified remote label survives", () => {
+    expect(splitLocation("Chicago, Illinois (Remote OK)").places).toEqual([
+      "Chicago",
+      "Illinois",
+    ]);
   });
 
   test("two modes in one location both come out", () => {

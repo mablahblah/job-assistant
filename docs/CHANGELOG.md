@@ -2,6 +2,14 @@
 
 <!-- Newest at top -->
 
+## October 22, 2026 - v1.7.0
+
+### New Features
+
+#### Jobs from Employers' Own Hiring Sites
+
+Most of your jobs came from Adzuna and JSearch, whose links often stop short of the employer's own posting and whose dates run a day or two late. Every job search now also asks Fantastic.jobs, a paid service that finds design jobs on employers' own hiring systems, for remote and Austin-area jobs, reaching companies the app never found before. Its links open the employer's posting, and its dates sit close to when the job went up. It skips companies the app already checks directly and asks only for jobs posted since a day before its last good search, so you pay mostly for new jobs, about $7 to $8 a month. A failed search is asked again next time, and each search stops at 200 jobs. For every source, "Remote OK" and "Remote Solely" now count as remote, and a job search with no search terms refuses to start.
+
 ## October 8, 2026 - v1.6.0
 
 ### New Features

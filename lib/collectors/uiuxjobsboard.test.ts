@@ -21,6 +21,12 @@ import { fetchContainer } from "../tools/fetch-page";
 import { writeFixture } from "./fixture";
 import { fakeSettingsService } from "../services/settings-service.fake";
 import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+import { fakeLastSuccessService } from "../services/last-success-service.fake";
+
+// No collector here remembers its searches, so the last-success service each
+// one is handed holds no time, and none reads the collection time.
+const noTimes = fakeLastSuccessService();
+const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 // This collector polls no ATS board, so the slug service it is handed holds
 // none. It is still handed one, because every collector takes the same
@@ -167,7 +173,7 @@ function makeSettings(overrides: SettingsOverrides = {}): SettingsService {
 
 async function collect(options: { settings?: SettingsService; limit?: number } = {}) {
   const settings = options.settings ?? makeSettings();
-  return uiuxjobsboardCollector.collect({ settings, atsSlugs: NO_BOARDS, limit: options.limit ?? Infinity });
+  return uiuxjobsboardCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, limit: options.limit ?? Infinity });
 }
 
 beforeEach(() => {

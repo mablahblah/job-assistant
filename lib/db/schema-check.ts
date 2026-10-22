@@ -28,6 +28,7 @@ export const CHECKED_MODELS = [
   "AtsSlug",
   "Place",
   "Setting",
+  "LastSuccess",
   "Trace",
   "WorkLogEntry",
 ] as const;
@@ -41,6 +42,7 @@ export function schemaProbesFor(db: PipelineDb): SchemaProbe[] {
     { name: "AtsSlug", read: () => db.atsSlug.findFirst() },
     { name: "Place", read: () => db.place.findFirst() },
     { name: "Setting", read: () => db.setting.findFirst() },
+    { name: "LastSuccess", read: () => db.lastSuccess.findFirst() },
     { name: "Trace", read: () => db.trace.findFirst() },
     { name: "WorkLogEntry", read: () => db.workLogEntry.findFirst() },
   ];
