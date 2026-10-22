@@ -6,7 +6,7 @@ import { fakeLastSuccessService } from "../services/last-success-service.fake";
 
 // No collector here remembers its searches, so the last-success service each
 // one is handed holds no time, and none reads the collection time.
-const NO_TIMES = fakeLastSuccessService();
+const noTimes = fakeLastSuccessService();
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 const originalFetch = globalThis.fetch;
@@ -61,7 +61,7 @@ function context(boards: string[], searchTerms: string[], limit = Infinity) {
   return {
     settings: fakeSettingsService({ getSearchTerms: async () => searchTerms }),
     collectedAt: COLLECTED_AT,
-    lastSuccesses: NO_TIMES,
+    lastSuccesses: noTimes,
     atsSlugs: fakeAtsSlugService(
       boards.map((slug, index) => ({
         id: `row-${index}`,

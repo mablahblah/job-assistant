@@ -106,13 +106,23 @@ export function createSettingsService(db: PipelineDb): SettingsService {
     return value;
   }
 
+  // Shared by the text lists where an empty list is a real answer: read the
+  // row, check the named column holds a list of strings, throw naming it
+  // otherwise.
+  async function getTextList(
+    column: "search_terms" | "identifying_query_values" | "search_towns" | "remote_labels" | "excluded_titles"
+  ): Promise<string[]> {
+    const row = await getSettingsRow(db);
+    const value = row === null ? null : row[column];
+    if (!isStringArray(value)) {
+      throw missingSettingError(column);
+    }
+    return value;
+  }
+
   return {
     async getSearchTerms() {
-      const row = await getSettingsRow(db);
-      if (row === null || !isStringArray(row.search_terms)) {
-        throw missingSettingError("search_terms");
-      }
-      return row.search_terms;
+      return getTextList("search_terms");
     },
 
     async getLocation() {
@@ -171,12 +181,8 @@ export function createSettingsService(db: PipelineDb): SettingsService {
     },
 
     async getIdentifyingQueryValues() {
-      const row = await getSettingsRow(db);
       // An empty list is a real answer: it means no query value identifies a job.
-      if (row === null || !isStringArray(row.identifying_query_values)) {
-        throw missingSettingError("identifying_query_values");
-      }
-      return row.identifying_query_values;
+      return getTextList("identifying_query_values");
     },
 
     // Zero is not a harmless stand-in for either lane's width: a lane
@@ -243,29 +249,17 @@ export function createSettingsService(db: PipelineDb): SettingsService {
 
     // An empty list is a real answer: it switches the local search off.
     async getSearchTowns() {
-      const row = await getSettingsRow(db);
-      if (row === null || !isStringArray(row.search_towns)) {
-        throw missingSettingError("search_towns");
-      }
-      return row.search_towns;
+      return getTextList("search_towns");
     },
 
     // An empty list is a real answer: it switches the remote search off.
     async getRemoteLabels() {
-      const row = await getSettingsRow(db);
-      if (row === null || !isStringArray(row.remote_labels)) {
-        throw missingSettingError("remote_labels");
-      }
-      return row.remote_labels;
+      return getTextList("remote_labels");
     },
 
     // An empty list is a real answer: no title words are left out.
     async getExcludedTitles() {
-      const row = await getSettingsRow(db);
-      if (row === null || !isStringArray(row.excluded_titles)) {
-        throw missingSettingError("excluded_titles");
-      }
-      return row.excluded_titles;
+      return getTextList("excluded_titles");
     },
 
     // Any stored number comes back; the search that reads it judges which are allowed.

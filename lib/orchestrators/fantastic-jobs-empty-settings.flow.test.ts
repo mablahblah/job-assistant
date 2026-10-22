@@ -53,9 +53,8 @@ const COLLECTOR = "fantastic-jobs";
 const TOKEN = "apify_api_EmptySettingsFlowToken2Wp4";
 const APIFY_HOST = "api.apify.com";
 
-// The Fantastic.jobs settings, by the column each is stored in. The columns
-// are new with this feature, so they are written with plain SQL, the way
-// ultipro-dedupe.flow.test.ts wrote a column before the client knew it.
+// The Fantastic.jobs settings, by the column each is stored in. setSetting
+// below writes one of them by its column name.
 const TOWNS = "search_towns";
 const REMOTE_LABELS = "remote_labels";
 const EXCLUDED_TITLES = "excluded_titles";
@@ -251,6 +250,11 @@ describe("What an empty list does to a job search and to Fantastic.jobs", () => 
       collectors: COLLECTORS.filter((collector) => names.has(collector.name)),
       openBrowser: browserThatStaysPut(),
       waitForLoad: async () => {},
+      // Every page here answers a plain request, so no parser needs a browser,
+      // and none may open one on the real web.
+      launchParsingBrowser: async () => {
+        throw new Error("this test opens no parsing browser");
+      },
       places,
       geocoder: fakeGeocoder(),
       trace: createTraceService(db),

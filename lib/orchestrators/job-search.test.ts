@@ -35,7 +35,7 @@ const stubSettings: SettingsService = fakeSettingsService();
 
 // No collector here remembers its searches, so the last-success service every
 // collector is handed holds no time.
-const NO_TIMES = fakeLastSuccessService();
+const noTimes = fakeLastSuccessService();
 
 // A fixed stand-in for the UUID scripts/collect.ts mints for a real run.
 // These are unit tests, so the value is never parsed as a real UUID.
@@ -172,7 +172,7 @@ describe("the trace service's failure count reaches the report as traceFailures"
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -191,7 +191,7 @@ describe("the trace service's failure count reaches the report as traceFailures"
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -229,7 +229,7 @@ describe("a surviving job carries its normalized title, not its raw one", () => 
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
       runId: stubRunId,
@@ -250,7 +250,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: NO_TIMES, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: noTimes, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
@@ -267,7 +267,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: NO_TIMES, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: noTimes, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     const collected = trace.events.find((event) => event.event === "job_collected");
@@ -286,7 +286,7 @@ describe("normalization writes its own trace events after collection", () => {
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: NO_TIMES, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: noTimes, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     const normalization = trace.events.filter(
@@ -310,7 +310,7 @@ describe("normalization writes its own trace events after collection", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
       runId: stubRunId,
@@ -333,7 +333,7 @@ describe("normalization runs once, after collection finishes, not once per job i
     const trace = makeTraceService();
     const first = makeCollector("lever", { jobs: [makeJob("Designer")], errors: [], warnings: [] });
     const second = makeCollector("greenhouse", { jobs: [makeJob("Researcher")], errors: [], warnings: [] });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: NO_TIMES, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: noTimes, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [first, second] });
 
@@ -365,7 +365,7 @@ describe("normalization runs once, after collection finishes, not once per job i
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: settingsWithVocabularies(),
       runId: stubRunId,
@@ -385,7 +385,7 @@ describe("a job that never reaches the normalizer gets no normalization event", 
       errors: [],
       warnings: [],
     });
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: NO_TIMES, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: noTimes, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [collector] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
@@ -394,7 +394,7 @@ describe("a job that never reaches the normalizer gets no normalization event", 
   test("a collector that throws writes none", async () => {
     const trace = makeTraceService();
     const failing = makeThrowingCollector("greenhouse", "board unreachable");
-    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: NO_TIMES, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
+    await runJobSearch({ openBrowser: FORBIDDEN_BROWSER, jobService: fakeJobService([], nothingToResolve), collectedAt: stubCollectedAt, lastSuccesses: noTimes, atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]), settings: stubSettings,
       places: stubPlaces(),
       geocoder: stubGeocoder(), runId: stubRunId, trace, collectors: [failing] });
     expect(trace.events.some((event) => event.step === "post_collection_normalization")).toBe(false);
@@ -414,7 +414,7 @@ describe("unusable fields are reported once at the end of the run", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -443,7 +443,7 @@ describe("unusable fields are reported once at the end of the run", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -466,7 +466,7 @@ describe("unusable fields are reported once at the end of the run", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -491,7 +491,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -506,7 +506,7 @@ describe("the title vocabularies come from settings rather than the code", () =>
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: withNoun,
       runId: stubRunId,
@@ -536,7 +536,7 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
       trace: makeTraceService(),
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
@@ -561,7 +561,7 @@ describe("AC 24 and 25: association runs over the surviving list and its warning
       trace: makeTraceService(),
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
@@ -594,7 +594,7 @@ describe("association runs after normalization, on the tidied company name", () 
       trace: makeTraceService(),
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
@@ -623,7 +623,7 @@ describe("association covers surviving jobs from every collector", () => {
       trace: makeTraceService(),
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [
         makeCollector("lever", { jobs: [jobA], errors: [], warnings: [] }),
@@ -658,7 +658,7 @@ describe("a job dropped for being unusable never reaches the company service", (
       trace: makeTraceService(),
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
@@ -688,7 +688,7 @@ describe("a run limited to zero jobs never touches the company service", () => {
       trace: makeTraceService(),
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [collector],
       limit: 0,
@@ -717,7 +717,7 @@ describe("association's trace rows carry the right step name and run id", () => 
       trace,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService(companies),
       collectors: [makeCollector("lever", { jobs: [job], errors: [], warnings: [] })],
     });
@@ -745,7 +745,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -778,7 +778,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: service,
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -805,7 +805,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -825,7 +825,7 @@ describe("AC 60: save runs once over the whole surviving list", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -902,6 +902,43 @@ describe("the time of each search a collector reported as worked is saved after 
 
     expect(order).toEqual(["job stored", "time saved"]);
   });
+
+  test("a time that cannot be written stops the run there, after the jobs are stored", async () => {
+    const steps: string[] = [];
+    const jobService = fakeJobService([], {
+      async update(entry) {
+        steps.push("job stored");
+        return { job: entry, outcome: "created" };
+      },
+      async findUnresolved() {
+        steps.push("resolution looked for work");
+        return [];
+      },
+      findUnparsed: async () => [],
+    });
+    const lastSuccesses = fakeLastSuccessService({
+      async record() {
+        throw new Error("the time could not be written");
+      },
+    });
+
+    const report = await runJobSearch({
+      openBrowser: FORBIDDEN_BROWSER,
+      jobService,
+      collectedAt: stubCollectedAt,
+      lastSuccesses,
+      atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
+      settings: stubSettings,
+      places: stubPlaces(),
+      geocoder: stubGeocoder(),
+      runId: stubRunId,
+      trace: makeTraceService(),
+      collectors: [collectorReporting(["remote"])],
+    });
+
+    expect(report.failure).toEqual({ at: "last_success_save", reason: "the time could not be written" });
+    expect(steps).toEqual(["job stored"]);
+  });
 });
 
 describe("AC 61: save's warnings are in the report", () => {
@@ -922,7 +959,7 @@ describe("AC 61: save's warnings are in the report", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: service,
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -950,7 +987,7 @@ describe("AC 61: save's warnings are in the report", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -979,7 +1016,7 @@ describe("AC 62: collected_at is written beside collector", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -1006,7 +1043,7 @@ describe("AC 62: collected_at is written beside collector", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -1036,7 +1073,7 @@ describe("AC 63: the value date arrives as an argument", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService(rows, nothingToResolve),
       collectedAt: longAgo,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -1076,7 +1113,7 @@ describe("the source priority list reaches save", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: service,
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: fakeSettingsService({ getSourcePriorityList: async () => priorityList }),
       runId: stubRunId,
@@ -1104,7 +1141,7 @@ describe("the source priority list reaches save", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings,
       runId: stubRunId,
@@ -1144,7 +1181,7 @@ describe("dedupe runs after association and before save", () => {
       trace,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       collectors: [collector],
     });
@@ -1181,7 +1218,7 @@ describe("dedupe runs after association and before save", () => {
       trace: makeTraceService(),
       jobService: service,
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       collectors: [collector],
     });
@@ -1210,7 +1247,7 @@ describe("dedupe runs after association and before save", () => {
       trace: makeTraceService(),
       jobService: service,
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       collectors: [makeCollector("greenhouse", { jobs: [makeJob("Designer")], errors: [], warnings: [] })],
     });
@@ -1288,7 +1325,7 @@ describe("AC 7: the resolution step runs over whatever the database says needs i
         getSourcePriorityList: async () => ["collector:adzuna"],
       }),
       collectors: [],
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       jobService: fakeJobService(rows),
       collectedAt: stubCollectedAt,
@@ -1337,7 +1374,7 @@ function resolutionStepOver(
     places: stubPlaces(),
     geocoder: stubGeocoder(),
     collectors: [],
-    lastSuccesses: NO_TIMES,
+    lastSuccesses: noTimes,
     atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
     // Every test built on this helper is about the resolution step, so the
     // parsing step is told there is nothing waiting. Left to the fake's own
@@ -1548,7 +1585,7 @@ describe("the browser the run launched", () => {
       places: stubPlaces(),
       geocoder: stubGeocoder(),
       collectors: [],
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(),
       companies: fakeCompanyService([]),
       jobService: fakeJobService([unresolvedRow("a")], { findUnparsed: async () => [] }),
@@ -1600,7 +1637,7 @@ describe("AC 8, 9: a handler that throws stops the run and is named in the repor
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(),
       companies: explodingCompanies(),
       settings: stubSettings,
@@ -1674,7 +1711,7 @@ describe("AC 8, 9: a handler that throws stops the run and is named in the repor
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -1726,7 +1763,7 @@ describe("the parsing step", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService,
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -1835,7 +1872,7 @@ describe("the slow lane's pause reaches resolution in milliseconds", () => {
         getSourcePriorityList: async () => ["collector:adzuna"],
       }),
       collectors: [],
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       jobService: fakeJobService([unresolvedRow("a")]),
       collectedAt: stubCollectedAt,
@@ -1866,7 +1903,7 @@ describe("the three judging steps are wired into the run", () => {
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], nothingToResolve),
       collectedAt: stubCollectedAt,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),

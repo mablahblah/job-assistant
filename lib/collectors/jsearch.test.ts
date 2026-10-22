@@ -7,7 +7,7 @@ import { fakeLastSuccessService } from "../services/last-success-service.fake";
 
 // No collector here remembers its searches, so the last-success service each
 // one is handed holds no time, and none reads the collection time.
-const NO_TIMES = fakeLastSuccessService();
+const noTimes = fakeLastSuccessService();
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 // This collector polls no ATS board, so the slug service it is handed holds
@@ -131,7 +131,7 @@ async function collectOneJob() {
   stubFetch(routesFor({ local: [seniorProductDesigner] }));
   const result = await jsearchCollector.collect({
     collectedAt: COLLECTED_AT,
-    lastSuccesses: NO_TIMES,
+    lastSuccesses: noTimes,
     atsSlugs: NO_BOARDS,
     settings: makeSettings(SEARCH_TERMS),
     limit: Infinity,
@@ -146,7 +146,7 @@ describe("a missing API key", () => {
     stubFetch([]);
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -159,7 +159,7 @@ describe("a missing API key", () => {
     stubFetch([]);
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -170,7 +170,7 @@ describe("a missing API key", () => {
   test("makes no request", async () => {
     delete process.env.RAPIDAPI_KEY;
     const calls = stubFetch([]);
-    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(calls).toEqual([]);
   });
 });
@@ -179,7 +179,7 @@ describe("the search terms are joined with OR into one query", () => {
   test("the local query holds every term joined by OR", async () => {
     const calls = stubFetch(routesFor({}));
     const settings = makeSettings(["Product Design", "UX Researcher"]);
-    await jsearchCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, limit: Infinity });
+    await jsearchCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, limit: Infinity });
     expect(findCall(calls, matchesLocalSearch).searchParams.get("query")).toBe(
       "Product Design OR UX Researcher jobs"
     );
@@ -188,7 +188,7 @@ describe("the search terms are joined with OR into one query", () => {
   test("the remote query asks for remote work", async () => {
     const calls = stubFetch(routesFor({}));
     const settings = makeSettings(["Product Design", "UX Researcher"]);
-    await jsearchCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, limit: Infinity });
+    await jsearchCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, limit: Infinity });
     expect(findCall(calls, matchesRemoteSearch).searchParams.get("query")).toBe(
       "remote Product Design OR UX Researcher jobs"
     );
@@ -198,7 +198,7 @@ describe("the search terms are joined with OR into one query", () => {
 describe("the local search sends the location setting", () => {
   test("location equals the location setting", async () => {
     const calls = stubFetch(routesFor({}));
-    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(findCall(calls, matchesLocalSearch).searchParams.get("location")).toBe(LOCATION);
   });
 });
@@ -206,7 +206,7 @@ describe("the local search sends the location setting", () => {
 describe("the remote search sends work_from_home=true", () => {
   test("work_from_home is true", async () => {
     const calls = stubFetch(routesFor({}));
-    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(findCall(calls, matchesRemoteSearch).searchParams.get("work_from_home")).toBe("true");
   });
 });
@@ -214,7 +214,7 @@ describe("the remote search sends work_from_home=true", () => {
 describe("the key travels in the x-rapidapi-key header", () => {
   test("every request carries the header", async () => {
     const calls = stubFetch(routesFor({}));
-    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    await jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.every((call) => call.headers.get("x-rapidapi-key") === RAPIDAPI_KEY)).toBe(true);
   });
@@ -234,7 +234,7 @@ describe("AC 34: one of the two searches failing is surfaced", () => {
         respond: () => jsonResponse({ status: "OK", data: [seniorProductDesigner] }),
       },
     ]);
-    return jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
+    return jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity });
   }
 
   test("a warning names which search failed", async () => {
@@ -261,7 +261,7 @@ describe("AC 24: limit stops collection after that many jobs", () => {
     );
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: 1,
@@ -282,7 +282,7 @@ describe("AC 39: results come back unfiltered", () => {
     stubFetch(routesFor({ local: [nonMatching] }));
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -355,7 +355,7 @@ describe("a job that is not remote gives an empty mode list", () => {
     stubFetch(routesFor({ local: [{ ...seniorProductDesigner, job_is_remote: false }] }));
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -377,7 +377,7 @@ describe("a job missing city, state and country gives an empty location list", (
     stubFetch(routesFor({ local: [withoutLocation] }));
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -401,7 +401,7 @@ describe("a job missing its posted date leaves posting_date unset", () => {
     stubFetch(routesFor({ local: [withoutDate] }));
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -418,7 +418,7 @@ describe("a data list of null gives no jobs", () => {
     ]);
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -432,7 +432,7 @@ describe("an empty data list", () => {
     stubFetch(routesFor({}));
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -443,7 +443,7 @@ describe("an empty data list", () => {
   test("does not throw", async () => {
     stubFetch(routesFor({}));
     await expect(
-      jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      jsearchCollector.collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
     ).resolves.toBeDefined();
   });
 });
@@ -471,7 +471,7 @@ describe("AC 79: a job with no description leaves the field unset", () => {
 
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -515,7 +515,7 @@ describe("AC 103: job_salary_period is recorded in the source's own wording", ()
 
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -544,7 +544,7 @@ describe("a period with no figures behind it is not a salary", () => {
 
     const result = await jsearchCollector.collect({
       collectedAt: COLLECTED_AT,
-      lastSuccesses: NO_TIMES,
+      lastSuccesses: noTimes,
       atsSlugs: NO_BOARDS,
       settings: makeSettings(SEARCH_TERMS),
       limit: Infinity,
@@ -569,7 +569,7 @@ describe("AC 84: a job with no salary gets no raw_salary at all", () => {
     };
     stubFetch(routesFor({ local: [withoutSalary] }));
     return jsearchCollector
-      .collect({ collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
+      .collect({ collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, settings: makeSettings(SEARCH_TERMS), limit: Infinity })
       .then((r) => r.jobs[0]);
   }
 

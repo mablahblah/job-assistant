@@ -11,7 +11,7 @@ import type { TraceEvent, TraceService } from "../services/trace-service";
 // is not re-derived here beyond what proves normalizeJobs wires it through
 // correctly.
 
-// The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
+// The measured defaults from lib/db/setting-defaults.ts's SETTING_DEFAULTS, restated
 // so title routing runs against what really ships. It moves whenever
 // SETTING_DEFAULTS does, as do the copies in lib/handlers/normalization.test.ts,
 // lib/handlers/normalization-events.test.ts and lib/utils/title.test.ts.

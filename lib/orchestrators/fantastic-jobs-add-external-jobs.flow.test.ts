@@ -46,9 +46,8 @@ type PipelineDb = ReturnType<typeof createPipelineDb>;
 const TOKEN_VARIABLE = "FANTASTIC_JOBS_APIFY_TOKEN";
 const APIFY_HOST = "api.apify.com";
 
-// The Fantastic.jobs settings, by the column each is stored in. The columns
-// are new with this feature, so they are written with plain SQL, the way
-// ultipro-dedupe.flow.test.ts wrote a column before the client knew it.
+// The Fantastic.jobs settings, by the column each is stored in. setSetting
+// below writes one of them by its column name.
 const TOWNS = "search_towns";
 const REMOTE_LABELS = "remote_labels";
 const EXCLUDED_TITLES = "excluded_titles";

@@ -7,7 +7,7 @@ import type { TitleVocabularies } from "../utils/title";
 // job itself keeps its own coverage in normalizer.test.ts and is not
 // re-asserted here.
 
-// The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
+// The measured defaults from lib/db/setting-defaults.ts's SETTING_DEFAULTS, restated
 // so title routing runs against what really ships. It moves whenever
 // SETTING_DEFAULTS does, as do the copies in lib/handlers/normalization.test.ts,
 // lib/handlers/normalization-handler.test.ts and lib/utils/title.test.ts.

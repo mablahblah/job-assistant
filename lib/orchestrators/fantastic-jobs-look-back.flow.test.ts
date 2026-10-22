@@ -62,9 +62,8 @@ const AUSTIN_SEARCH = "austin";
 const TOKEN = "apify_api_LookBackFlowToken3Kd8";
 const APIFY_HOST = "api.apify.com";
 
-// The Fantastic.jobs settings, by the column each is stored in. The columns
-// are new with this feature, so they are written with plain SQL, the way
-// ultipro-dedupe.flow.test.ts wrote a column before the client knew it.
+// The Fantastic.jobs settings, by the column each is stored in. setSetting
+// below writes one of them by its column name.
 const TOWNS = "search_towns";
 const REMOTE_LABELS = "remote_labels";
 const EXCLUDED_TITLES = "excluded_titles";
@@ -283,6 +282,11 @@ describe("How far back each Fantastic.jobs search looks", () => {
       collectors: COLLECTORS.filter((collector) => collector.name === COLLECTOR),
       openBrowser: browserThatStaysPut(),
       waitForLoad: async () => {},
+      // Every page here answers a plain request, so no parser needs a browser,
+      // and none may open one on the real web.
+      launchParsingBrowser: async () => {
+        throw new Error("this test opens no parsing browser");
+      },
       places,
       geocoder: fakeGeocoder(),
       trace,
@@ -411,15 +415,14 @@ describe("How far back each Fantastic.jobs search looks", () => {
   });
 
   test("Keeps only the limit", () => {
-    expect(collectedOnLimitThree).toBeGreaterThan(0);
-    expect(collectedOnLimitThree).toBeLessThanOrEqual(3);
+    expect(collectedOnLimitThree).toBe(3);
   });
 
   test("Never asks below the service's minimum", () => {
-    // The remote search alone may fill a limit of 3, so the Austin search may
-    // not be sent at all. Every search that is sent asks for 10.
+    // Both searches are sent on a limited run, and each asks for the service's
+    // minimum of 10 though the run keeps only 3.
     const searches = sent.filter((entry) => entry.runId === LIMIT_THREE.id);
-    expect(searches.length).toBeGreaterThan(0);
+    expect(searches).toHaveLength(2);
     for (const entry of searches) expect(entry.input["limit"]).toBe(10);
   });
 });

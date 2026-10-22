@@ -71,9 +71,8 @@ const APIFY_HOST = "api.apify.com";
 // enough that a second search sent alongside it would arrive while it waits.
 const HOLD_MS = 150;
 
-// The Fantastic.jobs settings, by the column each is stored in. The columns
-// are new with this feature, so they are written with plain SQL, the way
-// ultipro-dedupe.flow.test.ts wrote a column before the client knew it.
+// The Fantastic.jobs settings, by the column each is stored in. setSetting
+// below writes one of them by its column name.
 const TOWNS = "search_towns";
 const REMOTE_LABELS = "remote_labels";
 const EXCLUDED_TITLES = "excluded_titles";
@@ -434,11 +433,9 @@ describe("What each Fantastic.jobs search asks for", () => {
   });
 
   test("Caps each search at 200 jobs", () => {
+    // No run here sets a job limit, so every search asks for the cap itself.
     expect(sent.length).toBeGreaterThan(0);
-    for (const search of sent) {
-      expect(typeof search.input["limit"]).toBe("number");
-      expect(search.input["limit"]).toBeLessThanOrEqual(200);
-    }
+    for (const search of sent) expect(search.input["limit"]).toBe(200);
   });
 
   test("Caps each search at $2.50", () => {

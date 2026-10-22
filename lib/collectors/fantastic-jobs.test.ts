@@ -432,7 +432,7 @@ describe("when a search fails", () => {
     );
     expect(result.errors).toEqual([]);
     expect(result.warnings).toEqual([
-      `Fantastic.jobs Austin search failed: HTTP 402: ${reply}. Its saved time was kept, so the next job search asks again for what it missed.`,
+      "Fantastic.jobs Austin search failed: HTTP 402: Monthly usage hard limit exceeded. Its saved time was kept, so the next job search asks again for what it missed.",
     ]);
     expect(result.workedSearches).toEqual([REMOTE]);
     expect(result.jobs).toHaveLength(1);
@@ -442,7 +442,7 @@ describe("when a search fails", () => {
     standIn({ [AUSTIN]: refusal("Unavailable.") });
     const result = await fantasticJobsCollector.collect(context());
     expect(result.warnings).toEqual([
-      "Fantastic.jobs Austin search failed: HTTP 402: Unavailable.. It has never worked, so the next job search looks back 7 days.",
+      "Fantastic.jobs Austin search failed: HTTP 402: Unavailable. It has never worked, so the next job search looks back 7 days.",
     ]);
   });
 

@@ -25,7 +25,7 @@ import { fakeLastSuccessService } from "../services/last-success-service.fake";
 
 // No collector here remembers its searches, so the last-success service each
 // one is handed holds no time, and none reads the collection time.
-const NO_TIMES = fakeLastSuccessService();
+const noTimes = fakeLastSuccessService();
 const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 // This collector polls no ATS board, so the slug service it is handed holds
@@ -180,7 +180,7 @@ function makeSettings(overrides: SettingsOverrides = {}): SettingsService {
 
 async function collect(options: { settings?: SettingsService; limit?: number } = {}) {
   const settings = options.settings ?? makeSettings();
-  return dribbbleCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: NO_TIMES, atsSlugs: NO_BOARDS, limit: options.limit ?? Infinity });
+  return dribbbleCollector.collect({ settings, collectedAt: COLLECTED_AT, lastSuccesses: noTimes, atsSlugs: NO_BOARDS, limit: options.limit ?? Infinity });
 }
 
 beforeEach(() => {

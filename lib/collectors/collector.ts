@@ -21,9 +21,9 @@ export interface CollectorContext {
   collectedAt: Date;
   // Where a collector reads when each of its searches last worked. Every
   // collector is handed it, the way every collector is handed the settings,
-  // so the orchestrator holds one shape. Collectors only read it; a later
-  // step writes it.
-  lastSuccesses: LastSuccessService;
+  // so the orchestrator holds one shape. A collector can only find a time; a
+  // later step writes it.
+  lastSuccesses: Pick<LastSuccessService, "find">;
 }
 
 // What a collector hands back, however its run went. An API call that threw

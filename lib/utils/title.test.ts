@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import fixture from "./ux-titles.fixture.json";
 import { normalizeTitle, tidyTitle, type TitleVocabularies } from "./title";
 
-// The measured defaults from scripts/db-seed.ts's SETTING_DEFAULTS, restated
+// The measured defaults from lib/db/setting-defaults.ts's SETTING_DEFAULTS, restated
 // so the title tests run against what really ships. A test needing a different
 // list spreads this and overrides the one list it cares about, rather than
 // restating the whole object. It moves whenever SETTING_DEFAULTS does, as does

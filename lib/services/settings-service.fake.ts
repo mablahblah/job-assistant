@@ -9,19 +9,19 @@
 // did not care about a setting used to be handed an instruction rather than a
 // value.
 import type { SettingsService } from "./settings-service";
+import { SETTING_DEFAULTS } from "../db/setting-defaults";
 
 export function fakeSettingsService(overrides: Partial<SettingsService> = {}): SettingsService {
-  // Copied from SETTING_DEFAULTS in scripts/db-seed.ts, which cannot be
-  // imported here because that script runs its seeder at import time. The two
-  // move together: changing one means changing the other.
+  // The defaults come from the same file the seed fills the settings row from.
+  // Each list is handed back as a copy, so a test that changes one cannot
+  // change it for the next test.
   return {
-    getSearchTerms: async () => ["Product Design", "UX", "Founding Design"],
-    getLocation: async () => "78701",
-    getRadius: async () => 30,
-    getExpiryThreshold: async () => 8,
-    // The four title vocabularies stay empty. Their seeded values are long
-    // lists already hand-copied into two other test files, so a third copy
-    // here would make drift more likely rather than less.
+    getSearchTerms: async () => [...SETTING_DEFAULTS.search_terms],
+    getLocation: async () => SETTING_DEFAULTS.location,
+    getRadius: async () => SETTING_DEFAULTS.radius,
+    getExpiryThreshold: async () => SETTING_DEFAULTS.expiry_threshold,
+    // The four title vocabularies stay empty rather than seeded: the tests that
+    // use this fake were written against empty vocabularies.
     getTitleHeadNouns: async () => [],
     getTitleLevels: async () => [],
     getTitleSuffixes: async () => [],
@@ -29,50 +29,18 @@ export function fakeSettingsService(overrides: Partial<SettingsService> = {}): S
     // The priority list has no seeded default to copy: it is built from the
     // collector registry rather than seeded as a constant.
     getSourcePriorityList: async () => [],
-    // Copied from scripts/db-seed.ts, which seeds the identifying query values.
-    getIdentifyingQueryValues: async () => ["opportunityid", "reqId", "gh_jid"],
-    getResolutionFastConcurrency: async () => 3,
-    getResolutionSlowConcurrency: async () => 1,
-    getResolutionSlowPauseSeconds: async () => 12,
-    getRepostGapDays: async () => 3,
-    getPromotionThreshold: async () => 3.5,
-    getScoreExpiryDays: async () => 90,
-    getGuessedScoreExpiryDays: async () => 30,
-    getSearchTowns: async () => [
-      "Austin, Texas, United States",
-      "Round Rock, Texas, United States",
-      "Cedar Park, Texas, United States",
-      "Pflugerville, Texas, United States",
-      "Georgetown, Texas, United States",
-      "Leander, Texas, United States",
-      "Kyle, Texas, United States",
-      "Buda, Texas, United States",
-      "San Marcos, Texas, United States",
-      "Hutto, Texas, United States",
-      "Manor, Texas, United States",
-      "Lakeway, Texas, United States",
-      "Bee Cave, Texas, United States",
-      "Dripping Springs, Texas, United States",
-      "Taylor, Texas, United States",
-      "Bastrop, Texas, United States",
-    ],
-    getRemoteLabels: async () => ["Remote OK", "Remote Solely"],
-    getExcludedTitles: async () => [
-      "Engineer",
-      "Engineering",
-      "Research",
-      "Researcher",
-      "Associate",
-      "Junior",
-      "Jr",
-      "Intern",
-      "Internship",
-      "Director",
-      "Head",
-      "VP",
-      "Manager",
-    ],
-    getSearchWindowDays: async () => 7,
+    getIdentifyingQueryValues: async () => [...SETTING_DEFAULTS.identifying_query_values],
+    getResolutionFastConcurrency: async () => SETTING_DEFAULTS.resolution_fast_concurrency,
+    getResolutionSlowConcurrency: async () => SETTING_DEFAULTS.resolution_slow_concurrency,
+    getResolutionSlowPauseSeconds: async () => SETTING_DEFAULTS.resolution_slow_pause_seconds,
+    getRepostGapDays: async () => SETTING_DEFAULTS.repost_gap_days,
+    getPromotionThreshold: async () => SETTING_DEFAULTS.promotion_threshold,
+    getScoreExpiryDays: async () => SETTING_DEFAULTS.score_expiry_days,
+    getGuessedScoreExpiryDays: async () => SETTING_DEFAULTS.guessed_score_expiry_days,
+    getSearchTowns: async () => [...SETTING_DEFAULTS.search_towns],
+    getRemoteLabels: async () => [...SETTING_DEFAULTS.remote_labels],
+    getExcludedTitles: async () => [...SETTING_DEFAULTS.excluded_titles],
+    getSearchWindowDays: async () => SETTING_DEFAULTS.search_window_days,
     ...overrides,
   };
 }

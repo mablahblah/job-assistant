@@ -807,29 +807,29 @@ describe("the search lists read the stored list", () => {
 
   afterAll(() => cleanup(dir, db));
 
-  const LISTS: Array<[string, (service: SettingsService) => Promise<string[]>]> = [
+  const lists: Array<[string, (service: SettingsService) => Promise<string[]>]> = [
     ["search_towns", (each) => each.getSearchTowns()],
     ["remote_labels", (each) => each.getRemoteLabels()],
     ["excluded_titles", (each) => each.getExcludedTitles()],
   ];
 
-  test.each(LISTS)("%s comes back as written", async (column, read) => {
+  test.each(lists)("%s comes back as written", async (column, read) => {
     await runSql(url, `UPDATE Setting SET ${column} = '["first", "second"]' WHERE id = 1`);
     expect(await read(service)).toEqual(["first", "second"]);
   });
 
-  test.each(LISTS)("%s emptied is a real answer", async (column, read) => {
+  test.each(lists)("%s emptied is a real answer", async (column, read) => {
     await runSql(url, `UPDATE Setting SET ${column} = '[]' WHERE id = 1`);
     expect(await read(service)).toEqual([]);
   });
 
-  test.each(LISTS)("%s null throws naming it and the seed", async (column, read) => {
+  test.each(lists)("%s null throws naming it and the seed", async (column, read) => {
     await runSql(url, `UPDATE Setting SET ${column} = NULL WHERE id = 1`);
     await expect(read(service)).rejects.toThrow(new RegExp(column));
     await expect(read(service)).rejects.toThrow(/db:seed/);
   });
 
-  test.each(LISTS)("%s holding something other than text throws naming it", async (column, read) => {
+  test.each(lists)("%s holding something other than text throws naming it", async (column, read) => {
     await runSql(url, `UPDATE Setting SET ${column} = '["first", 7]' WHERE id = 1`);
     await expect(read(service)).rejects.toThrow(new RegExp(column));
   });

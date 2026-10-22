@@ -78,9 +78,8 @@ const RUN_ID = "run-bought-jobs";
 // After every job's dates, and within the 8-day age limit of all of them.
 const RUN_AT = new Date("2026-09-25T15:00:00.000Z");
 
-// The Fantastic.jobs settings, by the column each is stored in. The columns
-// are new with this feature, so they are written with plain SQL, the way
-// ultipro-dedupe.flow.test.ts wrote a column before the client knew it.
+// The Fantastic.jobs settings, by the column each is stored in. setSetting
+// below writes one of them by its column name.
 const TOWNS = "search_towns";
 const REMOTE_LABELS = "remote_labels";
 const EXCLUDED_TITLES = "excluded_titles";

@@ -6,6 +6,7 @@
 import type { JobListEntry } from "../types/job-list-entry";
 import { messageFromThrown } from "../utils/thrown-message";
 import { shortReply } from "../utils/short-reply";
+import { DAY_MS } from "../utils/durations";
 import { runApifyActor } from "../tools/apify";
 import type { Collector, CollectorResult } from "./collector";
 
@@ -52,7 +53,10 @@ const DESCRIPTION_TYPE = "text";
 const PREFIX_SUFFIX = ":*";
 
 const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+
+// The service reads a date-time with no time zone as UTC, so a start date is
+// sent as a UTC reading cut to this length, with no fraction or zone letter.
+const SERVICE_TIME_LENGTH = "2026-01-01T00:00:00".length;
 
 // The window setting is in days; the service takes its own codes.
 const WINDOW_CODES: Record<number, string> = { 1: "24h", 7: "7d" };
@@ -66,6 +70,12 @@ const REMOTE_SEARCH: Search = { key: "remote", label: "remote search" };
 const AUSTIN_SEARCH: Search = { key: "austin", label: "Austin search" };
 
 type Item = Record<string, unknown>;
+
+// A text field as the service sent it, or empty when it sent something else, so
+// collection drops the job as unusable and says why.
+function text(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
@@ -82,7 +92,7 @@ function readUtc(value: unknown): Date | undefined {
 }
 
 function toJobListEntry(item: Item): JobListEntry {
-  const url = item["url"] as string;
+  const url = text(item["url"]);
   const remoteAreas = stringList(item["ai_remote_location"]);
   // The service's own field says whether a job is remote: on-site and hybrid
   // jobs carry null there, so the label is not interpreted.
@@ -95,11 +105,11 @@ function toJobListEntry(item: Item): JobListEntry {
     original_url: url,
     // Already the employer's own posting, so it needs no resolving; parsing still runs.
     resolved_url: url,
-    raw_title: item["title"] as string,
-    raw_company_name: item["organization"] as string,
+    raw_title: text(item["title"]),
+    raw_company_name: text(item["organization"]),
     raw_location_list: [...new Set(places)],
     raw_mode_list: typeof arrangement === "string" && arrangement !== "" ? [arrangement] : [],
-    description: (item["description_text"] as string | undefined) || undefined,
+    description: text(item["description_text"]) || undefined,
     is_resolved: true,
     is_parsed: false,
     is_classified: false,
@@ -133,7 +143,7 @@ export const fantasticJobsCollector: Collector = {
     if (timeRange === undefined) {
       return {
         jobs: [],
-        errors: [`The Fantastic.jobs window setting holds ${windowDays}; it must be 1 or 7.`],
+        errors: [`The Fantastic.jobs window setting holds ${windowDays}; it must be ${Object.keys(WINDOW_CODES).join(" or ")}.`],
         warnings: [],
       };
     }
@@ -190,7 +200,7 @@ export const fantasticJobsCollector: Collector = {
         removeAgency: REMOVE_AGENCY,
         descriptionType: DESCRIPTION_TYPE,
         timeRange,
-        datePostedAfter: new Date(start).toISOString().slice(0, 19),
+        datePostedAfter: new Date(start).toISOString().slice(0, SERVICE_TIME_LENGTH),
         limit: jobLimit,
       };
 
@@ -211,10 +221,12 @@ export const fantasticJobsCollector: Collector = {
       }
 
       if (reason !== undefined) {
+        // The message adds its own full stop, so one the reply ends with is dropped.
+        const said = reason.replace(/\.+$/, "");
         failures.push(
           lastSuccess
-            ? `Fantastic.jobs ${search.label} failed: ${reason}. Its saved time was kept, so the next job search asks again for what it missed.`
-            : `Fantastic.jobs ${search.label} failed: ${reason}. It has never worked, so the next job search looks back ${lookBackDays} days.`
+            ? `Fantastic.jobs ${search.label} failed: ${said}. Its saved time was kept, so the next job search asks again for what it missed.`
+            : `Fantastic.jobs ${search.label} failed: ${said}. It has never worked, so the next job search looks back ${lookBackDays} days.`
         );
         continue;
       }
