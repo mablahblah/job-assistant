@@ -65,6 +65,11 @@ describe("the real spellings these sources publish", () => {
     ["Ashby", ["Remote", "OnSite", "Hybrid"], ["remote", "in-person", "hybrid"]],
     ["Lever", ["remote", "onsite"], ["remote", "in-person"]],
     ["JSearch", ["remote"], ["remote"]],
+    [
+      "Fantastic.jobs",
+      ["Remote OK", "Remote Solely", "Hybrid", "On-site"],
+      ["remote", "hybrid", "in-person"],
+    ],
   ])("%s's words are read correctly", (_source, raw, expected) => {
     expect(normalizeModeList(raw)).toEqual(expected);
   });
@@ -98,6 +103,10 @@ describe("every spelling the location splitter recognises", () => {
     ["Remote", "remote"],
     ["fully remote", "remote"],
     ["Fully Remote", "remote"],
+    ["remote ok", "remote"],
+    ["Remote OK", "remote"],
+    ["remote solely", "remote"],
+    ["Remote Solely", "remote"],
     ["hybrid", "hybrid"],
     ["on-site", "in-person"],
     ["onsite", "in-person"],

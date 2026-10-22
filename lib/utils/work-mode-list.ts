@@ -14,6 +14,8 @@ import type { WorkMode } from "./work-mode";
 const RECOGNISED_MODES: Record<string, WorkMode> = {
   remote: "remote",
   "fully remote": "remote",
+  "remote ok": "remote",
+  "remote solely": "remote",
   hybrid: "hybrid",
   onsite: "in-person",
   "on-site": "in-person",

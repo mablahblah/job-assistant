@@ -22,12 +22,13 @@ export interface LocationSplit {
 // modes come back in this order rather than the order the string happens to
 // name them.
 const MODE_WORDS: Array<[RegExp, WorkMode]> = [
-  [/\b(fully\s+)?remote\b/i, "remote"],
+  [/\b(fully\s+)?remote(?:\s+(?:ok|solely))?\b/i, "remote"],
   [/\bhybrid\b/i, "hybrid"],
   [/\b(on[- ]?site|in[- ]?office|in[- ]?person)\b/i, "in-person"],
 ];
 
-const ANY_MODE = /\b((fully\s+)?remote|hybrid|on[- ]?site|in[- ]?office|in[- ]?person)\b/gi;
+const ANY_MODE =
+  /\b((fully\s+)?remote(?:\s+(?:ok|solely))?|hybrid|on[- ]?site|in[- ]?office|in[- ]?person)\b/gi;
 
 // The one hand-kept list this feature carries. FILLER surrounds a place
 // without being part of its name; NOISE is a whole fragment that only names a
