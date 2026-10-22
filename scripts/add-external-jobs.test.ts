@@ -36,11 +36,24 @@ function runScript(script: string, url: string): void {
   });
 }
 
-function createAndSeed(prefix: string): { dir: string; url: string } {
+// The run looks up the home location before anything else. Storing its place
+// here means the command finds it already known and never asks the live map
+// service, whose key the test setup blanks.
+async function createAndSeed(prefix: string): Promise<{ dir: string; url: string }> {
   const dir = mkdtempSync(join(tmpdir(), prefix));
   const url = `file:${join(dir, "pipeline.db")}`;
   runScript("db-create.ts", url);
   runScript("db-seed.ts", url);
+  const client = createClient({ url: url });
+  try {
+    await client.execute(
+      `INSERT INTO Place (id, lookup_text, latitude, longitude, place_type, display_name)
+       SELECT 'home', location, 30.2711, -97.7437, 'postcode', 'Austin, Texas'
+       FROM Setting WHERE id = 1`
+    );
+  } finally {
+    client.close();
+  }
   return { dir, url };
 }
 
@@ -61,8 +74,8 @@ describe("a run that finishes", () => {
   let dir: string;
   let result: RunResult;
 
-  beforeAll(() => {
-    const temp = createAndSeed("pipeline-add-external-jobs-");
+  beforeAll(async () => {
+    const temp = await createAndSeed("pipeline-add-external-jobs-");
     dir = temp.dir;
     result = runAddExternalJobs(dir, temp.url);
   }, SETUP_TIMEOUT_MS);
@@ -87,7 +100,7 @@ describe("a run that stops", () => {
   let result: RunResult;
 
   beforeAll(async () => {
-    const temp = createAndSeed("pipeline-add-external-jobs-stopped-");
+    const temp = await createAndSeed("pipeline-add-external-jobs-stopped-");
     dir = temp.dir;
 
     // With no home location the run cannot judge any job's location, so it

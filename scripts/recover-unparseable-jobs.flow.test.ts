@@ -143,6 +143,15 @@ describe("Set-aside jobs are recovered once, by hand", () => {
     runScript("db-create.ts", url);
     runScript("db-seed.ts", url);
 
+    // The job search looks up the home location before anything else. Storing
+    // its place here means it is already known and the live map service, whose
+    // key the test setup blanks, is never asked.
+    await execute(
+      url,
+      `INSERT INTO Place (id, lookup_text, latitude, longitude, place_type, display_name)
+       SELECT 'home', location, 30.2711, -97.7437, 'postcode', 'Austin, Texas'
+       FROM Setting WHERE id = 1`
+    );
     await execute(
       url,
       `INSERT INTO Company (id, name, match_key, created_at, modified_at)
