@@ -53,7 +53,7 @@ Every file in `lib/` sits in a folder named for the kind of thing it is, and `li
 | Folder               | Holds                                                           |
 | -------------------- | --------------------------------------------------------------- |
 | `lib/collectors/`    | The code that pulls a raw job list from one source              |
-| `lib/db/`            | The database connection, its environment, and the schema check  |
+| `lib/db/`            | The database connection, its environment, the schema check, and the settings row's starting values |
 | `lib/handlers/`      | The code that runs at one pipeline position                     |
 | `lib/orchestrators/` | The runner that calls every handler in order                    |
 | `lib/parsers/`       | The code that reads one source's job posting                    |

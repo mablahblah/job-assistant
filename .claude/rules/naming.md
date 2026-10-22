@@ -11,7 +11,7 @@ Every file in `lib/` sits in the folder named for the kind of thing it is. `lib/
 | Folder               | Holds                                                           |
 | -------------------- | --------------------------------------------------------------- |
 | `lib/collectors/`    | The code that pulls a raw job list from one source              |
-| `lib/db/`            | The database connection, its environment, and the schema check  |
+| `lib/db/`            | The database connection, its environment, the schema check, and the settings row's starting values |
 | `lib/handlers/`      | The code that runs at one pipeline position                     |
 | `lib/orchestrators/` | The runner that calls every handler in order                    |
 | `lib/parsers/`       | The code that reads one source's job posting                    |
@@ -22,7 +22,7 @@ Every file in `lib/` sits in the folder named for the kind of thing it is. `lib/
 | `lib/utils/`         | Plain functions taking values and returning values              |
 | `lib/views/`         | The code that turns data into a screen                          |
 
-Only `lib/db/` builds a database connection.
+Only `lib/db/` builds the app's database connection. A test may open its own connection to a throwaway database it created.
 
 ## Files
 
@@ -45,7 +45,7 @@ The contract for a kind of file stays with that kind, whoever else reads it — 
 
 ## Values
 
-- A constant holding a fixed value written out in the file, at the top of the file or the top of a test group: SCREAMING_SNAKE (capital words joined by underscores) — `ACTIVE_STATUSES`. A written-out value turned into a date or other object, such as `new Date("2026-09-01")`, still counts as written out.
-- An object carrying functions: camelCase (words joined, each after the first capitalised) — `adzunaCollector`
+- A value that is the same every time the file loads, at the top of the file or the top of a `describe` block (a test group): SCREAMING_SNAKE (capital words joined by underscores) — `ACTIVE_STATUSES`. That covers a value written out in the file, and one built only from written-out pieces, such as `new Date("2026-09-01")` or `24 * HOUR_MS`.
+- An object carrying functions, however it is built: camelCase (words joined, each after the first capitalised) — `adzunaCollector`
 - A type or interface: PascalCase (words joined, every one capitalised) — `JobListEntry`
-- Everything else, including a value worked out when the file loads: camelCase — `repoRoot`
+- Everything else, including a value that depends on where or when it runs, or that changes during a test: camelCase — `repoRoot`
