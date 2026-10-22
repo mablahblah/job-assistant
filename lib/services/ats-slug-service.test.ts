@@ -305,6 +305,44 @@ describe("listing the boards one company posts on", () => {
   });
 });
 
+// A paid search leaves out every company the app already polls, whichever
+// collector polls it, and it leaves them out by name.
+describe("listing every polled board with its company's name", () => {
+  test("a board each collector polls is on the list, with its company's name", async () => {
+    const first = await makeCompany("Polled By First");
+    const second = await makeCompany("Polled By Second");
+    await service.record({ slug: "polled-first", company_id: first, parser: "greenhouse" });
+    await service.record({ slug: "polled-second", company_id: second, parser: "lever" });
+    await service.addCollector("polled-first", "first-collector");
+    await service.addCollector("polled-second", "second-collector");
+
+    const boards = await service.listPolled();
+    const named = boards.map((board) => ({ slug: board.slug, company_name: board.company_name }));
+    expect(named).toContainEqual({ slug: "polled-first", company_name: "Polled By First" });
+    expect(named).toContainEqual({ slug: "polled-second", company_name: "Polled By Second" });
+  });
+
+  test("a board no collector polls is not on the list", async () => {
+    const companyId = await makeCompany("Polled Nobody");
+    await service.record({ slug: "polled-nobody", company_id: companyId, parser: "greenhouse" });
+
+    const boards = await service.listPolled();
+    expect(boards.map((board) => board.slug)).not.toContain("polled-nobody");
+  });
+
+  // A company met only as a board slug has no name, and nothing invents one,
+  // so the reader is told there is none rather than handed a made-up name.
+  test("a polled board whose company has no name comes back with no name", async () => {
+    const nameless = await db.company.create({ data: {} });
+    await service.record({ slug: "polled-nameless", company_id: nameless.id, parser: "ashby" });
+    await service.addCollector("polled-nameless", "first-collector");
+
+    const boards = await service.listPolled();
+    const board = boards.find((row) => row.slug === "polled-nameless");
+    expect(board?.company_name).toBeNull();
+  });
+});
+
 // Nothing in this phase takes a board off a polling list, and the company
 // sweep that would have needed one left for the backlog. Offering the
 // function anyway would invite a caller this phase never designed for.

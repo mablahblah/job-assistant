@@ -4,6 +4,7 @@
 import type { JobListEntry } from "../types/job-list-entry";
 import type { SettingsService } from "../services/settings-service";
 import type { AtsSlugService } from "../services/ats-slug-service";
+import type { LastSuccessService } from "../services/last-success-service";
 
 // What a collector is handed to do one run's work.
 export interface CollectorContext {
@@ -14,6 +15,15 @@ export interface CollectorContext {
   atsSlugs: AtsSlugService;
   // How many jobs to stop after. Infinity means collect everything.
   limit: number;
+  // The run's collection time, the same instant written into every job's
+  // collected_at. A collector that asks a source only for jobs posted since
+  // its last search measures against this instant and reads no clock.
+  collectedAt: Date;
+  // Where a collector reads when each of its searches last worked. Every
+  // collector is handed it, the way every collector is handed the settings,
+  // so the orchestrator holds one shape. Collectors only read it; a later
+  // step writes it.
+  lastSuccesses: LastSuccessService;
 }
 
 // What a collector hands back, however its run went. An API call that threw
@@ -23,6 +33,10 @@ export interface CollectorResult {
   jobs: JobListEntry[];
   errors: string[];
   warnings: string[];
+  // The names of the collector's searches that worked this run, for a
+  // collector that remembers when each search last worked. Left out by
+  // collectors that keep no such times.
+  workedSearches?: string[];
 }
 
 export interface Collector {

@@ -29,9 +29,8 @@ export function fakeSettingsService(overrides: Partial<SettingsService> = {}): S
     // The priority list has no seeded default to copy: it is built from the
     // collector registry rather than seeded as a constant.
     getSourcePriorityList: async () => [],
-    // Copied from scripts/db-seed.ts, which seeds the identifying query values
-    // for UltiPro jobs.
-    getIdentifyingQueryValues: async () => ["opportunityid"],
+    // Copied from scripts/db-seed.ts, which seeds the identifying query values.
+    getIdentifyingQueryValues: async () => ["opportunityid", "reqId", "gh_jid"],
     getResolutionFastConcurrency: async () => 3,
     getResolutionSlowConcurrency: async () => 1,
     getResolutionSlowPauseSeconds: async () => 12,
@@ -39,6 +38,41 @@ export function fakeSettingsService(overrides: Partial<SettingsService> = {}): S
     getPromotionThreshold: async () => 3.5,
     getScoreExpiryDays: async () => 90,
     getGuessedScoreExpiryDays: async () => 30,
+    getSearchTowns: async () => [
+      "Austin, Texas, United States",
+      "Round Rock, Texas, United States",
+      "Cedar Park, Texas, United States",
+      "Pflugerville, Texas, United States",
+      "Georgetown, Texas, United States",
+      "Leander, Texas, United States",
+      "Kyle, Texas, United States",
+      "Buda, Texas, United States",
+      "San Marcos, Texas, United States",
+      "Hutto, Texas, United States",
+      "Manor, Texas, United States",
+      "Lakeway, Texas, United States",
+      "Bee Cave, Texas, United States",
+      "Dripping Springs, Texas, United States",
+      "Taylor, Texas, United States",
+      "Bastrop, Texas, United States",
+    ],
+    getRemoteLabels: async () => ["Remote OK", "Remote Solely"],
+    getExcludedTitles: async () => [
+      "Engineer",
+      "Engineering",
+      "Research",
+      "Researcher",
+      "Associate",
+      "Junior",
+      "Jr",
+      "Intern",
+      "Internship",
+      "Director",
+      "Head",
+      "VP",
+      "Manager",
+    ],
+    getSearchWindowDays: async () => 7,
     ...overrides,
   };
 }

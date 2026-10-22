@@ -13,6 +13,12 @@ import { fakeSettingsService } from "../services/settings-service.fake";
 import type { AtsBoard } from "./ats-boards";
 import type { CollectorContext } from "./collector";
 import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
+import { fakeLastSuccessService } from "../services/last-success-service.fake";
+
+// No collector here remembers its searches, so the last-success service each
+// one is handed holds no time, and none reads the collection time.
+const NO_TIMES = fakeLastSuccessService();
+const COLLECTED_AT = new Date("2026-01-01T00:00:00.000Z");
 
 // Everything a collector is handed except the limit, which each test sets.
 type CollectorContextParts = Omit<CollectorContext, "limit">;
@@ -56,6 +62,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 function makeContext(boards: AtsBoard[], searchTerms: string[]): CollectorContextParts {
   return {
     settings: fakeSettingsService({ getSearchTerms: async () => searchTerms }),
+    collectedAt: COLLECTED_AT,
+    lastSuccesses: NO_TIMES,
     atsSlugs: fakeAtsSlugService(
       boards.map((board, index) => ({
         id: `row-${index}`,

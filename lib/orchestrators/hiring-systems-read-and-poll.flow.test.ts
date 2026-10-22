@@ -48,6 +48,7 @@ import { COLLECTORS } from "../collectors/registry";
 import { saveJobs } from "../handlers/save";
 import { runJobSearch, type RunJobSearchOptions } from "./job-search";
 import { runScoringSave } from "./scoring";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -613,6 +614,7 @@ describe("A job on each of the five systems is read, and its employer's board is
     const shared: Omit<RunJobSearchOptions, "collectors" | "collectedAt" | "runId"> = {
       settings,
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs,
       jobService,
       openBrowser: browserThatStaysPut(),

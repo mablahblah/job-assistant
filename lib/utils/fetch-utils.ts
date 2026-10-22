@@ -1,5 +1,14 @@
 const DEFAULT_TIMEOUT_MS = 15000;
 
+// Its own type, so a caller can tell a request that ran out of time apart
+// from any other failure. The message is the same text callers always saw.
+export class NetworkTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Network timeout after ${Math.round(timeoutMs / 1000)}s`);
+    this.name = "NetworkTimeoutError";
+  }
+}
+
 // fetch with a timeout, so a source that never answers cannot hang a run.
 export async function fetchWithTimeout(
   url: string,
@@ -14,7 +23,7 @@ export async function fetchWithTimeout(
     return await fetch(url, { ...fetchOptions, signal: controller.signal });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error(`Network timeout after ${Math.round(timeoutMs / 1000)}s`);
+      throw new NetworkTimeoutError(timeoutMs);
     }
     // Anything else travels untouched. The original message says more about
     // what went wrong than any rewrite of it would.

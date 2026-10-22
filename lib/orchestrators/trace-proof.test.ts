@@ -31,6 +31,11 @@ import type { Geocoder } from "../tools/geocoder";
 import { fakeCompanyService } from "../services/company-service.fake";
 import { fakeAtsSlugService } from "../services/ats-slug-service.fake";
 import { fakeJobService } from "../services/job-service.fake";
+import { fakeLastSuccessService } from "../services/last-success-service.fake";
+
+// No collector here remembers its searches, so the last-success service every
+// collector is handed holds no time.
+const NO_TIMES = fakeLastSuccessService();
 
 // This file lives in lib/, so the repo root is one level up.
 const libDir = dirname(fileURLToPath(import.meta.url));
@@ -247,6 +252,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: COLLECTED_AT,
+      lastSuccesses: NO_TIMES,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -260,6 +266,7 @@ describe("the trace table, read back with raw SQL, answers the funnel questions"
       openBrowser: FORBIDDEN_BROWSER,
       jobService: fakeJobService([], NOTHING_TO_RESOLVE),
       collectedAt: COLLECTED_AT,
+      lastSuccesses: NO_TIMES,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: stubSettings,
       places: stubPlaces(),
@@ -425,6 +432,7 @@ describe("with a real title vocabulary, the trace table answers how many titles 
       waitForLoad: async () => {},
       jobService: fakeJobService([]),
       collectedAt: COLLECTED_AT,
+      lastSuccesses: NO_TIMES,
       atsSlugs: fakeAtsSlugService(), companies: fakeCompanyService([]),
       settings: fakeSettingsService({
         getTitleHeadNouns: async () => ["designer"],
@@ -635,6 +643,7 @@ describe("the trace table answers how each job reached its company, across both 
 
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
+      lastSuccesses: NO_TIMES,
       atsSlugs: createAtsSlugService(built.db),
       jobService: { ...createJobService(built.db), ...NOTHING_TO_RESOLVE },
       collectedAt: COLLECTED_AT,
@@ -804,6 +813,7 @@ describe("the trace table answers what save did to each job, across both passes"
 
     const report = await runJobSearch({
       openBrowser: FORBIDDEN_BROWSER,
+      lastSuccesses: NO_TIMES,
       atsSlugs: createAtsSlugService(built.db),
       jobService,
       collectedAt: COLLECTED_AT,
@@ -939,6 +949,7 @@ describe("the trace table answers what dedupe merged away, and what save then di
     // Real services throughout, so the rows this asserts on sit behind real
     // Job and Company rows rather than objects in an array.
     report = await runJobSearch({
+      lastSuccesses: NO_TIMES,
       atsSlugs: createAtsSlugService(built.db),
       places: stubPlaces(),
       geocoder: stubGeocoder(),

@@ -8,6 +8,25 @@ import { COLLECTORS } from "../lib/collectors/registry";
 import { PARSERS_BY_DOMAIN } from "../lib/parsers/registry";
 import { generalParser } from "../lib/parsers/general";
 
+const STARTING_TOWNS = [
+  "Austin, Texas, United States",
+  "Round Rock, Texas, United States",
+  "Cedar Park, Texas, United States",
+  "Pflugerville, Texas, United States",
+  "Georgetown, Texas, United States",
+  "Leander, Texas, United States",
+  "Kyle, Texas, United States",
+  "Buda, Texas, United States",
+  "San Marcos, Texas, United States",
+  "Hutto, Texas, United States",
+  "Manor, Texas, United States",
+  "Lakeway, Texas, United States",
+  "Bee Cave, Texas, United States",
+  "Dripping Springs, Texas, United States",
+  "Taylor, Texas, United States",
+  "Bastrop, Texas, United States",
+];
+
 const SETTING_DEFAULTS = {
   search_terms: ["Product Design", "UX", "Founding Design"],
   location: "78701",
@@ -63,9 +82,34 @@ const SETTING_DEFAULTS = {
   // How long a guessed category stands. Shorter than the score expiry,
   // because a guess is a placeholder rather than research.
   guessed_score_expiry_days: 30,
-  // UltiPro carries a job's only identity in its opportunityid query value,
-  // so duplicate matching must keep it; every other query value is dropped.
-  identifying_query_values: ["opportunityid"],
+  // Austin-area towns for the Fantastic.jobs paid search; written in full so
+  // towns in any state can be added without a code change; does not follow the
+  // radius setting.
+  search_towns: STARTING_TOWNS,
+  // Remote labels for the Fantastic.jobs paid search.
+  remote_labels: ["Remote OK", "Remote Solely"],
+  // Title terms to skip; the collector adds its own wildcards.
+  excluded_titles: [
+    "Engineer",
+    "Engineering",
+    "Research",
+    "Researcher",
+    "Associate",
+    "Junior",
+    "Jr",
+    "Intern",
+    "Internship",
+    "Director",
+    "Head",
+    "VP",
+    "Manager",
+  ],
+  // Days back to search; the service offers 1 or 7.
+  search_window_days: 7,
+  // UltiPro carries a job's only identity in opportunityid; some employers'
+  // hiring systems carry it in reqId or gh_jid; every other query value is
+  // dropped.
+  identifying_query_values: ["opportunityid", "reqId", "gh_jid"],
 };
 
 // The full ranking a database should end up holding. It sits apart from
@@ -115,6 +159,10 @@ type SettingPatch = {
   score_expiry_days?: number;
   guessed_score_expiry_days?: number;
   identifying_query_values?: string[];
+  search_towns?: string[];
+  remote_labels?: string[];
+  excluded_titles?: string[];
+  search_window_days?: number;
 };
 
 async function seedSettings(prisma: PipelineDb): Promise<void> {
@@ -169,6 +217,18 @@ async function seedSettings(prisma: PipelineDb): Promise<void> {
   }
   if (existing.identifying_query_values === null) {
     patch.identifying_query_values = SETTING_DEFAULTS.identifying_query_values;
+  }
+  if (existing.search_towns === null) {
+    patch.search_towns = SETTING_DEFAULTS.search_towns;
+  }
+  if (existing.remote_labels === null) {
+    patch.remote_labels = SETTING_DEFAULTS.remote_labels;
+  }
+  if (existing.excluded_titles === null) {
+    patch.excluded_titles = SETTING_DEFAULTS.excluded_titles;
+  }
+  if (existing.search_window_days === null) {
+    patch.search_window_days = SETTING_DEFAULTS.search_window_days;
   }
 
   const filled = Object.keys(patch);

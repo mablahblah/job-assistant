@@ -30,6 +30,10 @@ export interface SettingsService {
   getPromotionThreshold(): Promise<number>;
   getScoreExpiryDays(): Promise<number>;
   getGuessedScoreExpiryDays(): Promise<number>;
+  getSearchTowns(): Promise<string[]>;
+  getRemoteLabels(): Promise<string[]>;
+  getExcludedTitles(): Promise<string[]>;
+  getSearchWindowDays(): Promise<number>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -48,8 +52,9 @@ async function getSettingsRow(db: PipelineDb) {
 
 // search_terms is a Prisma Json column, so its static type is JsonValue, not
 // string[]. This checks the shape at runtime rather than trusting it. An
-// empty list passes on purpose: emptying the search terms is how a search is
-// switched off.
+// empty list passes the shape check on purpose: an empty list is still a
+// list, and refusing it is the job search's call, which it makes before
+// running any source.
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
@@ -234,6 +239,42 @@ export function createSettingsService(db: PipelineDb): SettingsService {
         throw missingSettingError("guessed_score_expiry_days");
       }
       return row.guessed_score_expiry_days;
+    },
+
+    // An empty list is a real answer: it switches the local search off.
+    async getSearchTowns() {
+      const row = await getSettingsRow(db);
+      if (row === null || !isStringArray(row.search_towns)) {
+        throw missingSettingError("search_towns");
+      }
+      return row.search_towns;
+    },
+
+    // An empty list is a real answer: it switches the remote search off.
+    async getRemoteLabels() {
+      const row = await getSettingsRow(db);
+      if (row === null || !isStringArray(row.remote_labels)) {
+        throw missingSettingError("remote_labels");
+      }
+      return row.remote_labels;
+    },
+
+    // An empty list is a real answer: no title words are left out.
+    async getExcludedTitles() {
+      const row = await getSettingsRow(db);
+      if (row === null || !isStringArray(row.excluded_titles)) {
+        throw missingSettingError("excluded_titles");
+      }
+      return row.excluded_titles;
+    },
+
+    // Any stored number comes back; the search that reads it judges which are allowed.
+    async getSearchWindowDays() {
+      const row = await getSettingsRow(db);
+      if (row === null || row.search_window_days === null) {
+        throw missingSettingError("search_window_days");
+      }
+      return row.search_window_days;
     },
   };
 }

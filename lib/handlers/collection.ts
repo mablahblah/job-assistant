@@ -9,6 +9,7 @@ import type { Collector } from "../collectors/collector";
 import type { JobListEntry } from "../types/job-list-entry";
 import type { SettingsService } from "../services/settings-service";
 import type { AtsSlugService } from "../services/ats-slug-service";
+import type { LastSuccessService } from "../services/last-success-service";
 import { messageFromThrown } from "../utils/thrown-message";
 import type { TraceService } from "../services/trace-service";
 
@@ -30,6 +31,9 @@ export interface CollectJobsOptions {
   // is ignored and counted rather than allowed to cancel a run over a row of
   // diagnostics.
   trace: TraceService;
+  // Handed straight to every collector, because a collector that remembers
+  // when each of its searches last worked reads those times there.
+  lastSuccesses: LastSuccessService;
   // How many jobs each collector stops after. Omitted means unlimited.
   limit?: number;
   // Where progress lines go. Defaults to stderr, so a job list printed on
@@ -41,6 +45,10 @@ export interface CollectJobsResult {
   jobs: JobListEntry[];
   errors: CollectionIssue[];
   warnings: CollectionIssue[];
+  // The searches each collector reported as worked, named by that collector
+  // because two collectors may name a search the same way. Collection only
+  // carries these up; a later step writes their times once the jobs are saved.
+  workedSearches: { collector: string; search: string }[];
 }
 
 // A dropped job still has to be findable, so it is named by whichever of its
@@ -57,7 +65,7 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
   const limit = options.limit ?? Infinity;
   const log = options.log ?? console.error;
 
-  const result: CollectJobsResult = { jobs: [], errors: [], warnings: [] };
+  const result: CollectJobsResult = { jobs: [], errors: [], warnings: [], workedSearches: [] };
 
   // Asking for no jobs reaches no source. The collectors are skipped
   // outright rather than run and their results thrown away.
@@ -77,6 +85,8 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
         settings: options.settings,
         atsSlugs: options.atsSlugs,
         limit,
+        collectedAt: options.collectedAt,
+        lastSuccesses: options.lastSuccesses,
       });
 
       // Kept is counted rather than read off result.jobs, which holds every
@@ -154,6 +164,10 @@ export async function collectJobs(options: CollectJobsOptions): Promise<CollectJ
       }
       for (const message of collectorResult.warnings) {
         result.warnings.push({ collector: collector.name, message });
+      }
+      // A collector that keeps no search times leaves this out and adds nothing.
+      for (const search of collectorResult.workedSearches ?? []) {
+        result.workedSearches.push({ collector: collector.name, search });
       }
 
       // Kept rather than found, and the gap named when there is one. A count

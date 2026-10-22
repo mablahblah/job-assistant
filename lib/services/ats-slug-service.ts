@@ -17,6 +17,12 @@ export interface AtsSlugRecord {
   collector: string | null;
 }
 
+// A polled board plus the name of the company it belongs to. The name is
+// null when the company has none; it is never filled in.
+export interface PolledAtsSlugRecord extends AtsSlugRecord {
+  company_name: string | null;
+}
+
 export interface RecordInput {
   slug: string;
   company_id: string;
@@ -34,6 +40,7 @@ export interface AtsSlugService {
   addCollector(slug: string, collector: string): Promise<AtsSlugRecord | null>;
   listForCollector(collector: string): Promise<AtsSlugRecord[]>;
   listForCompany(companyId: string): Promise<AtsSlugRecord[]>;
+  listPolled(): Promise<PolledAtsSlugRecord[]>;
 }
 
 type PipelineDb = ReturnType<typeof createPipelineDb>;
@@ -47,6 +54,25 @@ const SELECT = {
   parser: true,
   collector: true,
 } as const;
+
+// Same columns as SELECT, plus the company's name read across the relation.
+const POLLED_SELECT = {
+  ...SELECT,
+  company: { select: { name: true } },
+} satisfies Prisma.AtsSlugSelect;
+
+function toPolledAtsSlugRecord(
+  row: Prisma.AtsSlugGetPayload<{ select: typeof POLLED_SELECT }>
+): PolledAtsSlugRecord {
+  return {
+    id: row.id,
+    slug: row.slug,
+    company_id: row.company_id,
+    parser: row.parser,
+    collector: row.collector,
+    company_name: row.company.name,
+  };
+}
 
 // True for a write the database refused because a unique column already
 // holds the value — narrows the error type so its meta and constraint
@@ -115,6 +141,17 @@ export function createAtsSlugService(db: PipelineDb): AtsSlugService {
     // row's collector in is what puts that employer on a polling list.
     async listForCompany(companyId) {
       return db.atsSlug.findMany({ where: { company_id: companyId }, select: SELECT });
+    },
+
+    // A paid search leaves out every company the app already polls, by name,
+    // whichever collector polls it, so it needs every board on any polling
+    // list, not just one collector's.
+    async listPolled() {
+      const rows = await db.atsSlug.findMany({
+        where: { collector: { not: null } },
+        select: POLLED_SELECT,
+      });
+      return rows.map(toPolledAtsSlugRecord);
     },
   };
 }

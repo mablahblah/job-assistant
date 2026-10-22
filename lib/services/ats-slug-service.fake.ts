@@ -2,12 +2,14 @@
 // rows without touching a database. Like the company fake, this one has to
 // remember what happened between calls, so it mirrors the real service's two
 // rules against the array the caller passed in: one row per slug, and a
-// collector already on a row is never overwritten.
-import type { AtsSlugRecord, AtsSlugService, RecordInput, RecordResult } from "./ats-slug-service";
+// collector already on a row is never overwritten. For the listPolled() method,
+// a test passes in company names since this fake holds no company table.
+import type { AtsSlugRecord, AtsSlugService, PolledAtsSlugRecord, RecordInput, RecordResult } from "./ats-slug-service";
 
 export function fakeAtsSlugService(
   rows: AtsSlugRecord[] = [],
-  overrides: Partial<AtsSlugService> = {}
+  overrides: Partial<AtsSlugService> = {},
+  companyNames: Record<string, string> = {}
 ): AtsSlugService {
   // Ids only need to be unique for the lifetime of one fake, so a simple
   // per-instance counter is enough — no need for a real id generator.
@@ -56,12 +58,22 @@ export function fakeAtsSlugService(
     return rows.filter((row) => row.company_id === companyId);
   }
 
+  async function listPolled(): Promise<PolledAtsSlugRecord[]> {
+    return rows
+      .filter((row) => row.collector !== null)
+      .map((row) => ({
+        ...row,
+        company_name: companyNames[row.company_id] ?? null,
+      }));
+  }
+
   return {
     record,
     findBySlug,
     addCollector,
     listForCollector,
     listForCompany,
+    listPolled,
     ...overrides,
   };
 }

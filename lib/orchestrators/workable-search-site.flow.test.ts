@@ -52,6 +52,7 @@ import { saveJobs } from "../handlers/save";
 import { normalizeCompanyName } from "../utils/company-name";
 import { normalizeTitle } from "../utils/title";
 import { runJobSearch } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -388,6 +389,7 @@ describe("A Workable search-site job guesses its employer's board", () => {
     await runJobSearch({
       settings,
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService,
       collectors: [],

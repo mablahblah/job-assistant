@@ -35,6 +35,7 @@ import type {
 } from "../tools/resolution-page";
 import { saveJobs } from "../handlers/save";
 import { runJobSearch } from "./job-search";
+import { createLastSuccessService } from "../services/last-success-service";
 
 // This file lives in lib/orchestrators/, so the repo root is two levels up.
 const orchestratorsDir = dirname(fileURLToPath(import.meta.url));
@@ -216,6 +217,7 @@ describe("A page built by its scripts is read in a browser", () => {
     await runJobSearch({
       settings,
       companies,
+      lastSuccesses: createLastSuccessService(db),
       atsSlugs: createAtsSlugService(db),
       jobService,
       collectors: [],

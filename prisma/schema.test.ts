@@ -138,6 +138,30 @@ const EXPECTED_SETTING_COLUMNS = [
   "promotion_threshold",
   "score_expiry_days",
   "guessed_score_expiry_days",
+  "search_towns",
+  "remote_labels",
+  "excluded_titles",
+  "search_window_days",
+  "created_at",
+  "modified_at",
+];
+
+// The four settings a paid search reads. Each starts empty in a database that
+// predates it, so the seed can tell a setting nobody filled from one the user
+// emptied.
+const SEARCH_SETTING_COLUMNS = [
+  "search_towns",
+  "remote_labels",
+  "excluded_titles",
+  "search_window_days",
+];
+
+// One row per search a collector runs, holding when that search last worked.
+const EXPECTED_LAST_SUCCESS_COLUMNS = [
+  "id",
+  "collector",
+  "search",
+  "succeeded_at",
   "created_at",
   "modified_at",
 ];
@@ -1544,6 +1568,90 @@ describe("Job and Setting: the columns save needs", () => {
 
   test("identifying_query_values is nullable", () => {
     expect(findColumn(settingColumns, "identifying_query_values")?.notnull).toBe(0);
+  });
+
+  test.each(SEARCH_SETTING_COLUMNS)("%s is nullable", (name) => {
+    expect(findColumn(settingColumns, name)?.notnull).toBe(0);
+  });
+
+  test("the three search lists are Json columns", () => {
+    for (const name of ["search_towns", "remote_labels", "excluded_titles"]) {
+      expect(typeOf(settingColumns, name)).toBe(typeOf(settingColumns, "search_terms"));
+    }
+  });
+
+  test("search_window_days is a whole number", () => {
+    expect(typeOf(settingColumns, "search_window_days")).toBe(typeOf(settingColumns, "radius"));
+  });
+});
+
+// A collector running more than one search keeps a time for each, so a search
+// that failed keeps its own time while one that worked moves on.
+describe("LastSuccess: one time per collector search", () => {
+  let dir: string;
+  let url: string;
+
+  // modified_at carries no SQL default, so a raw insert has to supply it.
+  const WRITTEN_AT = "2026-01-01T00:00:00.000Z";
+  const INSERT_LAST_SUCCESS =
+    "INSERT INTO LastSuccess (id, collector, search, succeeded_at, created_at, modified_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?)";
+
+  beforeAll(() => {
+    const temp = makeTempDb("pipeline-schema-last-success-");
+    dir = temp.dir;
+    url = temp.url;
+    runDbCreate(url);
+  }, CREATE_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("the table holds exactly the columns a saved time needs", async () => {
+    expect(await columnNames(url, "LastSuccess")).toEqual(
+      [...EXPECTED_LAST_SUCCESS_COLUMNS].sort()
+    );
+  });
+
+  test("two searches of one collector each keep a row", async () => {
+    const client = createClient({ url });
+    try {
+      for (const [id, search] of [
+        ["two-searches-a", "remote"],
+        ["two-searches-b", "austin"],
+      ]) {
+        await client.execute({
+          sql: INSERT_LAST_SUCCESS,
+          args: [id, "two-searches", search, WRITTEN_AT, WRITTEN_AT, WRITTEN_AT],
+        });
+      }
+      const result = await client.execute(
+        "SELECT count(*) as count FROM LastSuccess WHERE collector = 'two-searches'"
+      );
+      const record = result.rows[0] as unknown as Record<string, unknown>;
+      expect(Number(record["count"])).toBe(2);
+    } finally {
+      client.close();
+    }
+  });
+
+  test("a second row for the same collector search is refused", async () => {
+    const client = createClient({ url });
+    try {
+      await client.execute({
+        sql: INSERT_LAST_SUCCESS,
+        args: ["same-search-a", "same-search", "remote", WRITTEN_AT, WRITTEN_AT, WRITTEN_AT],
+      });
+      await expect(
+        client.execute({
+          sql: INSERT_LAST_SUCCESS,
+          args: ["same-search-b", "same-search", "remote", WRITTEN_AT, WRITTEN_AT, WRITTEN_AT],
+        })
+      ).rejects.toThrow();
+    } finally {
+      client.close();
+    }
   });
 });
 

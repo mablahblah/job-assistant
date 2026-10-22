@@ -524,6 +524,7 @@ const EXPECTED_PRIORITY_LIST = [
   "collector:bamboohr",
   "collector:rippling",
   "collector:workable",
+  "collector:fantastic-jobs",
   "parser:general",
 ];
 
@@ -643,6 +644,7 @@ describe("AC27, AC28 and AC29: a second seed appends what is missing and moves n
       "collector:bamboohr",
       "collector:rippling",
       "collector:workable",
+      "collector:fantastic-jobs",
       "parser:general",
     ]);
   });
@@ -729,8 +731,8 @@ describe("the identifying query values are seeded and then left alone", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("seeding a fresh database names UltiPro's job identifier", async () => {
-    expect(await readIdentifying()).toEqual(["opportunityid"]);
+  test("seeding a fresh database names every job identifier a query value carries", async () => {
+    expect(await readIdentifying()).toEqual(["opportunityid", "reqId", "gh_jid"]);
   });
 
   test(
@@ -738,7 +740,7 @@ describe("the identifying query values are seeded and then left alone", () => {
     async () => {
       await runSql(url, "UPDATE Setting SET identifying_query_values = NULL WHERE id = 1");
       runScript("db-seed.ts", url);
-      expect(await readIdentifying()).toEqual(["opportunityid"]);
+      expect(await readIdentifying()).toEqual(["opportunityid", "reqId", "gh_jid"]);
     },
     SEED_TIMEOUT_MS
   );
@@ -764,4 +766,85 @@ describe("the identifying query values are seeded and then left alone", () => {
     },
     SEED_TIMEOUT_MS
   );
+});
+
+// The paid search's four settings start from the values the paid trial used.
+// Like every other setting each is filled only where it is missing, so a list
+// the user emptied, which switches a search off, stays empty.
+describe("the search settings are seeded with their starting values", () => {
+  let dir: string;
+  let settings: Record<string, unknown>;
+
+  const STARTING_TOWNS = [
+    "Austin",
+    "Round Rock",
+    "Cedar Park",
+    "Pflugerville",
+    "Georgetown",
+    "Leander",
+    "Kyle",
+    "Buda",
+    "San Marcos",
+    "Hutto",
+    "Manor",
+    "Lakeway",
+    "Bee Cave",
+    "Dripping Springs",
+    "Taylor",
+    "Bastrop",
+  ].map((town) => `${town}, Texas, United States`);
+
+  beforeAll(async () => {
+    const temp = createAndSeed("pipeline-seed-search-settings-");
+    dir = temp.dir;
+    const client = createClient({ url: temp.url });
+    try {
+      const result = await client.execute(
+        "SELECT search_towns, remote_labels, excluded_titles, search_window_days FROM Setting WHERE id = 1"
+      );
+      const row = result.rows[0] as unknown as Record<string, unknown>;
+      settings = Object.fromEntries(
+        Object.entries(row).map(([column, raw]) => [
+          column,
+          typeof raw === "string" ? JSON.parse(raw) : Number(raw),
+        ])
+      );
+    } finally {
+      client.close();
+    }
+  }, SEED_TIMEOUT_MS);
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("writes the sixteen Austin-area towns", () => {
+    expect(settings["search_towns"]).toEqual(STARTING_TOWNS);
+  });
+
+  test("writes the two remote labels", () => {
+    expect(settings["remote_labels"]).toEqual(["Remote OK", "Remote Solely"]);
+  });
+
+  test("writes the titles to skip", () => {
+    expect(settings["excluded_titles"]).toEqual([
+      "Engineer",
+      "Engineering",
+      "Research",
+      "Researcher",
+      "Associate",
+      "Junior",
+      "Jr",
+      "Intern",
+      "Internship",
+      "Director",
+      "Head",
+      "VP",
+      "Manager",
+    ]);
+  });
+
+  test("writes a seven-day window", () => {
+    expect(settings["search_window_days"]).toBe(7);
+  });
 });
